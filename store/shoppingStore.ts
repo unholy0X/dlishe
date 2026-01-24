@@ -7,24 +7,29 @@ interface ShoppingState {
   items: ShoppingItem[];
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   loadItems: () => Promise<void>;
+  loadItemsByList: (listId: string) => Promise<void>;
   addItem: (item: Omit<ShoppingItem, 'id' | 'createdAt'>) => Promise<ShoppingItem>;
   toggleItem: (id: string) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
-  clearChecked: () => Promise<void>;
-  addRecipeIngredients: (recipe: Recipe) => Promise<void>;
-  getItemsByCategory: (category: IngredientCategory) => ShoppingItem[];
-  getCheckedItems: () => ShoppingItem[];
-  getUncheckedItems: () => ShoppingItem[];
+  clearChecked: (listId?: string) => Promise<void>;
+  addRecipeIngredients: (recipe: Recipe, listId?: string) => Promise<void>;
+
+  // Getters
+  getItemsByList: (listId: string) => ShoppingItem[];
+  getItemsByCategory: (category: IngredientCategory, listId?: string) => ShoppingItem[];
+  getCheckedItems: (listId?: string) => ShoppingItem[];
+  getUncheckedItems: (listId?: string) => ShoppingItem[];
+  getCategoriesWithItems: (listId?: string) => { category: IngredientCategory; items: ShoppingItem[] }[];
 }
 
 export const useShoppingStore = create<ShoppingState>((set, get) => ({
   items: [],
   isLoading: false,
   error: null,
-  
+
   loadItems: async () => {
     set({ isLoading: true, error: null });
     try {
@@ -34,7 +39,17 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ error: (error as Error).message, isLoading: false });
     }
   },
-  
+
+  loadItemsByList: async (listId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const items = await db.getShoppingItemsByList(listId);
+      set({ items, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+    }
+  },
+
   addItem: async (itemData) => {
     set({ isLoading: true, error: null });
     try {
@@ -53,7 +68,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       throw error;
     }
   },
-  
+
   toggleItem: async (id) => {
     try {
       const isChecked = await db.toggleShoppingItem(id);
@@ -70,7 +85,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ error: (error as Error).message });
     }
   },
-  
+
   deleteItem: async (id) => {
     try {
       await db.deleteShoppingItem(id);
@@ -81,38 +96,69 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ error: (error as Error).message });
     }
   },
-  
-  clearChecked: async () => {
+
+  clearChecked: async (listId) => {
     try {
-      await db.clearCheckedShoppingItems();
-      set((state) => ({
-        items: state.items.filter((item) => !item.isChecked),
-      }));
+      if (listId) {
+        await db.clearCheckedItemsInList(listId);
+        set((state) => ({
+          items: state.items.filter((item) => item.listId !== listId || !item.isChecked),
+        }));
+      } else {
+        await db.clearCheckedShoppingItems();
+        set((state) => ({
+          items: state.items.filter((item) => !item.isChecked),
+        }));
+      }
     } catch (error) {
       set({ error: (error as Error).message });
     }
   },
-  
-  addRecipeIngredients: async (recipe) => {
+
+  addRecipeIngredients: async (recipe, listId) => {
     try {
       await db.addRecipeToShoppingList(recipe);
-      // Reload to get the new items with proper IDs
-      const items = await db.getAllShoppingItems();
-      set({ items });
+      // Reload items for the specific list or all items
+      if (listId) {
+        const items = await db.getShoppingItemsByList(listId);
+        set({ items });
+      } else {
+        const items = await db.getAllShoppingItems();
+        set({ items });
+      }
     } catch (error) {
       set({ error: (error as Error).message });
     }
   },
-  
-  getItemsByCategory: (category) => {
-    return get().items.filter((item) => item.category === category);
+
+  getItemsByList: (listId) => {
+    return get().items.filter((item) => item.listId === listId);
   },
-  
-  getCheckedItems: () => {
-    return get().items.filter((item) => item.isChecked);
+
+  getItemsByCategory: (category, listId) => {
+    const items = listId ? get().getItemsByList(listId) : get().items;
+    return items.filter((item) => item.category === category);
   },
-  
-  getUncheckedItems: () => {
-    return get().items.filter((item) => !item.isChecked);
+
+  getCheckedItems: (listId) => {
+    const items = listId ? get().getItemsByList(listId) : get().items;
+    return items.filter((item) => item.isChecked);
+  },
+
+  getUncheckedItems: (listId) => {
+    const items = listId ? get().getItemsByList(listId) : get().items;
+    return items.filter((item) => !item.isChecked);
+  },
+
+  getCategoriesWithItems: (listId) => {
+    const items = listId ? get().getItemsByList(listId) : get().items;
+    const categories: IngredientCategory[] = ['produce', 'proteins', 'dairy', 'bakery', 'pantry', 'spices', 'condiments', 'beverages', 'snacks', 'frozen', 'household', 'other'];
+
+    return categories
+      .map((category) => ({
+        category,
+        items: items.filter((item) => item.category === category),
+      }))
+      .filter((group) => group.items.length > 0);
   },
 }));

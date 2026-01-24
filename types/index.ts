@@ -43,13 +43,16 @@ export interface Instruction {
 
 export type IngredientCategory =
   | 'produce'
-  | 'meat_seafood'
+  | 'proteins'
   | 'dairy'
   | 'bakery'
   | 'frozen'
   | 'pantry'
   | 'spices'
+  | 'condiments'
   | 'beverages'
+  | 'snacks'
+  | 'household'
   | 'other';
 
 export interface PantryItem {
@@ -64,8 +67,22 @@ export interface PantryItem {
   updatedAt: string;
 }
 
+export interface ShoppingList {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  isTemplate: boolean;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt?: string;
+}
+
 export interface ShoppingItem {
   id: string;
+  listId?: string;
   name: string;
   category: IngredientCategory;
   quantity?: number;
@@ -75,6 +92,18 @@ export interface ShoppingItem {
   recipeName?: string;
   notes?: string;
   createdAt: string;
+}
+
+export interface CommonItem {
+  id: string;
+  name: string;
+  category: IngredientCategory;
+  defaultQuantity?: number;
+  defaultUnit?: string;
+  keywords?: string[];
+  usageCount: number;
+  icon?: string;
+  sortOrder: number;
 }
 
 // Form types for creating/editing

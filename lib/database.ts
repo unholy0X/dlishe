@@ -1,6 +1,6 @@
 // DishFlow SQLite Database Setup
 import * as SQLite from 'expo-sqlite';
-import type { Recipe, Ingredient, Instruction, PantryItem, ShoppingItem, IngredientCategory } from '@/types';
+import type { Recipe, Ingredient, Instruction, PantryItem, ShoppingItem, ShoppingList, CommonItem, IngredientCategory } from '@/types';
 
 const DB_NAME = 'dishflow.db';
 
@@ -82,6 +82,7 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
     -- Shopping items table
     CREATE TABLE IF NOT EXISTS shopping_items (
       id TEXT PRIMARY KEY,
+      list_id TEXT,
       name TEXT NOT NULL,
       category TEXT NOT NULL,
       quantity REAL,
@@ -91,7 +92,35 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
       recipe_name TEXT,
       notes TEXT,
       created_at TEXT NOT NULL,
+      FOREIGN KEY (list_id) REFERENCES shopping_lists(id) ON DELETE CASCADE,
       FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE SET NULL
+    );
+
+    -- Shopping lists table
+    CREATE TABLE IF NOT EXISTS shopping_lists (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      icon TEXT,
+      color TEXT,
+      is_template INTEGER DEFAULT 0,
+      is_archived INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_used_at TEXT
+    );
+
+    -- Common items catalog
+    CREATE TABLE IF NOT EXISTS common_items (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      default_quantity REAL,
+      default_unit TEXT,
+      keywords TEXT,
+      usage_count INTEGER DEFAULT 0,
+      icon TEXT,
+      sort_order INTEGER DEFAULT 0
     );
 
     -- Create indexes for performance
@@ -99,6 +128,9 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
     CREATE INDEX IF NOT EXISTS idx_instructions_recipe ON instructions(recipe_id);
     CREATE INDEX IF NOT EXISTS idx_pantry_category ON pantry_items(category);
     CREATE INDEX IF NOT EXISTS idx_shopping_checked ON shopping_items(is_checked);
+    CREATE INDEX IF NOT EXISTS idx_shopping_list ON shopping_items(list_id);
+    CREATE INDEX IF NOT EXISTS idx_common_items_category ON common_items(category);
+    CREATE INDEX IF NOT EXISTS idx_common_items_usage ON common_items(usage_count DESC);
   `);
 }
 
@@ -174,22 +206,22 @@ export async function createRecipe(recipe: Omit<Recipe, 'id' | 'createdAt' | 'up
 
 export async function getAllRecipes(): Promise<Recipe[]> {
   const database = await getDatabase();
-  
+
   const recipeRows = await database.getAllAsync<any>('SELECT * FROM recipes ORDER BY updated_at DESC');
-  
+
   const recipes: Recipe[] = [];
-  
+
   for (const row of recipeRows) {
     const ingredients = await database.getAllAsync<any>(
       'SELECT * FROM ingredients WHERE recipe_id = ? ORDER BY sort_order',
       [row.id]
     );
-    
+
     const instructions = await database.getAllAsync<any>(
       'SELECT * FROM instructions WHERE recipe_id = ? ORDER BY step_number',
       [row.id]
     );
-    
+
     recipes.push({
       id: row.id,
       title: row.title,
@@ -227,26 +259,26 @@ export async function getAllRecipes(): Promise<Recipe[]> {
       })),
     });
   }
-  
+
   return recipes;
 }
 
 export async function getRecipeById(id: string): Promise<Recipe | null> {
   const database = await getDatabase();
-  
+
   const row = await database.getFirstAsync<any>('SELECT * FROM recipes WHERE id = ?', [id]);
   if (!row) return null;
-  
+
   const ingredients = await database.getAllAsync<any>(
     'SELECT * FROM ingredients WHERE recipe_id = ? ORDER BY sort_order',
     [id]
   );
-  
+
   const instructions = await database.getAllAsync<any>(
     'SELECT * FROM instructions WHERE recipe_id = ? ORDER BY step_number',
     [id]
   );
-  
+
   return {
     id: row.id,
     title: row.title,
@@ -288,7 +320,7 @@ export async function getRecipeById(id: string): Promise<Recipe | null> {
 export async function updateRecipe(id: string, updates: Partial<Recipe>): Promise<void> {
   const database = await getDatabase();
   const now = new Date().toISOString();
-  
+
   await database.runAsync(
     `UPDATE recipes SET
       title = COALESCE(?, title),
@@ -331,7 +363,7 @@ export async function toggleFavorite(id: string): Promise<boolean> {
   const database = await getDatabase();
   const recipe = await database.getFirstAsync<any>('SELECT is_favorite FROM recipes WHERE id = ?', [id]);
   if (!recipe) return false;
-  
+
   const newValue = recipe.is_favorite === 1 ? 0 : 1;
   await database.runAsync('UPDATE recipes SET is_favorite = ?, updated_at = ? WHERE id = ?', [newValue, new Date().toISOString(), id]);
   return newValue === 1;
@@ -351,20 +383,20 @@ export async function createPantryItem(item: Omit<PantryItem, 'id' | 'createdAt'
   const database = await getDatabase();
   const id = generateId();
   const now = new Date().toISOString();
-  
+
   await database.runAsync(
     `INSERT INTO pantry_items (id, name, category, quantity, unit, expires_at, notes, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, item.name, item.category, item.quantity ?? null, item.unit ?? null, item.expiresAt ?? null, item.notes ?? null, now, now]
   );
-  
+
   return { ...item, id, createdAt: now, updatedAt: now };
 }
 
 export async function getAllPantryItems(): Promise<PantryItem[]> {
   const database = await getDatabase();
   const rows = await database.getAllAsync<any>('SELECT * FROM pantry_items ORDER BY category, name');
-  
+
   return rows.map((row: any) => ({
     id: row.id,
     name: row.name,
@@ -381,7 +413,7 @@ export async function getAllPantryItems(): Promise<PantryItem[]> {
 export async function updatePantryItem(id: string, updates: Partial<PantryItem>): Promise<void> {
   const database = await getDatabase();
   const now = new Date().toISOString();
-  
+
   await database.runAsync(
     `UPDATE pantry_items SET
       name = COALESCE(?, name),
@@ -406,22 +438,23 @@ export async function createShoppingItem(item: Omit<ShoppingItem, 'id' | 'create
   const database = await getDatabase();
   const id = generateId();
   const now = new Date().toISOString();
-  
+
   await database.runAsync(
-    `INSERT INTO shopping_items (id, name, category, quantity, unit, is_checked, recipe_id, recipe_name, notes, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, item.name, item.category, item.quantity ?? null, item.unit ?? null, item.isChecked ? 1 : 0, item.recipeId ?? null, item.recipeName ?? null, item.notes ?? null, now]
+    `INSERT INTO shopping_items (id, list_id, name, category, quantity, unit, is_checked, recipe_id, recipe_name, notes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, item.listId ?? null, item.name, item.category, item.quantity ?? null, item.unit ?? null, item.isChecked ? 1 : 0, item.recipeId ?? null, item.recipeName ?? null, item.notes ?? null, now]
   );
-  
+
   return { ...item, id, createdAt: now };
 }
 
 export async function getAllShoppingItems(): Promise<ShoppingItem[]> {
   const database = await getDatabase();
   const rows = await database.getAllAsync<any>('SELECT * FROM shopping_items ORDER BY is_checked, category, name');
-  
+
   return rows.map((row: any) => ({
     id: row.id,
+    listId: row.list_id,
     name: row.name,
     category: row.category as IngredientCategory,
     quantity: row.quantity,
@@ -438,7 +471,7 @@ export async function toggleShoppingItem(id: string): Promise<boolean> {
   const database = await getDatabase();
   const item = await database.getFirstAsync<any>('SELECT is_checked FROM shopping_items WHERE id = ?', [id]);
   if (!item) return false;
-  
+
   const newValue = item.is_checked === 1 ? 0 : 1;
   await database.runAsync('UPDATE shopping_items SET is_checked = ? WHERE id = ?', [newValue, id]);
   return newValue === 1;
@@ -457,10 +490,10 @@ export async function clearCheckedShoppingItems(): Promise<void> {
 export async function addRecipeToShoppingList(recipe: Recipe): Promise<void> {
   const database = await getDatabase();
   const now = new Date().toISOString();
-  
+
   for (const ing of recipe.ingredients) {
     if (ing.isOptional) continue;
-    
+
     const id = generateId();
     await database.runAsync(
       `INSERT INTO shopping_items (id, name, category, quantity, unit, is_checked, recipe_id, recipe_name, notes, created_at)
@@ -473,14 +506,215 @@ export async function addRecipeToShoppingList(recipe: Recipe): Promise<void> {
 // Stats
 export async function getStats(): Promise<{ recipes: number; pantryItems: number; cookedCount: number }> {
   const database = await getDatabase();
-  
+
   const recipeCount = await database.getFirstAsync<any>('SELECT COUNT(*) as count FROM recipes');
   const pantryCount = await database.getFirstAsync<any>('SELECT COUNT(*) as count FROM pantry_items');
   const cookedSum = await database.getFirstAsync<any>('SELECT SUM(cooked_count) as total FROM recipes');
-  
+
   return {
     recipes: recipeCount?.count ?? 0,
     pantryItems: pantryCount?.count ?? 0,
     cookedCount: cookedSum?.total ?? 0,
   };
+}
+
+// Shopping Lists CRUD Operations
+export async function createShoppingList(list: Omit<ShoppingList, 'id' | 'createdAt' | 'updatedAt'>): Promise<ShoppingList> {
+  const database = await getDatabase();
+  const id = generateId();
+  const now = new Date().toISOString();
+
+  await database.runAsync(
+    `INSERT INTO shopping_lists (id, name, description, icon, color, is_template, is_archived, created_at, updated_at, last_used_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, list.name, list.description ?? null, list.icon ?? null, list.color ?? null, list.isTemplate ? 1 : 0, list.isArchived ? 1 : 0, now, now, list.lastUsedAt ?? null]
+  );
+
+  return { ...list, id, createdAt: now, updatedAt: now };
+}
+
+export async function getAllShoppingLists(): Promise<ShoppingList[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<any>('SELECT * FROM shopping_lists WHERE is_archived = 0 ORDER BY last_used_at DESC, updated_at DESC');
+
+  return rows.map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    icon: row.icon,
+    color: row.color,
+    isTemplate: row.is_template === 1,
+    isArchived: row.is_archived === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    lastUsedAt: row.last_used_at,
+  }));
+}
+
+export async function getShoppingListById(id: string): Promise<ShoppingList | null> {
+  const database = await getDatabase();
+  const row = await database.getFirstAsync<any>('SELECT * FROM shopping_lists WHERE id = ?', [id]);
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    icon: row.icon,
+    color: row.color,
+    isTemplate: row.is_template === 1,
+    isArchived: row.is_archived === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    lastUsedAt: row.last_used_at,
+  };
+}
+
+export async function updateShoppingList(id: string, updates: Partial<ShoppingList>): Promise<void> {
+  const database = await getDatabase();
+  const now = new Date().toISOString();
+
+  await database.runAsync(
+    `UPDATE shopping_lists SET
+      name = COALESCE(?, name),
+      description = COALESCE(?, description),
+      icon = COALESCE(?, icon),
+      color = COALESCE(?, color),
+      is_archived = COALESCE(?, is_archived),
+      updated_at = ?
+    WHERE id = ?`,
+    [updates.name ?? null, updates.description ?? null, updates.icon ?? null, updates.color ?? null, updates.isArchived !== undefined ? (updates.isArchived ? 1 : 0) : null, now, id]
+  );
+}
+
+export async function deleteShoppingList(id: string): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync('DELETE FROM shopping_lists WHERE id = ?', [id]);
+}
+
+export async function updateListLastUsed(id: string): Promise<void> {
+  const database = await getDatabase();
+  const now = new Date().toISOString();
+  await database.runAsync('UPDATE shopping_lists SET last_used_at = ? WHERE id = ?', [now, id]);
+}
+
+// Common Items CRUD Operations
+export async function getAllCommonItems(): Promise<CommonItem[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<any>('SELECT * FROM common_items ORDER BY category, sort_order, name');
+
+  return rows.map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category as IngredientCategory,
+    defaultQuantity: row.default_quantity,
+    defaultUnit: row.default_unit,
+    keywords: row.keywords ? JSON.parse(row.keywords) : [],
+    usageCount: row.usage_count,
+    icon: row.icon,
+    sortOrder: row.sort_order,
+  }));
+}
+
+export async function getCommonItemsByCategory(category: IngredientCategory): Promise<CommonItem[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<any>('SELECT * FROM common_items WHERE category = ? ORDER BY sort_order, name', [category]);
+
+  return rows.map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category as IngredientCategory,
+    defaultQuantity: row.default_quantity,
+    defaultUnit: row.default_unit,
+    keywords: row.keywords ? JSON.parse(row.keywords) : [],
+    usageCount: row.usage_count,
+    icon: row.icon,
+    sortOrder: row.sort_order,
+  }));
+}
+
+export async function searchCommonItems(query: string): Promise<CommonItem[]> {
+  const database = await getDatabase();
+  const searchTerm = `%${query.toLowerCase()}%`;
+  const rows = await database.getAllAsync<any>(
+    'SELECT * FROM common_items WHERE LOWER(name) LIKE ? OR LOWER(keywords) LIKE ? ORDER BY usage_count DESC, name LIMIT 20',
+    [searchTerm, searchTerm]
+  );
+
+  return rows.map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category as IngredientCategory,
+    defaultQuantity: row.default_quantity,
+    defaultUnit: row.default_unit,
+    keywords: row.keywords ? JSON.parse(row.keywords) : [],
+    usageCount: row.usage_count,
+    icon: row.icon,
+    sortOrder: row.sort_order,
+  }));
+}
+
+export async function incrementItemUsage(itemId: string): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync('UPDATE common_items SET usage_count = usage_count + 1 WHERE id = ?', [itemId]);
+}
+
+// Update shopping item functions to support list_id
+export async function getShoppingItemsByList(listId: string): Promise<ShoppingItem[]> {
+  const database = await getDatabase();
+  const rows = await database.getAllAsync<any>('SELECT * FROM shopping_items WHERE list_id = ? ORDER BY is_checked, category, name', [listId]);
+
+  return rows.map((row: any) => ({
+    id: row.id,
+    listId: row.list_id,
+    name: row.name,
+    category: row.category as IngredientCategory,
+    quantity: row.quantity,
+    unit: row.unit,
+    isChecked: row.is_checked === 1,
+    recipeId: row.recipe_id,
+    recipeName: row.recipe_name,
+    notes: row.notes,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function clearCheckedItemsInList(listId: string): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync('DELETE FROM shopping_items WHERE list_id = ? AND is_checked = 1', [listId]);
+}
+
+// Seed common items on first launch
+export async function seedCommonItemsIfNeeded(): Promise<void> {
+  const database = await getDatabase();
+  
+  // Check if already seeded
+  const count = await database.getFirstAsync<any>('SELECT COUNT(*) as count FROM common_items');
+  if (count && count.count > 0) {
+    return; // Already seeded
+  }
+
+  // Import and seed
+  const { commonItemsSeed } = await import('./commonItemsSeed');
+  
+  for (const item of commonItemsSeed) {
+    const id = generateId();
+    await database.runAsync(
+      `INSERT INTO common_items (id, name, category, default_quantity, default_unit, keywords, usage_count, icon, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        item.name,
+        item.category,
+        item.defaultQuantity ?? null,
+        item.defaultUnit ?? null,
+        item.keywords ? JSON.stringify(item.keywords) : null,
+        item.usageCount,
+        item.icon ?? null,
+        item.sortOrder
+      ]
+    );
+  }
+  
+  console.log(`Seeded ${commonItemsSeed.length} common items`);
 }

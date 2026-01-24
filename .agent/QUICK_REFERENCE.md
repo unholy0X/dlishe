@@ -1,296 +1,202 @@
-# DishFlow - Quick Reference Guide
+# DishFlow - Quick Reference
 
-> **For AI Assistants & Future Sessions**  
-> Last Updated: 2026-01-24
+## 🎨 Design System
 
----
+### Colors
+```typescript
+// Primary Accent
+colors.honey[400]  // #C19A6B
 
-## 🎯 What is DishFlow?
+// Backgrounds
+colors.stone[50]   // #F7F3EE (main bg)
+colors.stone[100]  // #EDE7DF (cards)
 
-A luxury bohème React Native app for managing recipes, pantry, and shopping lists with AI-powered recipe extraction from YouTube, Instagram, TikTok, and websites.
+// Text
+colors.text.primary    // #2C2A26
+colors.text.secondary  // #5A5753
+colors.text.muted      // #A8A39A
+```
 
----
+### Typography
+```typescript
+// Headers
+fontFamily: 'Cormorant Garamond'
+fontSize: 28-40
 
-## 🏗️ Tech Stack (Quick)
+// Body
+fontFamily: 'Inter'
+fontSize: 13-16
+```
 
-- **Framework**: React Native 0.81.5 + Expo 54
-- **Routing**: Expo Router (file-based)
-- **Styling**: NativeWind (Tailwind for RN)
-- **State**: Zustand (3 stores: recipe, pantry, shopping)
-- **Database**: Expo SQLite (local-first)
-- **AI**: Google Gemini 2.0 Flash
-- **Language**: TypeScript 5.9.2
-
----
+### Icons
+- **Stroke Width**: 1.5px
+- **Library**: lucide-react-native
+- **NO EMOJIS** - Use Lucide icons only
 
 ## 📁 Key Files
 
-```
-dishflow/
-├── app/                      # Expo Router screens
-│   ├── (tabs)/              # Tab navigation
-│   │   ├── index.tsx       # Home screen
-│   │   ├── recipes.tsx     # Recipe list
-│   │   ├── pantry.tsx      # Pantry inventory
-│   │   └── shopping.tsx    # Shopping list
-│   └── recipe/
-│       ├── [id].tsx        # Recipe detail
-│       └── add.tsx         # Add recipe modal
-├── lib/
-│   ├── database.ts         # SQLite operations
-│   ├── gemini.ts           # AI client
-│   └── recipeExtractor.ts  # Recipe extraction logic
-├── store/
-│   ├── recipeStore.ts      # Recipe state
-│   ├── pantryStore.ts      # Pantry state
-│   └── shoppingStore.ts    # Shopping state
-├── constants/
-│   ├── colors.ts           # Luxury bohème palette
-│   ├── typography.ts       # Font system
-│   └── categories.ts       # Ingredient categories
-└── types/index.ts          # All TypeScript types
+### Shopping Lists
+- `app/(tabs)/shopping.tsx` - Multi-list home
+- `app/shopping-lists.tsx` - All lists view
+- `app/shopping-list/create.tsx` - Create with templates
+- `app/shopping-list/[id].tsx` - List detail + Quick Add
+
+### Components
+- `components/ListIcon.tsx` - 16 list icons
+- `components/CategoryIcon.tsx` - 12 category icons
+
+### Data
+- `lib/commonItemsSeed.ts` - 182 item catalog
+- `store/shoppingListsStore.ts` - Lists + common items
+- `store/shoppingStore.ts` - Items management
+
+## 🗄️ Database
+
+### Tables
+```sql
+shopping_lists (id, name, description, icon, is_template, is_archived, created_at, updated_at)
+shopping_items (id, list_id, name, quantity, unit, category, is_checked, recipe_name, created_at)
+common_items (id, name, category, default_quantity, default_unit, keywords, usage_count, sort_order)
 ```
 
----
+### Categories
+produce, proteins, dairy, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
 
-## 🎨 Design System (Quick)
+## 🎯 Common Tasks
 
-### Colors
-- **Stone**: `#F7F3EE` to `#B0A596` (warm beige/cream)
-- **Honey**: `#FFF9F0` to `#C19A6B` (golden warmth)
-- **Sage**: `#E8E7E2` to `#7D7A68` (muted olive)
-- **Text**: `#2B2822` to `#ADA396` (warm browns)
+### Add New List Icon
+1. Import from lucide-react-native
+2. Add to `ICON_MAP` in `ListIcon.tsx`
+3. Add to `AVAILABLE_ICONS` array
+4. Add type to `IconName` union
 
-### Typography
-- **Headers**: Cormorant Garamond (elegant serif)
-- **Body**: Inter (clean sans-serif)
-- **Sizes**: 12px to 40px (hero)
+### Add Category Items
+1. Edit `lib/commonItemsSeed.ts`
+2. Add items with proper category
+3. Delete app and restart to re-seed
 
-### Spacing
-- Base: 4px grid
-- Common: 8, 16, 24, 32px
-- Generous padding: 24px minimum
+### Update Colors
+1. Edit `constants/colors.ts`
+2. Update all references
+3. Test on light/dark backgrounds
 
-### Border Radius
-- Cards: 16-24px
-- Buttons: 12-16px
-- Circles: 9999px
+### Fix SafeAreaView Issues
+```tsx
+<SafeAreaView edges={["top", "bottom"]}>
+```
 
----
+## � Zustand Store Patterns
 
-## 🗄️ Database Schema (Quick)
-
-### Main Tables
-1. **recipes**: id, title, description, source_url, source_type, ingredients[], instructions[], tags[], is_favorite, cooked_count
-2. **ingredients**: id, recipe_id, name, amount, unit, category, is_optional
-3. **instructions**: id, recipe_id, step_number, text, duration
-4. **pantry_items**: id, name, category, quantity, unit, expires_at
-5. **shopping_items**: id, name, category, quantity, is_checked, recipe_id
-
-### Key Relationships
-- `ingredients` → `recipes` (CASCADE DELETE)
-- `instructions` → `recipes` (CASCADE DELETE)
-- `shopping_items` → `recipes` (SET NULL on delete)
-
----
-
-## 🤖 AI Recipe Extraction
-
-### Supported
-- ✅ YouTube (direct URL)
-- ✅ Websites (recipe blogs)
-- ⚠️ TikTok (manual paste)
-- ⚠️ Instagram (manual paste)
-
-### Flow
-1. User pastes URL
-2. Detect type (YouTube/website/social)
-3. Send to Gemini AI with schema
-4. Parse JSON response
-5. Convert to Recipe format
-6. Save to SQLite
-7. Update Zustand store
-
-### Model
+### Get Items
 ```typescript
-model: "gemini-2.0-flash"
-responseMimeType: "application/json"
+const { lists, loadLists } = useShoppingListsStore();
+const { items, getItemsByList } = useShoppingStore();
 ```
 
----
-
-## 📦 State Management
-
-### Zustand Stores
-
+### Add Item
 ```typescript
-// Recipe Store
-useRecipeStore((state) => ({
-  recipes: Recipe[],
-  loadRecipes: () => Promise<void>,
-  addRecipe: (recipe) => Promise<Recipe>,
-  deleteRecipe: (id) => Promise<void>,
-  toggleFavorite: (id) => Promise<void>,
-}))
-
-// Pantry Store
-usePantryStore((state) => ({
-  items: PantryItem[],
-  loadItems: () => Promise<void>,
-  addItem: (item) => Promise<PantryItem>,
-  deleteItem: (id) => Promise<void>,
-}))
-
-// Shopping Store
-useShoppingStore((state) => ({
-  items: ShoppingItem[],
-  loadItems: () => Promise<void>,
-  toggleItem: (id) => Promise<void>,
-  clearChecked: () => Promise<void>,
-}))
+await addItem({
+  listId: id,
+  name: 'Item Name',
+  category: 'produce',
+  quantity: 1,
+  unit: 'kg',
+  isChecked: false,
+});
 ```
 
----
+### Search Common Items
+```typescript
+const results = await searchCommonItems('chicken');
+```
 
-## 🚀 Common Commands
+## 🎨 UI Patterns
 
+### Card Style
+```tsx
+className="bg-stone-100 border border-stone-200 rounded-2xl p-5"
+style={{
+  shadowColor: colors.text.primary,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+}}
+```
+
+### Button Style
+```tsx
+className="py-4 rounded-2xl items-center"
+style={{
+  backgroundColor: colors.honey[400],
+  shadowColor: colors.honey[400],
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.25,
+  shadowRadius: 12,
+}}
+```
+
+### Modal
+```tsx
+<Modal visible={show} animationType="slide" transparent>
+  <View style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+    <View className="bg-stone-50 rounded-t-3xl px-6 pt-6 pb-10">
+      {/* Content */}
+    </View>
+  </View>
+</Modal>
+```
+
+## 🚀 Git Workflow
+
+### Commit Messages
 ```bash
-# Install
-npm install
-
-# Run
-npm start          # Start dev server
-npm run ios        # iOS simulator
-npm run android    # Android emulator
-
-# Clear cache
-npx expo start --clear
-
-# Git
-git add -A
-git commit -m "message"
-git push origin master
+git add .
+git commit -m "feat: add multi-list shopping system"
+git commit -m "fix: SafeAreaView notch compatibility"
+git commit -m "style: replace emojis with Lucide icons"
+git commit -m "docs: update project context"
 ```
 
----
-
-## 🔧 Environment Setup
-
+### Push
 ```bash
-# .env
-EXPO_PUBLIC_GEMINI_API_KEY=your_key_here
+git push origin main
 ```
-
-Get key: https://aistudio.google.com/apikey
-
----
-
-## 🎯 Key Features
-
-1. **Recipe Management**: Add from URL, manual entry, favorites, cooking tracker
-2. **Pantry Inventory**: Category organization, expiration tracking, quantity management
-3. **Shopping Lists**: Recipe integration, smart deduplication, category grouping
-4. **AI Extraction**: Gemini-powered recipe parsing from URLs and text
-
----
 
 ## 🐛 Common Issues
 
-### Background images not showing
-```tsx
-// ❌ Wrong
-source={require('@/assets/backgrounds/boheme01.png')}
-className="rounded-xl"
+### Icons Not Showing
+- Check import from lucide-react-native
+- Verify icon exists in library
+- Add fallback to ShoppingCart
 
-// ✅ Correct
-source={require('../../assets/backgrounds/boheme01.png')}
-style={{ borderRadius: 20 }}
-resizeMode="cover"
-```
+### Database Not Seeding
+- Delete app from simulator
+- Restart with `--clear` flag
+- Check console for "Seeded X common items"
 
-### Database not initializing
-- Delete app and reinstall
-- Check `lib/database.ts` for errors
+### SafeAreaView Overlap
+- Add `edges={["top", "bottom"]}`
+- Test on device with notch
 
-### Gemini API errors
-- Verify API key in `.env`
-- Check quota limits
-- Ensure internet connection
+### Checked Items Disappearing
+- Remove `&& !item.isChecked` filter
+- Keep items visible with strikethrough
 
----
+## 📱 Testing Checklist
 
-## 📝 Code Patterns
-
-### Adding a new screen
-1. Create file in `app/` directory
-2. Export default component
-3. Add to navigation if needed
-4. Use NativeWind for styling
-
-### Database operation
-```typescript
-// 1. Define in lib/database.ts
-export async function createItem(item) {
-  const db = await getDatabase();
-  await db.runAsync('INSERT INTO...');
-}
-
-// 2. Add to store
-addItem: async (item) => {
-  const newItem = await db.createItem(item);
-  set((state) => ({ items: [...state.items, newItem] }));
-}
-
-// 3. Use in component
-const addItem = useStore((state) => state.addItem);
-await addItem(newItem);
-```
-
-### Styling pattern
-```tsx
-// Use NativeWind classes for layout
-<View className="px-6 py-4 bg-stone-50">
-  {/* Use inline styles for design system values */}
-  <Text style={{ 
-    color: colors.text.primary, 
-    fontFamily: 'Cormorant Garamond',
-    fontSize: 32 
-  }}>
-    Title
-  </Text>
-</View>
-```
+- [ ] Create new list with template
+- [ ] Add items via Quick Add
+- [ ] Confirm/adjust quantities
+- [ ] Check items (stay visible)
+- [ ] Long-press delete list
+- [ ] Search common items
+- [ ] Test on device with notch
+- [ ] Verify all category icons
+- [ ] Test list icons display
 
 ---
 
-## 🎨 Design Principles
-
-1. **Warmth**: Golden undertones in all colors
-2. **Breathing Space**: Generous padding (24px+)
-3. **Soft Edges**: 16-24px border radius
-4. **Elegant Typography**: Cormorant Garamond for headers
-5. **Subtle Textures**: Background images at 6-15% opacity
-
----
-
-## 📚 Important Files to Know
-
-- `app/_layout.tsx`: Root navigation setup
-- `lib/database.ts`: All SQLite operations
-- `lib/recipeExtractor.ts`: AI extraction logic
-- `constants/colors.ts`: Design system colors
-- `types/index.ts`: All TypeScript types
-- `.env`: API keys (not in git)
-
----
-
-## 🔗 Links
-
-- **Repo**: https://github.com/unholy0X/dishflow.git
-- **Full Docs**: `.agent/PROJECT_CONTEXT.md`
-- **Design Plan**: `.gemini/antigravity/brain/.../design_plan.md`
-- **Walkthrough**: `.gemini/antigravity/brain/.../walkthrough.md`
-
----
-
-**For detailed architecture, see PROJECT_CONTEXT.md**
+**Quick Links:**
+- [Full Documentation](./PROJECT_CONTEXT.md)
+- [Expo Docs](https://docs.expo.dev/)
+- [Lucide Icons](https://lucide.dev/)

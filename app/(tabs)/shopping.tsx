@@ -1,82 +1,45 @@
-import { useState } from "react";
-import { View, Text, Pressable, FlatList, TextInput, Modal, Alert } from "react-native";
+import { useEffect } from "react";
+import { View, Text, Pressable, ImageBackground, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Plus, ShoppingBasket, Sparkles, CheckCircle, X, Check, Trash2, Circle } from "lucide-react-native";
+import { router } from "expo-router";
+import { ShoppingBasket, Plus, List } from "lucide-react-native";
 import { colors } from "@/constants/colors";
-import { useShoppingStore } from "@/store";
-import type { ShoppingItem, IngredientCategory } from "@/types";
-
-function ShoppingItemCard({ item, onToggle, onDelete }: { item: ShoppingItem; onToggle: () => void; onDelete: () => void }) {
-  return (
-    <Pressable
-      onPress={onToggle}
-      className="flex-row items-center bg-stone-100 border border-stone-200 rounded-xl px-4 py-3 mb-2 active:opacity-90"
-      style={{ opacity: item.isChecked ? 0.6 : 1 }}
-    >
-      <View className="mr-3">
-        {item.isChecked ? (
-          <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: colors.sage[200] }}>
-            <Check size={14} color="white" strokeWidth={3} />
-          </View>
-        ) : (
-          <Circle size={24} color={colors.stone[300]} strokeWidth={2} />
-        )}
-      </View>
-      <View className="flex-1">
-        <Text
-          style={{
-            color: colors.text.primary,
-            fontFamily: 'Inter',
-            fontSize: 15,
-            textDecorationLine: item.isChecked ? 'line-through' : 'none',
-          }}
-        >
-          {item.name}
-          {item.quantity && item.unit ? ` (${item.quantity} ${item.unit})` : ''}
-        </Text>
-        {item.recipeName && (
-          <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 11, marginTop: 2 }}>
-            from {item.recipeName}
-          </Text>
-        )}
-      </View>
-      <Pressable onPress={onDelete} className="p-2 -mr-2">
-        <Trash2 size={16} color={colors.text.muted} />
-      </Pressable>
-    </Pressable>
-  );
-}
+import { useShoppingListsStore, useShoppingStore } from "@/store";
+import { ListIcon, DEFAULT_ICON, type IconName } from "@/components/ListIcon";
 
 export default function ShoppingScreen() {
-  const { items, addItem, toggleItem, deleteItem, clearChecked, isLoading } = useShoppingStore();
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newItemName, setNewItemName] = useState("");
+  const { lists, loadLists, setActiveList, deleteList } = useShoppingListsStore();
+  const { loadItemsByList, getItemsByList, getCheckedItems } = useShoppingStore();
 
-  const uncheckedItems = items.filter((i) => !i.isChecked);
-  const checkedItems = items.filter((i) => i.isChecked);
+  useEffect(() => {
+    loadLists();
+  }, []);
 
-  const handleAddItem = async () => {
-    if (!newItemName.trim()) return;
-
-    await addItem({
-      name: newItemName.trim(),
-      category: 'other',
-      isChecked: false,
-    });
-
-    setNewItemName("");
-    setShowAddModal(false);
+  const handleListPress = async (listId: string) => {
+    setActiveList(listId);
+    await loadItemsByList(listId);
+    router.push(`/shopping-list/${listId}`);
   };
 
-  const handleClearChecked = () => {
-    if (checkedItems.length === 0) return;
+  const handleCreateList = () => {
+    router.push('/shopping-list/create');
+  };
 
+  const handleViewAllLists = () => {
+    router.push('/shopping-lists');
+  };
+
+  const handleDeleteList = (listId: string, listName: string) => {
     Alert.alert(
-      "Clear Checked Items",
-      `Remove ${checkedItems.length} checked item${checkedItems.length !== 1 ? 's' : ''}?`,
+      'Delete List',
+      `Are you sure you want to delete "${listName}"? All items will be removed.`,
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Clear", style: "destructive", onPress: () => clearChecked() },
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteList(listId)
+        },
       ]
     );
   };
@@ -85,170 +48,215 @@ export default function ShoppingScreen() {
     <SafeAreaView className="flex-1 bg-stone-50" edges={["bottom"]}>
       <View className="flex-1">
         {/* Header */}
-        <View className="flex-row items-center justify-between py-5 px-6">
-          <View>
-            <Text className="text-3xl mb-1" style={{ color: colors.text.primary, fontFamily: 'Cormorant Garamond', fontWeight: '400' }}>
-              Shopping List
-            </Text>
-            <Text className="text-sm" style={{ color: colors.text.muted, fontFamily: 'Inter' }}>
-              {items.length === 0 ? 'Gather your treasures' : `${uncheckedItems.length} item${uncheckedItems.length !== 1 ? 's' : ''} to get`}
-            </Text>
-          </View>
-          <Pressable
-            onPress={() => setShowAddModal(true)}
-            className="w-12 h-12 rounded-xl items-center justify-center active:opacity-80"
+        <ImageBackground
+          source={require('../../assets/backgrounds/boheme03.png')}
+          style={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 }}
+          imageStyle={{ opacity: 0.08 }}
+          resizeMode="cover"
+        >
+          <Text
             style={{
-              backgroundColor: colors.honey[300],
-              shadowColor: colors.honey[300],
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.2,
-              shadowRadius: 8,
+              fontFamily: 'Cormorant Garamond',
+              fontSize: 40,
+              lineHeight: 48,
+              fontWeight: '300',
+              letterSpacing: -0.5,
+              color: colors.text.primary
             }}
           >
-            <Plus size={20} color="white" strokeWidth={2} />
-          </Pressable>
-        </View>
+            Shopping
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Inter',
+              fontSize: 15,
+              color: colors.text.muted,
+              marginTop: 8
+            }}
+          >
+            {lists.length === 0 ? 'Create your first list' : `${lists.length} list${lists.length !== 1 ? 's' : ''}`}
+          </Text>
+        </ImageBackground>
 
-        {items.length === 0 ? (
+        {lists.length === 0 ? (
           /* Empty State */
           <View className="flex-1 items-center justify-center pb-24 px-6">
-            <View className="w-24 h-24 bg-honey-100 rounded-full items-center justify-center mb-6 border-2" style={{ borderColor: colors.honey[200] }}>
-              <ShoppingBasket size={40} color={colors.honey[300]} strokeWidth={1.5} />
-            </View>
-
-            <Text className="text-2xl text-center mb-3" style={{ color: colors.text.primary, fontFamily: 'Cormorant Garamond', fontWeight: '400' }}>
-              Ready to Shop?
-            </Text>
-            <Text className="text-center mb-8 px-8" style={{ color: colors.text.tertiary, fontFamily: 'Inter', fontSize: 15, lineHeight: 24 }}>
-              Add ingredients from your recipes{"\n"}
-              or create a list manually
-            </Text>
-
-            <Pressable
-              onPress={() => setShowAddModal(true)}
-              className="px-8 py-4 rounded-xl flex-row items-center active:opacity-90"
-              style={{
-                backgroundColor: colors.honey[300],
-                shadowColor: colors.honey[300],
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.25,
-                shadowRadius: 12,
-              }}
+            <ImageBackground
+              source={require('../../assets/backgrounds/boheme02.png')}
+              style={{ width: '100%', alignItems: 'center', paddingVertical: 40 }}
+              imageStyle={{ opacity: 0.10 }}
+              resizeMode="cover"
             >
-              <Plus size={20} color="white" strokeWidth={2} />
-              <Text className="text-white text-base ml-2" style={{ fontFamily: 'Inter', fontWeight: '600' }}>
-                Add Item
-              </Text>
-            </Pressable>
-
-            {/* Features */}
-            <View className="mt-10 w-full px-4">
-              <View className="bg-stone-100 border border-stone-200 rounded-xl p-6">
-                <Text className="mb-5 text-center" style={{ color: colors.text.secondary, fontFamily: 'Inter', fontWeight: '600', fontSize: 15 }}>
-                  Smart Shopping
-                </Text>
-                <View className="gap-4">
-                  <View className="flex-row items-center">
-                    <View className="w-6 h-6 bg-sage-50 rounded-full items-center justify-center mr-3">
-                      <CheckCircle size={14} color={colors.sage[200]} strokeWidth={2} />
-                    </View>
-                    <Text className="flex-1" style={{ color: colors.text.tertiary, fontFamily: 'Inter', fontSize: 13 }}>
-                      Add ingredients from recipe detail
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <View className="w-6 h-6 bg-sage-50 rounded-full items-center justify-center mr-3">
-                      <CheckCircle size={14} color={colors.sage[200]} strokeWidth={2} />
-                    </View>
-                    <Text className="flex-1" style={{ color: colors.text.tertiary, fontFamily: 'Inter', fontSize: 13 }}>
-                      Tap items to mark as bought
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center">
-                    <View className="w-6 h-6 bg-sage-50 rounded-full items-center justify-center mr-3">
-                      <CheckCircle size={14} color={colors.sage[200]} strokeWidth={2} />
-                    </View>
-                    <Text className="flex-1" style={{ color: colors.text.tertiary, fontFamily: 'Inter', fontSize: 13 }}>
-                      Clear checked items when done
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : (
-          /* Shopping List */
-          <FlatList
-            data={[...uncheckedItems, ...checkedItems]}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <ShoppingItemCard
-                item={item}
-                onToggle={() => toggleItem(item.id)}
-                onDelete={() => deleteItem(item.id)}
-              />
-            )}
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
-            showsVerticalScrollIndicator={false}
-            ListHeaderComponent={
-              uncheckedItems.length > 0 && checkedItems.length > 0 ? null : null
-            }
-            ItemSeparatorComponent={() => null}
-            ListFooterComponent={
-              checkedItems.length > 0 ? (
-                <Pressable
-                  onPress={handleClearChecked}
-                  className="mt-4 py-3 rounded-xl items-center"
-                  style={{ backgroundColor: colors.stone[100], borderWidth: 1, borderColor: colors.stone[200] }}
-                >
-                  <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontWeight: '500', fontSize: 14 }}>
-                    Clear {checkedItems.length} checked item{checkedItems.length !== 1 ? 's' : ''}
-                  </Text>
-                </Pressable>
-              ) : null
-            }
-          />
-        )}
-
-        {/* Add Modal */}
-        <Modal visible={showAddModal} animationType="slide" transparent>
-          <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <View className="bg-stone-50 rounded-t-3xl px-6 pt-6 pb-10">
-              <View className="flex-row items-center justify-between mb-6">
-                <Text style={{ color: colors.text.primary, fontFamily: 'Cormorant Garamond', fontSize: 24, fontWeight: '500' }}>
-                  Add Item
-                </Text>
-                <Pressable onPress={() => setShowAddModal(false)} className="p-2 -mr-2">
-                  <X size={24} color={colors.text.muted} />
-                </Pressable>
-              </View>
-
-              <TextInput
-                className="bg-stone-100 border border-stone-200 rounded-xl px-4 py-4 mb-5"
-                placeholder="What do you need?"
-                placeholderTextColor={colors.text.muted}
-                value={newItemName}
-                onChangeText={setNewItemName}
-                style={{ fontSize: 16, color: colors.text.primary, fontFamily: 'Inter' }}
-                autoFocus
-                onSubmitEditing={handleAddItem}
-              />
-
-              <Pressable
-                onPress={handleAddItem}
-                disabled={!newItemName.trim() || isLoading}
-                className="py-4 rounded-xl items-center"
+              <View
+                className="w-24 h-24 rounded-full items-center justify-center mb-6 border-2"
                 style={{
-                  backgroundColor: newItemName.trim() ? colors.honey[300] : colors.stone[200],
+                  backgroundColor: colors.honey[50],
+                  borderColor: colors.honey[200]
                 }}
               >
-                <Text style={{ color: newItemName.trim() ? 'white' : colors.text.muted, fontFamily: 'Inter', fontWeight: '600', fontSize: 16 }}>
-                  Add to List
+                <ShoppingBasket size={40} color={colors.honey[400]} strokeWidth={1.5} />
+              </View>
+
+              <Text
+                className="text-2xl text-center mb-3"
+                style={{
+                  color: colors.text.primary,
+                  fontFamily: 'Cormorant Garamond',
+                  fontWeight: '400'
+                }}
+              >
+                Organize Your Shopping
+              </Text>
+
+              <Text
+                className="text-center mb-8 px-8"
+                style={{
+                  color: colors.text.tertiary,
+                  fontFamily: 'Inter',
+                  fontSize: 15,
+                  lineHeight: 24
+                }}
+              >
+                Create separate lists for different occasions{"\n"}
+                Weekly groceries, dinner parties, or pantry restocks
+              </Text>
+
+              <Pressable
+                onPress={handleCreateList}
+                className="px-8 py-4 rounded-2xl flex-row items-center active:opacity-90"
+                style={{
+                  backgroundColor: colors.honey[400],
+                  shadowColor: colors.honey[400],
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 12,
+                }}
+              >
+                <Plus size={20} color="white" strokeWidth={2} />
+                <Text
+                  className="text-white text-base ml-2"
+                  style={{ fontFamily: 'Inter', fontWeight: '600' }}
+                >
+                  Create Your First List
                 </Text>
               </Pressable>
+            </ImageBackground>
+          </View>
+        ) : (
+          /* Quick Access to Lists */
+          <View className="flex-1 px-6 pt-6">
+            {/* Active/Recent Lists */}
+            <View className="mb-6">
+              <Text
+                style={{
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: colors.text.secondary,
+                  marginBottom: 12,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5
+                }}
+              >
+                Your Lists
+              </Text>
+
+              {lists.slice(0, 3).map((list) => {
+                const items = getItemsByList(list.id);
+                const checkedItems = getCheckedItems(list.id);
+
+                return (
+                  <Pressable
+                    key={list.id}
+                    onPress={() => handleListPress(list.id)}
+                    onLongPress={() => handleDeleteList(list.id, list.name)}
+                    className="bg-stone-100 border border-stone-200 rounded-2xl p-5 mb-3 active:opacity-90"
+                    style={{
+                      shadowColor: colors.text.primary,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.06,
+                      shadowRadius: 8,
+                    }}
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center flex-1">
+                        <ListIcon
+                          name={(list.icon as IconName) || DEFAULT_ICON}
+                          size={24}
+                          color={colors.honey[400]}
+                          strokeWidth={1.5}
+                          withBackground
+                          backgroundColor={colors.honey[50]}
+                        />
+                        <View className="flex-1" style={{ marginLeft: 12 }}>
+                          <Text
+                            style={{
+                              color: colors.text.primary,
+                              fontFamily: 'Cormorant Garamond',
+                              fontSize: 22,
+                              fontWeight: '500'
+                            }}
+                            numberOfLines={1}
+                          >
+                            {list.name}
+                          </Text>
+                          <Text
+                            style={{
+                              color: colors.text.tertiary,
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                              marginTop: 2
+                            }}
+                          >
+                            {items.length} item{items.length !== 1 ? 's' : ''} • {checkedItems.length} checked
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Action Buttons */}
+            <View className="gap-3">
+              <Pressable
+                onPress={handleCreateList}
+                className="bg-honey-400 rounded-2xl p-5 flex-row items-center justify-center active:opacity-90"
+                style={{
+                  backgroundColor: colors.honey[400],
+                  shadowColor: colors.honey[400],
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 12,
+                }}
+              >
+                <Plus size={20} color="white" strokeWidth={2} />
+                <Text
+                  className="text-white text-base ml-2"
+                  style={{ fontFamily: 'Inter', fontWeight: '600' }}
+                >
+                  Create New List
+                </Text>
+              </Pressable>
+
+              {lists.length > 3 && (
+                <Pressable
+                  onPress={handleViewAllLists}
+                  className="bg-stone-100 border border-stone-200 rounded-2xl p-5 flex-row items-center justify-center active:opacity-90"
+                >
+                  <List size={20} color={colors.text.primary} strokeWidth={2} />
+                  <Text
+                    className="text-base ml-2"
+                    style={{ fontFamily: 'Inter', fontWeight: '600', color: colors.text.primary }}
+                  >
+                    View All Lists
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </View>
-        </Modal>
+        )}
       </View>
     </SafeAreaView>
   );

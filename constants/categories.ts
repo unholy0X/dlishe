@@ -1,17 +1,38 @@
-import { IngredientCategory } from '@/types';
+// Shared Categories - Single Source of Truth
+// Used by Shopping, Pantry, and Recipe features
+// Ordered by household consumption frequency (US/Europe 2024 data)
+//
+// Priority based on:
+// - Statista: 64% buy produce, 60% buy eggs regularly
+// - USDA/EFSA consumption statistics
+// - Breakfast/lunch/dinner frequency data
 
-interface CategoryInfo {
+import type { IngredientCategory } from '@/types';
+
+export interface CategoryInfo {
+  value: IngredientCategory;
   label: string;
-  icon: string;
-  color: string;
   keywords: string[];
 }
 
-export const CATEGORIES: Record<IngredientCategory, CategoryInfo> = {
-  produce: {
+// Categories ordered by purchase frequency (90%+ household consumption)
+export const CATEGORIES: CategoryInfo[] = [
+  // #1 - Dairy: 60%+ buy eggs regularly, milk/cheese daily staples
+  {
+    value: 'dairy',
+    label: 'Dairy & Eggs',
+    keywords: [
+      'milk', 'cheese', 'butter', 'cream', 'yogurt', 'sour cream',
+      'cream cheese', 'cottage cheese', 'ricotta', 'mozzarella',
+      'parmesan', 'cheddar', 'feta', 'goat cheese', 'brie',
+      'half and half', 'heavy cream', 'whipping cream', 'ghee',
+      'buttermilk', 'egg', 'eggs', 'greek yogurt', 'almond milk', 'oat milk',
+    ],
+  },
+  // #2 - Produce: 64% buy fruits/vegetables regularly (highest category)
+  {
+    value: 'produce',
     label: 'Produce',
-    icon: 'carrot',
-    color: '#22C55E',
     keywords: [
       'lettuce', 'tomato', 'tomatoes', 'onion', 'onions', 'garlic',
       'pepper', 'peppers', 'carrot', 'carrots', 'broccoli', 'spinach',
@@ -24,76 +45,70 @@ export const CATEGORIES: Record<IngredientCategory, CategoryInfo> = {
       'cabbage', 'asparagus', 'eggplant', 'beet', 'radish',
     ],
   },
-  meat_seafood: {
-    label: 'Meat & Seafood',
-    icon: 'beef',
-    color: '#DC2626',
+  // #3 - Proteins: Chicken #1 US (68.1 lbs/person), Pork #1 Europe
+  {
+    value: 'proteins',
+    label: 'Proteins',
     keywords: [
       'chicken', 'beef', 'pork', 'lamb', 'turkey', 'bacon', 'ham',
       'sausage', 'ground beef', 'ground turkey', 'steak', 'ribs',
       'salmon', 'tuna', 'shrimp', 'prawns', 'crab', 'lobster',
       'fish', 'cod', 'tilapia', 'halibut', 'scallops', 'mussels',
       'clams', 'oysters', 'anchovies', 'sardines', 'duck', 'veal',
-      'prosciutto', 'pepperoni', 'salami', 'chorizo',
+      'prosciutto', 'pepperoni', 'salami', 'chorizo', 'tofu', 'tempeh',
+      'seitan', 'meat', 'seafood',
     ],
   },
-  dairy: {
-    label: 'Dairy',
-    icon: 'milk',
-    color: '#60A5FA',
-    keywords: [
-      'milk', 'cheese', 'butter', 'cream', 'yogurt', 'sour cream',
-      'cream cheese', 'cottage cheese', 'ricotta', 'mozzarella',
-      'parmesan', 'cheddar', 'feta', 'goat cheese', 'brie',
-      'half and half', 'heavy cream', 'whipping cream', 'ghee',
-      'buttermilk', 'egg', 'eggs', 'greek yogurt',
-    ],
-  },
-  bakery: {
+  // #4 - Bakery: Bread staple in 80%+ households
+  {
+    value: 'bakery',
     label: 'Bakery',
-    icon: 'wheat',
-    color: '#A16207',
     keywords: [
       'bread', 'tortilla', 'tortillas', 'baguette', 'rolls', 'buns',
       'pita', 'naan', 'croissant', 'bagel', 'english muffin',
       'flatbread', 'ciabatta', 'sourdough', 'brioche', 'focaccia',
-      'crackers', 'breadcrumbs', 'panko',
+      'muffin', 'wrap',
     ],
   },
-  frozen: {
-    label: 'Frozen',
-    icon: 'snowflake',
-    color: '#38BDF8',
-    keywords: [
-      'frozen', 'ice cream', 'frozen vegetables', 'frozen fruit',
-      'frozen pizza', 'frozen dinner', 'popsicle', 'sorbet',
-      'frozen berries', 'frozen peas', 'frozen corn',
-    ],
-  },
-  pantry: {
+  // #5 - Pantry: Rice, pasta, oils - cooking essentials
+  {
+    value: 'pantry',
     label: 'Pantry',
-    icon: 'package',
-    color: '#F59E0B',
     keywords: [
       'pasta', 'rice', 'beans', 'lentils', 'quinoa', 'oats',
       'flour', 'sugar', 'brown sugar', 'honey', 'maple syrup',
       'olive oil', 'vegetable oil', 'coconut oil', 'sesame oil',
-      'vinegar', 'balsamic', 'soy sauce', 'fish sauce',
       'tomato sauce', 'tomato paste', 'canned tomatoes',
       'chicken broth', 'beef broth', 'vegetable broth', 'stock',
-      'coconut milk', 'peanut butter', 'almond butter', 'jam',
-      'mustard', 'ketchup', 'mayonnaise', 'hot sauce', 'sriracha',
-      'worcestershire', 'tahini', 'miso', 'curry paste',
-      'canned beans', 'chickpeas', 'nuts', 'almonds', 'walnuts',
-      'pecans', 'cashews', 'peanuts', 'seeds', 'dried fruit',
-      'raisins', 'chocolate', 'cocoa', 'vanilla', 'baking powder',
-      'baking soda', 'yeast', 'cornstarch', 'breadcrumbs',
+      'coconut milk', 'canned beans', 'chickpeas',
+      'baking powder', 'baking soda', 'yeast', 'cornstarch',
     ],
   },
-  spices: {
+  // #6 - Beverages: Coffee #1 breakfast beverage
+  {
+    value: 'beverages',
+    label: 'Beverages',
+    keywords: [
+      'water', 'juice', 'orange juice', 'apple juice', 'wine',
+      'beer', 'coffee', 'tea', 'soda', 'sparkling water',
+      'lemonade', 'cola', 'espresso',
+    ],
+  },
+  // #7 - Condiments: Essential flavor enhancers
+  {
+    value: 'condiments',
+    label: 'Condiments',
+    keywords: [
+      'ketchup', 'mustard', 'mayonnaise', 'mayo', 'soy sauce',
+      'hot sauce', 'sriracha', 'bbq sauce', 'barbecue', 'worcestershire',
+      'vinegar', 'balsamic', 'ranch', 'dressing', 'peanut butter',
+      'almond butter', 'jam', 'jelly', 'tahini', 'miso', 'fish sauce',
+    ],
+  },
+  // #8 - Spices: Salt & pepper in 100% of households
+  {
+    value: 'spices',
     label: 'Spices',
-    icon: 'flame',
-    color: '#EA580C',
     keywords: [
       'salt', 'pepper', 'black pepper', 'cumin', 'paprika',
       'oregano', 'basil', 'thyme', 'rosemary', 'cinnamon',
@@ -101,35 +116,71 @@ export const CATEGORIES: Record<IngredientCategory, CategoryInfo> = {
       'garlic powder', 'onion powder', 'italian seasoning',
       'taco seasoning', 'curry powder', 'garam masala',
       'coriander', 'cardamom', 'cloves', 'allspice', 'bay leaves',
-      'red pepper flakes', 'smoked paprika', 'everything bagel',
+      'red pepper flakes', 'smoked paprika',
     ],
   },
-  beverages: {
-    label: 'Beverages',
-    icon: 'cup',
-    color: '#A855F7',
+  // #9 - Snacks
+  {
+    value: 'snacks',
+    label: 'Snacks',
     keywords: [
-      'water', 'juice', 'orange juice', 'apple juice', 'wine',
-      'beer', 'coffee', 'tea', 'soda', 'sparkling water', 'milk',
-      'almond milk', 'oat milk', 'coconut water', 'lemonade',
+      'chips', 'crackers', 'pretzels', 'popcorn', 'nuts', 'almonds',
+      'walnuts', 'pecans', 'cashews', 'peanuts', 'trail mix',
+      'granola', 'chocolate', 'candy', 'cookies', 'dried fruit', 'raisins',
     ],
   },
-  other: {
+  // #10 - Frozen
+  {
+    value: 'frozen',
+    label: 'Frozen',
+    keywords: [
+      'frozen', 'ice cream', 'frozen vegetables', 'frozen fruit',
+      'frozen pizza', 'frozen dinner', 'popsicle', 'sorbet',
+      'frozen berries', 'frozen peas', 'frozen corn', 'waffles', 'fries',
+    ],
+  },
+  // #11 - Household
+  {
+    value: 'household',
+    label: 'Household',
+    keywords: [
+      'dish soap', 'laundry', 'detergent', 'paper towel', 'toilet paper',
+      'trash bag', 'garbage', 'foil', 'aluminum', 'plastic wrap',
+      'sponge', 'cleaner', 'hand soap', 'soap',
+    ],
+  },
+  // #12 - Other (catch-all)
+  {
+    value: 'other',
     label: 'Other',
-    icon: 'box',
-    color: '#78716C',
     keywords: [],
   },
-};
+];
 
+// Map for quick lookup by category value
+export const CATEGORY_MAP: Record<IngredientCategory, CategoryInfo> =
+  CATEGORIES.reduce((acc, cat) => {
+    acc[cat.value] = cat;
+    return acc;
+  }, {} as Record<IngredientCategory, CategoryInfo>);
+
+// Get category label
+export function getCategoryLabel(category: IngredientCategory): string {
+  return CATEGORY_MAP[category]?.label ?? 'Other';
+}
+
+// Detect category from ingredient name
 export function getCategoryForIngredient(ingredientName: string): IngredientCategory {
   const lowerName = ingredientName.toLowerCase();
 
-  for (const [category, info] of Object.entries(CATEGORIES)) {
-    if (info.keywords.some(keyword => lowerName.includes(keyword))) {
-      return category as IngredientCategory;
+  for (const category of CATEGORIES) {
+    if (category.keywords.some(keyword => lowerName.includes(keyword))) {
+      return category.value;
     }
   }
 
   return 'other';
 }
+
+// Default category for unknown items
+export const DEFAULT_CATEGORY: IngredientCategory = 'other';

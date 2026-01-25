@@ -1,15 +1,17 @@
-import { useEffect } from "react";
-import { View, Text, Pressable, ImageBackground, Alert } from "react-native";
+import { useState, useEffect } from "react";
+import { View, Text, Pressable, ImageBackground, Alert, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { ShoppingBasket, Plus, List } from "lucide-react-native";
+import { ShoppingBasket, Plus, List, MoreVertical, Trash2, RefreshCw } from "lucide-react-native";
 import { colors } from "@/constants/colors";
 import { useShoppingListsStore, useShoppingStore } from "@/store";
 import { ListIcon, DEFAULT_ICON, type IconName } from "@/components/ListIcon";
+import * as Haptics from "expo-haptics";
 
 export default function ShoppingScreen() {
-  const { lists, loadLists, setActiveList, deleteList } = useShoppingListsStore();
+  const { lists, loadLists, setActiveList, deleteList, clearAllLists, resetCommonItems } = useShoppingListsStore();
   const { loadItemsByList, getItemsByList, getCheckedItems } = useShoppingStore();
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     loadLists();
@@ -44,6 +46,44 @@ export default function ShoppingScreen() {
     );
   };
 
+  const handleClearAll = () => {
+    setShowMenu(false);
+    Alert.alert(
+      "Clear All Lists",
+      "This will delete all shopping lists and their items. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear All",
+          style: "destructive",
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            await clearAllLists();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleResetData = () => {
+    setShowMenu(false);
+    Alert.alert(
+      "Reset Product Database",
+      "This will reset the product catalog to default items. Your shopping lists will not be affected.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset",
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            await resetCommonItems();
+            Alert.alert("Done", "Product database has been reset.");
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-stone-50" edges={["bottom"]}>
       <View className="flex-1">
@@ -54,28 +94,43 @@ export default function ShoppingScreen() {
           imageStyle={{ opacity: 0.08 }}
           resizeMode="cover"
         >
-          <Text
-            style={{
-              fontFamily: 'Cormorant Garamond',
-              fontSize: 40,
-              lineHeight: 48,
-              fontWeight: '300',
-              letterSpacing: -0.5,
-              color: colors.text.primary
-            }}
-          >
-            Shopping
-          </Text>
-          <Text
-            style={{
-              fontFamily: 'Inter',
-              fontSize: 15,
-              color: colors.text.muted,
-              marginTop: 8
-            }}
-          >
-            {lists.length === 0 ? 'Create your first list' : `${lists.length} list${lists.length !== 1 ? 's' : ''}`}
-          </Text>
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1">
+              <Text
+                style={{
+                  fontFamily: 'Cormorant Garamond',
+                  fontSize: 40,
+                  lineHeight: 48,
+                  fontWeight: '300',
+                  letterSpacing: -0.5,
+                  color: colors.text.primary
+                }}
+              >
+                Shopping
+              </Text>
+              <Text
+                style={{
+                  fontFamily: 'Inter',
+                  fontSize: 15,
+                  color: colors.text.muted,
+                  marginTop: 8
+                }}
+              >
+                {lists.length === 0 ? 'Create your first list' : `${lists.length} list${lists.length !== 1 ? 's' : ''}`}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setShowMenu(true)}
+              className="w-12 h-12 rounded-xl items-center justify-center active:opacity-80"
+              style={{
+                backgroundColor: colors.stone[100],
+                borderWidth: 1,
+                borderColor: colors.stone[200],
+              }}
+            >
+              <MoreVertical size={20} color={colors.text.secondary} strokeWidth={1.5} />
+            </Pressable>
+          </View>
         </ImageBackground>
 
         {lists.length === 0 ? (
@@ -258,6 +313,48 @@ export default function ShoppingScreen() {
           </View>
         )}
       </View>
+
+      {/* Three-dot Menu Modal */}
+      <Modal visible={showMenu} animationType="fade" transparent>
+        <Pressable
+          className="flex-1"
+          style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+          onPress={() => setShowMenu(false)}
+        >
+          <View className="absolute top-28 right-6">
+            <View
+              className="bg-white rounded-2xl overflow-hidden"
+              style={{
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 12,
+                minWidth: 200,
+              }}
+            >
+              <Pressable
+                onPress={handleClearAll}
+                className="flex-row items-center px-5 py-4 active:bg-stone-50"
+                style={{ borderBottomWidth: 1, borderBottomColor: colors.stone[200] }}
+              >
+                <Trash2 size={20} color={colors.text.secondary} strokeWidth={1.5} />
+                <Text style={{ fontFamily: 'Inter', fontSize: 15, color: colors.text.primary, marginLeft: 12 }}>
+                  Clear All Lists
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={handleResetData}
+                className="flex-row items-center px-5 py-4 active:bg-stone-50"
+              >
+                <RefreshCw size={20} color={colors.text.secondary} strokeWidth={1.5} />
+                <Text style={{ fontFamily: 'Inter', fontSize: 15, color: colors.text.primary, marginLeft: 12 }}>
+                  Reset Product Database
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }

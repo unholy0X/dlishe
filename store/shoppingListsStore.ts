@@ -23,6 +23,8 @@ interface ShoppingListsState {
     getCommonItemsByCategory: (category: IngredientCategory) => CommonItem[];
     searchCommonItems: (query: string) => Promise<CommonItem[]>;
     incrementItemUsage: (itemId: string) => Promise<void>;
+    resetCommonItems: () => Promise<void>;
+    clearAllLists: () => Promise<void>;
 }
 
 export const useShoppingListsStore = create<ShoppingListsState>((set, get) => ({
@@ -142,6 +144,26 @@ export const useShoppingListsStore = create<ShoppingListsState>((set, get) => ({
                     item.id === itemId ? { ...item, usageCount: item.usageCount + 1 } : item
                 ),
             }));
+        } catch (error) {
+            set({ error: (error as Error).message });
+        }
+    },
+
+    resetCommonItems: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            await db.resetCommonItems();
+            const commonItems = await db.getAllCommonItems();
+            set({ commonItems, isLoading: false });
+        } catch (error) {
+            set({ error: (error as Error).message, isLoading: false });
+        }
+    },
+
+    clearAllLists: async () => {
+        try {
+            await db.clearAllShoppingLists();
+            set({ lists: [], activeListId: null });
         } catch (error) {
             set({ error: (error as Error).message });
         }

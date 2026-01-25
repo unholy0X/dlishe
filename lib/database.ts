@@ -718,3 +718,23 @@ export async function seedCommonItemsIfNeeded(): Promise<void> {
   
   console.log(`Seeded ${commonItemsSeed.length} common items`);
 }
+
+// Clear all pantry items
+export async function clearAllPantryItems(): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync('DELETE FROM pantry_items');
+}
+
+// Clear all shopping lists and their items
+export async function clearAllShoppingLists(): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync('DELETE FROM shopping_items');
+  await database.runAsync('DELETE FROM shopping_lists');
+}
+
+// Reset common items (clear and reseed)
+export async function resetCommonItems(): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync('DELETE FROM common_items');
+  await seedCommonItemsIfNeeded();
+}

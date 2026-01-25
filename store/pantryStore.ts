@@ -1,27 +1,34 @@
 // Pantry Store - Zustand state management
+// Enhanced to work with commonItems catalog (shared with Shopping)
 import { create } from 'zustand';
-import type { PantryItem, IngredientCategory } from '@/types';
+import type { PantryItem, CommonItem, IngredientCategory } from '@/types';
 import * as db from '@/lib/database';
 
 interface PantryState {
   items: PantryItem[];
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   loadItems: () => Promise<void>;
   addItem: (item: Omit<PantryItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<PantryItem>;
+  addItemFromCommon: (commonItem: CommonItem, quantity?: number) => Promise<PantryItem>;
   updateItem: (id: string, updates: Partial<PantryItem>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
+  clearAll: () => Promise<void>;
+
+  // Query methods
   getItemsByCategory: (category: IngredientCategory) => PantryItem[];
   searchItems: (query: string) => PantryItem[];
+  getItemCount: () => number;
+  getCategoryCounts: () => Record<IngredientCategory, number>;
 }
 
 export const usePantryStore = create<PantryState>((set, get) => ({
   items: [],
   isLoading: false,
   error: null,
-  
+
   loadItems: async () => {
     set({ isLoading: true, error: null });
     try {
@@ -31,7 +38,7 @@ export const usePantryStore = create<PantryState>((set, get) => ({
       set({ error: (error as Error).message, isLoading: false });
     }
   },
-  
+
   addItem: async (itemData) => {
     set({ isLoading: true, error: null });
     try {
@@ -49,7 +56,18 @@ export const usePantryStore = create<PantryState>((set, get) => ({
       throw error;
     }
   },
-  
+
+  // Add item directly from commonItems catalog
+  addItemFromCommon: async (commonItem, quantity) => {
+    const itemData: Omit<PantryItem, 'id' | 'createdAt' | 'updatedAt'> = {
+      name: commonItem.name,
+      category: commonItem.category,
+      quantity: quantity ?? commonItem.defaultQuantity,
+      unit: commonItem.defaultUnit,
+    };
+    return get().addItem(itemData);
+  },
+
   updateItem: async (id, updates) => {
     try {
       await db.updatePantryItem(id, updates);
@@ -64,7 +82,7 @@ export const usePantryStore = create<PantryState>((set, get) => ({
       set({ error: (error as Error).message });
     }
   },
-  
+
   deleteItem: async (id) => {
     try {
       await db.deletePantryItem(id);
@@ -75,15 +93,36 @@ export const usePantryStore = create<PantryState>((set, get) => ({
       set({ error: (error as Error).message });
     }
   },
-  
+
+  clearAll: async () => {
+    try {
+      await db.clearAllPantryItems();
+      set({ items: [] });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
   getItemsByCategory: (category) => {
     return get().items.filter((item) => item.category === category);
   },
-  
+
   searchItems: (query) => {
     const lowerQuery = query.toLowerCase();
     return get().items.filter((item) =>
       item.name.toLowerCase().includes(lowerQuery)
     );
+  },
+
+  getItemCount: () => {
+    return get().items.length;
+  },
+
+  getCategoryCounts: () => {
+    const counts: Record<string, number> = {};
+    for (const item of get().items) {
+      counts[item.category] = (counts[item.category] || 0) + 1;
+    }
+    return counts as Record<IngredientCategory, number>;
   },
 }));

@@ -2,7 +2,7 @@
   "expo": {
     "name": "DishFlow",
     "slug": "dishflow",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dishflow.app"
+      "bundleIdentifier": "com.dishflow.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "DishFlow needs camera access to scan ingredients and barcodes for your pantry.",
+        "NSPhotoLibraryUsageDescription": "DishFlow needs photo library access to save and view recipe images.",
+        "NSPhotoLibraryAddUsageDescription": "DishFlow needs permission to save recipe images to your photo library.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -36,6 +43,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "df1758ad-1ec3-4181-9a1b-a00ccf378304"
+      }
     }
   }
 }

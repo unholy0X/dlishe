@@ -81,7 +81,7 @@ pantry_items (id, name, category, quantity, unit, expiration_date, created_at)
 
 ### Categories (Ordered by Frequency)
 ```typescript
-dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
+dairy, produce, proteins, bakery, pantry, beverages, condiments, spices, snacks, frozen, household, other
 ```
 
 ## Common Tasks

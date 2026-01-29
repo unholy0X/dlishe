@@ -1,6 +1,6 @@
 // Recipe Extraction Logic
-import { geminiModel, RECIPE_SCHEMA, EXTRACTION_PROMPT } from "./gemini";
-import type { Recipe, Ingredient, Instruction } from "@/types";
+import { geminiModel, RECIPE_SCHEMA, EXTRACTION_PROMPT, VIDEO_RECIPE_SCHEMA, VIDEO_EXTRACTION_PROMPT } from "./gemini";
+import type { Recipe, Ingredient, Instruction, IngredientCategory } from "@/types";
 import { generateId } from "./database";
 
 export type UrlType = "youtube" | "tiktok" | "instagram" | "website" | "unknown" | "manual";
@@ -20,14 +20,22 @@ interface ExtractedRecipeData {
   servings?: number;
   difficulty?: "easy" | "medium" | "hard";
   cuisine?: string;
+  notes?: string;
   ingredients: Array<{
     name: string;
     amount?: number;
     unit?: string;
+    category?: IngredientCategory;
+    notes?: string;
+    substitutes?: string[];
   }>;
   instructions: Array<{
     stepNumber: number;
     text: string;
+    duration?: number;
+    timestamp?: string;
+    technique?: string;
+    tip?: string;
   }>;
   tags?: string[];
 }
@@ -66,9 +74,32 @@ export function isValidUrl(url: string): boolean {
 }
 
 /**
- * Extract recipe from YouTube video
+ * Extract recipe from YouTube video using native Gemini video analysis
  */
-async function extractFromYouTube(url: string): Promise<ExtractedRecipeData> {
+async function extractFromYouTubeVideo(url: string): Promise<ExtractedRecipeData> {
+  const result = await geminiModel.generateContent({
+    contents: [{
+      role: "user",
+      parts: [
+        { fileData: { mimeType: "video/*", fileUri: url } },
+        { text: VIDEO_EXTRACTION_PROMPT },
+      ],
+    }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: VIDEO_RECIPE_SCHEMA as any,
+    },
+  });
+
+  const response = result.response;
+  const text = response.text();
+  return JSON.parse(text);
+}
+
+/**
+ * Fallback: extract recipe from YouTube URL as text prompt
+ */
+async function extractFromYouTubeText(url: string): Promise<ExtractedRecipeData> {
   const prompt = `${EXTRACTION_PROMPT}
 
 Analyze this YouTube cooking video and extract the complete recipe. Pay attention to:
@@ -89,6 +120,18 @@ YouTube URL: ${url}`;
   const response = result.response;
   const text = response.text();
   return JSON.parse(text);
+}
+
+/**
+ * Extract recipe from YouTube video with fallback to text-based approach
+ */
+async function extractFromYouTube(url: string): Promise<ExtractedRecipeData> {
+  try {
+    return await extractFromYouTubeVideo(url);
+  } catch (videoError) {
+    console.warn("Video analysis failed, falling back to text:", videoError);
+    return await extractFromYouTubeText(url);
+  }
 }
 
 /**
@@ -160,13 +203,19 @@ function convertToRecipe(
     name: ing.name,
     amount: ing.amount,
     unit: ing.unit,
-    category: "other",
+    notes: ing.notes,
+    category: ing.category || "other",
+    substitutes: ing.substitutes,
   }));
 
   const instructions: Instruction[] = data.instructions.map((inst, idx) => ({
     id: generateId(),
     stepNumber: inst.stepNumber || idx + 1,
     text: inst.text,
+    duration: inst.duration,
+    timestamp: inst.timestamp,
+    technique: inst.technique,
+    tip: inst.tip,
   }));
 
   return {
@@ -180,6 +229,7 @@ function convertToRecipe(
     difficulty: data.difficulty,
     cuisine: data.cuisine,
     tags: data.tags,
+    notes: data.notes,
     ingredients,
     instructions,
     isFavorite: false,

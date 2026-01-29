@@ -102,13 +102,13 @@ const CATEGORY_ICONS: Record<IngredientCategory, string> = {
   proteins: '🥩',
   bakery: '🥖',
   pantry: '📦',
-  spices: '🌿',
+  spices: '🧂',
   condiments: '🫙',
-  beverages: '☕',
-  snacks: '🍿',
+  beverages: '🍷',
+  snacks: '🍪',
   frozen: '🧊',
   household: '🧹',
-  other: '🛒',
+  other: '📋',
 };
 ```
 
@@ -182,13 +182,13 @@ type IngredientCategory =
   | 'proteins'     // 🥩 - Most common proteins
   | 'bakery'       // 🥖 - Bread is universal
   | 'pantry'       // 📦 - Rice, pasta, oils
-  | 'spices'       // 🌿 - Salt, pepper, herbs
+  | 'beverages'    // 🍷 - Coffee, juice, wine
   | 'condiments'   // 🫙 - Ketchup, mayo, mustard
-  | 'beverages'    // ☕ - Coffee, juice, wine
-  | 'snacks'       // 🍿 - Chips, chocolate, cookies
+  | 'spices'       // 🧂 - Salt, pepper, herbs
+  | 'snacks'       // 🍪 - Chips, chocolate, cookies
   | 'frozen'       // 🧊 - Frozen pizza, ice cream
   | 'household'    // 🧹 - Paper towels, soap
-  | 'other'        // 🛒 - Miscellaneous
+  | 'other'        // 📋 - Miscellaneous
 ```
 
 ### 3.3 Common Items Catalog (~200 items)

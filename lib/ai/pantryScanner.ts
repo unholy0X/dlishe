@@ -1,7 +1,7 @@
 // AI-Powered Pantry Scanner
 // Uses Gemini to analyze images and identify pantry items
 
-import { geminiModel } from '@/lib/gemini';
+import { geminiModel, PANTRY_SCAN_SCHEMA } from '@/lib/gemini';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { IngredientCategory, CommonItem } from '@/types';
 
@@ -82,20 +82,7 @@ function getMimeType(uri: string): string {
 // Parse AI response into structured items
 function parseAIResponse(responseText: string): Omit<ScannedItem, 'matchedCommonItem' | 'isSelected'>[] {
   try {
-    // Clean up response - remove markdown formatting if present
-    let cleanedText = responseText.trim();
-    if (cleanedText.startsWith('```json')) {
-      cleanedText = cleanedText.slice(7);
-    }
-    if (cleanedText.startsWith('```')) {
-      cleanedText = cleanedText.slice(3);
-    }
-    if (cleanedText.endsWith('```')) {
-      cleanedText = cleanedText.slice(0, -3);
-    }
-    cleanedText = cleanedText.trim();
-
-    const parsed = JSON.parse(cleanedText);
+    const parsed = JSON.parse(responseText);
 
     if (!Array.isArray(parsed)) {
       console.warn('AI response is not an array');
@@ -224,11 +211,20 @@ export async function scanPantryImages(
       }))
     );
 
-    // Call Gemini with images
-    const result = await geminiModel.generateContent([
-      PANTRY_SCAN_PROMPT,
-      ...imageParts,
-    ]);
+    // Call Gemini with images and structured output
+    const result = await geminiModel.generateContent({
+      contents: [{
+        role: "user",
+        parts: [
+          { text: PANTRY_SCAN_PROMPT },
+          ...imageParts,
+        ],
+      }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: PANTRY_SCAN_SCHEMA as any,
+      },
+    });
 
     const response = await result.response;
     const responseText = response.text();

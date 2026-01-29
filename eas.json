@@ -1,34 +1,35 @@
 {
-    "cli": {
-        "version": ">= 5.0.0"
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
     },
-    "build": {
-        "development": {
-            "developmentClient": true,
-            "distribution": "internal",
-            "ios": {
-                "simulator": true
-            }
-        },
-        "preview": {
-            "distribution": "internal",
-            "ios": {
-                "simulator": false
-            }
-        },
-        "production": {
-            "autoIncrement": true,
-            "ios": {
-                "simulator": false
-            }
-        }
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
     },
-    "submit": {
-        "production": {
-            "ios": {
-                "appleId": "naoufalbrahmi@gmail.com",
-                "appleTeamId": "YF3KD62F5R"
-            }
-        }
+    "production": {
+      "autoIncrement": true,
+      "ios": {
+        "simulator": false
+      }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "naoufalbrahmi@gmail.com",
+        "appleTeamId": "YF3KD62F5R"
+      }
+    }
+  }
 }

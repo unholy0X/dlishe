@@ -13,6 +13,7 @@ DishFlow is a luxury bohème recipe and meal planning app built with React Nativ
 - **Fonts**: Cormorant Garamond, Inter
 - **AI**: Google Gemini API
 - **Animations**: expo-linear-gradient, expo-haptics
+- **Typography System**: `constants/typography.ts` (Cormorant Garamond, Inter, Crimson Text)
 
 ## Design Philosophy
 **Luxury Bohème Aesthetic**
@@ -120,19 +121,19 @@ CATEGORY_VISUALS = {
 **List Icons** (16 available):
 - cart, party, package, utensils, salad, coffee, wine, cake, pizza, soup, sandwich, apple, icecream, heart, star, home
 
-**Category Icons** (12 categories - emojis with luxury filter):
+**Category Icons** (12 categories - emojis with luxury filter via FilteredEmoji):
 - Dairy & Eggs → 🥛
 - Produce → 🥬
 - Proteins → 🥩
 - Bakery & Bread → 🥖
 - Pantry Staples → 📦
-- Spices & Herbs → 🌿
+- Spices & Herbs → 🧂
 - Condiments & Sauces → 🫙
-- Beverages → ☕
-- Snacks → 🍿
+- Beverages → 🍷
+- Snacks → 🍪
 - Frozen → 🧊
 - Household → 🧹
-- Other → 🛒
+- Other → 📋
 
 #### 6. Common Items Catalog (~200 items)
 Ordered by US/Europe consumption frequency (90% household coverage):
@@ -176,6 +177,7 @@ dishflow/
 │       └── FilteredEmoji.tsx  # Emoji with luxury filter overlay
 ├── constants/
 │   ├── colors.ts              # Luxury bohème palette
+│   ├── typography.ts          # Font families, sizes, text style presets
 │   ├── categories.ts          # Category definitions (ordered by frequency)
 │   └── categoryVisuals.ts     # Category colors, gradients, icons
 ├── store/
@@ -185,7 +187,9 @@ dishflow/
 │   └── pantryStore.ts         # Pantry + clearAll
 ├── lib/
 │   ├── database.ts            # SQLite operations + clear functions
-│   └── commonItemsSeed.ts     # ~200 item catalog (consumption-ordered)
+│   ├── commonItemsSeed.ts     # ~200 item catalog (consumption-ordered)
+│   └── ai/
+│       └── pantryScanner.ts   # Gemini AI image scanning (implemented)
 └── types/
     └── index.ts               # TypeScript interfaces
 ```

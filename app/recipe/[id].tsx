@@ -177,15 +177,49 @@ export default function RecipeDetailScreen() {
             Instructions
           </Text>
           {recipe.instructions.map((inst) => (
-            <View key={inst.id} className="flex-row mb-4">
-              <View className="w-8 h-8 rounded-full items-center justify-center mr-4" style={{ backgroundColor: colors.honey[100] }}>
-                <Text style={{ color: colors.honey[400], fontFamily: 'Inter', fontWeight: '600', fontSize: 14 }}>
-                  {inst.stepNumber}
-                </Text>
+            <View key={inst.id} className="mb-5">
+              <View className="flex-row">
+                <View className="w-8 h-8 rounded-full items-center justify-center mr-4" style={{ backgroundColor: colors.honey[100] }}>
+                  <Text style={{ color: colors.honey[400], fontFamily: 'Inter', fontWeight: '600', fontSize: 14 }}>
+                    {inst.stepNumber}
+                  </Text>
+                </View>
+                <View className="flex-1 pt-1">
+                  <Text style={{ color: colors.text.primary, fontFamily: 'Inter', fontSize: 15, lineHeight: 24 }}>
+                    {inst.text}
+                  </Text>
+
+                  {/* Timestamp & Technique badges */}
+                  {(inst.timestamp || inst.technique) && (
+                    <View className="flex-row flex-wrap gap-2 mt-2">
+                      {inst.timestamp && (
+                        <View className="bg-stone-100 px-2 py-1 rounded-md flex-row items-center">
+                          <Clock size={12} color={colors.text.muted} />
+                          <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 12, marginLeft: 4 }}>
+                            {inst.timestamp}
+                          </Text>
+                        </View>
+                      )}
+                      {inst.technique && (
+                        <View className="bg-sage-50 px-2 py-1 rounded-md" style={{ borderWidth: 1, borderColor: colors.sage[100] }}>
+                          <Text style={{ color: colors.sage[200], fontFamily: 'Inter', fontSize: 12, textTransform: 'capitalize' }}>
+                            {inst.technique}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Chef tip callout */}
+                  {inst.tip && (
+                    <View className="bg-honey-50 border border-honey-100 rounded-lg p-3 mt-2">
+                      <Text style={{ color: colors.honey[400], fontFamily: 'Inter', fontSize: 13, fontStyle: 'italic', lineHeight: 18 }}>
+                        Tip: {inst.tip}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
-              <Text className="flex-1 pt-1" style={{ color: colors.text.primary, fontFamily: 'Inter', fontSize: 15, lineHeight: 24 }}>
-                {inst.text}
-              </Text>
             </View>
           ))}
         </View>

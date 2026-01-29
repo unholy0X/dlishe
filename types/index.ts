@@ -31,6 +31,7 @@ export interface Ingredient {
   notes?: string;
   isOptional?: boolean;
   category?: IngredientCategory;
+  substitutes?: string[];
 }
 
 export interface Instruction {
@@ -39,6 +40,9 @@ export interface Instruction {
   text: string;
   duration?: number; // in minutes
   imageUrl?: string;
+  timestamp?: string;
+  technique?: string;
+  tip?: string;
 }
 
 export type IngredientCategory =

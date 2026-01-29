@@ -104,6 +104,7 @@ export default function AddRecipeScreen() {
         difficulty: extractedRecipe.difficulty,
         cuisine: extractedRecipe.cuisine,
         tags: extractedRecipe.tags,
+        notes: extractedRecipe.notes,
         ingredients: extractedRecipe.ingredients || [],
         instructions: extractedRecipe.instructions || [],
         isFavorite: false,
@@ -205,7 +206,37 @@ export default function AddRecipeScreen() {
                 {extractedRecipe.instructions?.length || 0} steps
               </Text>
             </View>
+
+            {/* Techniques Row */}
+            {extractedRecipe.instructions?.some((inst) => inst.technique) && (
+              <View className="py-3 border-t border-stone-200">
+                <Text style={{ color: colors.text.secondary, fontFamily: 'Inter', fontSize: 14, marginBottom: 6 }}>
+                  Techniques
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {[...new Set(extractedRecipe.instructions.filter((inst) => inst.technique).map((inst) => inst.technique!))].map((technique, idx) => (
+                    <View key={idx} className="bg-sage-50 px-3 py-1 rounded-full" style={{ borderWidth: 1, borderColor: colors.sage[100] }}>
+                      <Text style={{ color: colors.sage[200], fontFamily: 'Inter', fontSize: 12, textTransform: 'capitalize' }}>
+                        {technique}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
+
+          {/* Chef Notes */}
+          {extractedRecipe.notes && (
+            <View className="bg-honey-50 border border-honey-100 rounded-xl p-4 mb-4">
+              <Text style={{ color: colors.honey[400], fontFamily: 'Inter', fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
+                Chef Notes
+              </Text>
+              <Text style={{ color: colors.text.secondary, fontFamily: 'Inter', fontSize: 14, lineHeight: 20, fontStyle: 'italic' }}>
+                {extractedRecipe.notes}
+              </Text>
+            </View>
+          )}
 
           {/* Ingredients Preview */}
           {extractedRecipe.ingredients && extractedRecipe.ingredients.length > 0 && (
@@ -362,7 +393,7 @@ export default function AddRecipeScreen() {
               <>
                 <ActivityIndicator color="white" size="small" />
                 <Text style={{ color: 'white', fontFamily: 'Inter', fontWeight: '600', fontSize: 16, marginLeft: 12 }}>
-                  Extracting recipe...
+                  {detectUrlType(url) === "youtube" ? "Analyzing video..." : "Extracting recipe..."}
                 </Text>
               </>
             ) : (

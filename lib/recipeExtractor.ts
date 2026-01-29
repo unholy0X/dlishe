@@ -1,5 +1,14 @@
 // Recipe Extraction Logic
-import { geminiModel, RECIPE_SCHEMA, EXTRACTION_PROMPT, VIDEO_RECIPE_SCHEMA, VIDEO_EXTRACTION_PROMPT } from "./gemini";
+import {
+  geminiModel,
+  RECIPE_SCHEMA,
+  EXTRACTION_PROMPT,
+  VIDEO_RECIPE_SCHEMA,
+  VIDEO_EXTRACTION_PROMPT,
+  buildVideoExtractionPrompt,
+} from "./gemini";
+import { fetchYouTubeMetadata, type YouTubeMetadata } from "./youtube";
+import { fetchTikTokMetadata, type TikTokMetadata } from "./tiktok";
 import type { Recipe, Ingredient, Instruction, IngredientCategory } from "@/types";
 import { generateId } from "./database";
 
@@ -74,7 +83,7 @@ export function isValidUrl(url: string): boolean {
 }
 
 /**
- * Extract recipe from YouTube video using native Gemini video analysis
+ * Extract recipe from YouTube video using native Gemini video analysis (video-only)
  */
 async function extractFromYouTubeVideo(url: string): Promise<ExtractedRecipeData> {
   const result = await geminiModel.generateContent({
@@ -97,23 +106,25 @@ async function extractFromYouTubeVideo(url: string): Promise<ExtractedRecipeData
 }
 
 /**
- * Fallback: extract recipe from YouTube URL as text prompt
+ * Extract recipe from YouTube video with description cross-reference (primary path)
  */
-async function extractFromYouTubeText(url: string): Promise<ExtractedRecipeData> {
-  const prompt = `${EXTRACTION_PROMPT}
-
-Analyze this YouTube cooking video and extract the complete recipe. Pay attention to:
-- What the chef says about ingredients and amounts
-- The cooking steps shown in the video
-- Any tips or techniques mentioned
-
-YouTube URL: ${url}`;
+async function extractFromYouTubeVideoWithDescription(
+  url: string,
+  metadata: YouTubeMetadata
+): Promise<ExtractedRecipeData> {
+  const prompt = buildVideoExtractionPrompt(metadata.description, metadata.timestamps);
 
   const result = await geminiModel.generateContent({
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    contents: [{
+      role: "user",
+      parts: [
+        { fileData: { mimeType: "video/*", fileUri: url } },
+        { text: prompt },
+      ],
+    }],
     generationConfig: {
       responseMimeType: "application/json",
-      responseSchema: RECIPE_SCHEMA as any,
+      responseSchema: VIDEO_RECIPE_SCHEMA as any,
     },
   });
 
@@ -123,44 +134,184 @@ YouTube URL: ${url}`;
 }
 
 /**
- * Extract recipe from YouTube video with fallback to text-based approach
+ * Extract recipe from YouTube description only (fallback when video analysis fails)
+ */
+async function extractFromYouTubeDescription(
+  metadata: YouTubeMetadata
+): Promise<ExtractedRecipeData> {
+  const timestampSection =
+    metadata.timestamps.length > 0
+      ? `\nTIMESTAMPS:\n${metadata.timestamps.map((t) => `${t.time} - ${t.label}`).join("\n")}`
+      : "";
+
+  const prompt = `Extract a complete recipe from this YouTube video description.
+
+VIDEO TITLE: ${metadata.title}
+CHANNEL: ${metadata.channelName}
+
+DESCRIPTION:
+"""
+${metadata.description}
+"""
+${timestampSection}
+
+Extract all recipe information including ingredients with amounts, step-by-step instructions, cooking times, and any tips mentioned.
+Return ONLY valid JSON matching the schema.`;
+
+  const result = await geminiModel.generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: VIDEO_RECIPE_SCHEMA as any,
+    },
+  });
+
+  const response = result.response;
+  const text = response.text();
+  return JSON.parse(text);
+}
+
+/**
+ * Extract recipe from YouTube video with strict quality fallback chain:
+ * 1. Video + Description (richest extraction)
+ * 2. Description-only (if video analysis fails but description available)
+ * 3. Video-only (if no description available)
+ * 4. Error (no URL-text guessing)
  */
 async function extractFromYouTube(url: string): Promise<ExtractedRecipeData> {
+  // Step 1: Fetch YouTube metadata (description, timestamps)
+  const metadata = await fetchYouTubeMetadata(url);
+
+  // Step 2: Try video + description (richest extraction)
+  if (metadata?.description) {
+    try {
+      return await extractFromYouTubeVideoWithDescription(url, metadata);
+    } catch (videoError) {
+      console.warn("Video+description analysis failed:", videoError);
+
+      // Step 3: Fallback to description-only (still quality data)
+      try {
+        return await extractFromYouTubeDescription(metadata);
+      } catch (descError) {
+        console.warn("Description-only analysis failed:", descError);
+      }
+    }
+  }
+
+  // Step 4: Try video-only if no description available
   try {
     return await extractFromYouTubeVideo(url);
-  } catch (videoError) {
-    console.warn("Video analysis failed, falling back to text:", videoError);
-    return await extractFromYouTubeText(url);
+  } catch (videoOnlyError) {
+    console.warn("Video-only analysis failed:", videoOnlyError);
   }
+
+  // NO URL-text fallback — fail gracefully instead of guessing
+  throw new Error("Unable to extract recipe from this video. Please try again later.");
+}
+
+/**
+ * Extract recipe from TikTok video caption using oEmbed API
+ * Since we can't analyze TikTok video content directly, we extract from the caption
+ */
+async function extractFromTikTok(url: string): Promise<ExtractedRecipeData> {
+  // Step 1: Fetch TikTok metadata via oEmbed
+  const metadata = await fetchTikTokMetadata(url);
+
+  if (!metadata?.title) {
+    throw new Error("Unable to fetch TikTok video information. Please try pasting the caption manually.");
+  }
+
+  // Step 2: Extract recipe from the caption (title contains the full caption)
+  const prompt = `Extract a complete recipe from this TikTok video caption.
+
+CREATOR: ${metadata.authorName}
+
+CAPTION:
+"""
+${metadata.title}
+"""
+
+This is from a cooking video on TikTok. Extract all recipe information you can find including:
+- Recipe title (infer from the caption content)
+- Ingredients with amounts (look for ingredient lists, quantities mentioned)
+- Step-by-step instructions (infer logical cooking order from ingredients/context)
+- Any tips or notes mentioned
+
+If exact amounts aren't specified, make reasonable estimates based on the recipe type.
+Return ONLY valid JSON matching the schema.`;
+
+  const result = await geminiModel.generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: VIDEO_RECIPE_SCHEMA as any,
+    },
+  });
+
+  const response = result.response;
+  const text = response.text();
+  return JSON.parse(text);
+}
+
+/**
+ * Detailed prompt for website recipe extraction
+ * Preserves ingredient/instruction groups and all details
+ */
+const WEBSITE_EXTRACTION_PROMPT = `You are a recipe extraction expert. Extract the COMPLETE recipe from this webpage with FULL details.
+
+CRITICAL: Extract EVERYTHING exactly as shown on the page. Do not summarize or shorten.
+
+For INGREDIENTS:
+- Extract ALL ingredients with EXACT measurements (e.g., "1 1/2 cups", "2 tablespoons")
+- If ingredients are grouped (e.g., "For the Dough:", "For the Sauce:"), add the group name as a separate ingredient with "---" prefix like "--- For the Dough ---"
+- Include ALL preparation notes (e.g., "finely diced", "room temperature", "divided")
+- Count the ingredients - recipes typically have 10-30 ingredients
+
+For INSTRUCTIONS:
+- Extract ALL steps with COMPLETE text - do not summarize
+- If instructions are grouped (e.g., "For the Dough:", "Make the Sauce:"), add the group name as a step with "**" markers like "**For the Dough**"
+- Include all timing details (e.g., "cook for 15-20 minutes until golden")
+- Include all technique details (e.g., "fold gently", "whisk until emulsified")
+- Count the steps - recipes typically have 5-15 detailed steps
+
+IMPORTANT:
+- Every ingredient on the page must be in your output
+- Every instruction step on the page must be in your output
+- Do not combine or summarize steps
+- Preserve the exact wording from the recipe
+
+Website URL: {URL}
+
+Return ONLY valid JSON matching the schema.`;
+
+/**
+ * Extract recipe from website URL using Gemini AI
+ */
+async function extractFromWebsiteWithGemini(url: string): Promise<ExtractedRecipeData> {
+  const prompt = WEBSITE_EXTRACTION_PROMPT.replace("{URL}", url);
+
+  const result = await geminiModel.generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: VIDEO_RECIPE_SCHEMA as any, // Use richer schema
+    },
+  });
+
+  const response = result.response;
+  const text = response.text();
+  return JSON.parse(text);
 }
 
 /**
  * Extract recipe from website URL
+ * Uses Gemini AI for accurate, complete extraction
  */
 async function extractFromWebsite(url: string): Promise<ExtractedRecipeData> {
-  const prompt = `${EXTRACTION_PROMPT}
-
-Extract the recipe from this webpage. Look for:
-- Recipe title and description
-- Ingredient lists with measurements
-- Cooking instructions
-- Prep time, cook time, and servings
-
-Website URL: ${url}
-
-Fetch the content from this URL and extract the recipe data.`;
-
-  const result = await geminiModel.generateContent({
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: RECIPE_SCHEMA as any,
-    },
-  });
-
-  const response = result.response;
-  const text = response.text();
-  return JSON.parse(text);
+  // Use Gemini directly for consistent, accurate extraction
+  // Gemini can read any webpage structure and extract complete recipe data
+  console.log("Extracting recipe from website with Gemini AI");
+  return await extractFromWebsiteWithGemini(url);
 }
 
 /**
@@ -263,10 +414,13 @@ export async function extractRecipeFromUrl(url: string): Promise<ExtractionResul
         break;
 
       case "tiktok":
+        extractedData = await extractFromTikTok(url);
+        break;
+
       case "instagram":
         return {
           success: false,
-          error: "TikTok and Instagram links require manual paste. Please copy the video description and use 'Paste Description' option.",
+          error: "Instagram links require manual paste. Please copy the video description and use 'Paste Description' option.",
           sourceType: urlType,
         };
 

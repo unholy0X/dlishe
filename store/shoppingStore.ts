@@ -117,15 +117,12 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
   addRecipeIngredients: async (recipe, listId) => {
     try {
-      await db.addRecipeToShoppingList(recipe);
-      // Reload items for the specific list or all items
-      if (listId) {
-        const items = await db.getShoppingItemsByList(listId);
-        set({ items });
-      } else {
-        const items = await db.getAllShoppingItems();
-        set({ items });
+      if (!listId) {
+        throw new Error('listId is required to add recipe ingredients');
       }
+      await db.addRecipeToShoppingList(recipe, listId);
+      const items = await db.getShoppingItemsByList(listId);
+      set({ items });
     } catch (error) {
       set({ error: (error as Error).message });
     }

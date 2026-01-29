@@ -487,7 +487,7 @@ export async function clearCheckedShoppingItems(): Promise<void> {
   await database.runAsync('DELETE FROM shopping_items WHERE is_checked = 1');
 }
 
-export async function addRecipeToShoppingList(recipe: Recipe): Promise<void> {
+export async function addRecipeToShoppingList(recipe: Recipe, listId: string): Promise<void> {
   const database = await getDatabase();
   const now = new Date().toISOString();
 
@@ -496,9 +496,9 @@ export async function addRecipeToShoppingList(recipe: Recipe): Promise<void> {
 
     const id = generateId();
     await database.runAsync(
-      `INSERT INTO shopping_items (id, name, category, quantity, unit, is_checked, recipe_id, recipe_name, notes, created_at)
-       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
-      [id, ing.name, ing.category ?? 'other', ing.amount ?? null, ing.unit ?? null, recipe.id, recipe.title, ing.notes ?? null, now]
+      `INSERT INTO shopping_items (id, list_id, name, category, quantity, unit, is_checked, recipe_id, recipe_name, notes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+      [id, listId, ing.name, ing.category ?? 'other', ing.amount ?? null, ing.unit ?? null, recipe.id, recipe.title, ing.notes ?? null, now]
     );
   }
 }
@@ -715,8 +715,6 @@ export async function seedCommonItemsIfNeeded(): Promise<void> {
       ]
     );
   }
-  
-  console.log(`Seeded ${commonItemsSeed.length} common items`);
 }
 
 // Clear all pantry items

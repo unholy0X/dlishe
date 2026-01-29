@@ -3,10 +3,6 @@ import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 
 const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
 
-if (!API_KEY) {
-  console.warn("Gemini API key not found. Set EXPO_PUBLIC_GEMINI_API_KEY in .env");
-}
-
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 // Use gemini-2.0-flash for fast, capable extraction
@@ -277,6 +273,61 @@ Extract the following:
 
 If any information is not explicitly stated, make reasonable estimates based on what you observe.
 Return ONLY valid JSON matching the schema.`;
+
+export const VIDEO_WITH_DESCRIPTION_PROMPT = `You are a culinary expert extracting a recipe from a YouTube cooking video. You have TWO sources of information:
+
+1. THE VIDEO: Watch carefully for visual demonstrations, spoken instructions, and on-screen text
+2. THE DESCRIPTION: The video creator's written description (provided below)
+
+CROSS-REFERENCE these sources to extract the most accurate recipe:
+- Use the description's ingredient list as your PRIMARY source for exact measurements
+- Use the video to VERIFY techniques, timing, and visual cues the description might miss
+- If the description has timestamps, align them with the instruction steps
+- If there's a conflict, prefer the video for techniques but the description for measurements
+
+DESCRIPTION TEXT:
+"""
+{DESCRIPTION}
+"""
+
+{TIMESTAMPS_SECTION}
+
+Extract the complete recipe with:
+- Precise ingredient amounts (from description when available)
+- Step-by-step instructions with video timestamps
+- Cooking techniques observed in the video
+- Chef tips mentioned verbally or in description
+- Any substitutions the chef suggests
+
+Return ONLY valid JSON matching the schema.`;
+
+/**
+ * Build the video extraction prompt, optionally including description and timestamps
+ */
+export function buildVideoExtractionPrompt(
+  description?: string,
+  timestamps?: Array<{ time: string; label: string }>
+): string {
+  if (!description) {
+    return VIDEO_EXTRACTION_PROMPT;
+  }
+
+  let prompt = VIDEO_WITH_DESCRIPTION_PROMPT.replace("{DESCRIPTION}", description);
+
+  if (timestamps && timestamps.length > 0) {
+    const timestampText = timestamps
+      .map((t) => `${t.time} - ${t.label}`)
+      .join("\n");
+    prompt = prompt.replace(
+      "{TIMESTAMPS_SECTION}",
+      `\nTIMESTAMPS FROM DESCRIPTION:\n${timestampText}\n`
+    );
+  } else {
+    prompt = prompt.replace("{TIMESTAMPS_SECTION}", "");
+  }
+
+  return prompt;
+}
 
 // Structured schema for pantry scanner (replaces fragile JSON parsing)
 export const PANTRY_SCAN_SCHEMA = {

@@ -3,12 +3,13 @@ import { useLocalSearchParams, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Heart, Clock, Users, ChefHat, ShoppingCart, Trash2, Check } from "lucide-react-native";
 import { colors } from "@/constants/colors";
-import { useRecipeStore, useShoppingStore } from "@/store";
+import { useRecipeStore, useShoppingStore, useShoppingListsStore } from "@/store";
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getRecipeById, toggleFavorite, markAsCooked, deleteRecipe } = useRecipeStore();
   const { addRecipeIngredients } = useShoppingStore();
+  const { createList } = useShoppingListsStore();
 
   const recipe = getRecipeById(id);
 
@@ -27,8 +28,18 @@ export default function RecipeDetailScreen() {
   const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
 
   const handleAddToShoppingList = async () => {
-    await addRecipeIngredients(recipe);
-    Alert.alert("Added!", "Ingredients added to your shopping list.");
+    try {
+      const newList = await createList({
+        name: recipe.title,
+        description: `Ingredients for ${recipe.title}`,
+        isTemplate: false,
+        isArchived: false,
+      });
+      await addRecipeIngredients(recipe, newList.id);
+      Alert.alert("Added!", `Shopping list "${recipe.title}" created with all ingredients.`);
+    } catch (error) {
+      Alert.alert("Error", "Failed to create shopping list. Please try again.");
+    }
   };
 
   const handleMarkAsCooked = async () => {

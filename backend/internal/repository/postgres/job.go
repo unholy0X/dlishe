@@ -1,0 +1,333 @@
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/dishflow/backend/internal/model"
+)
+
+var (
+	ErrJobNotFound = errors.New("job not found")
+)
+
+// JobRepository handles video job database operations
+type JobRepository struct {
+	db *sql.DB
+}
+
+// NewJobRepository creates a new job repository
+func NewJobRepository(db *sql.DB) *JobRepository {
+	return &JobRepository{db: db}
+}
+
+// Create creates a new video job
+func (r *JobRepository) Create(ctx context.Context, job *model.VideoJob) error {
+	query := `
+		INSERT INTO video_jobs (
+			id, user_id, video_url, language, detail_level, status,
+			progress, status_message, idempotency_key, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+
+	_, err := r.db.ExecContext(ctx, query,
+		job.ID,
+		job.UserID,
+		job.VideoURL,
+		job.Language,
+		job.DetailLevel,
+		job.Status,
+		job.Progress,
+		job.StatusMessage,
+		job.IdempotencyKey,
+		job.CreatedAt,
+	)
+
+	return err
+}
+
+// GetByID retrieves a job by ID
+func (r *JobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.VideoJob, error) {
+	query := `
+		SELECT id, user_id, video_url, language, detail_level, status,
+			   progress, status_message, result_recipe_id, error_code,
+			   error_message, idempotency_key, started_at, completed_at, created_at
+		FROM video_jobs
+		WHERE id = $1
+	`
+
+	job := &model.VideoJob{}
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&job.ID,
+		&job.UserID,
+		&job.VideoURL,
+		&job.Language,
+		&job.DetailLevel,
+		&job.Status,
+		&job.Progress,
+		&job.StatusMessage,
+		&job.ResultRecipeID,
+		&job.ErrorCode,
+		&job.ErrorMessage,
+		&job.IdempotencyKey,
+		&job.StartedAt,
+		&job.CompletedAt,
+		&job.CreatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrJobNotFound
+		}
+		return nil, err
+	}
+
+	return job, nil
+}
+
+// GetByIdempotencyKey retrieves a job by idempotency key
+func (r *JobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid.UUID, key string) (*model.VideoJob, error) {
+	query := `
+		SELECT id, user_id, video_url, language, detail_level, status,
+			   progress, status_message, result_recipe_id, error_code,
+			   error_message, idempotency_key, started_at, completed_at, created_at
+		FROM video_jobs
+		WHERE user_id = $1 AND idempotency_key = $2
+	`
+
+	job := &model.VideoJob{}
+	err := r.db.QueryRowContext(ctx, query, userID, key).Scan(
+		&job.ID,
+		&job.UserID,
+		&job.VideoURL,
+		&job.Language,
+		&job.DetailLevel,
+		&job.Status,
+		&job.Progress,
+		&job.StatusMessage,
+		&job.ResultRecipeID,
+		&job.ErrorCode,
+		&job.ErrorMessage,
+		&job.IdempotencyKey,
+		&job.StartedAt,
+		&job.CompletedAt,
+		&job.CreatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrJobNotFound
+		}
+		return nil, err
+	}
+
+	return job, nil
+}
+
+// ListByUser retrieves all jobs for a user
+func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.VideoJob, error) {
+	query := `
+		SELECT id, user_id, video_url, language, detail_level, status,
+			   progress, status_message, result_recipe_id, error_code,
+			   error_message, idempotency_key, started_at, completed_at, created_at
+		FROM video_jobs
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []*model.VideoJob
+	for rows.Next() {
+		job := &model.VideoJob{}
+		err := rows.Scan(
+			&job.ID,
+			&job.UserID,
+			&job.VideoURL,
+			&job.Language,
+			&job.DetailLevel,
+			&job.Status,
+			&job.Progress,
+			&job.StatusMessage,
+			&job.ResultRecipeID,
+			&job.ErrorCode,
+			&job.ErrorMessage,
+			&job.IdempotencyKey,
+			&job.StartedAt,
+			&job.CompletedAt,
+			&job.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, job)
+	}
+
+	return jobs, rows.Err()
+}
+
+// Update updates a job
+func (r *JobRepository) Update(ctx context.Context, job *model.VideoJob) error {
+	query := `
+		UPDATE video_jobs SET
+			status = $2, progress = $3, status_message = $4,
+			result_recipe_id = $5, error_code = $6, error_message = $7,
+			started_at = $8, completed_at = $9
+		WHERE id = $1
+	`
+
+	result, err := r.db.ExecContext(ctx, query,
+		job.ID,
+		job.Status,
+		job.Progress,
+		job.StatusMessage,
+		job.ResultRecipeID,
+		job.ErrorCode,
+		job.ErrorMessage,
+		job.StartedAt,
+		job.CompletedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrJobNotFound
+	}
+
+	return nil
+}
+
+// UpdateProgress updates just the progress fields
+func (r *JobRepository) UpdateProgress(ctx context.Context, id uuid.UUID, status model.JobStatus, progress int, message string) error {
+	query := `
+		UPDATE video_jobs
+		SET status = $2, progress = $3, status_message = $4
+		WHERE id = $1
+	`
+
+	result, err := r.db.ExecContext(ctx, query, id, status, progress, message)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrJobNotFound
+	}
+
+	return nil
+}
+
+// MarkStarted marks a job as started
+func (r *JobRepository) MarkStarted(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE video_jobs
+		SET status = $2, started_at = $3
+		WHERE id = $1
+	`
+
+	now := time.Now().UTC()
+	_, err := r.db.ExecContext(ctx, query, id, model.JobStatusDownloading, now)
+	return err
+}
+
+// MarkCompleted marks a job as completed
+func (r *JobRepository) MarkCompleted(ctx context.Context, id, recipeID uuid.UUID) error {
+	query := `
+		UPDATE video_jobs
+		SET status = $2, progress = 100, result_recipe_id = $3,
+			status_message = $4, completed_at = $5
+		WHERE id = $1
+	`
+
+	now := time.Now().UTC()
+	message := "Recipe extracted successfully"
+	_, err := r.db.ExecContext(ctx, query, id, model.JobStatusCompleted, recipeID, message, now)
+	return err
+}
+
+// MarkFailed marks a job as failed
+func (r *JobRepository) MarkFailed(ctx context.Context, id uuid.UUID, errorCode, errorMessage string) error {
+	query := `
+		UPDATE video_jobs
+		SET status = $2, error_code = $3, error_message = $4, completed_at = $5
+		WHERE id = $1
+	`
+
+	now := time.Now().UTC()
+	_, err := r.db.ExecContext(ctx, query, id, model.JobStatusFailed, errorCode, errorMessage, now)
+	return err
+}
+
+// MarkCancelled marks a job as cancelled
+func (r *JobRepository) MarkCancelled(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE video_jobs
+		SET status = $2, status_message = $3, completed_at = $4
+		WHERE id = $1 AND status NOT IN ($5, $6, $7)
+	`
+
+	now := time.Now().UTC()
+	message := "Job cancelled by user"
+	result, err := r.db.ExecContext(ctx, query, id, model.JobStatusCancelled, message, now,
+		model.JobStatusCompleted, model.JobStatusFailed, model.JobStatusCancelled)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrJobNotFound
+	}
+
+	return nil
+}
+
+// CountPendingByUser counts pending/active jobs for a user
+func (r *JobRepository) CountPendingByUser(ctx context.Context, userID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*) FROM video_jobs
+		WHERE user_id = $1 AND status IN ($2, $3, $4, $5)
+	`
+	var count int
+	err := r.db.QueryRowContext(ctx, query, userID,
+		model.JobStatusPending,
+		model.JobStatusDownloading,
+		model.JobStatusProcessing,
+		model.JobStatusExtracting,
+	).Scan(&count)
+	return count, err
+}
+
+// CountCompletedThisMonth counts completed extractions this month for a user
+func (r *JobRepository) CountCompletedThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*) FROM video_jobs
+		WHERE user_id = $1
+		AND status = $2
+		AND completed_at >= date_trunc('month', CURRENT_DATE)
+	`
+	var count int
+	err := r.db.QueryRowContext(ctx, query, userID, model.JobStatusCompleted).Scan(&count)
+	return count, err
+}

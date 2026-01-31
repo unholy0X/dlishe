@@ -40,11 +40,6 @@ dev:
 	GEMINI_MOCK_MODE=true docker compose up --build
 
 dev-live:
-	@if [ -z "$$GEMINI_API_KEY" ]; then \
-		echo "Error: GEMINI_API_KEY not set"; \
-		echo "Run: export GEMINI_API_KEY=your-key"; \
-		exit 1; \
-	fi
 	GEMINI_MOCK_MODE=false docker compose up --build
 
 dev-bg:

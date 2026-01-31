@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Fonts */
+  --font-display: var(--font-cormorant), "Georgia", serif;
+  --font-sans: var(--font-inter), "system-ui", sans-serif;
+  --font-body: var(--font-inter), "system-ui", sans-serif;
+
+  /* Colors - Warm Stone */
+  --color-stone-50: #F7F3EE;
+  --color-stone-100: #EDE7DF;
+  --color-stone-200: #E3DDD3;
+  --color-stone-300: #D4CEC1;
+  --color-stone-400: #C4BBAB;
+
+  /* Colors - Candlelight & Honey */
+  --color-honey-50: #FFF9F0;
+  --color-honey-100: #F5E6D3;
+  --color-honey-200: #E8D4B8;
+  --color-honey-300: #D4B896;
+  --color-honey-400: #C19A6B;
+
+  /* Colors - Muted Sage */
+  --color-sage-50: #B8B5A8;
+  --color-sage-100: #9D9A88;
+  --color-sage-200: #7D7A68;
+  --color-sage-300: #5C5A4D;
+
+  /* Colors - Text */
+  --color-text-primary: #2B2822;
+  --color-text-secondary: #4A4539;
+  --color-text-tertiary: #6B6456;
+  --color-text-muted: #8B8173;
+  --color-text-disabled: #ADA396;
+
+  /* Shadows */
+  --shadow-soft: 0 2px 8px rgba(43, 40, 34, 0.04), 0 1px 2px rgba(43, 40, 34, 0.06);
+  --shadow-warm: 0 4px 12px rgba(43, 40, 34, 0.08), 0 2px 4px rgba(43, 40, 34, 0.06);
+  --shadow-glow: 0 8px 24px rgba(43, 40, 34, 0.10), 0 4px 8px rgba(43, 40, 34, 0.06);
+  --shadow-honey: 0 4px 16px rgba(193, 154, 107, 0.25), 0 2px 4px rgba(193, 154, 107, 0.15);
+}
+
+/* Global Reset & Base Styles */
+body {
+  @apply bg-stone-50 text-text-primary antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-display text-text-primary;
+}

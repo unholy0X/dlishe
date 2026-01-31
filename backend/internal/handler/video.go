@@ -2,9 +2,12 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -139,7 +142,7 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 	updateProgress(model.JobStatusDownloading, 10, "Downloading video...")
 
 	// 1. Download Video
-	localPath, err := h.downloader.Download(req.VideoURL)
+	localPath, thumbnailPath, err := h.downloader.Download(req.VideoURL)
 	if err != nil {
 		h.logger.Error("Download failed", "error", err)
 		failJob("DOWNLOAD_FAILED", "Failed to download video: "+err.Error())
@@ -148,6 +151,12 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 	defer func() {
 		if err := h.downloader.Cleanup(localPath); err != nil {
 			h.logger.Warn("Failed to cleanup temp file", "path", localPath, "error", err)
+		}
+		// Cleanup thumbnail if it exists
+		if thumbnailPath != "" {
+			if err := h.downloader.Cleanup(thumbnailPath); err != nil {
+				h.logger.Warn("Failed to cleanup thumbnail", "path", thumbnailPath, "error", err)
+			}
 		}
 	}()
 
@@ -165,8 +174,33 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 		return
 	}
 
+	// 2.5. Refine Recipe
+	updateProgress(model.JobStatusExtracting, 92, "Refining recipe...")
+	refinedResult, err := h.extractor.RefineRecipe(ctx, result)
+	if err != nil {
+		h.logger.Warn("Refinement failed, using raw extraction", "error", err)
+		// Fall back to original result if refinement fails
+	} else {
+		h.logger.Info("Recipe refined successfully")
+		result = refinedResult
+	}
+
 	// 3. Save Recipe
 	updateProgress(model.JobStatusExtracting, 95, "Saving recipe...")
+
+	// Prepare thumbnail URL (data URL from local file)
+	var thumbnailURL *string
+	if thumbnailPath != "" {
+		thumbnailData, err := os.ReadFile(thumbnailPath)
+		if err == nil {
+			// Convert to base64 data URL
+			dataURL := fmt.Sprintf("data:image/jpeg;base64,%s", base64.StdEncoding.EncodeToString(thumbnailData))
+			thumbnailURL = &dataURL
+			h.logger.Info("Thumbnail extracted successfully", "size", len(thumbnailData))
+		} else {
+			h.logger.Warn("Failed to read thumbnail file", "error", err)
+		}
+	}
 
 	recipe := &model.Recipe{
 		ID:           uuid.New(),
@@ -177,7 +211,7 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 		CookTime:     &result.CookTime,
 		Difficulty:   &result.Difficulty,
 		Cuisine:      &result.Cuisine,
-		ThumbnailURL: &result.Thumbnail,
+		ThumbnailURL: thumbnailURL, // Use extracted thumbnail instead of AI result
 		SourceType:   "video_extraction",
 		SourceURL:    &req.VideoURL,
 		IsFavorite:   false,
@@ -314,9 +348,18 @@ func (h *VideoHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert to response
-	var resp []model.JobResponse
+	resp := make([]model.JobResponse, 0)
 	for _, job := range jobs {
-		resp = append(resp, job.ToResponse(""))
+		jobResp := job.ToResponse("")
+
+		// Populate basic recipe info if completed
+		if job.Status == model.JobStatusCompleted && job.ResultRecipeID != nil {
+			if recipe, err := h.recipeRepo.GetByID(r.Context(), *job.ResultRecipeID); err == nil {
+				jobResp.Recipe = recipe
+			}
+		}
+
+		resp = append(resp, jobResp)
 	}
 
 	response.OK(w, resp)

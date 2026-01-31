@@ -65,13 +65,18 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 	downloader := video.NewDownloader(os.TempDir())
 	videoHandler := handler.NewVideoHandler(jobRepo, recipeRepo, extractor, downloader, logger)
-	r.Get("/health", healthHandler.Health)
-	r.Get("/ready", healthHandler.Ready)
+
+	// Initialize rate limiter
+	rateLimiter := middleware.NewRateLimiter(redis)
+
+	// Public endpoints with rate limiting
+	r.With(rateLimiter.Public()).Get("/health", healthHandler.Health)
+	r.With(rateLimiter.Public()).Get("/ready", healthHandler.Ready)
 
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public info endpoint
-		r.Get("/info", healthHandler.Info)
+		r.With(rateLimiter.Public()).Get("/info", healthHandler.Info)
 
 		// Auth routes (no auth required)
 		r.Route("/auth", func(r chi.Router) {
@@ -86,6 +91,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(jwtService))
+			r.Use(rateLimiter.General()) // Apply general rate limiting to all protected routes
 
 			// User routes
 			r.Route("/users", func(r chi.Router) {
@@ -116,9 +122,9 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 				})
 			})
 
-			// Video extraction routes
+			// Video extraction routes (stricter rate limiting)
 			r.Route("/video", func(r chi.Router) {
-				r.Post("/extract", videoHandler.Extract)
+				r.With(rateLimiter.VideoExtraction()).Post("/extract", videoHandler.Extract)
 			})
 
 			// Job routes

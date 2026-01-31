@@ -17,15 +17,22 @@ This file tracks the implementation progress of the DishFlow backend. Any AI ass
 | Database Migrations | ✅ Complete | Users, recipes, jobs, subscriptions |
 | Domain Models | ✅ Complete | User, Recipe, Job models |
 | Response Helpers | ✅ Complete | Standard error/success responses |
-| Middleware | ✅ Complete | Logging, CORS, Recover, Auth |
+| Middleware | ✅ Complete | Logging, CORS, Recover, Auth, RateLimit |
 | Router | ✅ Complete | All routes defined, auth wired up |
 | Main Entry Point | ✅ Complete | Server with graceful shutdown |
 | Auth Service | ✅ Complete | JWT generation/validation |
 | Auth Handlers | ✅ Complete | anonymous, register, login, logout, refresh, me |
 | User Repository | ✅ Complete | CRUD, GetOrCreateAnonymous, subscriptions |
-| Recipe Handlers | ⏳ Not Started | CRUD endpoints |
-| Video Handlers | ⏳ Not Started | Extraction pipeline |
-| Gemini Service | ⏳ Not Started | Real + mock clients |
+| Recipe Repository | ✅ Complete | Full CRUD with ingredients & steps |
+| Recipe Handlers | ✅ Complete | CRUD endpoints |
+| Video Downloader | ✅ Complete | yt-dlp with thumbnail extraction |
+| Gemini Service | ✅ Complete | Real client + recipe refinement |
+| Video Handlers | ✅ Complete | Extraction pipeline with jobs |
+| Job Repository | ✅ Complete | Job tracking and status updates |
+| Web Dashboard | ✅ Complete | Next.js frontend with auth |
+| Recipe Refinement | ✅ Complete | AI-powered post-processing |
+| Thumbnail Extraction | ✅ Complete | Automatic from videos |
+| Rate Limiting | ✅ Complete | Redis-based token bucket |
 | Subscription | ⏳ Not Started | RevenueCat integration |
 
 **Legend**: ✅ Complete | 🔄 In Progress | ⏳ Not Started | ❌ Blocked
@@ -62,8 +69,8 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 │   ├── handler/
 │   │   ├── health.go               ✅ Health endpoints (/health, /ready, /info)
 │   │   ├── auth.go                 ✅ Auth handlers (all endpoints)
-│   │   ├── recipes.go              ⏳ Recipe CRUD
-│   │   ├── video.go                ⏳ Video extraction
+│   │   ├── recipes.go              ✅ Recipe CRUD
+│   │   ├── video.go                ✅ Video extraction with jobs
 │   │   ├── sync.go                 ⏳ Sync endpoint
 │   │   └── subscription.go         ⏳ Subscription status
 │   │
@@ -71,17 +78,16 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 │   │   ├── auth/
 │   │   │   └── jwt.go              ✅ JWT service (generate, validate, refresh)
 │   │   ├── ai/
-│   │   │   ├── interface.go        ⏳ Gemini interface
-│   │   │   ├── gemini.go           ⏳ Real client
-│   │   │   └── gemini_mock.go      ⏳ Mock client
+│   │   │   ├── interface.go        ✅ Gemini interface with refinement
+│   │   │   └── gemini.go           ✅ Real client + refinement
 │   │   └── video/
-│   │       └── processor.go        ⏳ Video processing
+│   │       └── downloader.go       ✅ yt-dlp with thumbnail extraction
 │   │
 │   ├── repository/
 │   │   └── postgres/
 │   │       ├── user.go             ✅ User queries (CRUD, anonymous, subscriptions)
-│   │       ├── recipe.go           ⏳ Recipe queries
-│   │       └── job.go              ⏳ Job queries
+│   │       ├── recipe.go           ✅ Recipe queries with ingredients & steps
+│   │       └── job.go              ✅ Job queries with status tracking
 │   │
 │   ├── model/
 │   │   ├── user.go                 ✅ User, Subscription, Quota models
@@ -90,7 +96,7 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 │   │
 │   ├── middleware/
 │   │   ├── auth.go                 ✅ JWT validation (Auth, OptionalAuth, GetClaims)
-│   │   ├── ratelimit.go            ⏳ Rate limiting
+│   │   ├── ratelimit.go            ✅ Redis-based rate limiting (token bucket)
 │   │   ├── logging.go              ✅ Request logging with request ID
 │   │   ├── cors.go                 ✅ CORS headers
 │   │   └── recover.go              ✅ Panic recovery
@@ -113,7 +119,8 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 │   └── Dockerfile.dev              ✅ Dev with air hot reload
 │
 ├── scripts/
-│   └── test-api.sh                 ✅ API smoke tests
+│   ├── test-api.sh                 ✅ API smoke tests
+│   └── debug_recipe.sh             ✅ Recipe debugging script
 │
 ├── api/
 │   └── openapi.yaml                ⏳ API specification
@@ -132,8 +139,8 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 
 ## Current Task
 
-**Last worked on**: JWT Authentication System (Complete)
-**Next task**: Recipe CRUD handlers and repository
+**Last worked on**: Rate Limiting Implementation (Complete)
+**Next task**: RevenueCat subscription integration OR OpenAPI documentation
 
 ### To Continue From Here:
 
@@ -236,27 +243,120 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 **In Progress**:
 - None
 
+### Session 4: 2026-01-31 - Video Extraction & Web Dashboard Complete
+
+**Completed**:
+- [x] Created recipe repository (`internal/repository/postgres/recipe.go`)
+  - Full CRUD operations
+  - Ingredients and steps management
+  - User ownership and filtering
+- [x] Created recipe handlers (`internal/handler/recipes.go`)
+  - GET /api/v1/recipes - List user recipes
+  - POST /api/v1/recipes - Create recipe
+  - GET /api/v1/recipes/{id} - Get recipe details
+  - PUT /api/v1/recipes/{id} - Update recipe
+  - DELETE /api/v1/recipes/{id} - Delete recipe
+- [x] Created job repository (`internal/repository/postgres/job.go`)
+  - Job creation and tracking
+  - Status updates with progress
+  - Recipe association
+- [x] Created video downloader (`internal/service/video/downloader.go`)
+  - yt-dlp integration for multiple platforms
+  - Automatic thumbnail extraction
+  - Cleanup management
+- [x] Created Gemini AI service (`internal/service/ai/gemini.go`)
+  - Video upload to Gemini API
+  - Recipe extraction from video
+  - **Recipe refinement** (deduplication, standardization)
+  - Structured JSON output
+- [x] Created video extraction handlers (`internal/handler/video.go`)
+  - POST /api/v1/video/extract - Start extraction job
+  - GET /api/v1/jobs/{id} - Get job status
+  - GET /api/v1/jobs - List user jobs
+  - POST /api/v1/jobs/{id}/cancel - Cancel job
+  - Background processing with goroutines
+- [x] Created Next.js web dashboard (`/web-dashboard/`)
+  - Authentication (login, register)
+  - Recipe listing with job status
+  - Recipe detail view with ingredients & steps
+  - Video extraction form
+  - Real-time job polling
+  - Responsive design with Tailwind CSS
+- [x] Implemented recipe refinement
+  - AI-powered post-processing
+  - Ingredient deduplication
+  - Name standardization
+  - Quantity fixes
+- [x] Implemented thumbnail extraction
+  - Automatic from video downloads
+  - Base64 data URL storage
+  - Display on recipe pages
+- [x] Fixed multiple UI/UX issues
+  - Recipe access permissions (403 errors)
+  - Dashboard unique key warnings
+  - Missing recipe steps display
+  - Layout improvements (2-column design)
+
+**Tested Features**:
+- ✅ Video extraction from YouTube/TikTok
+- ✅ Recipe refinement (duplicate removal)
+- ✅ Thumbnail display on recipe pages
+- ✅ Dashboard authentication flow
+- ✅ Job status tracking
+- ✅ Recipe CRUD operations
+
+**In Progress**:
+- None
+
+### Session 5: 2026-01-31 - Rate Limiting Implementation
+
+**Completed**:
+- [x] Created rate limiting middleware (`internal/middleware/ratelimit.go`)
+  - Redis-based token bucket algorithm
+  - Per-user and per-IP tracking
+  - Three limit tiers (Public, General, VideoExtraction)
+  - Standard HTTP headers (X-RateLimit-*)
+  - Graceful degradation on Redis errors
+- [x] Updated router to apply rate limiting
+  - Public endpoints: 100 req/min (by IP)
+  - General authenticated: 120 req/min (by user)
+  - Video extraction: 5 req/hour (by user)
+- [x] Fixed IP extraction to strip port numbers
+- [x] Tested rate limiting enforcement
+  - Verified 429 responses when limit exceeded
+  - Confirmed Redis key structure
+  - Validated rate limit headers
+
+**Tested Features**:
+- ✅ Rate limit headers on all requests
+- ✅ 429 Too Many Requests after 100 requests
+- ✅ Retry-After header in error response
+- ✅ Single Redis key per IP (port stripped)
+
+**In Progress**:
+- None
+
 ---
 
 ## Next Steps
 
 ### Immediate (Next Session)
-1. **Recipe repository**: `internal/repository/postgres/recipe.go` - Recipe database operations
-2. **Recipe handlers**: `internal/handler/recipes.go` - CRUD endpoints
-3. **Test recipe endpoints**: Create, read, update, delete recipes
+1. **RevenueCat integration**: Subscription status and webhook handling
+2. **OpenAPI documentation**: Complete API specification
+3. **SSE streaming**: Real-time job progress updates
 
 ### Short Term
-1. Job repository (`internal/repository/postgres/job.go`)
-2. Video extraction handlers (`internal/handler/video.go`)
-3. Gemini service mock (`internal/service/ai/gemini_mock.go`)
-4. Rate limiting middleware (Redis-based)
+1. Sync endpoint for mobile app
+2. Pantry management endpoints
+3. Shopping list endpoints
+4. Meal planning endpoints
 
 ### Medium Term
-1. Real Gemini client integration
-2. Background job processing with goroutines
-3. SSE streaming for job progress
-4. Subscription/quota enforcement
-5. RevenueCat webhook handler
+1. SSE streaming for real-time job progress
+2. Background job queue (Redis-based)
+3. Recipe search and filtering
+4. Recipe sharing and social features
+5. Nutrition information extraction
 
 ---
 
@@ -362,5 +462,5 @@ make down
 
 ---
 
-**Last Updated**: 2026-01-31
+**Last Updated**: 2026-01-31 (Session 5 - Rate Limiting Complete)
 **Updated By**: Claude (AI Assistant)

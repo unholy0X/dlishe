@@ -58,6 +58,9 @@ type RecipeExtractor interface {
 	// ExtractRecipe extracts a recipe from a video URL
 	ExtractRecipe(ctx context.Context, req ExtractionRequest, onProgress ProgressCallback) (*ExtractionResult, error)
 
+	// RefineRecipe reviews and improves an extracted recipe (deduplication, standardization, etc.)
+	RefineRecipe(ctx context.Context, rawRecipe *ExtractionResult) (*ExtractionResult, error)
+
 	// ValidateURL validates if a URL is supported for extraction
 	ValidateURL(url string) error
 

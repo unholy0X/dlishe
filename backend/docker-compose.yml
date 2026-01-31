@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  # Go API Server with hot reload
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgres://dishflow:dishflow@postgres:5432/dishflow?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-mock}
+      - GEMINI_MOCK_MODE=${GEMINI_MOCK_MODE:-true}
+      - JWT_SECRET=dev-secret-must-be-at-least-32-characters-long
+      - LOG_LEVEL=debug
+      - CORS_ORIGINS=*
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dishflow
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: dishflow
+      POSTGRES_PASSWORD: dishflow
+      POSTGRES_DB: dishflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dishflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dishflow
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dishflow
+
+  # Database migrations
+  migrate:
+    image: migrate/migrate:v4.17.0
+    volumes:
+      - ./migrations:/migrations
+    entrypoint: ["migrate", "-path=/migrations", "-database=postgres://dishflow:dishflow@postgres:5432/dishflow?sslmode=disable"]
+    command: ["up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dishflow
+    profiles:
+      - tools
+
+  # Swagger UI for API exploration
+  swagger:
+    image: swaggerapi/swagger-ui:v5.11.0
+    ports:
+      - "8081:8080"
+    environment:
+      SWAGGER_JSON: /api/openapi.yaml
+      BASE_URL: /docs
+    volumes:
+      - ./api:/api:ro
+    networks:
+      - dishflow
+    profiles:
+      - docs
+
+volumes:
+  postgres-data:
+  redis-data:
+  go-mod-cache:
+
+networks:
+  dishflow:
+    driver: bridge

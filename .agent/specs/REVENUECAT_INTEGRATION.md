@@ -398,7 +398,7 @@ func (r *SubscriptionRepo) GetUsersNeedingReconciliation() ([]User, error) {
 **Cron Schedule**: Run daily at 3 AM UTC
 
 ```yaml
-# docker-compose.yml or k8s CronJob
+# docker compose.yml or k8s CronJob
 reconcile-subscriptions:
   schedule: "0 3 * * *"  # Daily at 3 AM
   command: /server --task=reconcile-subscriptions

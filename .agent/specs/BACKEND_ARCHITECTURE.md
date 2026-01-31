@@ -1742,7 +1742,7 @@ Priority: Get video-to-recipe working end-to-end
 Tasks:
 ├── Project setup
 │   ├── Go module, folder structure
-│   ├── Docker + docker-compose for local dev
+│   ├── Docker + docker compose for local dev
 │   ├── CI/CD pipeline (GitHub Actions)
 │   └── Environment config
 │

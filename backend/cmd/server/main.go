@@ -1,0 +1,136 @@
+package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
+
+	"github.com/dishflow/backend/internal/config"
+	"github.com/dishflow/backend/internal/router"
+)
+
+func main() {
+	// Load configuration
+	cfg := config.Load()
+
+	// Setup logger
+	logLevel := slog.LevelInfo
+	if cfg.LogLevel == "debug" {
+		logLevel = slog.LevelDebug
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+	}))
+	slog.SetDefault(logger)
+
+	logger.Info("Starting DishFlow API server",
+		slog.String("port", cfg.Port),
+		slog.Bool("mock_mode", cfg.IsMockMode()),
+	)
+
+	// Connect to PostgreSQL
+	db, err := connectPostgres(cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("Failed to connect to PostgreSQL", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer db.Close()
+	logger.Info("Connected to PostgreSQL")
+
+	// Connect to Redis
+	redisClient, err := connectRedis(cfg.RedisURL)
+	if err != nil {
+		logger.Error("Failed to connect to Redis", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+	logger.Info("Connected to Redis")
+
+	// Create router
+	r := router.New(cfg, logger, db, redisClient)
+
+	// Create HTTP server
+	server := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 60 * time.Second, // Longer for SSE streaming
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Start server in goroutine
+	go func() {
+		logger.Info("Server listening", slog.String("addr", server.Addr))
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("Server error", slog.Any("error", err))
+			os.Exit(1)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Info("Shutting down server...")
+
+	// Graceful shutdown with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		logger.Error("Server forced to shutdown", slog.Any("error", err))
+	}
+
+	logger.Info("Server stopped")
+}
+
+func connectPostgres(databaseURL string) (*sql.DB, error) {
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open connection: %w", err)
+	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	// Test connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	return db, nil
+}
+
+func connectRedis(redisURL string) (*redis.Client, error) {
+	opt, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Redis URL: %w", err)
+	}
+
+	client := redis.NewClient(opt)
+
+	// Test connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := client.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("failed to ping Redis: %w", err)
+	}
+
+	return client, nil
+}

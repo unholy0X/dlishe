@@ -1,0 +1,21 @@
+FROM golang:1.23-alpine
+
+# Install air for hot reload (pinned to compatible version)
+RUN go install github.com/air-verse/air@v1.61.0
+
+# Install yt-dlp for video downloads
+RUN apk add --no-cache ffmpeg python3 py3-pip curl git
+RUN pip3 install yt-dlp --break-system-packages
+
+WORKDIR /app
+
+# Copy go mod files for caching
+COPY go.mod go.sum* ./
+RUN go mod download || true
+
+# Copy air config
+COPY .air.toml .
+
+EXPOSE 8080
+
+CMD ["air", "-c", ".air.toml"]

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -11,6 +12,8 @@ import (
 	"github.com/dishflow/backend/internal/config"
 	"github.com/dishflow/backend/internal/handler"
 	"github.com/dishflow/backend/internal/middleware"
+	"github.com/dishflow/backend/internal/repository/postgres"
+	"github.com/dishflow/backend/internal/service/auth"
 )
 
 // New creates a new router with all routes configured
@@ -23,8 +26,19 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	r.Use(middleware.Recover(logger))
 	r.Use(middleware.CORS(cfg.CORSOrigins))
 
-	// Health checks (no auth required)
+	// Initialize services
+	jwtService := auth.NewJWTService(
+		cfg.JWTSecret,
+		15*time.Minute,  // Access token expiry
+		7*24*time.Hour,  // Refresh token expiry (7 days)
+	)
+	userRepo := postgres.NewUserRepository(db)
+
+	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db, redis)
+	authHandler := handler.NewAuthHandler(jwtService, userRepo)
+
+	// Health checks (no auth required)
 	r.Get("/health", healthHandler.Health)
 	r.Get("/ready", healthHandler.Ready)
 
@@ -35,21 +49,21 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 		// Auth routes (no auth required)
 		r.Route("/auth", func(r chi.Router) {
-			// TODO: Add auth handlers
-			r.Post("/anonymous", placeholderHandler("anonymous auth"))
-			r.Post("/register", placeholderHandler("register"))
-			r.Post("/login", placeholderHandler("login"))
-			r.Post("/logout", placeholderHandler("logout"))
-			r.Post("/refresh", placeholderHandler("refresh token"))
+			r.Post("/anonymous", authHandler.Anonymous)
+			r.Post("/register", authHandler.Register)
+			r.Post("/login", authHandler.Login)
+			r.Post("/refresh", authHandler.Refresh)
+			// Logout requires auth
+			r.With(middleware.Auth(jwtService)).Post("/logout", authHandler.Logout)
 		})
 
-		// Protected routes (TODO: add auth middleware)
+		// Protected routes
 		r.Group(func(r chi.Router) {
-			// TODO: r.Use(middleware.Auth(cfg.JWTSecret))
+			r.Use(middleware.Auth(jwtService))
 
 			// User routes
 			r.Route("/users", func(r chi.Router) {
-				r.Get("/me", placeholderHandler("get user"))
+				r.Get("/me", authHandler.Me)
 				r.Patch("/me", placeholderHandler("update user"))
 				r.Delete("/me", placeholderHandler("delete user"))
 			})

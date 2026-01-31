@@ -17,11 +17,12 @@ This file tracks the implementation progress of the DishFlow backend. Any AI ass
 | Database Migrations | ✅ Complete | Users, recipes, jobs, subscriptions |
 | Domain Models | ✅ Complete | User, Recipe, Job models |
 | Response Helpers | ✅ Complete | Standard error/success responses |
-| Middleware | ✅ Complete | Logging, CORS, Recover |
-| Router | ✅ Complete | All routes defined (placeholders) |
+| Middleware | ✅ Complete | Logging, CORS, Recover, Auth |
+| Router | ✅ Complete | All routes defined, auth wired up |
 | Main Entry Point | ✅ Complete | Server with graceful shutdown |
-| Auth Service | ⏳ Not Started | JWT generation/validation |
-| Auth Handlers | ⏳ Not Started | /auth/anonymous, /auth/login |
+| Auth Service | ✅ Complete | JWT generation/validation |
+| Auth Handlers | ✅ Complete | anonymous, register, login, logout, refresh, me |
+| User Repository | ✅ Complete | CRUD, GetOrCreateAnonymous, subscriptions |
 | Recipe Handlers | ⏳ Not Started | CRUD endpoints |
 | Video Handlers | ⏳ Not Started | Extraction pipeline |
 | Gemini Service | ⏳ Not Started | Real + mock clients |
@@ -60,7 +61,7 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 │   │
 │   ├── handler/
 │   │   ├── health.go               ✅ Health endpoints (/health, /ready, /info)
-│   │   ├── auth.go                 ⏳ Auth handlers
+│   │   ├── auth.go                 ✅ Auth handlers (all endpoints)
 │   │   ├── recipes.go              ⏳ Recipe CRUD
 │   │   ├── video.go                ⏳ Video extraction
 │   │   ├── sync.go                 ⏳ Sync endpoint
@@ -68,7 +69,7 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 │   │
 │   ├── service/
 │   │   ├── auth/
-│   │   │   └── jwt.go              ⏳ JWT service
+│   │   │   └── jwt.go              ✅ JWT service (generate, validate, refresh)
 │   │   ├── ai/
 │   │   │   ├── interface.go        ⏳ Gemini interface
 │   │   │   ├── gemini.go           ⏳ Real client
@@ -78,7 +79,7 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 │   │
 │   ├── repository/
 │   │   └── postgres/
-│   │       ├── user.go             ⏳ User queries
+│   │       ├── user.go             ✅ User queries (CRUD, anonymous, subscriptions)
 │   │       ├── recipe.go           ⏳ Recipe queries
 │   │       └── job.go              ⏳ Job queries
 │   │
@@ -88,7 +89,7 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 │   │   └── job.go                  ✅ VideoJob model
 │   │
 │   ├── middleware/
-│   │   ├── auth.go                 ⏳ JWT validation
+│   │   ├── auth.go                 ✅ JWT validation (Auth, OptionalAuth, GetClaims)
 │   │   ├── ratelimit.go            ⏳ Rate limiting
 │   │   ├── logging.go              ✅ Request logging with request ID
 │   │   ├── cors.go                 ✅ CORS headers
@@ -131,8 +132,8 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 
 ## Current Task
 
-**Last worked on**: Project initialization and foundation
-**Next task**: Complete auth service and handlers
+**Last worked on**: JWT Authentication System (Complete)
+**Next task**: Recipe CRUD handlers and repository
 
 ### To Continue From Here:
 
@@ -196,29 +197,66 @@ Specs Location: /Users/naoufal/shipyard/dishflow/.agent/specs/
 **In Progress**:
 - None
 
+### Session 3: 2026-01-31 - Auth System Complete
+
+**Completed**:
+- [x] Created JWT service (`internal/service/auth/jwt.go`)
+  - Token generation (access + refresh)
+  - Token validation with expiry handling
+  - Claims parsing with custom fields (UserID, Email, IsAnonymous, DeviceID)
+- [x] Created user repository (`internal/repository/postgres/user.go`)
+  - CRUD operations
+  - GetOrCreateAnonymous for device-based auth
+  - Subscription management
+- [x] Created auth handlers (`internal/handler/auth.go`)
+  - POST /api/v1/auth/anonymous - Anonymous user creation
+  - POST /api/v1/auth/register - Email/password registration
+  - POST /api/v1/auth/login - Email/password login
+  - POST /api/v1/auth/refresh - Token refresh
+  - POST /api/v1/auth/logout - Logout (204 No Content)
+  - GET /api/v1/users/me - Current user info + subscription
+- [x] Created auth middleware (`internal/middleware/auth.go`)
+  - Auth middleware (validates Bearer token)
+  - OptionalAuth middleware (validates if present)
+  - GetClaims helper function
+- [x] Updated router to wire auth handlers and middleware
+- [x] Added dependencies (golang-jwt/jwt/v5, golang.org/x/crypto)
+- [x] Ran database migrations successfully
+- [x] Tested all auth endpoints successfully
+
+**Tested Endpoints**:
+- ✅ POST /api/v1/auth/anonymous → Returns user + tokens + isNewUser
+- ✅ POST /api/v1/auth/register → Creates user, returns tokens
+- ✅ POST /api/v1/auth/login → Validates password, returns tokens
+- ✅ POST /api/v1/auth/refresh → Returns new token pair
+- ✅ POST /api/v1/auth/logout → Returns 204 No Content
+- ✅ GET /api/v1/users/me → Returns user + subscription (requires auth)
+- ✅ Validation errors work correctly
+
+**In Progress**:
+- None
+
 ---
 
 ## Next Steps
 
 ### Immediate (Next Session)
-1. **Test Docker setup**: Run `make dev` and verify services start
-2. **Run migrations**: Verify database schema is created
-3. **Complete auth service**: `internal/service/auth/jwt.go` - JWT generation/validation
-4. **Create auth handlers**: `internal/handler/auth.go` - Anonymous, login, logout
-5. **Create auth middleware**: `internal/middleware/auth.go` - JWT validation
+1. **Recipe repository**: `internal/repository/postgres/recipe.go` - Recipe database operations
+2. **Recipe handlers**: `internal/handler/recipes.go` - CRUD endpoints
+3. **Test recipe endpoints**: Create, read, update, delete recipes
 
-### Short Term (Session After)
-1. Create `internal/repository/postgres/user.go` - User database operations
-2. Create `internal/handler/recipes.go` - Recipe CRUD handlers
-3. Create `internal/repository/postgres/recipe.go` - Recipe database operations
-4. Add input validation middleware
+### Short Term
+1. Job repository (`internal/repository/postgres/job.go`)
+2. Video extraction handlers (`internal/handler/video.go`)
+3. Gemini service mock (`internal/service/ai/gemini_mock.go`)
+4. Rate limiting middleware (Redis-based)
 
 ### Medium Term
-1. Video extraction pipeline (Gemini mock + real)
+1. Real Gemini client integration
 2. Background job processing with goroutines
 3. SSE streaming for job progress
-4. Rate limiting middleware (Redis-based)
-5. Subscription/quota enforcement
+4. Subscription/quota enforcement
+5. RevenueCat webhook handler
 
 ---
 
@@ -261,6 +299,9 @@ CORS_ORIGINS=*
 # Start development stack
 make dev
 
+# Run migrations (required first time)
+make migrate
+
 # View logs
 make logs
 
@@ -270,6 +311,14 @@ make test
 # Test API manually
 curl http://localhost:8080/health
 curl http://localhost:8080/ready
+
+# Test auth endpoints
+curl -X POST http://localhost:8080/api/v1/auth/anonymous -H "Content-Type: application/json" -d '{}'
+curl -X POST http://localhost:8080/api/v1/auth/register -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"password123"}'
+curl -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"password123"}'
+
+# Test protected endpoint (replace TOKEN with actual token)
+curl http://localhost:8080/api/v1/users/me -H "Authorization: Bearer TOKEN"
 
 # Stop everything
 make down

@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -20,12 +23,24 @@ import (
 	"github.com/dishflow/backend/internal/service/ai"
 )
 
+// jobTimeout is the maximum time allowed for a video extraction job
+const jobTimeout = 30 * time.Minute
+
+// maxConcurrentJobs limits how many video extraction jobs can run simultaneously
+const maxConcurrentJobs = 5
+
 type VideoHandler struct {
 	jobRepo    JobRepository
 	recipeRepo RecipeRepository
 	extractor  ai.RecipeExtractor
 	downloader VideoDownloader
 	logger     *slog.Logger
+
+	// activeJobs stores cancel functions for running jobs
+	activeJobs sync.Map // map[uuid.UUID]context.CancelFunc
+
+	// jobSemaphore limits concurrent video processing jobs
+	jobSemaphore chan struct{}
 }
 
 func NewVideoHandler(
@@ -36,11 +51,12 @@ func NewVideoHandler(
 	logger *slog.Logger,
 ) *VideoHandler {
 	return &VideoHandler{
-		jobRepo:    jobRepo,
-		recipeRepo: recipeRepo,
-		extractor:  extractor,
-		downloader: downloader,
-		logger:     logger,
+		jobRepo:      jobRepo,
+		recipeRepo:   recipeRepo,
+		extractor:    extractor,
+		downloader:   downloader,
+		logger:       logger,
+		jobSemaphore: make(chan struct{}, maxConcurrentJobs),
 	}
 }
 
@@ -73,8 +89,32 @@ func (h *VideoHandler) Extract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Start processing in background
-	go h.processJob(job.ID, req)
+	// Create cancellable context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), jobTimeout)
+
+	// Store cancel function for later cancellation
+	h.activeJobs.Store(job.ID, cancel)
+
+	// Start processing in background with concurrency limit
+	go func() {
+		defer cancel()
+		defer h.activeJobs.Delete(job.ID)
+
+		// Acquire semaphore (blocks if at max capacity)
+		select {
+		case h.jobSemaphore <- struct{}{}:
+			// Acquired slot, proceed
+			defer func() { <-h.jobSemaphore }() // Release slot when done
+		case <-ctx.Done():
+			// Context cancelled while waiting for slot
+			if err := h.jobRepo.MarkFailed(context.Background(), job.ID, "TIMEOUT", "Job timed out waiting for processing slot"); err != nil {
+				h.logger.Error("Failed to mark job as timed out", "jobID", job.ID, "error", err)
+			}
+			return
+		}
+
+		h.processJob(ctx, job.ID, req)
+	}()
 
 	response.Created(w, job.ToResponse("")) // BaseURL empty for now
 }
@@ -121,11 +161,22 @@ func (h *VideoHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 }
 
 // processJob handles the background processing
-func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
-	ctx := context.Background() // New context for background task
+func (h *VideoHandler) processJob(ctx context.Context, jobID uuid.UUID, req ai.ExtractionRequest) {
+	// Helper to check if cancelled
+	isCancelled := func() bool {
+		select {
+		case <-ctx.Done():
+			return true
+		default:
+			return false
+		}
+	}
 
 	// Helper to update progress
 	updateProgress := func(status model.JobStatus, progress int, msg string) {
+		if isCancelled() {
+			return
+		}
 		if err := h.jobRepo.UpdateProgress(ctx, jobID, status, progress, msg); err != nil {
 			h.logger.Error("Failed to update job progress", "jobID", jobID, "error", err)
 		}
@@ -138,11 +189,21 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 		}
 	}
 
+	// Check if already cancelled before starting
+	if isCancelled() {
+		failJob("CANCELLED", "Job was cancelled before starting")
+		return
+	}
+
 	updateProgress(model.JobStatusDownloading, 10, "Downloading video...")
 
 	// 1. Download Video
 	localPath, thumbnailPath, err := h.downloader.Download(req.VideoURL)
 	if err != nil {
+		if isCancelled() {
+			failJob("CANCELLED", "Job was cancelled during download")
+			return
+		}
 		h.logger.Error("Download failed", "error", err)
 		failJob("DOWNLOAD_FAILED", "Failed to download video: "+err.Error())
 		return
@@ -159,6 +220,12 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 		}
 	}()
 
+	// Check cancellation after download
+	if isCancelled() {
+		failJob("CANCELLED", "Job was cancelled after download")
+		return
+	}
+
 	// 2. Extract Recipe
 	// Repurpose req.VideoURL to pass local path to Gemini service
 	extractReq := req
@@ -168,8 +235,18 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 		updateProgress(status, progress, msg)
 	})
 	if err != nil {
+		if isCancelled() || ctx.Err() != nil {
+			failJob("CANCELLED", "Job was cancelled during extraction")
+			return
+		}
 		h.logger.Error("Extraction failed", "error", err)
 		failJob("EXTRACTION_FAILED", "AI processing failed: "+err.Error())
+		return
+	}
+
+	// Check cancellation after extraction
+	if isCancelled() {
+		failJob("CANCELLED", "Job was cancelled after extraction")
 		return
 	}
 
@@ -182,6 +259,12 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 	} else {
 		h.logger.Info("Recipe refined successfully")
 		result = refinedResult
+	}
+
+	// Check cancellation after refinement
+	if isCancelled() {
+		failJob("CANCELLED", "Job was cancelled after refinement")
+		return
 	}
 
 	// 3. Save Recipe
@@ -225,11 +308,21 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 	}
 	recipe.UserID = job.UserID
 
-	// Convert ingredients
+	// Convert ingredients with validation
+	h.logger.Info("Converting ingredients", "count", len(result.Ingredients))
 	for i, ing := range result.Ingredients {
+		// Skip ingredients with empty names
+		if ing.Name == "" {
+			h.logger.Warn("Skipping ingredient with empty name", "index", i)
+			continue
+		}
+
 		// Map safe fields
 		unit := ing.Unit
 		notes := ing.Notes
+
+		// Validate and normalize category - CRITICAL: empty category causes DB failure
+		category := normalizeCategory(ing.Category)
 
 		ts := int(ing.VideoTimestamp * 60)
 		modelIng := model.RecipeIngredient{
@@ -237,7 +330,7 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 			RecipeID:       recipe.ID,
 			Name:           ing.Name,
 			Unit:           &unit,
-			Category:       ing.Category,
+			Category:       category,
 			IsOptional:     ing.IsOptional,
 			Notes:          &notes,
 			VideoTimestamp: &ts,
@@ -254,6 +347,7 @@ func (h *VideoHandler) processJob(jobID uuid.UUID, req ai.ExtractionRequest) {
 
 		recipe.Ingredients = append(recipe.Ingredients, modelIng)
 	}
+	h.logger.Info("Ingredients converted", "finalCount", len(recipe.Ingredients))
 
 	// Convert steps
 	for i, step := range result.Steps {
@@ -320,12 +414,79 @@ func (h *VideoHandler) CancelJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Cancel the running job if it's active
+	if cancelFn, ok := h.activeJobs.Load(id); ok {
+		if cancel, ok := cancelFn.(context.CancelFunc); ok {
+			cancel() // Signal the goroutine to stop
+			h.logger.Info("Cancelled running job", "jobID", id)
+		}
+	}
+
 	if err := h.jobRepo.MarkCancelled(r.Context(), id); err != nil {
 		response.InternalError(w)
 		return
 	}
 
 	response.NoContent(w)
+}
+
+// normalizeCategory validates and normalizes an ingredient category
+// Returns a valid category, defaulting to "other" if invalid or empty
+func normalizeCategory(category string) string {
+	if category == "" {
+		return "other"
+	}
+
+	// Lowercase for comparison
+	cat := strings.ToLower(strings.TrimSpace(category))
+
+	// Valid categories for recipe ingredients (from model/recipe.go)
+	validCategories := map[string]bool{
+		"dairy": true, "produce": true, "proteins": true, "bakery": true,
+		"pantry": true, "spices": true, "condiments": true, "beverages": true,
+		"snacks": true, "frozen": true, "household": true, "other": true,
+	}
+
+	if validCategories[cat] {
+		return cat
+	}
+
+	// Handle common AI-returned categories that aren't in our list
+	categoryMapping := map[string]string{
+		"grains":      "pantry",
+		"grain":       "pantry",
+		"canned":      "pantry",
+		"baking":      "bakery",
+		"meat":        "proteins",
+		"seafood":     "proteins",
+		"fish":        "proteins",
+		"poultry":     "proteins",
+		"vegetables":  "produce",
+		"vegetable":   "produce",
+		"fruits":      "produce",
+		"fruit":       "produce",
+		"herbs":       "produce",
+		"herb":        "produce",
+		"spice":       "spices",
+		"seasoning":   "spices",
+		"seasonings":  "spices",
+		"sauce":       "condiments",
+		"sauces":      "condiments",
+		"oil":         "condiments",
+		"oils":        "condiments",
+		"drink":       "beverages",
+		"drinks":      "beverages",
+		"snack":       "snacks",
+		"misc":        "other",
+		"miscellaneous": "other",
+		"":            "other",
+	}
+
+	if mapped, ok := categoryMapping[cat]; ok {
+		return mapped
+	}
+
+	return "other"
 }
 
 // ListJobs lists jobs for the current user

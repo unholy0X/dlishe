@@ -14,9 +14,15 @@ import {
     Loader2,
     Calendar,
     Share2,
-    Heart
+    Heart,
+    ShoppingCart,
+    Plus,
+    Sparkles
 } from 'lucide-react';
 import clsx from 'clsx';
+import { ShoppingList } from '../../../lib/types';
+import { shoppingService } from '../../../lib/services/shopping';
+import SupervisedAddModal from './SupervisedAddModal';
 
 // Types (Frontend representation)
 interface Ingredient {
@@ -54,16 +60,32 @@ interface Recipe {
 }
 
 export default function RecipeDetailPage() {
-    const { id } = useParams(); // Note: id might be array or string depending on Next.js version, but usually string in param
+    const { id } = useParams();
     const router = useRouter();
     const { isAuthenticated, isLoading: authLoading } = useAuth();
+
+    // Recipe State
     const [recipe, setRecipe] = useState<Recipe | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // Shopping List State
+    const [lists, setLists] = useState<ShoppingList[]>([]);
+    const [isShoppingModalOpen, setIsShoppingModalOpen] = useState(false);
+    const [addingToList, setAddingToList] = useState(false);
+
+    // Supervised Add State
+    const [isSupervisedModalOpen, setIsSupervisedModalOpen] = useState(false);
+    const [selectedListId, setSelectedListId] = useState<string | null>(null);
+    const [isSupervisedMode, setIsSupervisedMode] = useState(true);
+
     useEffect(() => {
+        // Only redirect if explicitly not loading and not authenticated
         if (!authLoading && !isAuthenticated) {
-            router.push('/login');
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            if (!token) {
+                router.push('/login');
+            }
             return;
         }
 
@@ -71,6 +93,13 @@ export default function RecipeDetailPage() {
             fetchRecipe(id as string);
         }
     }, [id, isAuthenticated, authLoading, router]);
+
+    // Fetch lists when modal opens
+    useEffect(() => {
+        if (isShoppingModalOpen && isAuthenticated) {
+            fetchLists();
+        }
+    }, [isShoppingModalOpen, isAuthenticated]);
 
     const fetchRecipe = async (recipeId: string) => {
         try {
@@ -80,6 +109,65 @@ export default function RecipeDetailPage() {
             setError(err.response?.data?.error?.message || 'Failed to load recipe');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchLists = async () => {
+        try {
+            const data = await shoppingService.getAll();
+            setLists(data.lists || []);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleAddToList = async (listId: string) => {
+        if (!recipe?.id) return;
+
+        if (isSupervisedMode) {
+            setSelectedListId(listId);
+            setIsSupervisedModalOpen(true);
+            return;
+        }
+
+        try {
+            setAddingToList(true);
+            await shoppingService.addFromRecipe(listId, recipe.id);
+            setIsShoppingModalOpen(false);
+            // In a real app, replace with a toast notification
+            alert('Added to shopping list!');
+        } catch (err) {
+            console.error('Failed to add to list', err);
+            alert('Failed to add to list');
+        } finally {
+            setAddingToList(false);
+        }
+    };
+
+    const handleCreateAndAdd = async () => {
+        if (!recipe) return;
+        try {
+            setAddingToList(true);
+            // 1. Create List
+            const newList = await shoppingService.create({
+                name: recipe.title, // Use recipe title as list name
+                icon: '🍳',
+                description: `Created from ${recipe.title}`
+            });
+
+            // 2. Add Ingredients
+            await shoppingService.addFromRecipe(newList.id, recipe.id);
+
+            setIsShoppingModalOpen(false);
+            alert(`Created list "${recipe.title}" and added ingredients!`);
+
+            // Optional: Redirect to the new list?
+            router.push(`/shopping/${newList.id}`);
+        } catch (err) {
+            console.error('Failed to create and add to list', err);
+            alert('Failed to create new list');
+        } finally {
+            setAddingToList(false);
         }
     };
 
@@ -111,6 +199,14 @@ export default function RecipeDetailPage() {
                     <span className="font-medium">Back</span>
                 </Link>
                 <div className="flex gap-4">
+                    <button
+                        onClick={() => setIsShoppingModalOpen(true)}
+                        className="p-2 text-text-muted hover:text-emerald-600 transition flex items-center gap-2"
+                        title="Add to Shopping List"
+                    >
+                        <ShoppingCart className="w-5 h-5" />
+                        <span className="hidden sm:inline text-sm font-medium">Add to List</span>
+                    </button>
                     <button className="p-2 text-text-muted hover:text-honey-500 transition">
                         <Heart className={clsx("w-5 h-5", recipe.isFavorite && "fill-current text-honey-500")} />
                     </button>
@@ -245,6 +341,85 @@ export default function RecipeDetailPage() {
 
                 </div>
             </main>
+
+            {/* Shopping List Modal */}
+            {isShoppingModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold text-gray-800">Add to Shopping List</h2>
+                            <button onClick={() => setIsShoppingModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                                &times;
+                            </button>
+                        </div>
+
+                        <p className="text-sm text-gray-500 mb-4">
+                            Select a list to add all ingredients from <strong>{recipe.title}</strong>.
+                        </p>
+
+                        <div className="mb-4 bg-indigo-50 p-3 rounded-lg flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Sparkles size={18} className="text-indigo-600" />
+                                <div>
+                                    <p className="text-sm font-medium text-indigo-900">Smart Add</p>
+                                    <p className="text-xs text-indigo-700">Check for duplicates with Chef's Brain</p>
+                                </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={isSupervisedMode}
+                                    onChange={(e) => setIsSupervisedMode(e.target.checked)}
+                                />
+                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+
+                        <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
+                            {lists.map(list => (
+                                <button
+                                    key={list.id}
+                                    onClick={() => handleAddToList(list.id)}
+                                    disabled={addingToList}
+                                    className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 transition-colors flex items-center gap-3 disabled:opacity-50"
+                                >
+                                    <span className="text-xl">{list.icon || '🛒'}</span>
+                                    <span className="font-medium text-gray-700">{list.name}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="border-t border-gray-100 pt-4">
+                            <button
+                                onClick={handleCreateAndAdd}
+                                disabled={addingToList}
+                                className="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-70"
+                            >
+                                {addingToList ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus size={18} />}
+                                <span className="font-medium">Create New List "{recipe.title}"</span>
+                            </button>
+                            <p className="text-xs text-center text-gray-400 mt-2">
+                                Check your shopping lists for items after adding.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Supervised Add Modal */}
+            {isSupervisedModalOpen && selectedListId && recipe && (
+                <SupervisedAddModal
+                    listId={selectedListId}
+                    recipeId={recipe.id}
+                    onClose={() => setIsSupervisedModalOpen(false)}
+                    onSuccess={() => {
+                        setIsSupervisedModalOpen(false);
+                        setIsShoppingModalOpen(false);
+                        alert('Ingredients added successfully! 🛒');
+                    }}
+                />
+            )}
         </div>
     );
 }

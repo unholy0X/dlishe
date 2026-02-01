@@ -563,16 +563,12 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 
 		item, err := h.shoppingRepo.CreateItem(ctx, listID, input)
 		if err != nil {
-			fmt.Printf("Failed to create item %s: %v\n", ingredient.Name, err)
-
 			// Try with category "other" if it failed (likely validation)
-			// This handles cases where recipe category doesn't match shopping list categories
 			fallbackCategory := "other"
 			input.Category = &fallbackCategory
 			item, err = h.shoppingRepo.CreateItem(ctx, listID, input)
 
 			if err != nil {
-				fmt.Printf("Failed retry with 'other' for item %s: %v\n", ingredient.Name, err)
 				warnings = append(warnings, fmt.Sprintf("Failed to add '%s': %v", ingredient.Name, err))
 				continue
 			}

@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
+import { useSync } from '@/lib/sync';
 import {
   Plus,
   Video,
@@ -12,7 +14,11 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Play
+  Play,
+  RefreshCw,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Upload
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -30,9 +36,15 @@ interface Job {
 }
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const { sync, isSyncing } = useSync();
   const router = useRouter();
+  const [extractionMode, setExtractionMode] = useState<'video' | 'url' | 'image'>('video');
   const [videoUrl, setVideoUrl] = useState('');
+  const [webUrl, setWebUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -75,19 +87,54 @@ export default function DashboardPage() {
 
   const handleExtract = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!videoUrl) return;
-
-    setIsSubmitting(true);
     setError('');
 
     try {
-      await api.post('/video/extract', {
-        videoUrl,
-        language: 'en',
-        detailLevel: 'detailed'
-      });
-      setVideoUrl('');
-      fetchJobs(); // Refresh immediately
+      if (extractionMode === 'video') {
+        if (!videoUrl) return;
+        setIsSubmitting(true);
+        await api.post('/video/extract', {
+          videoUrl,
+          language: 'en',
+          detailLevel: 'detailed'
+        });
+        setVideoUrl('');
+      } else if (extractionMode === 'url') {
+        if (!webUrl) return;
+        setIsSubmitting(true);
+        // Using /video/extract as it handles general async extraction now or /recipes/extract-url if sync? 
+        // Backend router has: r.Post("/extract-url", extractionHandler.ExtractFromURL) 
+        // and r.Post("/extract-image", ...).
+        // Let's assume these are synchronous or return a job? 
+        // Wait, the backend router says: extract-url and extract-image are under /recipes/. 
+        // Video extract is under /video/extract.
+        // If they are synchronous, they return a recipe directly. If async, they return a job?
+        // extractionHandler usually returns recipe. 
+        // Users wants "plug it to new endpoint". 
+        // If it returns a recipe, we should redirect to it?
+
+        const res = await api.post('/recipes/extract-url', { url: webUrl });
+        const recipeId = res.data?.id || res.data?.recipe?.id;
+        if (recipeId) router.push(`/recipes/${recipeId}`);
+        else fetchJobs(); // Fallback if it created a job implicitly or something
+        setWebUrl('');
+
+      } else if (extractionMode === 'image') {
+        if (!imageFile) return;
+        setIsSubmitting(true);
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const res = await api.post('/recipes/extract-image', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        const recipeId = res.data?.id || res.data?.recipe?.id;
+        if (recipeId) router.push(`/recipes/${recipeId}`);
+        else fetchJobs();
+        setImageFile(null);
+        setImagePreview(null);
+      }
+
+      fetchJobs(); // Refresh jobs anyway
     } catch (err: any) {
       setError(err.response?.data?.error?.message || 'Extraction failed');
     } finally {
@@ -108,14 +155,37 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ChefHat className="w-6 h-6 text-honey-500" />
-            <span className="font-display font-bold text-xl text-text-primary">DishFlow</span>
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2">
+              <ChefHat className="w-6 h-6 text-honey-500" />
+              <span className="font-display font-bold text-xl text-text-primary">DishFlow</span>
+            </div>
+
+            <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+              <Link href="/recipes" className="text-text-secondary hover:text-emerald-600 transition-colors">Recipes</Link>
+              <Link href="/pantry" className="text-text-secondary hover:text-emerald-600 transition-colors">Pantry</Link>
+              <Link href="/shopping" className="text-text-secondary hover:text-emerald-600 transition-colors">Shopping</Link>
+            </nav>
           </div>
+
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => sync()}
+              disabled={isSyncing}
+              className={clsx(
+                "p-2 rounded-full text-text-muted hover:bg-stone-100 transition-colors",
+                isSyncing && "animate-spin text-emerald-500"
+              )}
+              title="Sync Data"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+
+            <span className="w-px h-6 bg-stone-200 mx-1"></span>
+
             <span className="text-sm text-text-secondary">Hello, {user?.name}</span>
             <button
-              onClick={() => { useAuth().logout() }}
+              onClick={logout}
               className="text-sm text-text-muted hover:text-text-primary"
             >
               Logout
@@ -129,33 +199,109 @@ export default function DashboardPage() {
         {/* Hero / Extraction Input */}
         <section className="bg-white rounded-2xl shadow-warm border border-stone-200 p-8 text-center">
           <div className="max-w-2xl mx-auto space-y-6">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-display font-medium text-text-primary">Extract Recipe from Video</h1>
-              <p className="text-text-muted">Paste a YouTube or TikTok URL to generate a recipe instantly.</p>
+            <div className="space-y-4">
+              <h1 className="text-3xl font-display font-medium text-text-primary">Add New Recipe</h1>
+
+              <div className="flex justify-center gap-2 p-1 bg-stone-100 rounded-full w-fit mx-auto">
+                <button
+                  onClick={() => setExtractionMode('video')}
+                  className={clsx("px-4 py-2 rounded-full text-sm font-medium transition flex items-center gap-2", extractionMode === 'video' ? "bg-white text-honey-600 shadow-sm" : "text-text-muted hover:text-text-primary")}
+                >
+                  <Video className="w-4 h-4" /> Video
+                </button>
+                <button
+                  onClick={() => setExtractionMode('url')}
+                  className={clsx("px-4 py-2 rounded-full text-sm font-medium transition flex items-center gap-2", extractionMode === 'url' ? "bg-white text-honey-600 shadow-sm" : "text-text-muted hover:text-text-primary")}
+                >
+                  <LinkIcon className="w-4 h-4" /> Webpage
+                </button>
+                <button
+                  onClick={() => setExtractionMode('image')}
+                  className={clsx("px-4 py-2 rounded-full text-sm font-medium transition flex items-center gap-2", extractionMode === 'image' ? "bg-white text-honey-600 shadow-sm" : "text-text-muted hover:text-text-primary")}
+                >
+                  <ImageIcon className="w-4 h-4" /> Image
+                </button>
+              </div>
+
+              <p className="text-text-muted text-sm">
+                {extractionMode === 'video' && "Paste a YouTube or TikTok URL to generate a recipe."}
+                {extractionMode === 'url' && "Paste a recipe URL from any cooking website."}
+                {extractionMode === 'image' && "Upload a photo of a cookbook page or recipe card."}
+              </p>
             </div>
 
-            <form onSubmit={handleExtract} className="flex gap-2 relative">
-              <div className="relative flex-1">
-                <Video className="absolute left-3 top-3 w-5 h-5 text-text-muted" />
-                <input
-                  type="url"
-                  placeholder="https://youtube.com/shorts/..."
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-300 focus:ring-2 focus:ring-honey-300 focus:border-honey-300 outline-none transition bg-stone-50"
-                  required
-                />
-              </div>
+            <form onSubmit={handleExtract} className="space-y-4">
+              {extractionMode !== 'image' && (
+                <div className="relative">
+                  {extractionMode === 'video' ? (
+                    <Video className="absolute left-3 top-3 w-5 h-5 text-text-muted" />
+                  ) : (
+                    <LinkIcon className="absolute left-3 top-3 w-5 h-5 text-text-muted" />
+                  )}
+                  <input
+                    type="url"
+                    placeholder={extractionMode === 'video' ? "https://youtube.com/shorts/..." : "https://cooking.nytimes.com/..."}
+                    value={extractionMode === 'video' ? videoUrl : webUrl}
+                    onChange={(e) => extractionMode === 'video' ? setVideoUrl(e.target.value) : setWebUrl(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-300 focus:ring-2 focus:ring-honey-300 focus:border-honey-300 outline-none transition bg-stone-50"
+                    required={extractionMode !== 'image'}
+                  />
+                </div>
+              )}
+
+              {extractionMode === 'image' && (
+                <div className="relative">
+                  <input
+                    id="image-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        setImageFile(e.target.files[0]);
+                        setImagePreview(URL.createObjectURL(e.target.files[0]));
+                      }
+                    }}
+                  />
+
+                  {!imagePreview ? (
+                    <label
+                      htmlFor="image-upload"
+                      className="flex flex-col items-center gap-3 p-8 border-2 border-dashed border-stone-300 rounded-xl hover:border-honey-300 hover:bg-honey-50/50 transition cursor-pointer"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-text-muted">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-honey-600 font-medium">Click to upload</span>
+                        <span className="text-text-muted"> or drag and drop</span>
+                      </div>
+                    </label>
+                  ) : (
+                    <div className="relative rounded-xl overflow-hidden border border-stone-200 bg-stone-900 aspect-video group">
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-contain text-white" />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); setImageFile(null); setImagePreview(null); }}
+                        className="absolute top-2 right-2 bg-black/50 hover:bg-red-500 text-white p-2 rounded-full transition backdrop-blur-sm"
+                      >
+                        <Plus className="w-4 h-4 rotate-45" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="bg-honey-400 hover:bg-honey-500 text-white px-6 py-3 rounded-xl font-medium shadow-honey transition-colors disabled:opacity-70 flex items-center gap-2"
+                disabled={isSubmitting || (extractionMode === 'image' && !imageFile)}
+                className="w-full bg-honey-400 hover:bg-honey-500 text-white px-6 py-3 rounded-xl font-medium shadow-honey transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                Extract
+                {isSubmitting ? 'Processing...' : 'Extract Recipe'}
               </button>
             </form>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>}
           </div>
         </section>
 

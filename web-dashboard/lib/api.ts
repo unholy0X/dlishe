@@ -12,9 +12,15 @@ const api = axios.create({
 // Add a request interceptor to include the auth token
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+        // Ensure we check localStorage every time a request is made
+        // Note: access to window/localStorage in Next.js needs care during SSR, 
+        // but this interceptor runs in browser for client-side requests.
+        // For SSR, cookies are usually better, but we are using localStorage.
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('token');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
         return config;
     },

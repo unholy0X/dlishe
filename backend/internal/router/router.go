@@ -60,7 +60,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	var extractor ai.RecipeExtractor = geminiClient
 
 	pantryRepo := postgres.NewPantryRepository(db)
-	pantryHandler := handler.NewPantryHandler(pantryRepo)
+	pantryHandler := handler.NewPantryHandler(pantryRepo, geminiClient)
 
 	// Extraction handler for URL and image extraction
 	extractionHandler := handler.NewExtractionHandler(extractor, recipeRepo)
@@ -158,7 +158,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 				r.Get("/{id}", pantryHandler.Get)
 				r.Put("/{id}", pantryHandler.Update)
 				r.Delete("/{id}", pantryHandler.Delete)
-				r.Post("/scan", placeholderHandler("scan pantry"))
+				r.With(rateLimiter.VideoExtraction()).Post("/scan", pantryHandler.Scan) // AI-powered, stricter rate limit
 				r.Get("/restock-suggestions", placeholderHandler("restock suggestions"))
 			})
 

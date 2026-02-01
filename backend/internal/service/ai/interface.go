@@ -102,6 +102,38 @@ type CategoryOptimization struct {
 	Reason          string `json:"reason"`
 }
 
+// PantryScanner defines the interface for AI-powered pantry scanning
+type PantryScanner interface {
+	// ScanPantry detects pantry items from an image (photo of fridge, pantry shelf, etc.)
+	ScanPantry(ctx context.Context, imageData []byte, mimeType string) (*PantryScanResult, error)
+}
+
+// PantryScanResult contains the detected pantry items from an image
+type PantryScanResult struct {
+	Items      []ScannedPantryItem `json:"items"`
+	Confidence float64             `json:"confidence"` // Overall confidence 0-1
+	Notes      string              `json:"notes"`      // Any observations about the image
+}
+
+// ScannedPantryItem represents a single item detected in the pantry scan
+type ScannedPantryItem struct {
+	Name           string   `json:"name"`
+	Category       string   `json:"category"`
+	Quantity       *float64 `json:"quantity,omitempty"`
+	Unit           *string  `json:"unit,omitempty"`
+	ExpirationDays *int     `json:"expirationDays,omitempty"` // Estimated days until expiration
+	Confidence     float64  `json:"confidence"`               // Item-level confidence 0-1
+	BoundingBox    *BBox    `json:"boundingBox,omitempty"`    // Location in image (optional)
+}
+
+// BBox represents a bounding box for item location
+type BBox struct {
+	X      float64 `json:"x"`      // Left edge (0-1 normalized)
+	Y      float64 `json:"y"`      // Top edge (0-1 normalized)
+	Width  float64 `json:"width"`  // Width (0-1 normalized)
+	Height float64 `json:"height"` // Height (0-1 normalized)
+}
+
 // Supported video platforms
 var SupportedPlatforms = []string{
 	"youtube.com",

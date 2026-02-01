@@ -296,16 +296,23 @@ func (h *ExtractionHandler) saveExtractedRecipe(r *http.Request, userID uuid.UUI
 		UpdatedAt:   time.Now().UTC(),
 	}
 
-	// Convert ingredients
+	// Convert ingredients with category validation
 	for i, ing := range result.Ingredients {
+		// Skip empty names
+		if ing.Name == "" {
+			continue
+		}
+
 		qty := parseQuantity(ing.Quantity)
+		category := normalizeCategoryExtraction(ing.Category)
+
 		recipe.Ingredients = append(recipe.Ingredients, model.RecipeIngredient{
 			ID:         uuid.New(),
 			RecipeID:   recipe.ID,
 			Name:       ing.Name,
 			Quantity:   qty,
 			Unit:       stringPtr(ing.Unit),
-			Category:   ing.Category,
+			Category:   category,
 			IsOptional: ing.IsOptional,
 			Notes:      stringPtr(ing.Notes),
 			SortOrder:  i,
@@ -373,6 +380,41 @@ func detectMimeType(data []byte) string {
 	}
 
 	return "application/octet-stream"
+}
+
+// normalizeCategoryExtraction validates and normalizes an ingredient category
+func normalizeCategoryExtraction(category string) string {
+	if category == "" {
+		return "other"
+	}
+
+	cat := strings.ToLower(strings.TrimSpace(category))
+
+	// Valid categories
+	validCategories := map[string]bool{
+		"dairy": true, "produce": true, "proteins": true, "bakery": true,
+		"pantry": true, "spices": true, "condiments": true, "beverages": true,
+		"snacks": true, "frozen": true, "household": true, "other": true,
+	}
+
+	if validCategories[cat] {
+		return cat
+	}
+
+	// Map common AI-returned categories
+	categoryMapping := map[string]string{
+		"grains": "pantry", "grain": "pantry", "canned": "pantry", "baking": "bakery",
+		"meat": "proteins", "seafood": "proteins", "fish": "proteins", "poultry": "proteins",
+		"vegetables": "produce", "vegetable": "produce", "fruits": "produce", "fruit": "produce",
+		"herbs": "produce", "herb": "produce", "spice": "spices", "seasoning": "spices",
+		"sauce": "condiments", "sauces": "condiments", "oil": "condiments", "oils": "condiments",
+	}
+
+	if mapped, ok := categoryMapping[cat]; ok {
+		return mapped
+	}
+
+	return "other"
 }
 
 // Helper functions

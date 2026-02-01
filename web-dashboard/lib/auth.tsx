@@ -14,7 +14,7 @@ interface AuthContextType {
     user: User | null;
     token: string | null;
     login: (token: string, user: User) => void;
-    logout: () => void;
+    logout: () => Promise<void>;
     isAuthenticated: boolean;
     isLoading: boolean;
 }
@@ -47,7 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.push('/');
     };
 
-    const logout = () => {
+    const logout = async () => {
+        try {
+            await api.post('/auth/logout');
+        } catch (error) {
+            console.error('Logout failed on server', error);
+        }
         setToken(null);
         setUser(null);
         localStorage.removeItem('token');

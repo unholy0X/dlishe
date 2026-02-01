@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -530,9 +529,28 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Add each ingredient as a shopping item
-	var addedItems []*model.ShoppingItem
-	var warnings []string
+	// Idempotency check: verify recipe hasn't already been added to this list
+	alreadyExists, err := h.shoppingRepo.HasRecipeItems(ctx, listID, recipe.Title)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+	if alreadyExists {
+		response.ErrorJSON(w, http.StatusConflict, "RECIPE_ALREADY_ADDED",
+			"This recipe has already been added to the shopping list", nil)
+		return
+	}
+
+	// Prepare batch of items to add with aggregation
+	// This ensures duplicate ingredients (same name, unit, category) are merged
+	type ingredientKey struct {
+		name     string
+		unit     string
+		category string
+	}
+
+	aggregated := make(map[ingredientKey]*model.ShoppingItemInput)
+	recipeName := recipe.Title
 
 	for _, ingredient := range recipe.Ingredients {
 		// If filtered list is provided, skip if not in list
@@ -550,36 +568,73 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 
-		recipeName := recipe.Title
-		// Normalize category to ensure it matches validation rules (lowercase)
-		category := strings.ToLower(ingredient.Category)
-		input := &model.ShoppingItemInput{
-			Name:       ingredient.Name,
-			Quantity:   ingredient.Quantity,
-			Unit:       ingredient.Unit,
-			Category:   &category,
-			RecipeName: &recipeName,
+		// Normalize category using centralized validation
+		category := model.NormalizeCategory(ingredient.Category)
+
+		// Get unit for aggregation key
+		unit := ""
+		if ingredient.Unit != nil {
+			unit = *ingredient.Unit
 		}
 
-		item, err := h.shoppingRepo.CreateItem(ctx, listID, input)
-		if err != nil {
-			// Try with category "other" if it failed (likely validation)
-			fallbackCategory := "other"
-			input.Category = &fallbackCategory
-			item, err = h.shoppingRepo.CreateItem(ctx, listID, input)
+		// Create aggregation key
+		key := ingredientKey{
+			name:     strings.TrimSpace(ingredient.Name),
+			unit:     unit,
+			category: category,
+		}
 
-			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("Failed to add '%s': %v", ingredient.Name, err))
-				continue
+		// Aggregate or create new entry
+		if existing, found := aggregated[key]; found {
+			// Merge quantities if both exist
+			if existing.Quantity != nil && ingredient.Quantity != nil {
+				total := *existing.Quantity + *ingredient.Quantity
+				existing.Quantity = &total
+			} else if ingredient.Quantity != nil {
+				existing.Quantity = ingredient.Quantity
+			}
+		} else {
+			// Create new entry
+			aggregated[key] = &model.ShoppingItemInput{
+				Name:       strings.TrimSpace(ingredient.Name),
+				Quantity:   ingredient.Quantity,
+				Unit:       ingredient.Unit,
+				Category:   &category,
+				RecipeName: &recipeName,
 			}
 		}
-		addedItems = append(addedItems, item)
+	}
+
+	// Convert aggregated map to slice
+	var itemInputs []*model.ShoppingItemInput
+	for _, input := range aggregated {
+		itemInputs = append(itemInputs, input)
+	}
+
+	// Use transaction to add all items atomically
+	// This prevents partial failures leaving the list in an inconsistent state
+	tx, err := h.shoppingRepo.BeginTransaction(ctx)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+	defer tx.Rollback()
+
+	addedItems, err := h.shoppingRepo.CreateItemBatch(ctx, tx, listID, itemInputs)
+	if err != nil {
+		response.ErrorJSON(w, http.StatusInternalServerError, "BULK_INSERT_FAILED",
+			"Failed to add recipe ingredients to shopping list", nil)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		response.InternalError(w)
+		return
 	}
 
 	response.OK(w, map[string]interface{}{
-		"items":    addedItems,
-		"count":    len(addedItems),
-		"warnings": warnings,
+		"items": addedItems,
+		"count": len(addedItems),
 	})
 }
 
@@ -587,6 +642,10 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 func (h *ShoppingHandler) AnalyzeAddFromRecipe(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
+	if claims == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
 
 	if h.aiService == nil {
 		response.BadRequest(w, "AI service not available")

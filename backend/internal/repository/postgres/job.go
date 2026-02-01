@@ -331,3 +331,45 @@ func (r *JobRepository) CountCompletedThisMonth(ctx context.Context, userID uuid
 	err := r.db.QueryRowContext(ctx, query, userID, model.JobStatusCompleted).Scan(&count)
 	return count, err
 }
+
+// MarkStuckJobsAsFailed finds jobs that have been in processing state too long and marks them as failed
+func (r *JobRepository) MarkStuckJobsAsFailed(ctx context.Context, maxDuration time.Duration) (int, error) {
+	query := `
+		UPDATE video_jobs
+		SET status = $1, 
+		    error_code = $2, 
+		    error_message = $3,
+		    completed_at = $4
+		WHERE status IN ($5, $6, $7, $8)
+		AND started_at IS NOT NULL
+		AND started_at < $9
+		AND (completed_at IS NULL OR completed_at < started_at)
+	`
+
+	now := time.Now().UTC()
+	cutoff := now.Add(-maxDuration)
+	errorCode := "TIMEOUT"
+	errorMessage := "Job timed out after exceeding maximum processing duration"
+
+	result, err := r.db.ExecContext(ctx, query,
+		model.JobStatusFailed,
+		errorCode,
+		errorMessage,
+		now,
+		model.JobStatusPending,
+		model.JobStatusDownloading,
+		model.JobStatusProcessing,
+		model.JobStatusExtracting,
+		cutoff,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(rows), nil
+}

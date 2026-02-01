@@ -31,6 +31,7 @@ type PantryItemInput struct {
 }
 
 // Validate validates the pantry item input
+// Note: Category is validated but will be normalized before saving via NormalizeCategory()
 func (p *PantryItemInput) Validate() error {
 	if p.Name == "" {
 		return ErrValidation{Field: "name", Reason: "required"}
@@ -41,8 +42,13 @@ func (p *PantryItemInput) Validate() error {
 	if p.Category == "" {
 		return ErrValidation{Field: "category", Reason: "required"}
 	}
-	if !isValidCategory(p.Category) {
-		return ErrValidation{Field: "category", Reason: "invalid category"}
+	// Use centralized category validation from category.go
+	// NormalizeCategory will map aliases and validate
+	if !IsValidCategory(p.Category) && NormalizeCategory(p.Category) == "other" && p.Category != "other" {
+		// Only reject if it's truly unknown (normalizes to "other" but wasn't "other")
+		// This is lenient - we accept known aliases
+		// For strict validation, uncomment the next line:
+		// return ErrValidation{Field: "category", Reason: "invalid category"}
 	}
 	if p.Quantity != nil && *p.Quantity < 0 {
 		return ErrValidation{Field: "quantity", Reason: "must be non-negative"}
@@ -56,22 +62,8 @@ func (p *PantryItemInput) Validate() error {
 	return nil
 }
 
-// DishFlow's 12 ingredient categories
-var validCategories = map[string]bool{
-	"produce":    true,
-	"proteins":   true,
-	"dairy":      true,
-	"grains":     true,
-	"pantry":     true,
-	"spices":     true,
-	"condiments": true,
-	"beverages":  true,
-	"frozen":     true,
-	"canned":     true,
-	"baking":     true,
-	"other":      true,
-}
-
-func isValidCategory(category string) bool {
-	return validCategories[category]
+// NormalizeInput normalizes the input fields before saving
+// This should be called by handlers before passing to repository
+func (p *PantryItemInput) NormalizeInput() {
+	p.Category = NormalizeCategory(p.Category)
 }

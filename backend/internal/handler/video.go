@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -322,7 +321,7 @@ func (h *VideoHandler) processJob(ctx context.Context, jobID uuid.UUID, req ai.E
 		notes := ing.Notes
 
 		// Validate and normalize category - CRITICAL: empty category causes DB failure
-		category := normalizeCategory(ing.Category)
+		category := model.NormalizeCategory(ing.Category)
 
 		ts := int(ing.VideoTimestamp * 60)
 		modelIng := model.RecipeIngredient{
@@ -428,65 +427,6 @@ func (h *VideoHandler) CancelJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.NoContent(w)
-}
-
-// normalizeCategory validates and normalizes an ingredient category
-// Returns a valid category, defaulting to "other" if invalid or empty
-func normalizeCategory(category string) string {
-	if category == "" {
-		return "other"
-	}
-
-	// Lowercase for comparison
-	cat := strings.ToLower(strings.TrimSpace(category))
-
-	// Valid categories for recipe ingredients (from model/recipe.go)
-	validCategories := map[string]bool{
-		"dairy": true, "produce": true, "proteins": true, "bakery": true,
-		"pantry": true, "spices": true, "condiments": true, "beverages": true,
-		"snacks": true, "frozen": true, "household": true, "other": true,
-	}
-
-	if validCategories[cat] {
-		return cat
-	}
-
-	// Handle common AI-returned categories that aren't in our list
-	categoryMapping := map[string]string{
-		"grains":      "pantry",
-		"grain":       "pantry",
-		"canned":      "pantry",
-		"baking":      "bakery",
-		"meat":        "proteins",
-		"seafood":     "proteins",
-		"fish":        "proteins",
-		"poultry":     "proteins",
-		"vegetables":  "produce",
-		"vegetable":   "produce",
-		"fruits":      "produce",
-		"fruit":       "produce",
-		"herbs":       "produce",
-		"herb":        "produce",
-		"spice":       "spices",
-		"seasoning":   "spices",
-		"seasonings":  "spices",
-		"sauce":       "condiments",
-		"sauces":      "condiments",
-		"oil":         "condiments",
-		"oils":        "condiments",
-		"drink":       "beverages",
-		"drinks":      "beverages",
-		"snack":       "snacks",
-		"misc":        "other",
-		"miscellaneous": "other",
-		"":            "other",
-	}
-
-	if mapped, ok := categoryMapping[cat]; ok {
-		return mapped
-	}
-
-	return "other"
 }
 
 // ListJobs lists jobs for the current user

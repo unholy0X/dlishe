@@ -24,19 +24,28 @@ type Config struct {
 	JWTRefreshExpiry time.Duration
 
 	// Gemini
-	GeminiAPIKey  string
+	GeminiAPIKey   string
 	GeminiMockMode bool
 
 	// CORS
 	CORSOrigins string
 
 	// RevenueCat
-	RevenueCatSecretKey    string
+	RevenueCatSecretKey     string
 	RevenueCatWebhookSecret string
 
 	// Storage
-	StorageBucket    string
-	StorageEndpoint  string
+	StorageBucket   string
+	StorageEndpoint string
+	// Clerk configuration
+	ClerkPublishableKey string
+	ClerkSecretKey      string
+
+	// Cleanup worker configuration
+	CleanupEnabled   bool   // Enable background cleanup worker
+	CleanupInterval  string // How often to run cleanup (e.g., "5m")
+	CleanupMaxJobAge string // Max age for stuck jobs (e.g., "35m")
+	CleanupTempDir   string // Directory for temp files
 	StorageAccessKey string
 	StorageSecretKey string
 }
@@ -75,6 +84,12 @@ func Load() *Config {
 		StorageEndpoint:  getEnv("STORAGE_ENDPOINT", ""),
 		StorageAccessKey: getEnv("STORAGE_ACCESS_KEY", ""),
 		StorageSecretKey: getEnv("STORAGE_SECRET_KEY", ""),
+
+		// Cleanup worker
+		CleanupEnabled:   getBoolEnv("CLEANUP_ENABLED", true),
+		CleanupInterval:  getEnv("CLEANUP_INTERVAL", "5m"),
+		CleanupMaxJobAge: getEnv("CLEANUP_MAX_JOB_AGE", "35m"),
+		CleanupTempDir:   getEnv("CLEANUP_TEMP_DIR", ""),
 	}
 }
 

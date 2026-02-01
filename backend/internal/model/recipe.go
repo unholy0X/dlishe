@@ -28,9 +28,13 @@ type Recipe struct {
 	UpdatedAt      time.Time          `json:"updatedAt" db:"updated_at"`
 	DeletedAt      *time.Time         `json:"-" db:"deleted_at"`
 
-	// Related data (not stored in recipes table)
-	Ingredients    []RecipeIngredient `json:"ingredients,omitempty"`
-	Steps          []RecipeStep       `json:"steps,omitempty"`
+	// Computed fields (for list views without loading full relations)
+	IngredientCount int `json:"ingredientCount,omitempty"`
+	StepCount       int `json:"stepCount,omitempty"`
+
+	// Related data (not stored in recipes table, loaded on GetByID)
+	Ingredients []RecipeIngredient `json:"ingredients,omitempty"`
+	Steps       []RecipeStep       `json:"steps,omitempty"`
 }
 
 // RecipeIngredient represents an ingredient in a recipe

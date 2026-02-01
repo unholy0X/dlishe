@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 )
@@ -127,4 +128,31 @@ func Accepted(w http.ResponseWriter, data interface{}) {
 
 func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Error logging helpers - log internal details, return sanitized messages
+
+// LogAndError logs the internal error and returns a sanitized error response
+// Use this when you want to hide internal error details from clients
+func LogAndError(w http.ResponseWriter, status int, code, publicMessage string, internalErr error) {
+	if internalErr != nil {
+		log.Printf("[ERROR] %s: %s (internal: %v)", code, publicMessage, internalErr)
+	}
+	ErrorJSON(w, status, code, publicMessage, nil)
+}
+
+// LogAndBadRequest logs error details and returns a generic bad request
+func LogAndBadRequest(w http.ResponseWriter, publicMessage string, internalErr error) {
+	LogAndError(w, http.StatusBadRequest, "BAD_REQUEST", publicMessage, internalErr)
+}
+
+// LogAndInternalError logs error details and returns generic internal error
+func LogAndInternalError(w http.ResponseWriter, internalErr error) {
+	log.Printf("[ERROR] Internal error: %v", internalErr)
+	InternalError(w)
+}
+
+// LogAndServiceError logs error details and returns service-specific error
+func LogAndServiceError(w http.ResponseWriter, code, publicMessage string, internalErr error) {
+	LogAndError(w, http.StatusUnprocessableEntity, code, publicMessage, internalErr)
 }

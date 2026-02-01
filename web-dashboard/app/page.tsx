@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
-import { useSync } from '@/lib/sync';
+import { NavHeader } from '@/lib/components/NavHeader';
 import {
   Plus,
   Video,
@@ -37,7 +37,6 @@ interface Job {
 
 export default function DashboardPage() {
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
-  const { sync, isSyncing } = useSync();
   const router = useRouter();
   const [extractionMode, setExtractionMode] = useState<'video' | 'url' | 'image'>('video');
   const [videoUrl, setVideoUrl] = useState('');
@@ -124,12 +123,25 @@ export default function DashboardPage() {
         setIsSubmitting(true);
         const formData = new FormData();
         formData.append('image', imageFile);
+        formData.append('saveAuto', 'true'); // Auto-save the extracted recipe
+
         const res = await api.post('/recipes/extract-image', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
-        const recipeId = res.data?.id || res.data?.recipe?.id;
-        if (recipeId) router.push(`/recipes/${recipeId}`);
-        else fetchJobs();
+
+        console.log('Extract-image response:', res.data);
+
+        // When saveAuto is true, backend returns savedId
+        const recipeId = res.data?.savedId;
+
+        if (recipeId) {
+          console.log('Navigating to saved recipe:', recipeId);
+          router.push(`/recipes/${recipeId}`);
+        } else {
+          console.warn('No recipe ID found in response:', res.data);
+          setError('Recipe extracted but not saved. Please try again.');
+        }
+
         setImageFile(null);
         setImagePreview(null);
       }
@@ -152,47 +164,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      {/* Header */}
-      <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2">
-              <ChefHat className="w-6 h-6 text-honey-500" />
-              <span className="font-display font-bold text-xl text-text-primary">DishFlow</span>
-            </div>
-
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-              <Link href="/recipes" className="text-text-secondary hover:text-emerald-600 transition-colors">Recipes</Link>
-              <Link href="/pantry" className="text-text-secondary hover:text-emerald-600 transition-colors">Pantry</Link>
-              <Link href="/shopping" className="text-text-secondary hover:text-emerald-600 transition-colors">Shopping</Link>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => sync()}
-              disabled={isSyncing}
-              className={clsx(
-                "p-2 rounded-full text-text-muted hover:bg-stone-100 transition-colors",
-                isSyncing && "animate-spin text-emerald-500"
-              )}
-              title="Sync Data"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
-
-            <span className="w-px h-6 bg-stone-200 mx-1"></span>
-
-            <span className="text-sm text-text-secondary">Hello, {user?.name}</span>
-            <button
-              onClick={logout}
-              className="text-sm text-text-muted hover:text-text-primary"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+      <NavHeader />
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-12">
 

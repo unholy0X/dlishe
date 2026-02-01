@@ -1,16 +1,5 @@
-export type PantryCategory =
-    | 'produce'
-    | 'proteins'
-    | 'dairy'
-    | 'grains'
-    | 'pantry'
-    | 'spices'
-    | 'condiments'
-    | 'beverages'
-    | 'frozen'
-    | 'canned'
-    | 'baking'
-    | 'other';
+// Import canonical category types from single source of truth
+export { VALID_CATEGORIES, CATEGORY_LABELS, CATEGORY_ICONS, type PantryCategory } from './categories';
 
 export interface PantryItem {
     id: string;

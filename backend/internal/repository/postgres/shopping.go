@@ -439,11 +439,20 @@ func (r *ShoppingRepository) CompleteList(ctx context.Context, listID, userID uu
 	}
 	defer tx.Rollback()
 
-	// 1. Get checked items
+	// Acquire advisory lock to prevent concurrent completions of the same list
+	// Use list ID hash as lock key (transaction-scoped lock, auto-released on commit/rollback)
+	lockID := hashUUIDToInt64(listID)
+	_, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", lockID)
+	if err != nil {
+		return err
+	}
+
+	// 1. Get checked items with row locks to prevent concurrent modification
 	queryChecked := `
 		SELECT name, quantity, unit, category
 		FROM shopping_items
 		WHERE list_id = $1 AND is_checked = true AND deleted_at IS NULL
+		FOR UPDATE
 	`
 	rows, err := tx.QueryContext(ctx, queryChecked, listID)
 	if err != nil {
@@ -457,14 +466,22 @@ func (r *ShoppingRepository) CompleteList(ctx context.Context, listID, userID uu
 		if err := rows.Scan(&item.Name, &item.Quantity, &item.Unit, &item.Category); err != nil {
 			return err
 		}
+		// Normalize category to ensure consistency
+		item.Category = model.NormalizeCategory(item.Category)
 		itemsToMove = append(itemsToMove, item)
 	}
 	rows.Close() // Close specifically before next query
 
-	// 2. Insert into Pantry (simple insert for MVP)
+	// 2. Insert into Pantry with UPSERT (merge quantities for duplicates)
 	queryInsertPantry := `
 		INSERT INTO pantry_items (user_id, name, quantity, unit, category)
 		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (user_id, name, category)
+		DO UPDATE SET
+			quantity = COALESCE(pantry_items.quantity, 0) + COALESCE(EXCLUDED.quantity, 0),
+			unit = COALESCE(EXCLUDED.unit, pantry_items.unit),
+			updated_at = NOW(),
+			sync_version = pantry_items.sync_version + 1
 	`
 	for _, item := range itemsToMove {
 		_, err := tx.ExecContext(ctx, queryInsertPantry, userID, item.Name, item.Quantity, item.Unit, item.Category)
@@ -491,4 +508,67 @@ func (r *ShoppingRepository) CompleteList(ctx context.Context, listID, userID uu
 	}
 
 	return tx.Commit()
+}
+
+// hashUUIDToInt64 converts a UUID to int64 for use as PostgreSQL advisory lock ID
+func hashUUIDToInt64(id uuid.UUID) int64 {
+	b := id[:]
+	// Use first 8 bytes of UUID as int64
+	return int64(b[0]) | int64(b[1])<<8 | int64(b[2])<<16 | int64(b[3])<<24 |
+		int64(b[4])<<32 | int64(b[5])<<40 | int64(b[6])<<48 | int64(b[7])<<56
+}
+
+// CreateItemBatch creates multiple shopping items atomically within a transaction
+// This method accepts a transaction to allow it to be part of a larger transaction
+func (r *ShoppingRepository) CreateItemBatch(ctx context.Context, tx *sql.Tx, listID uuid.UUID, inputs []*model.ShoppingItemInput) ([]*model.ShoppingItem, error) {
+	if len(inputs) == 0 {
+		return []*model.ShoppingItem{}, nil
+	}
+
+	query := `
+		INSERT INTO shopping_items (list_id, name, quantity, unit, category, recipe_name)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, list_id, name, quantity, unit, category, is_checked, recipe_name,
+		          sync_version, created_at, updated_at, deleted_at
+	`
+
+	var items []*model.ShoppingItem
+	for _, input := range inputs {
+		item := &model.ShoppingItem{}
+		err := tx.QueryRowContext(ctx, query,
+			listID, input.Name, input.Quantity, input.Unit, input.Category, input.RecipeName,
+		).Scan(
+			&item.ID, &item.ListID, &item.Name, &item.Quantity, &item.Unit,
+			&item.Category, &item.IsChecked, &item.RecipeName, &item.SyncVersion,
+			&item.CreatedAt, &item.UpdatedAt, &item.DeletedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
+// BeginTransaction starts a new database transaction
+func (r *ShoppingRepository) BeginTransaction(ctx context.Context) (*sql.Tx, error) {
+	return r.db.BeginTx(ctx, nil)
+}
+
+// HasRecipeItems checks if items from a specific recipe already exist in the list
+// Used for idempotency checking when adding recipe ingredients
+func (r *ShoppingRepository) HasRecipeItems(ctx context.Context, listID uuid.UUID, recipeName string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM shopping_items
+			WHERE list_id = $1 AND recipe_name = $2 AND deleted_at IS NULL
+		)
+	`
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, listID, recipeName).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }

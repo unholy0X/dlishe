@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,26 +21,41 @@ func NewPantryRepository(db *sql.DB) *PantryRepository {
 	return &PantryRepository{db: db}
 }
 
-// List returns all pantry items for a user
-func (r *PantryRepository) List(ctx context.Context, userID uuid.UUID, category *string) ([]*model.PantryItem, error) {
-	query := `
+// List returns pantry items for a user with SQL-based pagination
+func (r *PantryRepository) List(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error) {
+	// Build WHERE clause
+	whereClause := `WHERE user_id = $1 AND deleted_at IS NULL`
+	args := []interface{}{userID}
+	argIndex := 2
+
+	if category != nil && *category != "" {
+		whereClause += fmt.Sprintf(` AND category = $%d`, argIndex)
+		args = append(args, *category)
+		argIndex++
+	}
+
+	// Get total count first
+	countQuery := `SELECT COUNT(*) FROM pantry_items ` + whereClause
+	var total int
+	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated items
+	query := fmt.Sprintf(`
 		SELECT id, user_id, name, category, quantity, unit, expiration_date,
 		       sync_version, created_at, updated_at, deleted_at
 		FROM pantry_items
-		WHERE user_id = $1 AND deleted_at IS NULL
-	`
-	args := []interface{}{userID}
+		%s
+		ORDER BY created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIndex, argIndex+1)
 
-	if category != nil && *category != "" {
-		query += ` AND category = $2`
-		args = append(args, *category)
-	}
-
-	query += ` ORDER BY created_at DESC`
+	args = append(args, limit, offset)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -52,12 +68,12 @@ func (r *PantryRepository) List(ctx context.Context, userID uuid.UUID, category 
 			&item.SyncVersion, &item.CreatedAt, &item.UpdatedAt, &item.DeletedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		items = append(items, item)
 	}
 
-	return items, rows.Err()
+	return items, total, rows.Err()
 }
 
 // Get returns a single pantry item by ID

@@ -36,7 +36,15 @@ export default function RegisterPage() {
             router.push('/');
 
         } catch (err: any) {
-            setError(err.response?.data?.error?.message || 'Registration failed');
+            console.error('Registration error:', err.response?.data);
+            const errorData = err.response?.data?.error;
+            if (errorData?.field && errorData?.message) {
+                setError(`${errorData.field}: ${errorData.message}`);
+            } else if (errorData?.message) {
+                setError(errorData.message);
+            } else {
+                setError('Registration failed. Please check your inputs.');
+            }
         }
     };
 
@@ -85,7 +93,9 @@ export default function RegisterPage() {
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-honey-300 focus:border-honey-300 outline-none transition"
                             required
+                            minLength={8}
                         />
+                        <p className="text-xs text-text-muted mt-1">Must be at least 8 characters</p>
                     </div>
 
                     <button

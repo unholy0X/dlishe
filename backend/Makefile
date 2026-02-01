@@ -25,6 +25,7 @@ help:
 	@echo "  make test-int     - Run integration tests"
 	@echo "  make test-cover   - Run tests with coverage"
 	@echo "  make test-api     - Run API smoke tests"
+	@echo "  make e2e-test     - Run E2E recipe extraction tests"
 	@echo ""
 	@echo "Build:"
 	@echo "  make build        - Build production binary"
@@ -106,6 +107,20 @@ test-cover:
 test-api:
 	@chmod +x scripts/test-api.sh
 	./scripts/test-api.sh
+
+e2e-test:
+	@echo "🧪 Running E2E Recipe Extraction Tests..."
+	@set -a; \
+	if [ -f .env ]; then \
+		. ./.env; \
+	fi; \
+	set +a; \
+	if [ -z "$$GEMINI_API_KEY" ] || [ "$$GEMINI_API_KEY" = "mock" ]; then \
+		echo "❌ Error: GEMINI_API_KEY environment variable must be set and not 'mock'"; \
+		echo "Export your API key: export GEMINI_API_KEY='your-key-here'"; \
+		exit 1; \
+	fi; \
+	go run cmd/e2e_test/main.go
 
 # === Build ===
 

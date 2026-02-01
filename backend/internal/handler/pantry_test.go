@@ -14,16 +14,17 @@ import (
 
 func TestPantryHandler_List(t *testing.T) {
 	mockRepo := &mockPantryRepository{}
-	handler := NewPantryHandler(mockRepo)
+	handler := NewPantryHandler(mockRepo, nil) // nil scanner since we're not testing scanning
 	userID := uuid.New()
 
 	t.Run("success", func(t *testing.T) {
 		qty := 1.0
 		unit := "kg"
-		mockRepo.ListFunc = func(ctx context.Context, uid uuid.UUID, category *string) ([]*model.PantryItem, error) {
-			return []*model.PantryItem{
+		mockRepo.ListFunc = func(ctx context.Context, uid uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error) {
+			items := []*model.PantryItem{
 				{ID: uuid.New(), Name: "Salt", Quantity: &qty, Unit: &unit},
-			}, nil
+			}
+			return items, len(items), nil
 		}
 
 		req := httptest.NewRequest("GET", "/pantry", nil)

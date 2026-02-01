@@ -15,7 +15,9 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/dishflow/backend/internal/config"
+	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/router"
+	"github.com/dishflow/backend/internal/service/cleanup"
 )
 
 func main() {
@@ -58,6 +60,47 @@ func main() {
 	// Create router
 	r := router.New(cfg, logger, db, redisClient)
 
+	// Start cleanup worker if enabled
+	var cleanupCancel context.CancelFunc
+	if cfg.CleanupEnabled {
+		cleanupCtx, cancel := context.WithCancel(context.Background())
+		cleanupCancel = cancel
+
+		// Parse durations
+		cleanupInterval, err := time.ParseDuration(cfg.CleanupInterval)
+		if err != nil {
+			logger.Warn("Invalid cleanup interval, using default",
+				slog.String("value", cfg.CleanupInterval),
+				slog.String("default", "5m"))
+			cleanupInterval = 5 * time.Minute
+		}
+
+		maxJobAge, err := time.ParseDuration(cfg.CleanupMaxJobAge)
+		if err != nil {
+			logger.Warn("Invalid max job age, using default",
+				slog.String("value", cfg.CleanupMaxJobAge),
+				slog.String("default", "35m"))
+			maxJobAge = 35 * time.Minute
+		}
+
+		// Import cleanup service
+		cleanupService := cleanup.NewService(
+			postgres.NewJobRepository(db),
+			logger,
+			cleanup.Config{
+				TempDir:         cfg.CleanupTempDir,
+				MaxJobAge:       maxJobAge,
+				CleanupInterval: cleanupInterval,
+			},
+		)
+
+		// Start cleanup worker in background
+		go cleanupService.Start(cleanupCtx)
+		logger.Info("Cleanup worker started",
+			slog.Duration("interval", cleanupInterval),
+			slog.Duration("max_job_age", maxJobAge))
+	}
+
 	// Create HTTP server
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -82,6 +125,12 @@ func main() {
 	<-quit
 
 	logger.Info("Shutting down server...")
+
+	// Stop cleanup worker first if it's running
+	if cleanupCancel != nil {
+		logger.Info("Stopping cleanup worker...")
+		cleanupCancel()
+	}
 
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

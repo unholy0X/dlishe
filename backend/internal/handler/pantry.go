@@ -41,22 +41,43 @@ func (h *PantryHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Optional category filter
+	// Optional category filter - normalize if provided
 	category := r.URL.Query().Get("category")
 	var categoryPtr *string
 	if category != "" {
-		categoryPtr = &category
+		normalized := model.NormalizeCategory(category)
+		categoryPtr = &normalized
 	}
 
-	items, err := h.repo.List(ctx, claims.UserID, categoryPtr)
+	// Pagination with SQL (no more in-memory slicing)
+	limit := 100
+	offset := 0
+
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 200 {
+			limit = val
+		}
+	}
+
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if val, err := strconv.Atoi(o); err == nil && val >= 0 {
+			offset = val
+		}
+	}
+
+	// SQL-based pagination - efficient for large datasets
+	items, total, err := h.repo.List(ctx, claims.UserID, categoryPtr, limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return
 	}
 
 	response.OK(w, map[string]interface{}{
-		"items": items,
-		"count": len(items),
+		"items":  items,
+		"total":  total,
+		"count":  len(items),
+		"limit":  limit,
+		"offset": offset,
 	})
 }
 
@@ -109,9 +130,12 @@ func (h *PantryHandler) Create(w http.ResponseWriter, r *http.Request) {
 			response.ValidationFailed(w, valErr.Field, valErr.Reason)
 			return
 		}
-		response.BadRequest(w, err.Error())
+		response.LogAndBadRequest(w, "Invalid pantry item data", err)
 		return
 	}
+
+	// Normalize category before saving (maps aliases to canonical categories)
+	input.NormalizeInput()
 
 	item, err := h.repo.Create(ctx, claims.UserID, &input)
 	if err != nil {
@@ -149,9 +173,12 @@ func (h *PantryHandler) Update(w http.ResponseWriter, r *http.Request) {
 			response.ValidationFailed(w, valErr.Field, valErr.Reason)
 			return
 		}
-		response.BadRequest(w, err.Error())
+		response.LogAndBadRequest(w, "Invalid pantry item data", err)
 		return
 	}
+
+	// Normalize category before saving (maps aliases to canonical categories)
+	input.NormalizeInput()
 
 	item, err := h.repo.Update(ctx, id, claims.UserID, &input)
 	if err == model.ErrNotFound {
@@ -280,7 +307,7 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		// Handle multipart form upload
 		if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max
-			response.BadRequest(w, "Failed to parse multipart form: "+err.Error())
+			response.LogAndBadRequest(w, "Failed to parse image upload", err)
 			return
 		}
 		defer r.MultipartForm.RemoveAll() // Cleanup temp files
@@ -361,8 +388,7 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	// Call AI to scan the image
 	result, err := h.scanner.ScanPantry(ctx, imageData, mimeType)
 	if err != nil {
-		response.ErrorJSON(w, http.StatusUnprocessableEntity, "SCAN_FAILED",
-			"Failed to scan image: "+err.Error(), nil)
+		response.LogAndServiceError(w, "SCAN_FAILED", "Failed to scan pantry image", err)
 		return
 	}
 
@@ -392,10 +418,8 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 
 		// Auto-add to pantry if requested and confidence is high enough
 		if autoAdd && item.Confidence >= 0.7 {
-			// Validate category
-			if !isValidPantryCategory(item.Category) {
-				item.Category = "other"
-			}
+			// Validate and normalize category
+			item.Category = model.NormalizeCategory(item.Category)
 
 			var expTime *time.Time
 			if item.ExpirationDays != nil && *item.ExpirationDays > 0 {
@@ -429,14 +453,4 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.OK(w, resp)
-}
-
-// isValidPantryCategory checks if a category is valid for pantry items
-func isValidPantryCategory(category string) bool {
-	validCategories := map[string]bool{
-		"produce": true, "proteins": true, "dairy": true, "grains": true,
-		"pantry": true, "spices": true, "condiments": true, "beverages": true,
-		"frozen": true, "canned": true, "baking": true, "other": true,
-	}
-	return validCategories[category]
 }

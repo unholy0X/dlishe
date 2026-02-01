@@ -6,6 +6,7 @@ import { ChefHat, Clock, Users, Trash2, Search, Plus, Loader2, ArrowLeft } from 
 import { useAuth } from '../../lib/auth';
 import { recipeService, Recipe } from '../../lib/services/recipe';
 import Link from 'next/link';
+import { NavHeader } from '@/lib/components/NavHeader';
 
 export default function RecipesPage() {
     const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -30,6 +31,7 @@ export default function RecipesPage() {
         try {
             setLoading(true);
             const data = await recipeService.getAll();
+            console.log('Recipes API response:', data);
             setRecipes(data.recipes || []);
             setError(null);
         } catch (err) {
@@ -68,25 +70,8 @@ export default function RecipesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-stone-50">
-            {/* Header */}
-            <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
-                <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link href="/" className="text-text-muted hover:text-text-primary transition-colors flex items-center gap-1">
-                            <ArrowLeft className="w-4 h-4" />
-                            Back
-                        </Link>
-                        <span className="w-px h-6 bg-stone-200"></span>
-                        <div className="flex items-center gap-2">
-                            <ChefHat className="w-6 h-6 text-honey-500" />
-                            <span className="font-display font-bold text-xl text-text-primary">My Recipes</span>
-                        </div>
-                    </div>
-
-                    <span className="text-sm text-text-secondary">{filteredRecipes.length} recipes</span>
-                </div>
-            </header>
+        <>
+            <NavHeader />
 
             <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
                 {/* Search */}
@@ -183,8 +168,8 @@ export default function RecipesPage() {
                                     )}
                                     {recipe.difficulty && (
                                         <span className={`px-2 py-0.5 rounded-full capitalize ${recipe.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                                                recipe.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
+                                            recipe.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                                'bg-red-100 text-red-700'
                                             }`}>
                                             {recipe.difficulty}
                                         </span>
@@ -214,6 +199,6 @@ export default function RecipesPage() {
                     </div>
                 )}
             </main>
-        </div>
+        </>
     );
 }

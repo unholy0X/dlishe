@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+
 @theme inline {
   /* Fonts */
   --font-display: var(--font-cormorant), "Georgia", serif;
@@ -45,6 +46,11 @@ body {
   @apply bg-stone-50 text-text-primary antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   @apply font-display text-text-primary;
 }

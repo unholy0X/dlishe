@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/dishflow/backend/internal/model"
@@ -93,7 +94,7 @@ func (m *mockRecipeRepository) SetFavorite(ctx context.Context, id uuid.UUID, is
 }
 
 type mockPantryRepository struct {
-	ListFunc        func(ctx context.Context, userID uuid.UUID, category *string) ([]*model.PantryItem, error)
+	ListFunc        func(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error)
 	GetFunc         func(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.PantryItem, error)
 	CreateFunc      func(ctx context.Context, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
 	UpdateFunc      func(ctx context.Context, id uuid.UUID, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
@@ -101,8 +102,8 @@ type mockPantryRepository struct {
 	GetExpiringFunc func(ctx context.Context, userID uuid.UUID, days int) ([]*model.PantryItem, error)
 }
 
-func (m *mockPantryRepository) List(ctx context.Context, userID uuid.UUID, category *string) ([]*model.PantryItem, error) {
-	return m.ListFunc(ctx, userID, category)
+func (m *mockPantryRepository) List(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error) {
+	return m.ListFunc(ctx, userID, category, limit, offset)
 }
 func (m *mockPantryRepository) Get(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.PantryItem, error) {
 	return m.GetFunc(ctx, id, userID)
@@ -134,6 +135,9 @@ type mockShoppingRepository struct {
 	ToggleItemCheckedFunc func(ctx context.Context, itemID, listID uuid.UUID) (*model.ShoppingItem, error)
 	DeleteItemFunc        func(ctx context.Context, itemID, listID uuid.UUID) error
 	CompleteListFunc      func(ctx context.Context, listID, userID uuid.UUID) error
+	BeginTransactionFunc  func(ctx context.Context) (*sql.Tx, error)
+	CreateItemBatchFunc   func(ctx context.Context, tx *sql.Tx, listID uuid.UUID, inputs []*model.ShoppingItemInput) ([]*model.ShoppingItem, error)
+	HasRecipeItemsFunc    func(ctx context.Context, listID uuid.UUID, recipeName string) (bool, error)
 }
 
 func (m *mockShoppingRepository) ListLists(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*model.ShoppingList, error) {
@@ -174,6 +178,24 @@ func (m *mockShoppingRepository) DeleteItem(ctx context.Context, itemID, listID 
 }
 func (m *mockShoppingRepository) CompleteList(ctx context.Context, listID, userID uuid.UUID) error {
 	return m.CompleteListFunc(ctx, listID, userID)
+}
+func (m *mockShoppingRepository) BeginTransaction(ctx context.Context) (*sql.Tx, error) {
+	if m.BeginTransactionFunc == nil {
+		return nil, nil
+	}
+	return m.BeginTransactionFunc(ctx)
+}
+func (m *mockShoppingRepository) CreateItemBatch(ctx context.Context, tx *sql.Tx, listID uuid.UUID, inputs []*model.ShoppingItemInput) ([]*model.ShoppingItem, error) {
+	if m.CreateItemBatchFunc == nil {
+		return nil, nil
+	}
+	return m.CreateItemBatchFunc(ctx, tx, listID, inputs)
+}
+func (m *mockShoppingRepository) HasRecipeItems(ctx context.Context, listID uuid.UUID, recipeName string) (bool, error) {
+	if m.HasRecipeItemsFunc == nil {
+		return false, nil
+	}
+	return m.HasRecipeItemsFunc(ctx, listID, recipeName)
 }
 
 type mockJobRepository struct {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/dishflow/backend/internal/model"
@@ -31,7 +32,7 @@ type RecipeRepository interface {
 
 // PantryRepository defines the interface for pantry persistence
 type PantryRepository interface {
-	List(ctx context.Context, userID uuid.UUID, category *string) ([]*model.PantryItem, error)
+	List(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error)
 	Get(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.PantryItem, error)
 	Create(ctx context.Context, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
 	Update(ctx context.Context, id uuid.UUID, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
@@ -55,6 +56,13 @@ type ShoppingRepository interface {
 	ToggleItemChecked(ctx context.Context, itemID, listID uuid.UUID) (*model.ShoppingItem, error)
 	DeleteItem(ctx context.Context, itemID, listID uuid.UUID) error
 	CompleteList(ctx context.Context, listID, userID uuid.UUID) error
+
+	// Transaction support for batch operations
+	BeginTransaction(ctx context.Context) (*sql.Tx, error)
+	CreateItemBatch(ctx context.Context, tx *sql.Tx, listID uuid.UUID, inputs []*model.ShoppingItemInput) ([]*model.ShoppingItem, error)
+
+	// Idempotency check for recipe additions
+	HasRecipeItems(ctx context.Context, listID uuid.UUID, recipeName string) (bool, error)
 }
 
 // JobRepository defines the interface for job persistence

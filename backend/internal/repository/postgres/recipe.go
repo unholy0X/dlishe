@@ -222,6 +222,71 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 	return recipe, nil
 }
 
+// GetBySourceURL retrieves a recipe by source URL for a specific user
+// Returns ErrRecipeNotFound if no recipe with that source URL exists
+func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID, sourceURL string) (*model.Recipe, error) {
+	query := `
+		SELECT id, user_id, title, description, servings, prep_time, cook_time,
+			   difficulty, cuisine, thumbnail_url, source_type, source_url,
+			   source_metadata, tags, is_favorite, sync_version, created_at, updated_at
+		FROM recipes
+		WHERE user_id = $1 AND source_url = $2 AND deleted_at IS NULL
+		LIMIT 1
+	`
+
+	recipe := &model.Recipe{}
+	var sourceMetadata []byte
+	var tags pq.StringArray
+
+	err := r.db.QueryRowContext(ctx, query, userID, sourceURL).Scan(
+		&recipe.ID,
+		&recipe.UserID,
+		&recipe.Title,
+		&recipe.Description,
+		&recipe.Servings,
+		&recipe.PrepTime,
+		&recipe.CookTime,
+		&recipe.Difficulty,
+		&recipe.Cuisine,
+		&recipe.ThumbnailURL,
+		&recipe.SourceType,
+		&recipe.SourceURL,
+		&sourceMetadata,
+		&tags,
+		&recipe.IsFavorite,
+		&recipe.SyncVersion,
+		&recipe.CreatedAt,
+		&recipe.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrRecipeNotFound
+		}
+		return nil, err
+	}
+
+	recipe.Tags = tags
+
+	if sourceMetadata != nil {
+		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+	}
+
+	// Load ingredients
+	recipe.Ingredients, err = r.getIngredients(ctx, recipe.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load steps
+	recipe.Steps, err = r.getSteps(ctx, recipe.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return recipe, nil
+}
+
 func (r *RecipeRepository) getIngredients(ctx context.Context, recipeID uuid.UUID) ([]model.RecipeIngredient, error) {
 	query := `
 		SELECT id, recipe_id, name, quantity, unit, category, is_optional,
@@ -301,7 +366,7 @@ func (r *RecipeRepository) getSteps(ctx context.Context, recipeID uuid.UUID) ([]
 	return steps, rows.Err()
 }
 
-// ListByUser retrieves all recipes for a user
+// ListByUser retrieves all recipes for a user with ingredient/step counts
 func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error) {
 	// Get total count
 	countQuery := `SELECT COUNT(*) FROM recipes WHERE user_id = $1 AND deleted_at IS NULL`
@@ -311,14 +376,16 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 		return nil, 0, err
 	}
 
-	// Get recipes
+	// Get recipes with ingredient and step counts (single query, no N+1)
 	query := `
-		SELECT id, user_id, title, description, servings, prep_time, cook_time,
-			   difficulty, cuisine, thumbnail_url, source_type, source_url,
-			   source_metadata, tags, is_favorite, sync_version, created_at, updated_at
-		FROM recipes
-		WHERE user_id = $1 AND deleted_at IS NULL
-		ORDER BY created_at DESC
+		SELECT r.id, r.user_id, r.title, r.description, r.servings, r.prep_time, r.cook_time,
+			   r.difficulty, r.cuisine, r.thumbnail_url, r.source_type, r.source_url,
+			   r.source_metadata, r.tags, r.is_favorite, r.sync_version, r.created_at, r.updated_at,
+			   COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
+			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
+		FROM recipes r
+		WHERE r.user_id = $1 AND r.deleted_at IS NULL
+		ORDER BY r.created_at DESC
 		LIMIT $2 OFFSET $3
 	`
 
@@ -353,6 +420,8 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 			&recipe.SyncVersion,
 			&recipe.CreatedAt,
 			&recipe.UpdatedAt,
+			&recipe.IngredientCount,
+			&recipe.StepCount,
 		)
 		if err != nil {
 			return nil, 0, err

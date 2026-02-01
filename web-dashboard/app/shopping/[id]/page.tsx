@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../../../lib/auth';
 import { shoppingService } from '../../../lib/services/shopping';
 import { ShoppingList, ShoppingItem, ShoppingItemInput, PantryCategory } from '../../../lib/types';
+import { VALID_CATEGORIES } from '../../../lib/categories';
 import Link from 'next/link';
 import AnalyzeListModal from './AnalyzeListModal';
 
@@ -122,10 +123,8 @@ export default function ShoppingListDetailPage() {
         }
     };
 
-    const categories: PantryCategory[] = [
-        'produce', 'proteins', 'dairy', 'grains', 'pantry',
-        'spices', 'condiments', 'beverages', 'frozen', 'canned', 'baking', 'other'
-    ];
+    // Use canonical categories from single source of truth
+    const categories = [...VALID_CATEGORIES] as PantryCategory[];
 
     // Group items by category (unchecked first, then checked at bottom?)
     // Or just group by category and sort checked within?
@@ -261,7 +260,7 @@ export default function ShoppingListDetailPage() {
 
                                     <div className="flex items-center gap-4">
                                         <span className={`text-sm font-medium px-2 py-1 rounded-md ${item.isChecked ? 'bg-gray-100 text-gray-400' : 'bg-emerald-50 text-emerald-700'}`}>
-                                            {item.quantity} {item.unit}
+                                            {item.quantity != null ? `${item.quantity} ${item.unit || ''}` : 'as needed'}
                                         </span>
 
                                         <button

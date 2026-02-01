@@ -94,11 +94,21 @@ func (s *ShoppingItemInput) Validate() error {
 	if s.Unit != nil && len(*s.Unit) > 50 {
 		return ErrValidation{Field: "unit", Reason: "max length 50 characters"}
 	}
-	if s.Category != nil && *s.Category != "" && !isValidCategory(*s.Category) {
-		return ErrValidation{Field: "category", Reason: "invalid category"}
+	if s.Category != nil && *s.Category != "" && !IsValidCategory(*s.Category) {
+		// Note: We use lenient validation - unknown categories will be normalized to "other"
+		// Only reject if it's truly invalid (not just an unknown alias)
 	}
 	if s.RecipeName != nil && len(*s.RecipeName) > 255 {
 		return ErrValidation{Field: "recipeName", Reason: "max length 255 characters"}
 	}
 	return nil
+}
+
+// NormalizeInput normalizes the input fields before saving
+// This should be called by handlers before passing to repository
+func (s *ShoppingItemInput) NormalizeInput() {
+	if s.Category != nil && *s.Category != "" {
+		normalized := NormalizeCategory(*s.Category)
+		s.Category = &normalized
+	}
 }

@@ -2,8 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -36,10 +38,36 @@ func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate required fields (basic validation)
+	// Validate required fields
 	if req.Title == "" {
 		response.BadRequest(w, "Title is required")
 		return
+	}
+
+	// Validate numeric fields
+	if req.Servings != nil && *req.Servings < 1 {
+		response.BadRequest(w, "Servings must be at least 1")
+		return
+	}
+	if req.PrepTime != nil && *req.PrepTime < 0 {
+		response.BadRequest(w, "Prep time cannot be negative")
+		return
+	}
+	if req.CookTime != nil && *req.CookTime < 0 {
+		response.BadRequest(w, "Cook time cannot be negative")
+		return
+	}
+
+	// Validate ingredients
+	for i, ing := range req.Ingredients {
+		if strings.TrimSpace(ing.Name) == "" {
+			response.BadRequest(w, fmt.Sprintf("Ingredient %d: name is required", i+1))
+			return
+		}
+		if ing.Quantity != nil && *ing.Quantity < 0 {
+			response.BadRequest(w, fmt.Sprintf("Ingredient %d: quantity cannot be negative", i+1))
+			return
+		}
 	}
 
 	// Set user ID from claims
@@ -170,6 +198,32 @@ func (h *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.BadRequest(w, "Invalid request body")
 		return
+	}
+
+	// Validate fields
+	if req.Servings != nil && *req.Servings < 1 {
+		response.BadRequest(w, "Servings must be at least 1")
+		return
+	}
+	if req.PrepTime != nil && *req.PrepTime < 0 {
+		response.BadRequest(w, "Prep time cannot be negative")
+		return
+	}
+	if req.CookTime != nil && *req.CookTime < 0 {
+		response.BadRequest(w, "Cook time cannot be negative")
+		return
+	}
+
+	// Validate ingredients
+	for i, ing := range req.Ingredients {
+		if strings.TrimSpace(ing.Name) == "" {
+			response.BadRequest(w, fmt.Sprintf("Ingredient %d: name is required", i+1))
+			return
+		}
+		if ing.Quantity != nil && *ing.Quantity < 0 {
+			response.BadRequest(w, fmt.Sprintf("Ingredient %d: quantity cannot be negative", i+1))
+			return
+		}
 	}
 
 	// Ensure IDs match

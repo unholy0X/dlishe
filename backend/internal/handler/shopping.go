@@ -33,6 +33,16 @@ func NewShoppingHandler(shoppingRepo ShoppingRepository, recipeRepo RecipeReposi
 // ===== Shopping Lists =====
 
 // ListLists handles GET /api/v1/shopping-lists
+// @Summary List shopping lists
+// @Description Get all shopping lists for the current user
+// @Tags Shopping
+// @Produce json
+// @Security BearerAuth
+// @Param includeArchived query bool false "Include archived lists" default(false)
+// @Success 200 {object} SwaggerShoppingListsResponse "List of shopping lists"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /shopping-lists [get]
 func (h *ShoppingHandler) ListLists(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -56,6 +66,18 @@ func (h *ShoppingHandler) ListLists(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetList handles GET /api/v1/shopping-lists/{id}
+// @Summary Get shopping list by ID
+// @Description Get a shopping list with optional items
+// @Tags Shopping
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Param includeItems query bool false "Include list items" default(false)
+// @Success 200 {object} SwaggerShoppingListWithItems "Shopping list details"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid list ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list not found"
+// @Router /shopping-lists/{id} [get]
 func (h *ShoppingHandler) GetList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -100,6 +122,18 @@ func (h *ShoppingHandler) GetList(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateList handles POST /api/v1/shopping-lists
+// @Summary Create a shopping list
+// @Description Create a new shopping list
+// @Tags Shopping
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SwaggerShoppingListInput true "Shopping list data"
+// @Success 201 {object} SwaggerShoppingList "Shopping list created"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /shopping-lists [post]
 func (h *ShoppingHandler) CreateList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -133,6 +167,19 @@ func (h *ShoppingHandler) CreateList(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateList handles PUT /api/v1/shopping-lists/{id}
+// @Summary Update a shopping list
+// @Description Update an existing shopping list's details
+// @Tags Shopping
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Param request body SwaggerShoppingListInput true "Updated list data"
+// @Success 200 {object} SwaggerShoppingList "Shopping list updated"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list not found"
+// @Router /shopping-lists/{id} [put]
 func (h *ShoppingHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -177,6 +224,16 @@ func (h *ShoppingHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteList handles DELETE /api/v1/shopping-lists/{id}
+// @Summary Delete a shopping list
+// @Description Delete a shopping list and all its items
+// @Tags Shopping
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Success 204 "Shopping list deleted"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid list ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list not found"
+// @Router /shopping-lists/{id} [delete]
 func (h *ShoppingHandler) DeleteList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -206,6 +263,16 @@ func (h *ShoppingHandler) DeleteList(w http.ResponseWriter, r *http.Request) {
 }
 
 // ArchiveList handles POST /api/v1/shopping-lists/{id}/archive
+// @Summary Archive a shopping list
+// @Description Mark a shopping list as archived
+// @Tags Shopping
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Success 204 "Shopping list archived"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid list ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list not found"
+// @Router /shopping-lists/{id}/archive [post]
 func (h *ShoppingHandler) ArchiveList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -237,6 +304,17 @@ func (h *ShoppingHandler) ArchiveList(w http.ResponseWriter, r *http.Request) {
 // ===== Shopping Items =====
 
 // ListItems handles GET /api/v1/shopping-lists/{id}/items
+// @Summary List shopping list items
+// @Description Get all items in a shopping list
+// @Tags Shopping
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Success 200 {object} SwaggerShoppingItemsResponse "List of items"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid list ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list not found"
+// @Router /shopping-lists/{id}/items [get]
 func (h *ShoppingHandler) ListItems(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -276,6 +354,19 @@ func (h *ShoppingHandler) ListItems(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateItem handles POST /api/v1/shopping-lists/{id}/items
+// @Summary Add item to shopping list
+// @Description Add a new item to a shopping list
+// @Tags Shopping
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Param request body SwaggerShoppingItemInput true "Item data"
+// @Success 201 {object} SwaggerShoppingItem "Item created"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list not found"
+// @Router /shopping-lists/{id}/items [post]
 func (h *ShoppingHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -327,6 +418,20 @@ func (h *ShoppingHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateItem handles PUT /api/v1/shopping-lists/{id}/items/{itemId}
+// @Summary Update a shopping item
+// @Description Update an existing item in a shopping list
+// @Tags Shopping
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Param itemId path string true "Shopping item UUID"
+// @Param request body SwaggerShoppingItemInput true "Updated item data"
+// @Success 200 {object} SwaggerShoppingItem "Item updated"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list or item not found"
+// @Router /shopping-lists/{id}/items/{itemId} [put]
 func (h *ShoppingHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -389,6 +494,18 @@ func (h *ShoppingHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 }
 
 // ToggleItemChecked handles POST /api/v1/shopping-lists/{id}/items/{itemId}/check
+// @Summary Toggle item checked status
+// @Description Mark or unmark a shopping item as checked
+// @Tags Shopping
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Param itemId path string true "Shopping item UUID"
+// @Success 200 {object} SwaggerShoppingItem "Item with updated checked status"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list or item not found"
+// @Router /shopping-lists/{id}/items/{itemId}/check [post]
 func (h *ShoppingHandler) ToggleItemChecked(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -436,6 +553,17 @@ func (h *ShoppingHandler) ToggleItemChecked(w http.ResponseWriter, r *http.Reque
 }
 
 // DeleteItem handles DELETE /api/v1/shopping-lists/{id}/items/{itemId}
+// @Summary Delete a shopping item
+// @Description Remove an item from a shopping list
+// @Tags Shopping
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Param itemId path string true "Shopping item UUID"
+// @Success 204 "Item deleted"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list or item not found"
+// @Router /shopping-lists/{id}/items/{itemId} [delete]
 func (h *ShoppingHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -483,6 +611,20 @@ func (h *ShoppingHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 }
 
 // AddFromRecipe handles POST /api/v1/shopping-lists/{id}/add-from-recipe
+// @Summary Add recipe ingredients to shopping list
+// @Description Add all or selected ingredients from a recipe to the shopping list
+// @Tags Shopping
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Param request body SwaggerAddFromRecipeRequest true "Recipe and optional ingredient filter"
+// @Success 200 {object} SwaggerAddFromRecipeResponse "Added items"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list or recipe not found"
+// @Failure 409 {object} SwaggerErrorResponse "Recipe already added"
+// @Router /shopping-lists/{id}/add-from-recipe [post]
 func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -639,6 +781,19 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 }
 
 // AnalyzeAddFromRecipe handles POST /api/v1/shopping-lists/{id}/analyze-add-recipe
+// @Summary Analyze adding recipe to shopping list
+// @Description Preview what would happen if recipe ingredients were added (AI analysis)
+// @Tags Shopping
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Param request body SwaggerAnalyzeRequest true "Recipe to analyze"
+// @Success 200 {object} SwaggerAnalyzeResponse "Analysis results"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list or recipe not found"
+// @Router /shopping-lists/{id}/analyze-add-recipe [post]
 func (h *ShoppingHandler) AnalyzeAddFromRecipe(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -717,6 +872,16 @@ func (h *ShoppingHandler) AnalyzeAddFromRecipe(w http.ResponseWriter, r *http.Re
 }
 
 // CompleteList handles POST /api/v1/shopping-lists/{id}/complete
+// @Summary Complete a shopping list
+// @Description Mark all items as checked and archive the list
+// @Tags Shopping
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Success 204 "Shopping list completed"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid list ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list not found"
+// @Router /shopping-lists/{id}/complete [post]
 func (h *ShoppingHandler) CompleteList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -753,6 +918,17 @@ func (h *ShoppingHandler) CompleteList(w http.ResponseWriter, r *http.Request) {
 }
 
 // AnalyzeList handles POST /api/v1/shopping-lists/{id}/analyze
+// @Summary Analyze shopping list with AI
+// @Description Get AI-powered suggestions and insights for the shopping list
+// @Tags Shopping
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Shopping list UUID"
+// @Success 200 {object} SwaggerAnalyzeResponse "AI analysis results"
+// @Failure 400 {object} SwaggerErrorResponse "AI service not available"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Shopping list not found"
+// @Router /shopping-lists/{id}/analyze [post]
 func (h *ShoppingHandler) AnalyzeList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)

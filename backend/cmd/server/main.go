@@ -1,5 +1,39 @@
 package main
 
+// @title DishFlow API
+// @version 1.0
+// @description Recipe management API with AI-powered extraction, pantry tracking, and shopping lists
+// @termsOfService https://dishflow.app/terms
+
+// @contact.name DishFlow Support
+// @contact.email support@dishflow.app
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host api.dishflow.app
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Enter: Bearer {your_token}
+
+// @tag.name Auth
+// @tag.description Authentication endpoints (register, login, token refresh)
+// @tag.name Recipes
+// @tag.description Recipe CRUD and AI extraction
+// @tag.name Pantry
+// @tag.description Pantry inventory management and AI scanning
+// @tag.name Shopping
+// @tag.description Shopping list management
+// @tag.name Jobs
+// @tag.description Video extraction job tracking
+// @tag.name Sync
+// @tag.description Multi-device synchronization
+// @tag.name Health
+// @tag.description Health check and API info endpoints
+
 import (
 	"context"
 	"database/sql"

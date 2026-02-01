@@ -24,7 +24,19 @@ func NewRecipeHandler(repo RecipeRepository) *RecipeHandler {
 	return &RecipeHandler{repo: repo}
 }
 
-// Create handles recipe creation
+// Create handles POST /api/v1/recipes
+// @Summary Create a new recipe
+// @Description Create a new recipe with ingredients and steps
+// @Tags Recipes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SwaggerRecipe true "Recipe data"
+// @Success 201 {object} SwaggerRecipe "Recipe created successfully"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /recipes [post]
 func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -86,7 +98,18 @@ func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, req)
 }
 
-// List handles listing recipes for the current user
+// List handles GET /api/v1/recipes
+// @Summary List user's recipes
+// @Description Get paginated list of user's recipes
+// @Tags Recipes
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Items per page (max 50)" default(20)
+// @Param offset query int false "Pagination offset" default(0)
+// @Success 200 {object} SwaggerRecipeListResponse "List of recipes"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /recipes [get]
 func (h *RecipeHandler) List(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -129,7 +152,19 @@ func (h *RecipeHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Get handles retrieving a single recipe
+// Get handles GET /api/v1/recipes/{recipeID}
+// @Summary Get recipe by ID
+// @Description Get full recipe details including ingredients and steps
+// @Tags Recipes
+// @Produce json
+// @Security BearerAuth
+// @Param recipeID path string true "Recipe UUID"
+// @Success 200 {object} SwaggerRecipe "Recipe details"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid recipe ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 403 {object} SwaggerErrorResponse "Access denied"
+// @Failure 404 {object} SwaggerErrorResponse "Recipe not found"
+// @Router /recipes/{recipeID} [get]
 func (h *RecipeHandler) Get(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -163,7 +198,21 @@ func (h *RecipeHandler) Get(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, recipe)
 }
 
-// Update handles updating a recipe
+// Update handles PUT /api/v1/recipes/{recipeID}
+// @Summary Update a recipe
+// @Description Update an existing recipe's details, ingredients, and steps
+// @Tags Recipes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param recipeID path string true "Recipe UUID"
+// @Param request body SwaggerRecipe true "Updated recipe data"
+// @Success 200 {object} SwaggerRecipe "Recipe updated successfully"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 403 {object} SwaggerErrorResponse "Access denied"
+// @Failure 404 {object} SwaggerErrorResponse "Recipe not found"
+// @Router /recipes/{recipeID} [put]
 func (h *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -245,7 +294,18 @@ func (h *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, updated)
 }
 
-// Delete handles deleting a recipe
+// Delete handles DELETE /api/v1/recipes/{recipeID}
+// @Summary Delete a recipe
+// @Description Soft delete a recipe (can be recovered)
+// @Tags Recipes
+// @Security BearerAuth
+// @Param recipeID path string true "Recipe UUID"
+// @Success 204 "Recipe deleted successfully"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid recipe ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 403 {object} SwaggerErrorResponse "Access denied"
+// @Failure 404 {object} SwaggerErrorResponse "Recipe not found"
+// @Router /recipes/{recipeID} [delete]
 func (h *RecipeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -284,7 +344,21 @@ func (h *RecipeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
-// ToggleFavorite handles toggling the favorite status
+// ToggleFavorite handles POST /api/v1/recipes/{recipeID}/favorite
+// @Summary Toggle recipe favorite status
+// @Description Mark or unmark a recipe as favorite
+// @Tags Recipes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param recipeID path string true "Recipe UUID"
+// @Param request body SwaggerFavoriteRequest true "Favorite status"
+// @Success 200 {object} SwaggerFavoriteResponse "Favorite status updated"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 403 {object} SwaggerErrorResponse "Access denied"
+// @Failure 404 {object} SwaggerErrorResponse "Recipe not found"
+// @Router /recipes/{recipeID}/favorite [post]
 func (h *RecipeHandler) ToggleFavorite(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {

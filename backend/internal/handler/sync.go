@@ -21,6 +21,18 @@ func NewSyncHandler(syncService *sync.Service) *SyncHandler {
 }
 
 // Sync handles POST /api/v1/sync
+// @Summary Sync data across devices
+// @Description Synchronize recipes, pantry items, and shopping lists between devices
+// @Tags Sync
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SwaggerSyncRequest true "Sync payload with local changes"
+// @Success 200 {object} SwaggerSyncResponse "Server changes and conflict resolutions"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /sync [post]
 func (h *SyncHandler) Sync(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)

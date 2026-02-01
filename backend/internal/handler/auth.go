@@ -57,6 +57,15 @@ type UserResponse struct {
 }
 
 // Anonymous handles POST /api/v1/auth/anonymous
+// @Summary Anonymous authentication
+// @Description Create or retrieve an anonymous user account using device ID
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body SwaggerAnonymousRequest false "Device ID (optional)"
+// @Success 200 {object} SwaggerAnonymousResponse "Authentication successful"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /auth/anonymous [post]
 func (h *AuthHandler) Anonymous(w http.ResponseWriter, r *http.Request) {
 	var req AnonymousRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -117,6 +126,17 @@ type RegisterRequest struct {
 }
 
 // Register handles POST /api/v1/auth/register
+// @Summary Register a new user
+// @Description Create a new user account with email and password
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body SwaggerRegisterRequest true "Registration details"
+// @Success 201 {object} SwaggerAuthResponse "User created successfully"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 409 {object} SwaggerErrorResponse "Email already exists"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -206,6 +226,17 @@ type AuthResponse struct {
 }
 
 // Login handles POST /api/v1/auth/login
+// @Summary User login
+// @Description Authenticate with email and password
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body SwaggerLoginRequest true "Login credentials"
+// @Success 200 {object} SwaggerAuthResponse "Login successful"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Invalid credentials"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -284,6 +315,16 @@ type RefreshResponse struct {
 }
 
 // Refresh handles POST /api/v1/auth/refresh
+// @Summary Refresh access token
+// @Description Get new access token using refresh token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body SwaggerRefreshRequest true "Refresh token"
+// @Success 200 {object} SwaggerRefreshResponse "New tokens generated"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Invalid or expired refresh token"
+// @Router /auth/refresh [post]
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -343,6 +384,16 @@ type LogoutRequest struct {
 }
 
 // Logout handles POST /api/v1/auth/logout
+// @Summary Logout user
+// @Description Invalidate current access token and optionally refresh token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SwaggerLogoutRequest false "Optional logout options"
+// @Success 204 "Logged out successfully"
+// @Failure 401 {object} SwaggerErrorResponse "Not authenticated"
+// @Router /auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Get user from context (set by auth middleware)
 	claims := middleware.GetClaims(r.Context())
@@ -400,6 +451,15 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // Me handles GET /api/v1/users/me
+// @Summary Get current user
+// @Description Get current authenticated user's profile and subscription
+// @Tags Auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SwaggerMeResponse "User profile"
+// @Failure 401 {object} SwaggerErrorResponse "Not authenticated"
+// @Failure 404 {object} SwaggerErrorResponse "User not found"
+// @Router /users/me [get]
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {

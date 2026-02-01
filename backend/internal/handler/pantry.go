@@ -33,6 +33,18 @@ func NewPantryHandler(repo PantryRepository, scanner ai.PantryScanner) *PantryHa
 }
 
 // List handles GET /api/v1/pantry
+// @Summary List pantry items
+// @Description Get paginated list of user's pantry items with optional category filter
+// @Tags Pantry
+// @Produce json
+// @Security BearerAuth
+// @Param category query string false "Filter by category" Enums(dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other)
+// @Param limit query int false "Items per page (max 200)" default(100)
+// @Param offset query int false "Pagination offset" default(0)
+// @Success 200 {object} SwaggerPantryListResponse "List of pantry items"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /pantry [get]
 func (h *PantryHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -82,6 +94,17 @@ func (h *PantryHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get handles GET /api/v1/pantry/{id}
+// @Summary Get pantry item by ID
+// @Description Get a single pantry item's details
+// @Tags Pantry
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Pantry item UUID"
+// @Success 200 {object} SwaggerPantryItem "Pantry item details"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid item ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Pantry item not found"
+// @Router /pantry/{id} [get]
 func (h *PantryHandler) Get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -111,6 +134,18 @@ func (h *PantryHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create handles POST /api/v1/pantry
+// @Summary Create a pantry item
+// @Description Add a new item to the user's pantry inventory
+// @Tags Pantry
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SwaggerPantryItemInput true "Pantry item data"
+// @Success 201 {object} SwaggerPantryItem "Pantry item created"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /pantry [post]
 func (h *PantryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -147,6 +182,19 @@ func (h *PantryHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update handles PUT /api/v1/pantry/{id}
+// @Summary Update a pantry item
+// @Description Update an existing pantry item's details
+// @Tags Pantry
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Pantry item UUID"
+// @Param request body SwaggerPantryItemInput true "Updated pantry item data"
+// @Success 200 {object} SwaggerPantryItem "Pantry item updated"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Pantry item not found"
+// @Router /pantry/{id} [put]
 func (h *PantryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -194,6 +242,16 @@ func (h *PantryHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /api/v1/pantry/{id}
+// @Summary Delete a pantry item
+// @Description Remove an item from the user's pantry
+// @Tags Pantry
+// @Security BearerAuth
+// @Param id path string true "Pantry item UUID"
+// @Success 204 "Pantry item deleted"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid item ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 404 {object} SwaggerErrorResponse "Pantry item not found"
+// @Router /pantry/{id} [delete]
 func (h *PantryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -223,6 +281,16 @@ func (h *PantryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetExpiring handles GET /api/v1/pantry/expiring
+// @Summary Get expiring pantry items
+// @Description Get list of pantry items expiring within specified days
+// @Tags Pantry
+// @Produce json
+// @Security BearerAuth
+// @Param days query int false "Days until expiration (max 365)" default(7)
+// @Success 200 {object} SwaggerPantryExpiringResponse "List of expiring items"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /pantry/expiring [get]
 func (h *PantryHandler) GetExpiring(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
@@ -281,7 +349,22 @@ type ScannedItemResponse struct {
 }
 
 // Scan handles POST /api/v1/pantry/scan
-// Scans an image to detect pantry items using AI
+// @Summary AI-powered pantry scan
+// @Description Scan image to detect and optionally add pantry items using AI
+// @Tags Pantry
+// @Accept multipart/form-data,application/json
+// @Produce json
+// @Security BearerAuth
+// @Param image formData file false "Image file (multipart)"
+// @Param autoAdd formData bool false "Auto-add detected items" default(false)
+// @Param request body SwaggerPantryScanRequest false "JSON with base64 image"
+// @Success 200 {object} SwaggerScanResponse "Scan results"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 422 {object} SwaggerErrorResponse "Scan failed"
+// @Failure 429 {object} SwaggerErrorResponse "Rate limit exceeded"
+// @Failure 503 {object} SwaggerErrorResponse "Service unavailable"
+// @Router /pantry/scan [post]
 func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)

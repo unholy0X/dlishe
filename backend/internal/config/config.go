@@ -48,6 +48,9 @@ type Config struct {
 	CleanupTempDir   string // Directory for temp files
 	StorageAccessKey string
 	StorageSecretKey string
+
+	// Swagger documentation
+	EnableSwagger bool // Enable Swagger UI at /swagger/
 }
 
 // Load creates a Config from environment variables
@@ -90,6 +93,9 @@ func Load() *Config {
 		CleanupInterval:  getEnv("CLEANUP_INTERVAL", "5m"),
 		CleanupMaxJobAge: getEnv("CLEANUP_MAX_JOB_AGE", "35m"),
 		CleanupTempDir:   getEnv("CLEANUP_TEMP_DIR", ""),
+
+		// Swagger
+		EnableSwagger: getBoolEnv("ENABLE_SWAGGER", false),
 	}
 }
 

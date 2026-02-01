@@ -59,7 +59,20 @@ func NewVideoHandler(
 	}
 }
 
-// Extract handles the video extraction request
+// Extract handles POST /api/v1/video/extract
+// @Summary Start video recipe extraction
+// @Description Submit video URL for AI-powered recipe extraction (async job)
+// @Tags Jobs
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SwaggerVideoExtractRequest true "Video URL and options"
+// @Success 201 {object} SwaggerJobResponse "Job created"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 429 {object} SwaggerErrorResponse "Rate limit exceeded (5/hour)"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /video/extract [post]
 func (h *VideoHandler) Extract(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -118,7 +131,19 @@ func (h *VideoHandler) Extract(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, job.ToResponse("")) // BaseURL empty for now
 }
 
-// GetJob retrieves a job status
+// GetJob handles GET /api/v1/jobs/{jobID}
+// @Summary Get job status
+// @Description Get the current status of a video extraction job
+// @Tags Jobs
+// @Produce json
+// @Security BearerAuth
+// @Param jobID path string true "Job UUID"
+// @Success 200 {object} SwaggerJobResponse "Job status"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid job ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 403 {object} SwaggerErrorResponse "Access denied"
+// @Failure 404 {object} SwaggerErrorResponse "Job not found"
+// @Router /jobs/{jobID} [get]
 func (h *VideoHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -383,7 +408,18 @@ func (h *VideoHandler) processJob(ctx context.Context, jobID uuid.UUID, req ai.E
 	}
 }
 
-// CancelJob handles job cancellation
+// CancelJob handles POST /api/v1/jobs/{jobID}/cancel
+// @Summary Cancel a job
+// @Description Cancel a running video extraction job
+// @Tags Jobs
+// @Security BearerAuth
+// @Param jobID path string true "Job UUID"
+// @Success 204 "Job cancelled"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid job ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 403 {object} SwaggerErrorResponse "Access denied"
+// @Failure 404 {object} SwaggerErrorResponse "Job not found"
+// @Router /jobs/{jobID}/cancel [post]
 func (h *VideoHandler) CancelJob(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -429,7 +465,16 @@ func (h *VideoHandler) CancelJob(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
-// ListJobs lists jobs for the current user
+// ListJobs handles GET /api/v1/jobs
+// @Summary List user's jobs
+// @Description Get list of video extraction jobs for the current user
+// @Tags Jobs
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} SwaggerJobResponse "List of jobs"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /jobs [get]
 func (h *VideoHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {

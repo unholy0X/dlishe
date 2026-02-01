@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/dishflow/backend/internal/config"
 	"github.com/dishflow/backend/internal/handler"
@@ -19,6 +20,8 @@ import (
 	"github.com/dishflow/backend/internal/service/auth"
 	"github.com/dishflow/backend/internal/service/sync"
 	"github.com/dishflow/backend/internal/service/video"
+
+	_ "github.com/dishflow/backend/docs" // Swagger docs
 )
 
 // New creates a new router with all routes configured
@@ -30,6 +33,16 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Recover(logger))
 	r.Use(middleware.CORS(cfg.CORSOrigins))
+
+	// Swagger UI (only if enabled via config)
+	if cfg.EnableSwagger {
+		r.Get("/swagger/*", httpSwagger.Handler(
+			httpSwagger.URL("/swagger/doc.json"),
+			httpSwagger.DeepLinking(true),
+			httpSwagger.DocExpansion("list"),
+			httpSwagger.DomID("swagger-ui"),
+		))
+	}
 
 	// Initialize services
 	jwtService := auth.NewJWTService(

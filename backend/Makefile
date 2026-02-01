@@ -1,4 +1,4 @@
-.PHONY: dev dev-live test build clean migrate migrate-down migrate-create seed lint fmt help down logs
+.PHONY: dev dev-live test build clean migrate migrate-down migrate-create seed lint fmt help down logs swagger swagger-fmt
 
 # Default target
 help:
@@ -38,13 +38,13 @@ help:
 # === Development ===
 
 dev:
-	GEMINI_MOCK_MODE=true docker compose up --build
+	GEMINI_MOCK_MODE=true ENABLE_SWAGGER=true docker compose up --build
 
 dev-live:
-	GEMINI_MOCK_MODE=false docker compose up --build
+	GEMINI_MOCK_MODE=false ENABLE_SWAGGER=true docker compose up --build
 
 dev-bg:
-	GEMINI_MOCK_MODE=true docker compose up --build -d
+	GEMINI_MOCK_MODE=true ENABLE_SWAGGER=true docker compose up --build -d
 
 down:
 	docker compose down
@@ -145,6 +145,19 @@ deps:
 	go mod tidy
 	go mod download
 
+# Generate Swagger documentation from code annotations
 swagger:
+	@test -f $$(go env GOPATH)/bin/swag || (echo "Installing swag..." && go install github.com/swaggo/swag/cmd/swag@latest)
+	$$(go env GOPATH)/bin/swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal
+	@echo "Swagger docs generated in docs/"
+	@echo "Run with ENABLE_SWAGGER=true to access UI at /swagger/index.html"
+
+# Format Swagger annotations
+swagger-fmt:
+	@test -f $$(go env GOPATH)/bin/swag || (echo "Installing swag..." && go install github.com/swaggo/swag/cmd/swag@latest)
+	$$(go env GOPATH)/bin/swag fmt
+
+# Legacy: Start Swagger UI container (deprecated - use swagger target instead)
+swagger-ui:
 	docker compose --profile docs up -d swagger
 	@echo "Swagger UI available at http://localhost:8081"

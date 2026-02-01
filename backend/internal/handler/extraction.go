@@ -50,7 +50,20 @@ type ExtractFromURLResponse struct {
 }
 
 // ExtractFromURL handles POST /api/v1/recipes/extract-url
-// Extracts a recipe from a webpage URL (recipe blogs, cooking sites)
+// @Summary Extract recipe from URL
+// @Description Extract a recipe from a webpage URL using AI (recipe blogs, cooking sites)
+// @Tags Recipes
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SwaggerExtractURLRequest true "URL and options"
+// @Success 200 {object} SwaggerExtractURLResponse "Extracted recipe"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid URL"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 422 {object} SwaggerErrorResponse "Extraction failed or no recipe found"
+// @Failure 429 {object} SwaggerErrorResponse "Rate limit exceeded"
+// @Failure 503 {object} SwaggerErrorResponse "Service unavailable"
+// @Router /recipes/extract-url [post]
 func (h *ExtractionHandler) ExtractFromURL(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -154,7 +167,22 @@ type ExtractFromImageResponse struct {
 }
 
 // ExtractFromImage handles POST /api/v1/recipes/extract-image
-// Extracts a recipe from an uploaded image (cookbook photo, screenshot)
+// @Summary Extract recipe from image
+// @Description Extract a recipe from an uploaded image using AI (cookbook photo, screenshot)
+// @Tags Recipes
+// @Accept multipart/form-data,application/json
+// @Produce json
+// @Security BearerAuth
+// @Param image formData file false "Image file (multipart)"
+// @Param saveAuto formData bool false "Auto-save extracted recipe"
+// @Param request body SwaggerExtractImageRequest false "JSON with base64 image"
+// @Success 200 {object} SwaggerExtractImageResponse "Extracted recipe"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid image"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 422 {object} SwaggerErrorResponse "Extraction failed or no recipe found"
+// @Failure 429 {object} SwaggerErrorResponse "Rate limit exceeded"
+// @Failure 503 {object} SwaggerErrorResponse "Service unavailable"
+// @Router /recipes/extract-image [post]
 func (h *ExtractionHandler) ExtractFromImage(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {

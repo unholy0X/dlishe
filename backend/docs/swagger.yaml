@@ -1,0 +1,2703 @@
+basePath: /api/v1
+definitions:
+  internal_handler.SwaggerAddFromRecipeRequest:
+    description: Add ingredients from recipe to shopping list
+    properties:
+      ingredients:
+        example:
+        - flour
+        - sugar
+        - eggs
+        items:
+          type: string
+        type: array
+      recipeId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    required:
+    - recipeId
+    type: object
+  internal_handler.SwaggerAddFromRecipeResponse:
+    description: Added items from recipe
+    properties:
+      count:
+        example: 8
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingItem'
+        type: array
+    type: object
+  internal_handler.SwaggerAnalyzeRequest:
+    description: Analyze shopping list with AI
+    properties:
+      recipeId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  internal_handler.SwaggerAnalyzeResponse:
+    description: AI shopping list analysis
+    properties:
+      categoryGroups:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      duplicateItems:
+        example:
+        - milk
+        items:
+          type: string
+        type: array
+      estimatedTotal:
+        example: 45.99
+        type: number
+      missingStaples:
+        example:
+        - salt
+        - pepper
+        items:
+          type: string
+        type: array
+      suggestions:
+        example:
+        - Consider adding bread
+        - You might need more eggs
+        items:
+          type: string
+        type: array
+    type: object
+  internal_handler.SwaggerAnonymousRequest:
+    description: Anonymous authentication request
+    properties:
+      deviceId:
+        example: device-abc123
+        type: string
+    type: object
+  internal_handler.SwaggerAnonymousResponse:
+    description: Anonymous authentication response
+    properties:
+      accessToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      expiresAt:
+        example: "2024-02-01T10:45:00Z"
+        type: string
+      isNewUser:
+        example: true
+        type: boolean
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      tokenType:
+        example: Bearer
+        type: string
+      user:
+        $ref: '#/definitions/internal_handler.SwaggerUserResponse'
+    type: object
+  internal_handler.SwaggerAuthResponse:
+    description: Authentication response with tokens
+    properties:
+      accessToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      expiresAt:
+        example: "2024-02-01T10:45:00Z"
+        type: string
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      tokenType:
+        example: Bearer
+        type: string
+      user:
+        $ref: '#/definitions/internal_handler.SwaggerUserResponse'
+    type: object
+  internal_handler.SwaggerConflict:
+    description: Sync conflict details
+    properties:
+      reason:
+        example: Server version is newer
+        type: string
+      resolution:
+        enum:
+        - server_wins
+        - client_wins
+        - merged
+        example: server_wins
+        type: string
+      resourceId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      resourceType:
+        enum:
+        - recipe
+        - pantry_item
+        - shopping_list
+        - shopping_item
+        example: recipe
+        type: string
+    type: object
+  internal_handler.SwaggerError:
+    properties:
+      code:
+        example: VALIDATION_FAILED
+        type: string
+      details:
+        additionalProperties: true
+        type: object
+      message:
+        example: Validation failed
+        type: string
+      requestId:
+        example: req-abc123
+        type: string
+      timestamp:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+    type: object
+  internal_handler.SwaggerErrorResponse:
+    description: Standard error response format
+    properties:
+      error:
+        $ref: '#/definitions/internal_handler.SwaggerError'
+    type: object
+  internal_handler.SwaggerExtractImageRequest:
+    description: Extract recipe from image request
+    properties:
+      imageBase64:
+        example: /9j/4AAQSkZJRgABAQ...
+        type: string
+      mimeType:
+        example: image/jpeg
+        type: string
+      saveAuto:
+        example: true
+        type: boolean
+    required:
+    - imageBase64
+    type: object
+  internal_handler.SwaggerExtractImageResponse:
+    description: Image extraction response
+    properties:
+      recipe:
+        $ref: '#/definitions/internal_handler.SwaggerExtractionResult'
+      savedId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      source:
+        example: image
+        type: string
+    type: object
+  internal_handler.SwaggerExtractURLRequest:
+    description: Extract recipe from URL request
+    properties:
+      saveAuto:
+        example: true
+        type: boolean
+      url:
+        example: https://example.com/recipe/carbonara
+        type: string
+    required:
+    - url
+    type: object
+  internal_handler.SwaggerExtractURLResponse:
+    description: URL extraction response
+    properties:
+      alreadyExists:
+        example: false
+        type: boolean
+      recipe:
+        $ref: '#/definitions/internal_handler.SwaggerExtractionResult'
+      savedId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      source:
+        example: webpage
+        type: string
+    type: object
+  internal_handler.SwaggerExtractedIngredient:
+    description: AI-extracted ingredient
+    properties:
+      category:
+        example: pantry
+        type: string
+      isOptional:
+        example: false
+        type: boolean
+      name:
+        example: Spaghetti
+        type: string
+      notes:
+        example: dried pasta
+        type: string
+      quantity:
+        example: "400"
+        type: string
+      unit:
+        example: g
+        type: string
+      videoTimestamp:
+        example: 1.5
+        type: number
+    type: object
+  internal_handler.SwaggerExtractedStep:
+    description: AI-extracted recipe step
+    properties:
+      durationSeconds:
+        example: 600
+        type: integer
+      instruction:
+        example: Boil pasta according to package directions
+        type: string
+      stepNumber:
+        example: 1
+        type: integer
+      technique:
+        example: boiling
+        type: string
+      temperature:
+        example: ""
+        type: string
+      videoTimestampEnd:
+        example: 2
+        type: number
+      videoTimestampStart:
+        example: 0.5
+        type: number
+    type: object
+  internal_handler.SwaggerExtractionResult:
+    description: AI-extracted recipe data
+    properties:
+      cookTime:
+        example: 20
+        type: integer
+      cuisine:
+        example: Italian
+        type: string
+      description:
+        example: Classic Roman pasta dish
+        type: string
+      difficulty:
+        example: medium
+        type: string
+      ingredients:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerExtractedIngredient'
+        type: array
+      prepTime:
+        example: 10
+        type: integer
+      servings:
+        example: 4
+        type: integer
+      steps:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerExtractedStep'
+        type: array
+      tags:
+        example:
+        - pasta
+        - italian
+        - quick
+        items:
+          type: string
+        type: array
+      thumbnailUrl:
+        example: https://example.com/thumb.jpg
+        type: string
+      title:
+        example: Spaghetti Carbonara
+        type: string
+    type: object
+  internal_handler.SwaggerFavoriteRequest:
+    description: Toggle favorite request
+    properties:
+      isFavorite:
+        example: true
+        type: boolean
+    type: object
+  internal_handler.SwaggerFavoriteResponse:
+    description: Toggle favorite response
+    properties:
+      isFavorite:
+        example: true
+        type: boolean
+      success:
+        example: true
+        type: boolean
+    type: object
+  internal_handler.SwaggerHealthResponse:
+    description: Health check response
+    properties:
+      status:
+        example: ok
+        type: string
+      timestamp:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+    type: object
+  internal_handler.SwaggerInfoResponse:
+    description: API information response
+    properties:
+      environment:
+        example: development
+        type: string
+      features:
+        additionalProperties:
+          type: boolean
+        example:
+          ai_generation: true
+          sync: true
+          video_extraction: true
+        type: object
+      name:
+        example: DishFlow API
+        type: string
+      version:
+        example: 1.0.0
+        type: string
+    type: object
+  internal_handler.SwaggerJobError:
+    description: Job error information
+    properties:
+      code:
+        example: DOWNLOAD_FAILED
+        type: string
+      message:
+        example: Failed to download video
+        type: string
+      retryable:
+        example: true
+        type: boolean
+    type: object
+  internal_handler.SwaggerJobResponse:
+    description: Video extraction job status
+    properties:
+      completedAt:
+        example: "2024-02-01T10:31:30Z"
+        type: string
+      createdAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      error:
+        $ref: '#/definitions/internal_handler.SwaggerJobError'
+      estimatedSeconds:
+        example: 45
+        type: integer
+      jobId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      message:
+        example: Downloading video...
+        type: string
+      progress:
+        example: 45
+        type: integer
+      recipe:
+        $ref: '#/definitions/internal_handler.SwaggerRecipe'
+      status:
+        enum:
+        - pending
+        - downloading
+        - processing
+        - extracting
+        - completed
+        - failed
+        - cancelled
+        example: processing
+        type: string
+      statusUrl:
+        example: /api/v1/jobs/550e8400-e29b-41d4-a716-446655440000
+        type: string
+      streamUrl:
+        example: /api/v1/jobs/550e8400-e29b-41d4-a716-446655440000/stream
+        type: string
+    type: object
+  internal_handler.SwaggerLoginRequest:
+    description: User login request
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      password:
+        example: securepassword123
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  internal_handler.SwaggerLogoutRequest:
+    description: Logout request
+    properties:
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      revokeAll:
+        example: false
+        type: boolean
+    type: object
+  internal_handler.SwaggerMeResponse:
+    description: Current user with subscription info
+    properties:
+      subscription:
+        $ref: '#/definitions/internal_handler.SwaggerSubscriptionResponse'
+      user:
+        $ref: '#/definitions/internal_handler.SwaggerUserResponse'
+    type: object
+  internal_handler.SwaggerPantryExpiringResponse:
+    description: List of expiring pantry items
+    properties:
+      count:
+        example: 5
+        type: integer
+      days:
+        example: 7
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerPantryItem'
+        type: array
+    type: object
+  internal_handler.SwaggerPantryItem:
+    description: Pantry inventory item
+    properties:
+      category:
+        enum:
+        - dairy
+        - produce
+        - proteins
+        - bakery
+        - pantry
+        - spices
+        - condiments
+        - beverages
+        - snacks
+        - frozen
+        - household
+        - other
+        example: condiments
+        type: string
+      createdAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      expirationDate:
+        example: "2024-06-01T00:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      name:
+        example: Olive Oil
+        type: string
+      quantity:
+        example: 500
+        type: number
+      syncVersion:
+        example: 1
+        type: integer
+      unit:
+        example: ml
+        type: string
+      updatedAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      userId:
+        example: 550e8400-e29b-41d4-a716-446655440099
+        type: string
+    type: object
+  internal_handler.SwaggerPantryItemInput:
+    description: Pantry item input for create/update
+    properties:
+      category:
+        enum:
+        - dairy
+        - produce
+        - proteins
+        - bakery
+        - pantry
+        - spices
+        - condiments
+        - beverages
+        - snacks
+        - frozen
+        - household
+        - other
+        example: condiments
+        type: string
+      expirationDate:
+        example: "2024-06-01T00:00:00Z"
+        type: string
+      name:
+        example: Olive Oil
+        type: string
+      quantity:
+        example: 500
+        type: number
+      unit:
+        example: ml
+        type: string
+    required:
+    - category
+    - name
+    type: object
+  internal_handler.SwaggerPantryListResponse:
+    description: Paginated list of pantry items
+    properties:
+      count:
+        example: 20
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerPantryItem'
+        type: array
+      limit:
+        example: 100
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 50
+        type: integer
+    type: object
+  internal_handler.SwaggerPantryScanRequest:
+    description: AI pantry scan request
+    properties:
+      autoAdd:
+        example: false
+        type: boolean
+      imageBase64:
+        example: /9j/4AAQSkZJRgABAQ...
+        type: string
+      mimeType:
+        example: image/jpeg
+        type: string
+    required:
+    - imageBase64
+    type: object
+  internal_handler.SwaggerReadyResponse:
+    description: Readiness check response with service status
+    properties:
+      checks:
+        additionalProperties:
+          type: string
+        example:
+          gemini: ok
+          postgres: ok
+          redis: ok
+        type: object
+      status:
+        enum:
+        - ready
+        - not_ready
+        example: ready
+        type: string
+      timestamp:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+    type: object
+  internal_handler.SwaggerRecipe:
+    description: Full recipe with ingredients and steps
+    properties:
+      cookTime:
+        example: 20
+        type: integer
+      createdAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      cuisine:
+        example: Italian
+        type: string
+      description:
+        example: Classic Italian pasta dish
+        type: string
+      difficulty:
+        enum:
+        - easy
+        - medium
+        - hard
+        example: medium
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      ingredients:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerRecipeIngredient'
+        type: array
+      isFavorite:
+        example: false
+        type: boolean
+      prepTime:
+        example: 15
+        type: integer
+      servings:
+        example: 4
+        type: integer
+      sourceType:
+        enum:
+        - manual
+        - video
+        - ai
+        - photo
+        - webpage
+        - image
+        example: manual
+        type: string
+      sourceUrl:
+        example: https://youtube.com/watch?v=xyz
+        type: string
+      steps:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerRecipeStep'
+        type: array
+      syncVersion:
+        example: 1
+        type: integer
+      tags:
+        example:
+        - italian
+        - pasta
+        - quick
+        items:
+          type: string
+        type: array
+      thumbnailUrl:
+        example: https://example.com/thumb.jpg
+        type: string
+      title:
+        example: Spaghetti Carbonara
+        type: string
+      updatedAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      userId:
+        example: 550e8400-e29b-41d4-a716-446655440099
+        type: string
+    type: object
+  internal_handler.SwaggerRecipeIngredient:
+    description: Recipe ingredient
+    properties:
+      category:
+        enum:
+        - dairy
+        - produce
+        - proteins
+        - bakery
+        - pantry
+        - spices
+        - condiments
+        - beverages
+        - snacks
+        - frozen
+        - household
+        - other
+        example: condiments
+        type: string
+      createdAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      isOptional:
+        example: false
+        type: boolean
+      name:
+        example: Olive oil
+        type: string
+      notes:
+        example: extra virgin preferred
+        type: string
+      quantity:
+        example: 2
+        type: number
+      recipeId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      sortOrder:
+        example: 0
+        type: integer
+      unit:
+        example: tablespoons
+        type: string
+      videoTimestamp:
+        example: 120
+        type: integer
+    type: object
+  internal_handler.SwaggerRecipeListResponse:
+    description: Paginated list of recipes
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerRecipe'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 25
+        type: integer
+    type: object
+  internal_handler.SwaggerRecipeStep:
+    description: Recipe step
+    properties:
+      createdAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      durationSeconds:
+        example: 120
+        type: integer
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      instruction:
+        example: Heat olive oil in a large pan over medium heat
+        type: string
+      recipeId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      stepNumber:
+        example: 1
+        type: integer
+      technique:
+        example: sauteing
+        type: string
+      temperature:
+        example: 350F
+        type: string
+      videoTimestampEnd:
+        example: 180
+        type: integer
+      videoTimestampStart:
+        example: 60
+        type: integer
+    type: object
+  internal_handler.SwaggerRefreshRequest:
+    description: Token refresh request
+    properties:
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+    required:
+    - refreshToken
+    type: object
+  internal_handler.SwaggerRefreshResponse:
+    description: Token refresh response
+    properties:
+      accessToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      expiresAt:
+        example: "2024-02-01T10:45:00Z"
+        type: string
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      tokenType:
+        example: Bearer
+        type: string
+    type: object
+  internal_handler.SwaggerRegisterRequest:
+    description: User registration request
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      name:
+        example: John Doe
+        type: string
+      password:
+        example: securepassword123
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  internal_handler.SwaggerScanResponse:
+    description: AI pantry scan results
+    properties:
+      addedCount:
+        example: 3
+        type: integer
+      addedIds:
+        example:
+        - id1
+        - id2
+        - id3
+        items:
+          type: string
+        type: array
+      confidence:
+        example: 0.89
+        type: number
+      items:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerScannedItem'
+        type: array
+      notes:
+        example: Detected items from refrigerator shelf
+        type: string
+    type: object
+  internal_handler.SwaggerScannedItem:
+    description: AI-detected pantry item from scan
+    properties:
+      added:
+        example: true
+        type: boolean
+      addedId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      category:
+        example: dairy
+        type: string
+      confidence:
+        example: 0.95
+        type: number
+      expirationDate:
+        example: "2024-02-15"
+        type: string
+      name:
+        example: Milk
+        type: string
+      quantity:
+        example: 1
+        type: number
+      unit:
+        example: gallon
+        type: string
+    type: object
+  internal_handler.SwaggerShoppingItem:
+    description: Shopping list item
+    properties:
+      category:
+        example: dairy
+        type: string
+      createdAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      isChecked:
+        example: false
+        type: boolean
+      listId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      name:
+        example: Milk
+        type: string
+      quantity:
+        example: 2
+        type: number
+      recipeName:
+        example: Pancakes
+        type: string
+      syncVersion:
+        example: 1
+        type: integer
+      unit:
+        example: gallons
+        type: string
+      updatedAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+    type: object
+  internal_handler.SwaggerShoppingItemInput:
+    description: Shopping item input for create/update
+    properties:
+      category:
+        example: dairy
+        type: string
+      name:
+        example: Milk
+        type: string
+      quantity:
+        example: 2
+        type: number
+      recipeName:
+        example: Pancakes
+        type: string
+      unit:
+        example: gallons
+        type: string
+    required:
+    - name
+    type: object
+  internal_handler.SwaggerShoppingItemsResponse:
+    description: List of shopping items
+    properties:
+      count:
+        example: 15
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingItem'
+        type: array
+    type: object
+  internal_handler.SwaggerShoppingList:
+    description: Shopping list
+    properties:
+      createdAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      description:
+        example: Shopping for the week
+        type: string
+      icon:
+        example: cart
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      isArchived:
+        example: false
+        type: boolean
+      isTemplate:
+        example: false
+        type: boolean
+      name:
+        example: Weekly Groceries
+        type: string
+      syncVersion:
+        example: 1
+        type: integer
+      updatedAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      userId:
+        example: 550e8400-e29b-41d4-a716-446655440099
+        type: string
+    type: object
+  internal_handler.SwaggerShoppingListInput:
+    description: Shopping list input for create/update
+    properties:
+      description:
+        example: Shopping for the week
+        type: string
+      icon:
+        example: cart
+        type: string
+      isTemplate:
+        example: false
+        type: boolean
+      name:
+        example: Weekly Groceries
+        type: string
+    required:
+    - name
+    type: object
+  internal_handler.SwaggerShoppingListWithItems:
+    description: Shopping list with items
+    properties:
+      createdAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      description:
+        example: Shopping for the week
+        type: string
+      icon:
+        example: cart
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      isArchived:
+        example: false
+        type: boolean
+      isTemplate:
+        example: false
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingItem'
+        type: array
+      name:
+        example: Weekly Groceries
+        type: string
+      syncVersion:
+        example: 1
+        type: integer
+      updatedAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      userId:
+        example: 550e8400-e29b-41d4-a716-446655440099
+        type: string
+    type: object
+  internal_handler.SwaggerShoppingListsResponse:
+    description: List of shopping lists
+    properties:
+      count:
+        example: 3
+        type: integer
+      lists:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingList'
+        type: array
+    type: object
+  internal_handler.SwaggerSubscriptionResponse:
+    description: User subscription details
+    properties:
+      entitlement:
+        example: free
+        type: string
+      expiresAt:
+        example: "2025-02-01T10:30:00Z"
+        type: string
+    type: object
+  internal_handler.SwaggerSyncRequest:
+    description: Multi-device sync request
+    properties:
+      lastSyncTimestamp:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      pantryItems:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerPantryItem'
+        type: array
+      recipes:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerRecipe'
+        type: array
+      shoppingItems:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingItem'
+        type: array
+      shoppingLists:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingList'
+        type: array
+    required:
+    - lastSyncTimestamp
+    type: object
+  internal_handler.SwaggerSyncResponse:
+    description: Multi-device sync response
+    properties:
+      conflicts:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerConflict'
+        type: array
+      pantryItems:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerPantryItem'
+        type: array
+      recipes:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerRecipe'
+        type: array
+      serverTimestamp:
+        example: "2024-02-01T10:35:00Z"
+        type: string
+      shoppingItems:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingItem'
+        type: array
+      shoppingLists:
+        items:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingList'
+        type: array
+    type: object
+  internal_handler.SwaggerUserResponse:
+    description: User data
+    properties:
+      createdAt:
+        example: "2024-02-01T10:30:00Z"
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      isAnonymous:
+        example: false
+        type: boolean
+      name:
+        example: John Doe
+        type: string
+    type: object
+  internal_handler.SwaggerVideoExtractRequest:
+    description: Video extraction request
+    properties:
+      detailLevel:
+        enum:
+        - quick
+        - detailed
+        example: detailed
+        type: string
+      language:
+        enum:
+        - en
+        - fr
+        - es
+        - auto
+        example: en
+        type: string
+      videoUrl:
+        example: https://youtube.com/watch?v=abc123
+        type: string
+    required:
+    - videoUrl
+    type: object
+host: api.dishflow.app
+info:
+  contact:
+    email: support@dishflow.app
+    name: DishFlow Support
+  description: Recipe management API with AI-powered extraction, pantry tracking,
+    and shopping lists
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://dishflow.app/terms
+  title: DishFlow API
+  version: "1.0"
+paths:
+  /auth/anonymous:
+    post:
+      consumes:
+      - application/json
+      description: Create or retrieve an anonymous user account using device ID
+      parameters:
+      - description: Device ID (optional)
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerAnonymousRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Authentication successful
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerAnonymousResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      summary: Anonymous authentication
+      tags:
+      - Auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate with email and password
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerAuthResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      summary: User login
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Invalidate current access token and optionally refresh token
+      parameters:
+      - description: Optional logout options
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerLogoutRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Logged out successfully
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Get new access token using refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerRefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New tokens generated
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerRefreshResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Invalid or expired refresh token
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      summary: Refresh access token
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account with email and password
+      parameters:
+      - description: Registration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerAuthResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "409":
+          description: Email already exists
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      summary: Register a new user
+      tags:
+      - Auth
+  /health:
+    get:
+      description: Basic liveness probe - returns OK if the server is running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Server is healthy
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerHealthResponse'
+      summary: Health check
+      tags:
+      - Health
+  /info:
+    get:
+      description: Get API version, environment, and feature flags
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API information
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerInfoResponse'
+      summary: API information
+      tags:
+      - Health
+  /jobs:
+    get:
+      description: Get list of video extraction jobs for the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of jobs
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler.SwaggerJobResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List user's jobs
+      tags:
+      - Jobs
+  /jobs/{jobID}:
+    get:
+      description: Get the current status of a video extraction job
+      parameters:
+      - description: Job UUID
+        in: path
+        name: jobID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job status
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerJobResponse'
+        "400":
+          description: Invalid job ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "403":
+          description: Access denied
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get job status
+      tags:
+      - Jobs
+  /jobs/{jobID}/cancel:
+    post:
+      description: Cancel a running video extraction job
+      parameters:
+      - description: Job UUID
+        in: path
+        name: jobID
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Job cancelled
+        "400":
+          description: Invalid job ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "403":
+          description: Access denied
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Job not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel a job
+      tags:
+      - Jobs
+  /pantry:
+    get:
+      description: Get paginated list of user's pantry items with optional category
+        filter
+      parameters:
+      - description: Filter by category
+        enum:
+        - dairy
+        - produce
+        - proteins
+        - bakery
+        - pantry
+        - spices
+        - condiments
+        - beverages
+        - snacks
+        - frozen
+        - household
+        - other
+        in: query
+        name: category
+        type: string
+      - default: 100
+        description: Items per page (max 200)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of pantry items
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerPantryListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List pantry items
+      tags:
+      - Pantry
+    post:
+      consumes:
+      - application/json
+      description: Add a new item to the user's pantry inventory
+      parameters:
+      - description: Pantry item data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerPantryItemInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Pantry item created
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerPantryItem'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a pantry item
+      tags:
+      - Pantry
+  /pantry/{id}:
+    delete:
+      description: Remove an item from the user's pantry
+      parameters:
+      - description: Pantry item UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Pantry item deleted
+        "400":
+          description: Invalid item ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Pantry item not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a pantry item
+      tags:
+      - Pantry
+    get:
+      description: Get a single pantry item's details
+      parameters:
+      - description: Pantry item UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pantry item details
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerPantryItem'
+        "400":
+          description: Invalid item ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Pantry item not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get pantry item by ID
+      tags:
+      - Pantry
+    put:
+      consumes:
+      - application/json
+      description: Update an existing pantry item's details
+      parameters:
+      - description: Pantry item UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated pantry item data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerPantryItemInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pantry item updated
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerPantryItem'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Pantry item not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a pantry item
+      tags:
+      - Pantry
+  /pantry/expiring:
+    get:
+      description: Get list of pantry items expiring within specified days
+      parameters:
+      - default: 7
+        description: Days until expiration (max 365)
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of expiring items
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerPantryExpiringResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get expiring pantry items
+      tags:
+      - Pantry
+  /pantry/scan:
+    post:
+      consumes:
+      - multipart/form-data
+      - application/json
+      description: Scan image to detect and optionally add pantry items using AI
+      parameters:
+      - description: Image file (multipart)
+        in: formData
+        name: image
+        type: file
+      - default: false
+        description: Auto-add detected items
+        in: formData
+        name: autoAdd
+        type: boolean
+      - description: JSON with base64 image
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerPantryScanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Scan results
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerScanResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "422":
+          description: Scan failed
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "429":
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "503":
+          description: Service unavailable
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: AI-powered pantry scan
+      tags:
+      - Pantry
+  /ready:
+    get:
+      description: Readiness probe - checks database and cache connectivity
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: All services ready
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerReadyResponse'
+        "503":
+          description: One or more services not ready
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerReadyResponse'
+      summary: Readiness check
+      tags:
+      - Health
+  /recipes:
+    get:
+      description: Get paginated list of user's recipes
+      parameters:
+      - default: 20
+        description: Items per page (max 50)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of recipes
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerRecipeListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List user's recipes
+      tags:
+      - Recipes
+    post:
+      consumes:
+      - application/json
+      description: Create a new recipe with ingredients and steps
+      parameters:
+      - description: Recipe data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerRecipe'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Recipe created successfully
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerRecipe'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new recipe
+      tags:
+      - Recipes
+  /recipes/{recipeID}:
+    delete:
+      description: Soft delete a recipe (can be recovered)
+      parameters:
+      - description: Recipe UUID
+        in: path
+        name: recipeID
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Recipe deleted successfully
+        "400":
+          description: Invalid recipe ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "403":
+          description: Access denied
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Recipe not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a recipe
+      tags:
+      - Recipes
+    get:
+      description: Get full recipe details including ingredients and steps
+      parameters:
+      - description: Recipe UUID
+        in: path
+        name: recipeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Recipe details
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerRecipe'
+        "400":
+          description: Invalid recipe ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "403":
+          description: Access denied
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Recipe not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get recipe by ID
+      tags:
+      - Recipes
+    put:
+      consumes:
+      - application/json
+      description: Update an existing recipe's details, ingredients, and steps
+      parameters:
+      - description: Recipe UUID
+        in: path
+        name: recipeID
+        required: true
+        type: string
+      - description: Updated recipe data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerRecipe'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Recipe updated successfully
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerRecipe'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "403":
+          description: Access denied
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Recipe not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a recipe
+      tags:
+      - Recipes
+  /recipes/{recipeID}/favorite:
+    post:
+      consumes:
+      - application/json
+      description: Mark or unmark a recipe as favorite
+      parameters:
+      - description: Recipe UUID
+        in: path
+        name: recipeID
+        required: true
+        type: string
+      - description: Favorite status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerFavoriteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Favorite status updated
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerFavoriteResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "403":
+          description: Access denied
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Recipe not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Toggle recipe favorite status
+      tags:
+      - Recipes
+  /recipes/extract-image:
+    post:
+      consumes:
+      - multipart/form-data
+      - application/json
+      description: Extract a recipe from an uploaded image using AI (cookbook photo,
+        screenshot)
+      parameters:
+      - description: Image file (multipart)
+        in: formData
+        name: image
+        type: file
+      - description: Auto-save extracted recipe
+        in: formData
+        name: saveAuto
+        type: boolean
+      - description: JSON with base64 image
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerExtractImageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Extracted recipe
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerExtractImageResponse'
+        "400":
+          description: Invalid image
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "422":
+          description: Extraction failed or no recipe found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "429":
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "503":
+          description: Service unavailable
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Extract recipe from image
+      tags:
+      - Recipes
+  /recipes/extract-url:
+    post:
+      consumes:
+      - application/json
+      description: Extract a recipe from a webpage URL using AI (recipe blogs, cooking
+        sites)
+      parameters:
+      - description: URL and options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerExtractURLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Extracted recipe
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerExtractURLResponse'
+        "400":
+          description: Invalid URL
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "422":
+          description: Extraction failed or no recipe found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "429":
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "503":
+          description: Service unavailable
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Extract recipe from URL
+      tags:
+      - Recipes
+  /shopping-lists:
+    get:
+      description: Get all shopping lists for the current user
+      parameters:
+      - default: false
+        description: Include archived lists
+        in: query
+        name: includeArchived
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of shopping lists
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerShoppingListsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List shopping lists
+      tags:
+      - Shopping
+    post:
+      consumes:
+      - application/json
+      description: Create a new shopping list
+      parameters:
+      - description: Shopping list data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingListInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Shopping list created
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerShoppingList'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a shopping list
+      tags:
+      - Shopping
+  /shopping-lists/{id}:
+    delete:
+      description: Delete a shopping list and all its items
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Shopping list deleted
+        "400":
+          description: Invalid list ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a shopping list
+      tags:
+      - Shopping
+    get:
+      description: Get a shopping list with optional items
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: false
+        description: Include list items
+        in: query
+        name: includeItems
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Shopping list details
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerShoppingListWithItems'
+        "400":
+          description: Invalid list ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get shopping list by ID
+      tags:
+      - Shopping
+    put:
+      consumes:
+      - application/json
+      description: Update an existing shopping list's details
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated list data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingListInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Shopping list updated
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerShoppingList'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a shopping list
+      tags:
+      - Shopping
+  /shopping-lists/{id}/add-from-recipe:
+    post:
+      consumes:
+      - application/json
+      description: Add all or selected ingredients from a recipe to the shopping list
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Recipe and optional ingredient filter
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerAddFromRecipeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Added items
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerAddFromRecipeResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list or recipe not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "409":
+          description: Recipe already added
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add recipe ingredients to shopping list
+      tags:
+      - Shopping
+  /shopping-lists/{id}/analyze:
+    post:
+      description: Get AI-powered suggestions and insights for the shopping list
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: AI analysis results
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerAnalyzeResponse'
+        "400":
+          description: AI service not available
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Analyze shopping list with AI
+      tags:
+      - Shopping
+  /shopping-lists/{id}/analyze-add-recipe:
+    post:
+      consumes:
+      - application/json
+      description: Preview what would happen if recipe ingredients were added (AI
+        analysis)
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Recipe to analyze
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerAnalyzeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Analysis results
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerAnalyzeResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list or recipe not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Analyze adding recipe to shopping list
+      tags:
+      - Shopping
+  /shopping-lists/{id}/archive:
+    post:
+      description: Mark a shopping list as archived
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Shopping list archived
+        "400":
+          description: Invalid list ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Archive a shopping list
+      tags:
+      - Shopping
+  /shopping-lists/{id}/complete:
+    post:
+      description: Mark all items as checked and archive the list
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Shopping list completed
+        "400":
+          description: Invalid list ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Complete a shopping list
+      tags:
+      - Shopping
+  /shopping-lists/{id}/items:
+    get:
+      description: Get all items in a shopping list
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of items
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerShoppingItemsResponse'
+        "400":
+          description: Invalid list ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List shopping list items
+      tags:
+      - Shopping
+    post:
+      consumes:
+      - application/json
+      description: Add a new item to a shopping list
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingItemInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Item created
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerShoppingItem'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Add item to shopping list
+      tags:
+      - Shopping
+  /shopping-lists/{id}/items/{itemId}:
+    delete:
+      description: Remove an item from a shopping list
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Shopping item UUID
+        in: path
+        name: itemId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Item deleted
+        "400":
+          description: Invalid ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list or item not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a shopping item
+      tags:
+      - Shopping
+    put:
+      consumes:
+      - application/json
+      description: Update an existing item in a shopping list
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Shopping item UUID
+        in: path
+        name: itemId
+        required: true
+        type: string
+      - description: Updated item data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerShoppingItemInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Item updated
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerShoppingItem'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list or item not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a shopping item
+      tags:
+      - Shopping
+  /shopping-lists/{id}/items/{itemId}/check:
+    post:
+      description: Mark or unmark a shopping item as checked
+      parameters:
+      - description: Shopping list UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Shopping item UUID
+        in: path
+        name: itemId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Item with updated checked status
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerShoppingItem'
+        "400":
+          description: Invalid ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Shopping list or item not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Toggle item checked status
+      tags:
+      - Shopping
+  /sync:
+    post:
+      consumes:
+      - application/json
+      description: Synchronize recipes, pantry items, and shopping lists between devices
+      parameters:
+      - description: Sync payload with local changes
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerSyncRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Server changes and conflict resolutions
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerSyncResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Sync data across devices
+      tags:
+      - Sync
+  /users/me:
+    get:
+      description: Get current authenticated user's profile and subscription
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User profile
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerMeResponse'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - Auth
+  /video/extract:
+    post:
+      consumes:
+      - application/json
+      description: Submit video URL for AI-powered recipe extraction (async job)
+      parameters:
+      - description: Video URL and options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SwaggerVideoExtractRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Job created
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerJobResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "429":
+          description: Rate limit exceeded (5/hour)
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Start video recipe extraction
+      tags:
+      - Jobs
+securityDefinitions:
+  BearerAuth:
+    description: 'Enter: Bearer {your_token}'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
+tags:
+- description: Authentication endpoints (register, login, token refresh)
+  name: Auth
+- description: Recipe CRUD and AI extraction
+  name: Recipes
+- description: Pantry inventory management and AI scanning
+  name: Pantry
+- description: Shopping list management
+  name: Shopping
+- description: Video extraction job tracking
+  name: Jobs
+- description: Multi-device synchronization
+  name: Sync
+- description: Health check and API info endpoints
+  name: Health

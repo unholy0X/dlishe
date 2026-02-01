@@ -38,7 +38,13 @@ type ReadyResponse struct {
 	Timestamp time.Time         `json:"timestamp"`
 }
 
-// Health handles GET /health - liveness probe
+// Health handles GET /health
+// @Summary Health check
+// @Description Basic liveness probe - returns OK if the server is running
+// @Tags Health
+// @Produce json
+// @Success 200 {object} SwaggerHealthResponse "Server is healthy"
+// @Router /health [get]
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, HealthResponse{
 		Status:    "ok",
@@ -46,7 +52,14 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Ready handles GET /ready - readiness probe
+// Ready handles GET /ready
+// @Summary Readiness check
+// @Description Readiness probe - checks database and cache connectivity
+// @Tags Health
+// @Produce json
+// @Success 200 {object} SwaggerReadyResponse "All services ready"
+// @Failure 503 {object} SwaggerReadyResponse "One or more services not ready"
+// @Router /ready [get]
 func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
@@ -105,6 +118,13 @@ type InfoResponse struct {
 	Features    map[string]bool   `json:"features"`
 }
 
+// Info handles GET /api/v1/info
+// @Summary API information
+// @Description Get API version, environment, and feature flags
+// @Tags Health
+// @Produce json
+// @Success 200 {object} SwaggerInfoResponse "API information"
+// @Router /info [get]
 func (h *HealthHandler) Info(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, InfoResponse{
 		Name:        "DishFlow API",

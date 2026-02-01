@@ -18,15 +18,17 @@ import (
 
 // AuthHandler handles authentication endpoints
 type AuthHandler struct {
-	jwtService *auth.JWTService
-	userRepo   *postgres.UserRepository
+	jwtService     JWTService
+	userRepo       UserRepository
+	tokenBlacklist TokenBlacklist
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(jwtService *auth.JWTService, userRepo *postgres.UserRepository) *AuthHandler {
+func NewAuthHandler(jwtService JWTService, userRepo UserRepository, tokenBlacklist TokenBlacklist) *AuthHandler {
 	return &AuthHandler{
-		jwtService: jwtService,
-		userRepo:   userRepo,
+		jwtService:     jwtService,
+		userRepo:       userRepo,
+		tokenBlacklist: tokenBlacklist,
 	}
 }
 
@@ -37,12 +39,12 @@ type AnonymousRequest struct {
 
 // AnonymousResponse represents the anonymous auth response
 type AnonymousResponse struct {
-	User        UserResponse `json:"user"`
-	AccessToken string       `json:"accessToken"`
-	RefreshToken string      `json:"refreshToken"`
-	ExpiresAt   string       `json:"expiresAt"`
-	TokenType   string       `json:"tokenType"`
-	IsNewUser   bool         `json:"isNewUser"`
+	User         UserResponse `json:"user"`
+	AccessToken  string       `json:"accessToken"`
+	RefreshToken string       `json:"refreshToken"`
+	ExpiresAt    string       `json:"expiresAt"`
+	TokenType    string       `json:"tokenType"`
+	IsNewUser    bool         `json:"isNewUser"`
 }
 
 // UserResponse represents a user in API responses
@@ -334,6 +336,12 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, resp)
 }
 
+// LogoutRequest represents the logout request body
+type LogoutRequest struct {
+	RefreshToken string `json:"refreshToken,omitempty"`
+	RevokeAll    bool   `json:"revokeAll,omitempty"` // Revoke all sessions for this user
+}
+
 // Logout handles POST /api/v1/auth/logout
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Get user from context (set by auth middleware)
@@ -343,10 +351,50 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// In a full implementation, we would:
-	// 1. Revoke the refresh token in the database
-	// 2. Add the access token to a blacklist (Redis) until it expires
-	// For MVP, we just return success - client removes tokens locally
+	// Parse optional request body
+	var req LogoutRequest
+	json.NewDecoder(r.Body).Decode(&req) // Ignore errors - body is optional
+
+	// Revoke the current access token
+	if h.tokenBlacklist != nil && claims.ID != "" {
+		// Calculate expiry from claims
+		var expiry time.Time
+		if claims.ExpiresAt != nil {
+			expiry = claims.ExpiresAt.Time
+		} else {
+			// Fallback: assume 15 minutes from now
+			expiry = time.Now().Add(15 * time.Minute)
+		}
+
+		if err := h.tokenBlacklist.RevokeToken(r.Context(), claims.ID, expiry); err != nil {
+			// Log but don't fail - logout should still succeed
+			// The token will expire naturally anyway
+		}
+
+		// If refresh token provided, revoke it too
+		if req.RefreshToken != "" {
+			refreshClaims, err := h.jwtService.ValidateRefreshToken(req.RefreshToken)
+			if err == nil && refreshClaims.ID != "" {
+				var refreshExpiry time.Time
+				if refreshClaims.ExpiresAt != nil {
+					refreshExpiry = refreshClaims.ExpiresAt.Time
+				} else {
+					refreshExpiry = time.Now().Add(30 * 24 * time.Hour) // 30 days default
+				}
+				h.tokenBlacklist.RevokeToken(r.Context(), refreshClaims.ID, refreshExpiry)
+			}
+		}
+
+		// If revokeAll requested, invalidate all user tokens
+		if req.RevokeAll {
+			// This invalidates all tokens issued before now
+			h.tokenBlacklist.RevokeAllUserTokens(
+				r.Context(),
+				claims.UserID.String(),
+				30*24*time.Hour, // Keep for 30 days (refresh token lifetime)
+			)
+		}
+	}
 
 	response.NoContent(w)
 }

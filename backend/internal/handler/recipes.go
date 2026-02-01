@@ -15,10 +15,10 @@ import (
 )
 
 type RecipeHandler struct {
-	repo *postgres.RecipeRepository
+	repo RecipeRepository
 }
 
-func NewRecipeHandler(repo *postgres.RecipeRepository) *RecipeHandler {
+func NewRecipeHandler(repo RecipeRepository) *RecipeHandler {
 	return &RecipeHandler{repo: repo}
 }
 

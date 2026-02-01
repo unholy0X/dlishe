@@ -18,22 +18,21 @@ import (
 	"github.com/dishflow/backend/internal/pkg/response"
 	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/service/ai"
-	"github.com/dishflow/backend/internal/service/video"
 )
 
 type VideoHandler struct {
-	jobRepo    *postgres.JobRepository
-	recipeRepo *postgres.RecipeRepository
+	jobRepo    JobRepository
+	recipeRepo RecipeRepository
 	extractor  ai.RecipeExtractor
-	downloader *video.Downloader
+	downloader VideoDownloader
 	logger     *slog.Logger
 }
 
 func NewVideoHandler(
-	jobRepo *postgres.JobRepository,
-	recipeRepo *postgres.RecipeRepository,
+	jobRepo JobRepository,
+	recipeRepo RecipeRepository,
 	extractor ai.RecipeExtractor,
-	downloader *video.Downloader,
+	downloader VideoDownloader,
 	logger *slog.Logger,
 ) *VideoHandler {
 	return &VideoHandler{

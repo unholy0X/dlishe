@@ -4,13 +4,157 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/dishflow/backend/internal/model"
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 )
+
+// fetchWebpage fetches the content of a webpage and returns it as text
+// It extracts readable text content, stripping most HTML tags
+func fetchWebpage(ctx context.Context, url string) (string, error) {
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	// Set user agent to avoid being blocked
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; DishFlow/1.0; +https://dishflow.app)")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+	}
+
+	// Read body with size limit (5MB max to avoid memory issues)
+	limitedReader := io.LimitReader(resp.Body, 5*1024*1024)
+	body, err := io.ReadAll(limitedReader)
+	if err != nil {
+		return "", err
+	}
+	fmt.Printf("Fetched %d bytes from %s\n", len(body), url)
+
+	htmlContent := string(body)
+
+	// Basic HTML to text conversion
+	// Remove script and style tags completely
+	htmlContent = removeHTMLSection(htmlContent, "script")
+	htmlContent = removeHTMLSection(htmlContent, "style")
+	htmlContent = removeHTMLSection(htmlContent, "nav")
+	htmlContent = removeHTMLSection(htmlContent, "footer")
+	htmlContent = removeHTMLSection(htmlContent, "header")
+
+	// Convert common HTML entities
+	htmlContent = strings.ReplaceAll(htmlContent, "&nbsp;", " ")
+	htmlContent = strings.ReplaceAll(htmlContent, "&amp;", "&")
+	htmlContent = strings.ReplaceAll(htmlContent, "&lt;", "<")
+	htmlContent = strings.ReplaceAll(htmlContent, "&gt;", ">")
+	htmlContent = strings.ReplaceAll(htmlContent, "&quot;", "\"")
+	htmlContent = strings.ReplaceAll(htmlContent, "&#39;", "'")
+
+	// Add newlines for block elements
+	blockTags := []string{"</p>", "</div>", "</li>", "</h1>", "</h2>", "</h3>", "</h4>", "</h5>", "</h6>", "<br>", "<br/>", "<br />"}
+	for _, tag := range blockTags {
+		htmlContent = strings.ReplaceAll(htmlContent, tag, tag+"\n")
+	}
+
+	// Remove remaining HTML tags (simple regex-free approach)
+	var result strings.Builder
+	inTag := false
+	for _, r := range htmlContent {
+		if r == '<' {
+			inTag = true
+		} else if r == '>' {
+			inTag = false
+		} else if !inTag {
+			result.WriteRune(r)
+		}
+	}
+
+	// Clean up whitespace
+	text := result.String()
+	lines := strings.Split(text, "\n")
+	var cleanLines []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			cleanLines = append(cleanLines, line)
+		}
+	}
+
+	// Limit content length for Gemini (keep first ~50KB of text)
+	finalText := strings.Join(cleanLines, "\n")
+	if len(finalText) > 50000 {
+		finalText = finalText[:50000] + "\n[Content truncated...]"
+	}
+
+	return finalText, nil
+}
+
+// removeHTMLSection removes a specific HTML tag and its contents
+func removeHTMLSection(html, tagName string) string {
+	result := html
+	openTag := "<" + tagName
+	closeTag := "</" + tagName + ">"
+
+	maxIterations := 1000 // Safety break
+	iterations := 0
+
+	for {
+		iterations++
+		if iterations > maxIterations {
+			break
+		}
+
+		startIdx := strings.Index(strings.ToLower(result), openTag)
+		if startIdx == -1 {
+			break
+		}
+
+		// Find the end of this section
+		// Search from startIdx to avoid finding a close tag before the open tag
+		// (though we need to handle nested tags technically, but this simple remover is for top-level mostly or simple structures)
+		// For robustness, find first close tag AFTER startIdx
+		rest := result[startIdx:]
+		endIdx := strings.Index(strings.ToLower(rest), closeTag)
+
+		if endIdx == -1 {
+			// No closing tag, try to find just the end of opening tag to at least remove that
+			endTagIdx := strings.Index(rest, ">")
+			if endTagIdx != -1 {
+				result = result[:startIdx] + result[startIdx+endTagIdx+1:]
+				continue
+			}
+			// If we can't even find >, just break to avoid infinite loop or leave it
+			break
+		}
+
+		// Calculate absolute end index
+		// endIdx found in 'rest' is relative to startIdx
+		absEndIdx := startIdx + endIdx
+
+		// Remove the entire section
+		result = result[:startIdx] + result[absEndIdx+len(closeTag):]
+	}
+
+	return result
+}
 
 // GeminiClient implements RecipeExtractor using Google's Gemini API
 type GeminiClient struct {
@@ -236,7 +380,219 @@ func (g *GeminiClient) ValidateURL(url string) error {
 	return nil
 }
 
+// AnalyzeShoppingList analyzes a shopping list for improvements
+func (g *GeminiClient) AnalyzeShoppingList(ctx context.Context, list model.ShoppingListWithItems) (*ListAnalysisResult, error) {
+	genModel := g.client.GenerativeModel(g.model)
+	genModel.ResponseMIMEType = "application/json"
+
+	// Prepare list data for prompt
+	listJSON, err := json.Marshal(list)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal list: %w", err)
+	}
+
+	prompt := fmt.Sprintf(`
+		You are an expert home economist and chef. Analyze this shopping list and provide helpful suggestions.
+		
+		**Shopping List**:
+		%s
+		
+		**Analysis Tasks**:
+		1. **Detect Duplicates**: Identify items that might be duplicates (e.g., "Onions" and "Red Onion" if likely for same use, or just exact duplicates).
+		2. **Merge Suggestions**: Suggest combining items (e.g. "2 cans of tomatoes" and "1 can crushed tomatoes" -> "3 cans tomatoes" if suitable).
+		3. **Missing Essentials**: Based on the items present, are there obvious missing companions? (e.g. "Pasta Sauce" but no "Pasta", "Cereal" but no "Milk").
+		4. **Category Check**: Are items in the correct categories? (e.g. "Apples" should be "produce").
+		
+		**Return structured JSON**:
+		{
+			"suggestions": [
+				{ "type": "duplicate", "message": "You have 'Onions' and 'Red Onion'.", "itemNames": ["Onions", "Red Onion"], "actionLabel": "Review" },
+				{ "type": "general", "message": "You have pasta sauce but no pasta.", "actionLabel": "Add Pasta" }
+			],
+			"missingEssentials": ["Pasta", "Milk"],
+			"categoryOptimizations": [
+				{ "itemName": "Apples", "currentCategory": "other", "newCategory": "produce", "reason": "Apples are produce" }
+			]
+		}
+		
+		Return ONLY the JSON. Empty arrays if no suggestions.
+	`, string(listJSON))
+
+	resp, err := genModel.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return nil, fmt.Errorf("analysis generation failed: %w", err)
+	}
+
+	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
+		return nil, fmt.Errorf("no analysis content generated")
+	}
+
+	var result ListAnalysisResult
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if txt, ok := part.(genai.Text); ok {
+			if err := json.Unmarshal([]byte(txt), &result); err != nil {
+				return nil, fmt.Errorf("failed to parse analysis JSON: %w", err)
+			}
+			break
+		}
+	}
+
+	return &result, nil
+}
+
 // IsAvailable checks if the service is configured
 func (g *GeminiClient) IsAvailable(ctx context.Context) bool {
 	return g.client != nil
+}
+
+// ExtractFromWebpage extracts a recipe from a webpage URL
+func (g *GeminiClient) ExtractFromWebpage(ctx context.Context, url string) (*ExtractionResult, error) {
+	// Fetch the webpage content
+	htmlContent, err := fetchWebpage(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch webpage: %w", err)
+	}
+
+	genModel := g.client.GenerativeModel(g.model)
+	genModel.ResponseMIMEType = "application/json"
+
+	prompt := fmt.Sprintf(`You are an expert chef and recipe extraction specialist.
+Extract the recipe from this webpage content.
+
+**Webpage URL**: %s
+
+**Webpage Content**:
+%s
+
+**Instructions**:
+1. Find the recipe on this page (title, ingredients, instructions)
+2. Extract ALL ingredients with quantities and units
+3. Extract ALL steps in order
+4. Determine prep time, cook time, servings, difficulty, and cuisine
+5. If there are multiple recipes, extract the MAIN recipe (usually the first or most prominent)
+6. If no recipe is found, return empty fields
+
+**Return JSON matching this structure**:
+{
+    "title": "Recipe Title",
+    "description": "Brief description",
+    "servings": 4,
+    "prepTime": 15,
+    "cookTime": 30,
+    "difficulty": "Easy",
+    "cuisine": "Italian",
+    "ingredients": [
+        { "name": "Ingredient", "quantity": "2", "unit": "cups", "category": "produce", "isOptional": false, "notes": "", "videoTimestamp": 0 }
+    ],
+    "steps": [
+        { "stepNumber": 1, "instruction": "Do this", "durationSeconds": 0, "technique": "", "temperature": "", "videoTimestampStart": 0, "videoTimestampEnd": 0 }
+    ],
+    "tags": ["dinner", "easy"]
+}
+
+Categories for ingredients: dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
+
+Return ONLY the JSON, no markdown or explanations.`, url, htmlContent)
+
+	resp, err := genModel.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return nil, fmt.Errorf("generation failed: %w", err)
+	}
+
+	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
+		return nil, fmt.Errorf("no content generated")
+	}
+
+	var result ExtractionResult
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if txt, ok := part.(genai.Text); ok {
+			if err := json.Unmarshal([]byte(txt), &result); err != nil {
+				return nil, fmt.Errorf("failed to parse JSON: %w", err)
+			}
+			break
+		}
+	}
+
+	return &result, nil
+}
+
+// ExtractFromImage extracts a recipe from an image (cookbook photo, screenshot)
+func (g *GeminiClient) ExtractFromImage(ctx context.Context, imageData []byte, mimeType string) (*ExtractionResult, error) {
+	if len(imageData) == 0 {
+		return nil, fmt.Errorf("empty image data")
+	}
+
+	// Validate mime type
+	validMimeTypes := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/webp": true,
+		"image/gif":  true,
+	}
+	if !validMimeTypes[mimeType] {
+		return nil, fmt.Errorf("unsupported image type: %s", mimeType)
+	}
+
+	genModel := g.client.GenerativeModel(g.model)
+	genModel.ResponseMIMEType = "application/json"
+
+	prompt := `You are an expert chef and OCR specialist. Extract the recipe from this image.
+
+**Instructions**:
+1. Read all text visible in the image (cookbook page, recipe card, screenshot)
+2. Identify the recipe title
+3. Extract ALL ingredients with quantities and units
+4. Extract ALL cooking steps/instructions in order
+5. Determine prep time, cook time, servings, difficulty, and cuisine if visible
+6. If text is partially obscured or unclear, make reasonable inferences
+7. If no recipe is found, return empty fields
+
+**Return JSON matching this structure**:
+{
+    "title": "Recipe Title",
+    "description": "Brief description",
+    "servings": 4,
+    "prepTime": 15,
+    "cookTime": 30,
+    "difficulty": "Easy",
+    "cuisine": "Italian",
+    "ingredients": [
+        { "name": "Ingredient", "quantity": "2", "unit": "cups", "category": "produce", "isOptional": false, "notes": "", "videoTimestamp": 0 }
+    ],
+    "steps": [
+        { "stepNumber": 1, "instruction": "Do this", "durationSeconds": 0, "technique": "", "temperature": "", "videoTimestampStart": 0, "videoTimestampEnd": 0 }
+    ],
+    "tags": ["dinner", "easy"]
+}
+
+Categories for ingredients: dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
+
+Return ONLY the JSON, no markdown or explanations.`
+
+	// Create image part
+	imagePart := genai.Blob{
+		MIMEType: mimeType,
+		Data:     imageData,
+	}
+
+	resp, err := genModel.GenerateContent(ctx, imagePart, genai.Text(prompt))
+	if err != nil {
+		return nil, fmt.Errorf("generation failed: %w", err)
+	}
+
+	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
+		return nil, fmt.Errorf("no content generated")
+	}
+
+	var result ExtractionResult
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if txt, ok := part.(genai.Text); ok {
+			if err := json.Unmarshal([]byte(txt), &result); err != nil {
+				return nil, fmt.Errorf("failed to parse JSON: %w", err)
+			}
+			break
+		}
+	}
+
+	return &result, nil
 }

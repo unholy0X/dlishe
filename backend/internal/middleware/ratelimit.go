@@ -61,6 +61,26 @@ func (rl *RateLimiter) VideoExtraction() func(http.Handler) http.Handler {
 	return rl.limit(config, getUserIdentifier)
 }
 
+// rateLimitScript is an atomic Lua script that:
+// 1. Increments the counter
+// 2. Sets expiry on first request
+// 3. Returns [current_count, ttl]
+// This eliminates the race condition between check and increment
+var rateLimitScript = redis.NewScript(`
+local key = KEYS[1]
+local limit = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+
+local current = redis.call("INCR", key)
+
+if current == 1 then
+    redis.call("EXPIRE", key, window)
+end
+
+local ttl = redis.call("TTL", key)
+return {current, ttl}
+`)
+
 // limit is the core rate limiting middleware
 func (rl *RateLimiter) limit(config RateLimitConfig, identifierFunc func(*http.Request) string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -71,19 +91,27 @@ func (rl *RateLimiter) limit(config RateLimitConfig, identifierFunc func(*http.R
 			// Build Redis key
 			key := fmt.Sprintf("%s:%s", config.KeyPrefix, identifier)
 
-			// Check current count
-			count, err := rl.redis.Get(ctx, key).Int()
-			if err != nil && err != redis.Nil {
+			// Execute atomic rate limit script
+			// This increments first, then checks - no race condition
+			result, err := rateLimitScript.Run(ctx, rl.redis, []string{key},
+				config.MaxRequests,
+				int(config.Window.Seconds()),
+			).Slice()
+
+			if err != nil {
 				// Redis error - allow request but log error
+				// Consider adding structured logging here
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// Check if limit exceeded
-			if count >= config.MaxRequests {
-				// Get TTL for Retry-After header
-				ttl, _ := rl.redis.TTL(ctx, key).Result()
-				retryAfter := int(ttl.Seconds())
+			// Parse results
+			current, _ := result[0].(int64)
+			ttl, _ := result[1].(int64)
+
+			// Check if limit exceeded (current is already incremented)
+			if current > int64(config.MaxRequests) {
+				retryAfter := int(ttl)
 				if retryAfter <= 0 {
 					retryAfter = int(config.Window.Seconds())
 				}
@@ -91,7 +119,7 @@ func (rl *RateLimiter) limit(config RateLimitConfig, identifierFunc func(*http.R
 				// Set rate limit headers
 				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(config.MaxRequests))
 				w.Header().Set("X-RateLimit-Remaining", "0")
-				w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(time.Now().Add(ttl).Unix(), 10))
+				w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(time.Now().Add(time.Duration(ttl)*time.Second).Unix(), 10))
 				w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 
 				response.ErrorJSON(w, http.StatusTooManyRequests, "RATE_LIMIT_EXCEEDED",
@@ -102,31 +130,15 @@ func (rl *RateLimiter) limit(config RateLimitConfig, identifierFunc func(*http.R
 				return
 			}
 
-			// Increment counter
-			pipe := rl.redis.Pipeline()
-			pipe.Incr(ctx, key)
-
-			// Set expiry only if this is the first request
-			if count == 0 {
-				pipe.Expire(ctx, key, config.Window)
-			}
-
-			_, err = pipe.Exec(ctx)
-			if err != nil {
-				// Redis error - allow request but log error
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			// Calculate remaining requests
-			remaining := config.MaxRequests - count - 1
+			remaining := int64(config.MaxRequests) - current
 			if remaining < 0 {
 				remaining = 0
 			}
 
 			// Set rate limit headers
 			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(config.MaxRequests))
-			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
+			w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(remaining, 10))
 			w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(time.Now().Add(config.Window).Unix(), 10))
 
 			next.ServeHTTP(w, r)
@@ -135,26 +147,59 @@ func (rl *RateLimiter) limit(config RateLimitConfig, identifierFunc func(*http.R
 }
 
 // getIPIdentifier extracts IP address from request
+// SECURITY: Properly parses X-Forwarded-For to extract the first (client) IP
+// X-Forwarded-For format: "client, proxy1, proxy2, ..."
 func getIPIdentifier(r *http.Request) string {
 	// Check X-Forwarded-For header first (for proxies)
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip != "" {
-		return ip
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		// X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+		// The first IP is the original client IP
+		// Split and take the first one, trimming whitespace
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			ip := strings.TrimSpace(ips[0])
+			if ip != "" {
+				// Also strip port if present (e.g., "[::1]:8080" or "1.2.3.4:8080")
+				return stripPort(ip)
+			}
+		}
 	}
 
-	// Check X-Real-IP header
-	ip = r.Header.Get("X-Real-IP")
+	// Check X-Real-IP header (set by nginx/other proxies)
+	ip := r.Header.Get("X-Real-IP")
 	if ip != "" {
-		return ip
+		return stripPort(strings.TrimSpace(ip))
 	}
 
-	// Fall back to RemoteAddr (strip port)
-	ip = r.RemoteAddr
-	// Remove port if present (format is "IP:port")
-	if idx := strings.LastIndex(ip, ":"); idx != -1 {
-		ip = ip[:idx]
+	// Fall back to RemoteAddr
+	return stripPort(r.RemoteAddr)
+}
+
+// stripPort removes the port from an IP address
+// Handles both IPv4 (1.2.3.4:8080) and IPv6 ([::1]:8080)
+func stripPort(addr string) string {
+	// Handle IPv6 with brackets: [::1]:8080
+	if strings.HasPrefix(addr, "[") {
+		if idx := strings.LastIndex(addr, "]:"); idx != -1 {
+			return addr[1:idx] // Return just the IPv6 address without brackets
+		}
+		// No port, but has brackets: [::1]
+		if strings.HasSuffix(addr, "]") {
+			return addr[1 : len(addr)-1]
+		}
+		return addr
 	}
-	return ip
+
+	// Handle IPv4: only strip port if there's exactly one colon
+	// (IPv6 without brackets has multiple colons)
+	if strings.Count(addr, ":") == 1 {
+		if idx := strings.LastIndex(addr, ":"); idx != -1 {
+			return addr[:idx]
+		}
+	}
+
+	return addr
 }
 
 // getUserIdentifier extracts user ID from request context

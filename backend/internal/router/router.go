@@ -17,6 +17,7 @@ import (
 	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/service/ai"
 	"github.com/dishflow/backend/internal/service/auth"
+	"github.com/dishflow/backend/internal/service/sync"
 	"github.com/dishflow/backend/internal/service/video"
 )
 
@@ -38,30 +39,40 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	)
 	userRepo := postgres.NewUserRepository(db)
 
+	// Initialize token blacklist for logout/revocation
+	tokenBlacklist := auth.NewTokenBlacklist(redis)
+
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db, redis)
-	authHandler := handler.NewAuthHandler(jwtService, userRepo)
+	authHandler := handler.NewAuthHandler(jwtService, userRepo, tokenBlacklist)
 
 	// Services
 	recipeRepo := postgres.NewRecipeRepository(db)
 	recipeHandler := handler.NewRecipeHandler(recipeRepo)
-
-	jobRepo := postgres.NewJobRepository(db)
 
 	// Initialize AI service
 	geminiCtx := context.Background()
 	geminiClient, err := ai.NewGeminiClient(geminiCtx, cfg.GeminiAPIKey)
 	if err != nil {
 		logger.Error("Failed to initialize Gemini client", "error", err)
-		// We can continue, but AI features will fail.
-		// Or we can use a mock if we had one implementing the interface.
 	}
 
 	var extractor ai.RecipeExtractor = geminiClient
-	// If initialization failed, we might want a no-op or error-returning implementation,
-	// but for now let's assume it works or we panic provided it's critical.
-	// The original code has graceful shutdown so panic might be okay for startup errors if critical.
-	// But let's just log. videoHandler will fail if extractor is nil, so let's check in handler or here.
+
+	pantryRepo := postgres.NewPantryRepository(db)
+	pantryHandler := handler.NewPantryHandler(pantryRepo)
+
+	// Extraction handler for URL and image extraction
+	extractionHandler := handler.NewExtractionHandler(extractor, recipeRepo)
+
+	shoppingRepo := postgres.NewShoppingRepository(db)
+	shoppingHandler := handler.NewShoppingHandler(shoppingRepo, recipeRepo, geminiClient)
+
+	// Initialize sync service
+	syncService := sync.NewService(recipeRepo, pantryRepo, shoppingRepo)
+	syncHandler := handler.NewSyncHandler(syncService)
+
+	jobRepo := postgres.NewJobRepository(db)
 
 	downloader := video.NewDownloader(os.TempDir())
 	videoHandler := handler.NewVideoHandler(jobRepo, recipeRepo, extractor, downloader, logger)
@@ -85,12 +96,12 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 			r.Post("/login", authHandler.Login)
 			r.Post("/refresh", authHandler.Refresh)
 			// Logout requires auth
-			r.With(middleware.Auth(jwtService)).Post("/logout", authHandler.Logout)
+			r.With(middleware.Auth(jwtService, tokenBlacklist)).Post("/logout", authHandler.Logout)
 		})
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(jwtService))
+			r.Use(middleware.Auth(jwtService, tokenBlacklist))
 			r.Use(rateLimiter.General()) // Apply general rate limiting to all protected routes
 
 			// User routes
@@ -107,6 +118,10 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 				// r.Get("/shared-with-me", placeholderHandler("shared recipes")) // TODO: Implement shared recipes
 				r.Post("/generate", placeholderHandler("generate recipe"))
 				r.Post("/generate-from-ingredients", placeholderHandler("generate from ingredients"))
+
+				// Extraction endpoints (AI-powered)
+				r.With(rateLimiter.VideoExtraction()).Post("/extract-url", extractionHandler.ExtractFromURL)
+				r.With(rateLimiter.VideoExtraction()).Post("/extract-image", extractionHandler.ExtractFromImage)
 
 				r.Route("/{recipeID}", func(r chi.Router) {
 					r.Get("/", recipeHandler.Get)
@@ -137,19 +152,45 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 			// Pantry routes
 			r.Route("/pantry", func(r chi.Router) {
+				r.Get("/", pantryHandler.List)
+				r.Post("/", pantryHandler.Create)
+				r.Get("/expiring", pantryHandler.GetExpiring)
+				r.Get("/{id}", pantryHandler.Get)
+				r.Put("/{id}", pantryHandler.Update)
+				r.Delete("/{id}", pantryHandler.Delete)
 				r.Post("/scan", placeholderHandler("scan pantry"))
 				r.Get("/restock-suggestions", placeholderHandler("restock suggestions"))
-				r.Get("/expiring", placeholderHandler("expiring items"))
 			})
 
 			// Shopping list routes
 			r.Route("/shopping-lists", func(r chi.Router) {
-				r.Get("/suggestions", placeholderHandler("shopping suggestions"))
-				r.Post("/{listID}/add-from-recipe", placeholderHandler("add from recipe"))
+				r.Get("/", shoppingHandler.ListLists)
+				r.Post("/", shoppingHandler.CreateList)
+
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", shoppingHandler.GetList)
+					r.Put("/", shoppingHandler.UpdateList)
+					r.Delete("/", shoppingHandler.DeleteList)
+					r.Post("/archive", shoppingHandler.ArchiveList)
+					r.Post("/add-from-recipe", shoppingHandler.AddFromRecipe)
+
+					// Items
+					r.Get("/items", shoppingHandler.ListItems)
+					r.Post("/items", shoppingHandler.CreateItem)
+					r.Put("/items/{itemId}", shoppingHandler.UpdateItem)
+					r.Delete("/items/{itemId}", shoppingHandler.DeleteItem)
+					r.Post("/items/{itemId}/check", shoppingHandler.ToggleItemChecked)
+					r.Post("/complete", shoppingHandler.CompleteList)
+					// Supervised Add
+					r.Post("/add-from-recipe", shoppingHandler.AddFromRecipe)
+					r.Post("/analyze-add-recipe", shoppingHandler.AnalyzeAddFromRecipe)
+
+					r.Post("/analyze", shoppingHandler.AnalyzeList)
+				})
 			})
 
 			// Sync routes
-			r.Post("/sync", placeholderHandler("sync"))
+			r.Post("/sync", syncHandler.Sync)
 
 			// Subscription routes
 			r.Route("/subscription", func(r chi.Router) {

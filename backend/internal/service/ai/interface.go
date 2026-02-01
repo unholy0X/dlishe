@@ -55,8 +55,14 @@ type ProgressCallback func(status model.JobStatus, progress int, message string)
 
 // RecipeExtractor defines the interface for AI-powered recipe extraction
 type RecipeExtractor interface {
-	// ExtractRecipe extracts a recipe from a video URL
+	// ExtractRecipe extracts a recipe from a video file (local path)
 	ExtractRecipe(ctx context.Context, req ExtractionRequest, onProgress ProgressCallback) (*ExtractionResult, error)
+
+	// ExtractFromWebpage extracts a recipe from a webpage URL (recipe blog, cooking site)
+	ExtractFromWebpage(ctx context.Context, url string) (*ExtractionResult, error)
+
+	// ExtractFromImage extracts a recipe from an image (cookbook photo, screenshot)
+	ExtractFromImage(ctx context.Context, imageData []byte, mimeType string) (*ExtractionResult, error)
 
 	// RefineRecipe reviews and improves an extracted recipe (deduplication, standardization, etc.)
 	RefineRecipe(ctx context.Context, rawRecipe *ExtractionResult) (*ExtractionResult, error)
@@ -66,6 +72,34 @@ type RecipeExtractor interface {
 
 	// IsAvailable checks if the AI service is available
 	IsAvailable(ctx context.Context) bool
+}
+
+// ShoppingListAnalyzer defines the interface for AI-powered shopping list analysis
+type ShoppingListAnalyzer interface {
+	AnalyzeShoppingList(ctx context.Context, list model.ShoppingListWithItems) (*ListAnalysisResult, error)
+}
+
+// ListAnalysisResult contains the analysis of a shopping list
+type ListAnalysisResult struct {
+	Suggestions           []ListSuggestion       `json:"suggestions"`
+	MissingEssentials     []string               `json:"missingEssentials"`
+	CategoryOptimizations []CategoryOptimization `json:"categoryOptimizations"`
+}
+
+// ListSuggestion represents a specific suggestion for the list
+type ListSuggestion struct {
+	Type        string   `json:"type"` // "duplicate", "merge", "general"
+	Message     string   `json:"message"`
+	ItemNames   []string `json:"itemNames,omitempty"`
+	ActionLabel string   `json:"actionLabel,omitempty"`
+}
+
+// CategoryOptimization represents a suggestion to move items to a better category
+type CategoryOptimization struct {
+	ItemName        string `json:"itemName"`
+	CurrentCategory string `json:"currentCategory"`
+	NewCategory     string `json:"newCategory"`
+	Reason          string `json:"reason"`
 }
 
 // Supported video platforms

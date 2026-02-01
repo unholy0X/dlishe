@@ -529,3 +529,81 @@ func (r *RecipeRepository) CountByUser(ctx context.Context, userID uuid.UUID) (i
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(&count)
 	return count, err
 }
+
+// GetChangesSince returns recipes modified since the given timestamp (for sync)
+func (r *RecipeRepository) GetChangesSince(ctx context.Context, userID uuid.UUID, since time.Time) ([]model.Recipe, error) {
+	query := `
+		SELECT id, user_id, title, description, servings, prep_time, cook_time,
+		       difficulty, cuisine, thumbnail_url, source_type, source_url, source_metadata,
+		       tags, is_favorite, sync_version, created_at, updated_at, deleted_at
+		FROM recipes
+		WHERE user_id = $1 AND updated_at > $2
+		ORDER BY updated_at ASC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var recipes []model.Recipe
+	for rows.Next() {
+		var recipe model.Recipe
+		var sourceMetadata []byte
+
+		err := rows.Scan(
+			&recipe.ID, &recipe.UserID, &recipe.Title, &recipe.Description,
+			&recipe.Servings, &recipe.PrepTime, &recipe.CookTime,
+			&recipe.Difficulty, &recipe.Cuisine, &recipe.ThumbnailURL,
+			&recipe.SourceType, &recipe.SourceURL, &sourceMetadata,
+			pq.Array(&recipe.Tags), &recipe.IsFavorite, &recipe.SyncVersion,
+			&recipe.CreatedAt, &recipe.UpdatedAt, &recipe.DeletedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Unmarshal source metadata
+		if len(sourceMetadata) > 0 {
+			if err := json.Unmarshal(sourceMetadata, &recipe.SourceMetadata); err != nil {
+				return nil, err
+			}
+		}
+
+		// Get ingredients and steps
+		ingredients, err := r.getIngredients(ctx, recipe.ID)
+		if err != nil {
+			return nil, err
+		}
+		recipe.Ingredients = ingredients
+
+		steps, err := r.getSteps(ctx, recipe.ID)
+		if err != nil {
+			return nil, err
+		}
+		recipe.Steps = steps
+
+		recipes = append(recipes, recipe)
+	}
+
+	return recipes, rows.Err()
+}
+
+// Upsert creates or updates a recipe (for sync)
+func (r *RecipeRepository) Upsert(ctx context.Context, recipe *model.Recipe) error {
+	// Check if recipe exists
+	existing, err := r.GetByID(ctx, recipe.ID)
+	if err == model.ErrNotFound {
+		// Create new recipe
+		return r.Create(ctx, recipe)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Update existing recipe
+	// We need to preserve the ID and user_id
+	recipe.UserID = existing.UserID
+	return r.Update(ctx, recipe)
+}

@@ -2,6 +2,8 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
+	"strconv"
 
 	"github.com/dishflow/backend/internal/model"
 )
@@ -48,6 +50,59 @@ type ExtractionResult struct {
 	Steps       []ExtractedStep       `json:"steps"`
 	Tags        []string              `json:"tags"`
 	Thumbnail   string                `json:"thumbnail,omitempty"`
+}
+
+// UnmarshalJSON handles flexible type conversion for fields that might come as strings or ints
+func (e *ExtractionResult) UnmarshalJSON(data []byte) error {
+	// Create a temporary struct with string fields for flexible parsing
+	type Alias ExtractionResult
+	aux := &struct {
+		ServingsRaw interface{} `json:"servings"`
+		PrepTimeRaw interface{} `json:"prepTime"`
+		CookTimeRaw interface{} `json:"cookTime"`
+		*Alias
+	}{
+		Alias: (*Alias)(e),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Convert servings (could be string or int)
+	switch v := aux.ServingsRaw.(type) {
+	case float64:
+		e.Servings = int(v)
+	case string:
+		if v != "" {
+			parsed, _ := strconv.Atoi(v)
+			e.Servings = parsed
+		}
+	}
+
+	// Convert prepTime (could be string or int)
+	switch v := aux.PrepTimeRaw.(type) {
+	case float64:
+		e.PrepTime = int(v)
+	case string:
+		if v != "" {
+			parsed, _ := strconv.Atoi(v)
+			e.PrepTime = parsed
+		}
+	}
+
+	// Convert cookTime (could be string or int)
+	switch v := aux.CookTimeRaw.(type) {
+	case float64:
+		e.CookTime = int(v)
+	case string:
+		if v != "" {
+			parsed, _ := strconv.Atoi(v)
+			e.CookTime = parsed
+		}
+	}
+
+	return nil
 }
 
 // ProgressCallback is called with progress updates during extraction

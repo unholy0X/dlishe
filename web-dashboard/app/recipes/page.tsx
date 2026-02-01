@@ -32,7 +32,7 @@ export default function RecipesPage() {
             setLoading(true);
             const data = await recipeService.getAll();
             console.log('Recipes API response:', data);
-            setRecipes(data.recipes || []);
+            setRecipes(data.items || []); // Backend returns 'items', not 'recipes'
             setError(null);
         } catch (err) {
             console.error('Failed to fetch recipes:', err);

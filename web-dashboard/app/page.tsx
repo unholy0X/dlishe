@@ -46,6 +46,7 @@ export default function DashboardPage() {
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [extractionProgress, setExtractionProgress] = useState('');
   const [error, setError] = useState('');
 
   // 1. Initial Load & Auth Check
@@ -87,6 +88,7 @@ export default function DashboardPage() {
   const handleExtract = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setExtractionProgress('');
 
     try {
       if (extractionMode === 'video') {
@@ -101,45 +103,51 @@ export default function DashboardPage() {
       } else if (extractionMode === 'url') {
         if (!webUrl) return;
         setIsSubmitting(true);
-        // Using /video/extract as it handles general async extraction now or /recipes/extract-url if sync? 
-        // Backend router has: r.Post("/extract-url", extractionHandler.ExtractFromURL) 
-        // and r.Post("/extract-image", ...).
-        // Let's assume these are synchronous or return a job? 
-        // Wait, the backend router says: extract-url and extract-image are under /recipes/. 
-        // Video extract is under /video/extract.
-        // If they are synchronous, they return a recipe directly. If async, they return a job?
-        // extractionHandler usually returns recipe. 
-        // Users wants "plug it to new endpoint". 
-        // If it returns a recipe, we should redirect to it?
+        setExtractionProgress('Fetching webpage...');
 
-        const res = await api.post('/recipes/extract-url', { url: webUrl });
-        const recipeId = res.data?.id || res.data?.recipe?.id;
-        if (recipeId) router.push(`/recipes/${recipeId}`);
-        else fetchJobs(); // Fallback if it created a job implicitly or something
+        const res = await api.post('/recipes/extract-url', { url: webUrl, saveAuto: true });
+
+        setExtractionProgress('Gemini extracting recipe...');
+        await new Promise(r => setTimeout(r, 500)); // Brief pause for UX
+
+        const recipeId = res.data?.savedId || res.data?.id;
+        if (recipeId) {
+          setExtractionProgress('Complete!');
+          await new Promise(r => setTimeout(r, 300));
+          await fetchJobs(); // Refresh jobs list
+          router.push(`/recipes/${recipeId}`);
+        } else {
+          console.warn('No recipe ID in response:', res.data);
+          setError('Recipe extracted but not saved');
+        }
         setWebUrl('');
 
       } else if (extractionMode === 'image') {
         if (!imageFile) return;
         setIsSubmitting(true);
+        setExtractionProgress('Uploading image...');
+
         const formData = new FormData();
         formData.append('image', imageFile);
-        formData.append('saveAuto', 'true'); // Auto-save the extracted recipe
+        formData.append('saveAuto', 'true');
 
+        setExtractionProgress('Gemini analyzing image...');
         const res = await api.post('/recipes/extract-image', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
 
-        console.log('Extract-image response:', res.data);
+        setExtractionProgress('Refining recipe...');
+        await new Promise(r => setTimeout(r, 500)); // Brief pause for UX
 
-        // When saveAuto is true, backend returns savedId
         const recipeId = res.data?.savedId;
 
         if (recipeId) {
-          console.log('Navigating to saved recipe:', recipeId);
+          setExtractionProgress('Complete!');
+          await new Promise(r => setTimeout(r, 300));
           router.push(`/recipes/${recipeId}`);
         } else {
-          console.warn('No recipe ID found in response:', res.data);
-          setError('Recipe extracted but not saved. Please try again.');
+          console.warn('No recipe ID found:', res.data);
+          setError('Recipe extracted but not saved');
         }
 
         setImageFile(null);
@@ -149,6 +157,7 @@ export default function DashboardPage() {
       fetchJobs(); // Refresh jobs anyway
     } catch (err: any) {
       setError(err.response?.data?.error?.message || 'Extraction failed');
+      setExtractionProgress('');
     } finally {
       setIsSubmitting(false);
     }
@@ -216,7 +225,7 @@ export default function DashboardPage() {
                     value={extractionMode === 'video' ? videoUrl : webUrl}
                     onChange={(e) => extractionMode === 'video' ? setVideoUrl(e.target.value) : setWebUrl(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-300 focus:ring-2 focus:ring-honey-300 focus:border-honey-300 outline-none transition bg-stone-50"
-                    required={extractionMode !== 'image'}
+                    required
                   />
                 </div>
               )}
@@ -241,12 +250,10 @@ export default function DashboardPage() {
                       htmlFor="image-upload"
                       className="flex flex-col items-center gap-3 p-8 border-2 border-dashed border-stone-300 rounded-xl hover:border-honey-300 hover:bg-honey-50/50 transition cursor-pointer"
                     >
-                      <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-text-muted">
-                        <Upload className="w-6 h-6" />
-                      </div>
+                      <Upload className="w-12 h-12 text-stone-400" />
                       <div className="text-center">
-                        <span className="text-honey-600 font-medium">Click to upload</span>
-                        <span className="text-text-muted"> or drag and drop</span>
+                        <p className="text-sm font-medium text-stone-700">Click to upload recipe image</p>
+                        <p className="text-xs text-stone-500 mt-1">PNG, JPG, WebP up to 10MB</p>
                       </div>
                     </label>
                   ) : (
@@ -266,11 +273,23 @@ export default function DashboardPage() {
 
               <button
                 type="submit"
-                disabled={isSubmitting || (extractionMode === 'image' && !imageFile)}
-                className="w-full bg-honey-400 hover:bg-honey-500 text-white px-6 py-3 rounded-xl font-medium shadow-honey transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+                disabled={isSubmitting ||
+                  (extractionMode === 'video' && !videoUrl) ||
+                  (extractionMode === 'url' && !webUrl) ||
+                  (extractionMode === 'image' && !imageFile)}
+                className="w-full bg-honey-500 text-white px-6 py-3 rounded-lg hover:bg-honey-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                {isSubmitting ? 'Processing...' : 'Extract Recipe'}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {extractionProgress || 'Processing...'}
+                  </>
+                ) : (
+                  <>
+                    <ChefHat className="w-5 h-5" />
+                    Extract Recipe
+                  </>
+                )}
               </button>
             </form>
             {error && <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>}

@@ -711,6 +711,165 @@ Return ONLY the JSON, no markdown or explanations. If no food items are detected
 	return &result, nil
 }
 
+// EnrichRecipe adds nutrition, dietary info, and meal types to a recipe
+// This is a separate AI call focused on analysis rather than extraction
+func (g *GeminiClient) EnrichRecipe(ctx context.Context, input *EnrichmentInput) (*EnrichmentResult, error) {
+	genModel := g.client.GenerativeModel(g.model)
+	genModel.ResponseMIMEType = "application/json"
+
+	// Build recipe text for the prompt
+	var recipeText strings.Builder
+	recipeText.WriteString(fmt.Sprintf("Title: %s\n\n", input.Title))
+
+	if input.Servings > 0 {
+		recipeText.WriteString(fmt.Sprintf("Servings: %d\n\n", input.Servings))
+	} else {
+		recipeText.WriteString("Servings: unknown\n\n")
+	}
+
+	recipeText.WriteString("Ingredients:\n")
+	for _, ing := range input.Ingredients {
+		recipeText.WriteString(fmt.Sprintf("- %s\n", ing))
+	}
+	recipeText.WriteString("\n")
+
+	recipeText.WriteString("Steps:\n")
+	for i, step := range input.Steps {
+		recipeText.WriteString(fmt.Sprintf("%d. %s\n", i+1, step))
+	}
+	recipeText.WriteString("\n")
+
+	recipeText.WriteString("Additional context:\n")
+	if input.PrepTime > 0 {
+		recipeText.WriteString(fmt.Sprintf("- Prep time: %d minutes\n", input.PrepTime))
+	}
+	if input.CookTime > 0 {
+		recipeText.WriteString(fmt.Sprintf("- Cook time: %d minutes\n", input.CookTime))
+	}
+	if input.Cuisine != "" {
+		recipeText.WriteString(fmt.Sprintf("- Cuisine: %s\n", input.Cuisine))
+	}
+
+	// Determine if we need servings estimate
+	needServingsEstimate := input.Servings == 0
+
+	prompt := fmt.Sprintf(`Analyze this recipe and provide nutrition estimates and dietary classifications.
+
+Recipe:
+---
+%s
+---
+
+Respond with JSON only, no explanation:
+
+{
+  "nutrition": {
+    "perServing": {
+      "calories": <int>,
+      "protein": <int grams>,
+      "carbs": <int grams>,
+      "fat": <int grams>,
+      "fiber": <int grams>,
+      "sugar": <int grams>,
+      "sodium": <int mg>
+    },
+    "tags": [<relevant tags from: high-protein, low-carb, low-fat, high-fiber, low-calorie, moderate-carb>],
+    "confidence": <0.0-1.0>
+  },
+  "dietaryInfo": {
+    "isVegetarian": <bool>,
+    "isVegan": <bool>,
+    "isGlutenFree": <bool>,
+    "isDairyFree": <bool>,
+    "isNutFree": <bool>,
+    "isKeto": <bool>,
+    "isHalal": <bool or null if uncertain>,
+    "isKosher": <bool or null if uncertain>,
+    "allergens": [<detected allergens from: dairy, eggs, gluten, nuts, peanuts, soy, shellfish, fish, sesame>],
+    "mealTypes": [<appropriate meal types from: breakfast, lunch, dinner, snack, dessert>],
+    "confidence": <0.0-1.0>
+  }%s
+}
+
+Guidelines:
+- Estimate nutrition per serving based on typical ingredient amounts
+- For dietary flags, analyze all ingredients carefully
+- Use null for isHalal/isKosher unless clearly determinable (e.g., pork = not halal)
+- Infer meal types from recipe characteristics (eggs+bacon=breakfast, substantial protein+sides=dinner, sweet/chocolate=dessert, etc.)
+%s- Set confidence based on how certain you are of your estimates`, recipeText.String(), getServingsEstimateSchema(needServingsEstimate), getServingsEstimateGuideline(needServingsEstimate))
+
+	// Retry the entire generation + parsing to handle transient JSON issues
+	var result EnrichmentResult
+	var lastErr error
+
+	for attempt := 0; attempt < 2; attempt++ { // Try up to 2 times
+		resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
+			return genModel.GenerateContent(ctx, genai.Text(prompt))
+		})
+		if err != nil {
+			lastErr = fmt.Errorf("enrichment generation failed: %w", err)
+			continue
+		}
+
+		if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
+			lastErr = fmt.Errorf("no enrichment content generated")
+			continue
+		}
+
+		// Try to parse the response
+		parsed := false
+		for _, part := range resp.Candidates[0].Content.Parts {
+			if txt, ok := part.(genai.Text); ok {
+				// Try to clean up the response if it has markdown code blocks
+				jsonStr := strings.TrimSpace(string(txt))
+				jsonStr = strings.TrimPrefix(jsonStr, "```json")
+				jsonStr = strings.TrimPrefix(jsonStr, "```")
+				jsonStr = strings.TrimSuffix(jsonStr, "```")
+				jsonStr = strings.TrimSpace(jsonStr)
+
+				if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
+					lastErr = fmt.Errorf("failed to parse enrichment JSON: %w (content: %.200s)", err, jsonStr)
+					break // Try again
+				}
+				parsed = true
+				break
+			}
+		}
+
+		if parsed {
+			return &result, nil
+		}
+	}
+
+	// Return error but don't crash - caller should handle gracefully
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("enrichment failed after retries")
+}
+
+// getServingsEstimateSchema returns the JSON schema portion for servings estimate
+func getServingsEstimateSchema(needEstimate bool) string {
+	if needEstimate {
+		return `,
+  "servingsEstimate": {
+    "value": <int>,
+    "confidence": <0.0-1.0>,
+    "reasoning": "<brief explanation>"
+  }`
+	}
+	return ""
+}
+
+// getServingsEstimateGuideline returns the guideline for servings estimation
+func getServingsEstimateGuideline(needEstimate bool) string {
+	if needEstimate {
+		return `- Servings is unknown - estimate based on ingredient quantities (1 lb meat ~ 4 servings, 2 chicken breasts ~ 2 servings, 1 cup dry pasta ~ 4 servings cooked)
+`
+	}
+	return ""
+}
+
 // ExtractFromImage extracts a recipe from an image (cookbook photo, screenshot)
 func (g *GeminiClient) ExtractFromImage(ctx context.Context, imageData []byte, mimeType string) (*ExtractionResult, error) {
 	if len(imageData) == 0 {

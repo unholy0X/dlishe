@@ -22,6 +22,7 @@ import (
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/model"
 	"github.com/dishflow/backend/internal/pkg/response"
+	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/service/ai"
 )
 
@@ -30,6 +31,8 @@ type UnifiedExtractionHandler struct {
 	jobRepo    JobRepository
 	recipeRepo RecipeRepository
 	extractor  ai.RecipeExtractor
+	enricher   ai.RecipeEnricher
+	cacheRepo  *postgres.ExtractionCacheRepository
 	downloader VideoDownloader
 	logger     *slog.Logger
 
@@ -48,6 +51,8 @@ func NewUnifiedExtractionHandler(
 	jobRepo JobRepository,
 	recipeRepo RecipeRepository,
 	extractor ai.RecipeExtractor,
+	enricher ai.RecipeEnricher,
+	cacheRepo *postgres.ExtractionCacheRepository,
 	downloader VideoDownloader,
 	logger *slog.Logger,
 ) *UnifiedExtractionHandler {
@@ -55,6 +60,8 @@ func NewUnifiedExtractionHandler(
 		jobRepo:      jobRepo,
 		recipeRepo:   recipeRepo,
 		extractor:    extractor,
+		enricher:     enricher,
+		cacheRepo:    cacheRepo,
 		downloader:   downloader,
 		logger:       logger,
 		jobSemaphore: make(chan struct{}, 10), // Allow 10 concurrent jobs
@@ -64,13 +71,14 @@ func NewUnifiedExtractionHandler(
 
 // UnifiedExtractRequest represents a unified extraction request
 type UnifiedExtractRequest struct {
-	Type        string `json:"type"`                  // "url", "image", "video"
-	URL         string `json:"url,omitempty"`         // For url and video types
-	ImageBase64 string `json:"imageBase64,omitempty"` // For image type (JSON)
-	MimeType    string `json:"mimeType,omitempty"`    // For image type
-	Language    string `json:"language,omitempty"`    // "en", "fr", "es", "auto"
-	DetailLevel string `json:"detailLevel,omitempty"` // "quick", "detailed"
-	SaveAuto    bool   `json:"saveAuto,omitempty"`    // Auto-save extracted recipe
+	Type         string `json:"type"`                   // "url", "image", "video"
+	URL          string `json:"url,omitempty"`          // For url and video types
+	ImageBase64  string `json:"imageBase64,omitempty"`  // For image type (JSON)
+	MimeType     string `json:"mimeType,omitempty"`     // For image type
+	Language     string `json:"language,omitempty"`     // "en", "fr", "es", "auto"
+	DetailLevel  string `json:"detailLevel,omitempty"`  // "quick", "detailed"
+	SaveAuto     bool   `json:"saveAuto,omitempty"`     // Auto-save extracted recipe
+	ForceRefresh bool   `json:"forceRefresh,omitempty"` // Bypass cache and re-extract
 }
 
 // Extract handles POST /api/v1/recipes/extract
@@ -125,6 +133,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		req.Language = r.FormValue("language")
 		req.DetailLevel = r.FormValue("detailLevel")
 		req.SaveAuto = r.FormValue("saveAuto") != "false" // Default true
+		req.ForceRefresh = r.FormValue("forceRefresh") == "true"
 		req.MimeType = r.FormValue("mimeType")
 
 		// Handle image file if present
@@ -234,6 +243,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		req.Language,
 		req.DetailLevel,
 		req.SaveAuto,
+		req.ForceRefresh,
 	)
 
 	// For image jobs, save image to temp file
@@ -270,6 +280,14 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 	go func() {
 		defer cancel()
 		defer h.activeJobs.Delete(job.ID)
+
+		// Recover from any panics to prevent server crash
+		defer func() {
+			if r := recover(); r != nil {
+				h.logger.Error("Panic in job processing", "error", r, "jobID", job.ID)
+				h.jobRepo.MarkFailed(context.Background(), job.ID, "INTERNAL_ERROR", "An unexpected error occurred")
+			}
+		}()
 
 		// Acquire semaphore
 		select {
@@ -343,7 +361,7 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 	}
 
 	// Refine the recipe
-	updateProgress(model.JobStatusExtracting, 90, "Refining recipe...")
+	updateProgress(model.JobStatusExtracting, 85, "Refining recipe...")
 	refined, refineErr := h.extractor.RefineRecipe(ctx, result)
 	if refineErr == nil && refined != nil {
 		result = refined
@@ -354,10 +372,32 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 		return
 	}
 
+	// Enrich with nutrition and dietary info
+	var enrichment *ai.EnrichmentResult
+	if h.enricher != nil {
+		updateProgress(model.JobStatusExtracting, 90, "Analyzing nutrition and dietary info...")
+		enrichInput := h.extractionResultToEnrichmentInput(result)
+		enrichment, err = h.enricher.EnrichRecipe(ctx, enrichInput)
+		if err != nil {
+			// Log but continue without enrichment
+			h.logger.Warn("Enrichment failed", "error", err)
+		}
+	}
+
+	if isCancelled() {
+		failJob("CANCELLED", "Job was cancelled")
+		return
+	}
+
+	// Cache URL/video extraction results (not images as they're not URL-based)
+	if h.cacheRepo != nil && (job.JobType == model.JobTypeURL || job.JobType == model.JobTypeVideo) && job.SourceURL != "" {
+		go h.cacheExtractionResult(job.SourceURL, result, enrichment)
+	}
+
 	// Save recipe if saveAuto is enabled
 	if job.SaveAuto {
 		updateProgress(model.JobStatusExtracting, 95, "Saving recipe...")
-		recipeID, saveErr := h.saveExtractedRecipe(ctx, job, result)
+		recipeID, saveErr := h.saveExtractedRecipe(ctx, job, result, enrichment)
 		if saveErr != nil {
 			h.logger.Error("Failed to save recipe", "error", saveErr)
 			failJob("SAVE_FAILED", "Failed to save recipe: "+saveErr.Error())
@@ -371,8 +411,24 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 	}
 }
 
-// processURLExtraction handles URL extraction
+// processURLExtraction handles URL extraction with caching
 func (h *UnifiedExtractionHandler) processURLExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
+	// Check cache first (unless force refresh is requested)
+	if h.cacheRepo != nil && !job.ForceRefresh {
+		updateProgress(model.JobStatusProcessing, 5, "Checking cache...")
+		cached, err := h.cacheRepo.GetByURL(ctx, job.SourceURL)
+		if err == nil && cached != nil && cached.ExtractionResult != nil {
+			h.logger.Info("Cache hit for URL extraction", "url", job.SourceURL)
+			// Increment hit count asynchronously
+			go h.cacheRepo.IncrementHitCount(context.Background(), cached.URLHash)
+			// Convert cached data to extraction result
+			return h.cachedDataToExtractionResult(cached.ExtractionResult), nil
+		}
+		// Cache miss - continue with extraction
+	} else if job.ForceRefresh {
+		h.logger.Info("Force refresh requested, bypassing cache", "url", job.SourceURL)
+	}
+
 	updateProgress(model.JobStatusProcessing, 10, "Fetching webpage...")
 
 	result, err := h.extractor.ExtractFromWebpage(ctx, job.SourceURL)
@@ -382,6 +438,51 @@ func (h *UnifiedExtractionHandler) processURLExtraction(ctx context.Context, job
 
 	updateProgress(model.JobStatusExtracting, 70, "Processing recipe...")
 	return result, nil
+}
+
+// cachedDataToExtractionResult converts cached data back to extraction result
+func (h *UnifiedExtractionHandler) cachedDataToExtractionResult(cached *model.CachedExtractionData) *ai.ExtractionResult {
+	result := &ai.ExtractionResult{
+		Title:       cached.Title,
+		Description: cached.Description,
+		Servings:    cached.Servings,
+		PrepTime:    cached.PrepTime,
+		CookTime:    cached.CookTime,
+		Difficulty:  cached.Difficulty,
+		Cuisine:     cached.Cuisine,
+		Tags:        cached.Tags,
+		Thumbnail:   cached.ImageURL,
+	}
+
+	// Convert ingredients
+	result.Ingredients = make([]ai.ExtractedIngredient, len(cached.Ingredients))
+	for i, ing := range cached.Ingredients {
+		result.Ingredients[i] = ai.ExtractedIngredient{
+			Name:           ing.Name,
+			Quantity:       ing.Quantity,
+			Unit:           ing.Unit,
+			Category:       ing.Category,
+			IsOptional:     ing.IsOptional,
+			Notes:          ing.Notes,
+			VideoTimestamp: ing.VideoTimestamp,
+		}
+	}
+
+	// Convert steps
+	result.Steps = make([]ai.ExtractedStep, len(cached.Steps))
+	for i, step := range cached.Steps {
+		result.Steps[i] = ai.ExtractedStep{
+			StepNumber:          step.StepNumber,
+			Instruction:         step.Instruction,
+			DurationSeconds:     step.DurationSeconds,
+			Technique:           step.Technique,
+			Temperature:         step.Temperature,
+			VideoTimestampStart: step.VideoTimestampStart,
+			VideoTimestampEnd:   step.VideoTimestampEnd,
+		}
+	}
+
+	return result
 }
 
 // processImageExtraction handles image extraction
@@ -418,18 +519,35 @@ func (h *UnifiedExtractionHandler) processImageExtraction(ctx context.Context, j
 
 // processVideoExtraction handles video extraction
 func (h *UnifiedExtractionHandler) processVideoExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
+	// Check cache first (unless force refresh is requested)
+	if h.cacheRepo != nil && !job.ForceRefresh {
+		updateProgress(model.JobStatusProcessing, 5, "Checking cache...")
+		cached, err := h.cacheRepo.GetByURL(ctx, job.SourceURL)
+		if err == nil && cached != nil && cached.ExtractionResult != nil {
+			h.logger.Info("Cache hit for video extraction", "url", job.SourceURL)
+			// Increment hit count asynchronously
+			go h.cacheRepo.IncrementHitCount(context.Background(), cached.URLHash)
+			// Convert cached data to extraction result
+			return h.cachedDataToExtractionResult(cached.ExtractionResult), nil
+		}
+		// Cache miss - continue with extraction
+		h.logger.Info("Cache miss for video extraction", "url", job.SourceURL)
+	} else if job.ForceRefresh {
+		h.logger.Info("Force refresh requested, bypassing cache", "url", job.SourceURL)
+	}
+
 	updateProgress(model.JobStatusDownloading, 10, "Downloading video...")
 
-	localPath, thumbnailPath, err := h.downloader.Download(job.SourceURL)
+	localPath, thumbnailURL, err := h.downloader.Download(job.SourceURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download video: %w", err)
 	}
-	defer func() {
-		h.downloader.Cleanup(localPath)
-		if thumbnailPath != "" {
-			h.downloader.Cleanup(thumbnailPath)
-		}
-	}()
+	defer h.downloader.Cleanup(localPath)
+
+	// Log thumbnail URL if found
+	if thumbnailURL != "" {
+		h.logger.Info("Thumbnail CDN URL extracted", "url", thumbnailURL)
+	}
 
 	updateProgress(model.JobStatusExtracting, 40, "Extracting recipe from video...")
 
@@ -446,11 +564,180 @@ func (h *UnifiedExtractionHandler) processVideoExtraction(ctx context.Context, j
 		return nil, fmt.Errorf("failed to extract from video: %w", err)
 	}
 
+	// Use CDN thumbnail URL if extraction didn't provide one
+	if result != nil && result.Thumbnail == "" && thumbnailURL != "" {
+		result.Thumbnail = thumbnailURL
+	}
+
 	return result, nil
 }
 
+// extractionResultToEnrichmentInput converts extraction result to enrichment input
+func (h *UnifiedExtractionHandler) extractionResultToEnrichmentInput(result *ai.ExtractionResult) *ai.EnrichmentInput {
+	ingredients := make([]string, len(result.Ingredients))
+	for i, ing := range result.Ingredients {
+		// Format as "quantity unit name (notes)"
+		formatted := ""
+		if ing.Quantity != "" {
+			formatted = ing.Quantity
+		}
+		if ing.Unit != "" {
+			if formatted != "" {
+				formatted += " "
+			}
+			formatted += ing.Unit
+		}
+		if formatted != "" {
+			formatted += " "
+		}
+		formatted += ing.Name
+		if ing.Notes != "" {
+			formatted += " (" + ing.Notes + ")"
+		}
+		ingredients[i] = formatted
+	}
+
+	steps := make([]string, len(result.Steps))
+	for i, step := range result.Steps {
+		steps[i] = step.Instruction
+	}
+
+	return &ai.EnrichmentInput{
+		Title:       result.Title,
+		Servings:    result.Servings,
+		Ingredients: ingredients,
+		Steps:       steps,
+		PrepTime:    result.PrepTime,
+		CookTime:    result.CookTime,
+		Cuisine:     result.Cuisine,
+	}
+}
+
+// cacheExtractionResult saves the extraction result to cache
+func (h *UnifiedExtractionHandler) cacheExtractionResult(url string, result *ai.ExtractionResult, enrichment *ai.EnrichmentResult) {
+	// Recover from any panics to prevent goroutine crash
+	defer func() {
+		if r := recover(); r != nil {
+			h.logger.Error("Panic in cacheExtractionResult", "error", r, "url", url)
+		}
+	}()
+
+	// Safety check
+	if result == nil {
+		h.logger.Warn("Cannot cache nil extraction result", "url", url)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Build cached data
+	cachedData := &model.CachedExtractionData{
+		Title:       result.Title,
+		Description: result.Description,
+		Servings:    result.Servings,
+		PrepTime:    result.PrepTime,
+		CookTime:    result.CookTime,
+		Difficulty:  result.Difficulty,
+		Cuisine:     result.Cuisine,
+		Tags:        result.Tags,
+		SourceURL:   url,
+		ImageURL:    result.Thumbnail,
+	}
+
+	// Update servings from enrichment if extraction didn't provide
+	if cachedData.Servings == 0 && enrichment != nil && enrichment.ServingsEstimate != nil {
+		if enrichment.ServingsEstimate.Confidence >= ai.MinConfidenceThreshold {
+			cachedData.Servings = enrichment.ServingsEstimate.Value
+		}
+	}
+
+	// Convert ingredients
+	cachedData.Ingredients = make([]model.CachedIngredient, len(result.Ingredients))
+	for i, ing := range result.Ingredients {
+		cachedData.Ingredients[i] = model.CachedIngredient{
+			Name:           ing.Name,
+			Quantity:       ing.Quantity,
+			Unit:           ing.Unit,
+			Category:       ing.Category,
+			IsOptional:     ing.IsOptional,
+			Notes:          ing.Notes,
+			VideoTimestamp: ing.VideoTimestamp,
+		}
+	}
+
+	// Convert steps
+	cachedData.Steps = make([]model.CachedStep, len(result.Steps))
+	for i, step := range result.Steps {
+		cachedData.Steps[i] = model.CachedStep{
+			StepNumber:          step.StepNumber,
+			Instruction:         step.Instruction,
+			DurationSeconds:     step.DurationSeconds,
+			Technique:           step.Technique,
+			Temperature:         step.Temperature,
+			VideoTimestampStart: step.VideoTimestampStart,
+			VideoTimestampEnd:   step.VideoTimestampEnd,
+		}
+	}
+
+	// Add enrichment data
+	if enrichment != nil {
+		if enrichment.Nutrition != nil && enrichment.Nutrition.Confidence >= ai.MinConfidenceThreshold {
+			cachedData.Nutrition = &model.RecipeNutrition{
+				Calories:   enrichment.Nutrition.PerServing.Calories,
+				Protein:    enrichment.Nutrition.PerServing.Protein,
+				Carbs:      enrichment.Nutrition.PerServing.Carbs,
+				Fat:        enrichment.Nutrition.PerServing.Fat,
+				Fiber:      enrichment.Nutrition.PerServing.Fiber,
+				Sugar:      enrichment.Nutrition.PerServing.Sugar,
+				Sodium:     enrichment.Nutrition.PerServing.Sodium,
+				Tags:       enrichment.Nutrition.Tags,
+				Confidence: enrichment.Nutrition.Confidence,
+			}
+		}
+		if enrichment.DietaryInfo != nil && enrichment.DietaryInfo.Confidence >= ai.MinConfidenceThreshold {
+			cachedData.DietaryInfo = &model.DietaryInfo{
+				Allergens: enrichment.DietaryInfo.Allergens,
+				MealTypes: enrichment.DietaryInfo.MealTypes,
+			}
+			if enrichment.DietaryInfo.IsVegetarian != nil {
+				cachedData.DietaryInfo.IsVegetarian = *enrichment.DietaryInfo.IsVegetarian
+			}
+			if enrichment.DietaryInfo.IsVegan != nil {
+				cachedData.DietaryInfo.IsVegan = *enrichment.DietaryInfo.IsVegan
+			}
+			if enrichment.DietaryInfo.IsGlutenFree != nil {
+				cachedData.DietaryInfo.IsGlutenFree = *enrichment.DietaryInfo.IsGlutenFree
+			}
+			if enrichment.DietaryInfo.IsDairyFree != nil {
+				cachedData.DietaryInfo.IsDairyFree = *enrichment.DietaryInfo.IsDairyFree
+			}
+			if enrichment.DietaryInfo.IsNutFree != nil {
+				cachedData.DietaryInfo.IsNutFree = *enrichment.DietaryInfo.IsNutFree
+			}
+			if enrichment.DietaryInfo.IsKeto != nil {
+				cachedData.DietaryInfo.IsKeto = *enrichment.DietaryInfo.IsKeto
+			}
+			if enrichment.DietaryInfo.IsHalal != nil {
+				cachedData.DietaryInfo.IsHalal = *enrichment.DietaryInfo.IsHalal
+			}
+			if enrichment.DietaryInfo.IsKosher != nil {
+				cachedData.DietaryInfo.IsKosher = *enrichment.DietaryInfo.IsKosher
+			}
+		}
+	}
+
+	// Save to cache
+	cache := model.NewExtractionCache(url, cachedData)
+	if err := h.cacheRepo.Set(ctx, cache); err != nil {
+		h.logger.Warn("Failed to cache extraction result", "error", err, "url", url)
+	} else {
+		h.logger.Info("Cached extraction result", "url", url)
+	}
+}
+
 // saveExtractedRecipe saves the extracted recipe to the database
-func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job *model.ExtractionJob, result *ai.ExtractionResult) (uuid.UUID, error) {
+func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job *model.ExtractionJob, result *ai.ExtractionResult, enrichment *ai.EnrichmentResult) (uuid.UUID, error) {
 	sourceType := "extraction"
 	switch job.JobType {
 	case model.JobTypeURL:
@@ -459,6 +746,23 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 		sourceType = "image"
 	case model.JobTypeVideo:
 		sourceType = "video"
+	}
+
+	// DEDUPLICATION: Check if user already has a recipe from this source URL
+	// This prevents duplicates when the same URL is submitted multiple times
+	if job.SourceURL != "" {
+		// Normalize URL before checking to handle variations (mobile URLs, query params, etc.)
+		normalizedURL := model.NormalizeURL(job.SourceURL)
+		existingRecipe, err := h.recipeRepo.GetBySourceURL(ctx, job.UserID, normalizedURL)
+		if err == nil && existingRecipe != nil {
+			// Recipe already exists! Return existing ID instead of creating duplicate
+			h.logger.Info("Recipe from this URL already exists for user, returning existing recipe",
+				"recipeID", existingRecipe.ID,
+				"userID", job.UserID,
+				"sourceURL", normalizedURL)
+			return existingRecipe.ID, nil
+		}
+		// If err is ErrRecipeNotFound, continue with creation
 	}
 
 	recipe := &model.Recipe{
@@ -476,6 +780,61 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 		Tags:        result.Tags,
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
+	}
+
+	// Apply enrichment data
+	if enrichment != nil {
+		// Use servings estimate if extraction didn't provide
+		if recipe.Servings == nil && enrichment.ServingsEstimate != nil && enrichment.ServingsEstimate.Confidence >= ai.MinConfidenceThreshold {
+			recipe.Servings = &enrichment.ServingsEstimate.Value
+		}
+
+		// Apply nutrition
+		if enrichment.Nutrition != nil && enrichment.Nutrition.Confidence >= ai.MinConfidenceThreshold {
+			recipe.Nutrition = &model.RecipeNutrition{
+				Calories:   enrichment.Nutrition.PerServing.Calories,
+				Protein:    enrichment.Nutrition.PerServing.Protein,
+				Carbs:      enrichment.Nutrition.PerServing.Carbs,
+				Fat:        enrichment.Nutrition.PerServing.Fat,
+				Fiber:      enrichment.Nutrition.PerServing.Fiber,
+				Sugar:      enrichment.Nutrition.PerServing.Sugar,
+				Sodium:     enrichment.Nutrition.PerServing.Sodium,
+				Tags:       enrichment.Nutrition.Tags,
+				Confidence: enrichment.Nutrition.Confidence,
+			}
+		}
+
+		// Apply dietary info
+		if enrichment.DietaryInfo != nil && enrichment.DietaryInfo.Confidence >= ai.MinConfidenceThreshold {
+			recipe.DietaryInfo = &model.DietaryInfo{
+				Allergens: enrichment.DietaryInfo.Allergens,
+				MealTypes: enrichment.DietaryInfo.MealTypes,
+			}
+			if enrichment.DietaryInfo.IsVegetarian != nil {
+				recipe.DietaryInfo.IsVegetarian = *enrichment.DietaryInfo.IsVegetarian
+			}
+			if enrichment.DietaryInfo.IsVegan != nil {
+				recipe.DietaryInfo.IsVegan = *enrichment.DietaryInfo.IsVegan
+			}
+			if enrichment.DietaryInfo.IsGlutenFree != nil {
+				recipe.DietaryInfo.IsGlutenFree = *enrichment.DietaryInfo.IsGlutenFree
+			}
+			if enrichment.DietaryInfo.IsDairyFree != nil {
+				recipe.DietaryInfo.IsDairyFree = *enrichment.DietaryInfo.IsDairyFree
+			}
+			if enrichment.DietaryInfo.IsNutFree != nil {
+				recipe.DietaryInfo.IsNutFree = *enrichment.DietaryInfo.IsNutFree
+			}
+			if enrichment.DietaryInfo.IsKeto != nil {
+				recipe.DietaryInfo.IsKeto = *enrichment.DietaryInfo.IsKeto
+			}
+			if enrichment.DietaryInfo.IsHalal != nil {
+				recipe.DietaryInfo.IsHalal = *enrichment.DietaryInfo.IsHalal
+			}
+			if enrichment.DietaryInfo.IsKosher != nil {
+				recipe.DietaryInfo.IsKosher = *enrichment.DietaryInfo.IsKosher
+			}
+		}
 	}
 
 	// Convert ingredients
@@ -575,7 +934,13 @@ func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request
 	// Include Recipe if completed
 	var resultRecipe *model.Recipe
 	if job.Status == model.JobStatusCompleted && job.ResultRecipeID != nil {
-		resultRecipe, _ = h.recipeRepo.GetByID(r.Context(), *job.ResultRecipeID)
+		recipe, err := h.recipeRepo.GetByID(r.Context(), *job.ResultRecipeID)
+		if err != nil {
+			// Log but don't fail - job status is still valid even if recipe fetch fails
+			h.logger.Warn("Failed to fetch result recipe for job", "jobID", job.ID, "recipeID", *job.ResultRecipeID, "error", err)
+		} else {
+			resultRecipe = recipe
+		}
 	}
 
 	resp := job.ToResponse("")

@@ -2,12 +2,9 @@ package handler
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -198,7 +195,7 @@ func (h *VideoHandler) processJob(ctx context.Context, jobID uuid.UUID, req ai.E
 	updateProgress(model.JobStatusDownloading, 10, "Downloading video...")
 
 	// 1. Download Video
-	localPath, thumbnailPath, err := h.downloader.Download(req.VideoURL)
+	localPath, thumbnailURL, err := h.downloader.Download(req.VideoURL)
 	if err != nil {
 		if isCancelled() {
 			failJob("CANCELLED", "Job was cancelled during download")
@@ -212,13 +209,12 @@ func (h *VideoHandler) processJob(ctx context.Context, jobID uuid.UUID, req ai.E
 		if err := h.downloader.Cleanup(localPath); err != nil {
 			h.logger.Warn("Failed to cleanup temp file", "path", localPath, "error", err)
 		}
-		// Cleanup thumbnail if it exists
-		if thumbnailPath != "" {
-			if err := h.downloader.Cleanup(thumbnailPath); err != nil {
-				h.logger.Warn("Failed to cleanup thumbnail", "path", thumbnailPath, "error", err)
-			}
-		}
 	}()
+
+	// Log thumbnail URL if found
+	if thumbnailURL != "" {
+		h.logger.Info("Thumbnail CDN URL extracted", "url", thumbnailURL)
+	}
 
 	// Check cancellation after download
 	if isCancelled() {
@@ -270,20 +266,13 @@ func (h *VideoHandler) processJob(ctx context.Context, jobID uuid.UUID, req ai.E
 	// 3. Save Recipe
 	updateProgress(model.JobStatusExtracting, 95, "Saving recipe...")
 
-	// Prepare thumbnail URL (data URL from local file)
-	var thumbnailURL *string
-	if thumbnailPath != "" {
-		thumbnailData, err := os.ReadFile(thumbnailPath)
-		if err == nil {
-			// Convert to base64 data URL
-			dataURL := fmt.Sprintf("data:image/jpeg;base64,%s", base64.StdEncoding.EncodeToString(thumbnailData))
-			thumbnailURL = &dataURL
-			h.logger.Info("Thumbnail extracted successfully", "size", len(thumbnailData))
-		} else {
-			h.logger.Warn("Failed to read thumbnail file", "error", err)
-		}
+	// Use CDN thumbnail URL directly (no base64 encoding needed)
+	var thumbnailURLPtr *string
+	if thumbnailURL != "" {
+		thumbnailURLPtr = &thumbnailURL
 	}
 
+	now := time.Now().UTC()
 	recipe := &model.Recipe{
 		ID:           uuid.New(),
 		Title:        result.Title,
@@ -293,11 +282,13 @@ func (h *VideoHandler) processJob(ctx context.Context, jobID uuid.UUID, req ai.E
 		CookTime:     &result.CookTime,
 		Difficulty:   &result.Difficulty,
 		Cuisine:      &result.Cuisine,
-		ThumbnailURL: thumbnailURL, // Use extracted thumbnail instead of AI result
-		SourceType:   "video_extraction",
+		ThumbnailURL: thumbnailURLPtr, // CDN URL from YouTube/TikTok
+		SourceType:   "video",
 		SourceURL:    &req.VideoURL,
 		IsFavorite:   false,
 		Tags:         result.Tags,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 
 	// Get UserID from job

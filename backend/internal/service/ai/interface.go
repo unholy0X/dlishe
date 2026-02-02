@@ -201,6 +201,74 @@ type RecipeRecommender interface {
 	SuggestSubstitutes(ctx context.Context, ingredient string, pantryItems []string) ([]model.SubstituteSuggestion, error)
 }
 
+// RecipeEnricher defines the interface for AI-powered recipe enrichment
+type RecipeEnricher interface {
+	// EnrichRecipe adds nutrition, dietary info, and meal types to a recipe
+	// This is a separate AI call focused on analysis rather than extraction
+	EnrichRecipe(ctx context.Context, input *EnrichmentInput) (*EnrichmentResult, error)
+}
+
+// EnrichmentInput contains the recipe data to enrich
+type EnrichmentInput struct {
+	Title       string   `json:"title"`
+	Servings    int      `json:"servings"`    // 0 if unknown (will estimate)
+	Ingredients []string `json:"ingredients"` // Formatted as "quantity unit name"
+	Steps       []string `json:"steps"`
+	PrepTime    int      `json:"prepTime,omitempty"`
+	CookTime    int      `json:"cookTime,omitempty"`
+	Cuisine     string   `json:"cuisine,omitempty"`
+}
+
+// EnrichmentResult contains the enrichment data from AI
+type EnrichmentResult struct {
+	Nutrition        *NutritionEstimate   `json:"nutrition"`
+	DietaryInfo      *DietaryInfoEstimate `json:"dietaryInfo"`
+	ServingsEstimate *ServingsEstimate    `json:"servingsEstimate,omitempty"` // Only if input servings was 0
+}
+
+// NutritionEstimate contains estimated nutrition per serving
+type NutritionEstimate struct {
+	PerServing NutritionValues `json:"perServing"`
+	Tags       []string        `json:"tags,omitempty"`
+	Confidence float64         `json:"confidence"`
+}
+
+// NutritionValues contains the actual nutrition numbers
+type NutritionValues struct {
+	Calories int `json:"calories"`
+	Protein  int `json:"protein"`
+	Carbs    int `json:"carbs"`
+	Fat      int `json:"fat"`
+	Fiber    int `json:"fiber,omitempty"`
+	Sugar    int `json:"sugar,omitempty"`
+	Sodium   int `json:"sodium,omitempty"`
+}
+
+// DietaryInfoEstimate contains dietary flags and allergens
+type DietaryInfoEstimate struct {
+	IsVegetarian *bool    `json:"isVegetarian"`
+	IsVegan      *bool    `json:"isVegan"`
+	IsGlutenFree *bool    `json:"isGlutenFree"`
+	IsDairyFree  *bool    `json:"isDairyFree"`
+	IsNutFree    *bool    `json:"isNutFree"`
+	IsKeto       *bool    `json:"isKeto"`
+	IsHalal      *bool    `json:"isHalal,omitempty"`  // null if uncertain
+	IsKosher     *bool    `json:"isKosher,omitempty"` // null if uncertain
+	Allergens    []string `json:"allergens,omitempty"`
+	MealTypes    []string `json:"mealTypes"`
+	Confidence   float64  `json:"confidence"`
+}
+
+// ServingsEstimate contains estimated servings when extraction couldn't determine
+type ServingsEstimate struct {
+	Value      int     `json:"value"`
+	Confidence float64 `json:"confidence"`
+	Reasoning  string  `json:"reasoning"`
+}
+
+// MinConfidenceThreshold is the minimum confidence level to accept AI estimates
+const MinConfidenceThreshold = 0.5
+
 // RecommendationInput contains inputs for recipe recommendations
 type RecommendationInput struct {
 	Recipes     []*model.Recipe              // User's recipes with ingredients

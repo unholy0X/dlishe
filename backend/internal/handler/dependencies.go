@@ -25,6 +25,7 @@ type RecipeRepository interface {
 	Create(ctx context.Context, recipe *model.Recipe) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Recipe, error)
 	GetBySourceRecipeID(ctx context.Context, userID, sourceRecipeID uuid.UUID) (*model.Recipe, error)
+	GetBySourceURL(ctx context.Context, userID uuid.UUID, sourceURL string) (*model.Recipe, error)
 	ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error)
 	ListPublic(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
 	ListForRecommendations(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error)
@@ -96,6 +97,8 @@ type TokenBlacklist interface {
 
 // VideoDownloader defines the interface for video downloading
 type VideoDownloader interface {
+	// Download downloads a video and returns (videoPath, thumbnailURL, error)
+	// The thumbnailURL is the CDN link from YouTube/TikTok, not a local file
 	Download(url string) (string, string, error)
 	Cleanup(path string) error
 }

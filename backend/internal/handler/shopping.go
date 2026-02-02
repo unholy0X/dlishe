@@ -831,8 +831,12 @@ func (h *ShoppingHandler) AnalyzeAddFromRecipe(w http.ResponseWriter, r *http.Re
 
 	// Get Recipe
 	recipe, err := h.recipeRepo.GetByID(ctx, req.RecipeID)
-	if err == model.ErrNotFound {
-		response.NotFound(w, "Recipe")
+	if err != nil {
+		if err == model.ErrNotFound {
+			response.NotFound(w, "Recipe")
+		} else {
+			response.InternalError(w)
+		}
 		return
 	}
 

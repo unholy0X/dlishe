@@ -626,9 +626,12 @@ Additional context:
 
 ## Related Files
 
-- `internal/service/ai/gemini.go` - AI client implementation
-- `internal/service/ai/enrichment.go` - Enrichment service (to be created)
-- `internal/model/recipe.go` - Recipe model with nutrition/dietary fields
-- `internal/repository/postgres/extraction_cache.go` - Cache repository (to be created)
-- `migrations/000008_recipe_nutrition.up.sql` - Nutrition/dietary columns migration
-- `migrations/000009_extraction_cache.up.sql` - Extraction cache table migration
+- `internal/service/ai/gemini.go` - AI client with `EnrichRecipe()` method ✅
+- `internal/service/ai/interface.go` - `RecipeEnricher` interface and types ✅
+- `internal/model/recipe.go` - Recipe model with nutrition/dietary fields ✅
+- `internal/model/extraction_cache.go` - Cache model with URL normalization ✅
+- `internal/repository/postgres/extraction_cache.go` - Cache repository ✅
+- `internal/handler/unified_extraction.go` - Extraction handler with caching/enrichment ✅
+- `internal/router/router.go` - Router initialization ✅
+- `migrations/000008_recipe_nutrition.up.sql` - Nutrition/dietary columns migration ✅
+- `migrations/000009_extraction_cache.up.sql` - Extraction cache table migration ✅

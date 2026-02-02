@@ -26,25 +26,25 @@ func NewDownloader(tempDir string) *Downloader {
 
 // allowedHosts is a whitelist of allowed video hosting platforms
 var allowedHosts = map[string]bool{
-	"youtube.com":     true,
-	"www.youtube.com": true,
-	"youtu.be":        true,
-	"m.youtube.com":   true,
-	"tiktok.com":      true,
-	"www.tiktok.com":  true,
-	"vm.tiktok.com":   true,
-	"instagram.com":   true,
+	"youtube.com":       true,
+	"www.youtube.com":   true,
+	"youtu.be":          true,
+	"m.youtube.com":     true,
+	"tiktok.com":        true,
+	"www.tiktok.com":    true,
+	"vm.tiktok.com":     true,
+	"instagram.com":     true,
 	"www.instagram.com": true,
-	"facebook.com":    true,
-	"www.facebook.com": true,
-	"fb.watch":        true,
-	"vimeo.com":       true,
-	"www.vimeo.com":   true,
-	"twitter.com":     true,
-	"x.com":           true,
-	"reddit.com":      true,
-	"www.reddit.com":  true,
-	"v.redd.it":       true,
+	"facebook.com":      true,
+	"www.facebook.com":  true,
+	"fb.watch":          true,
+	"vimeo.com":         true,
+	"www.vimeo.com":     true,
+	"twitter.com":       true,
+	"x.com":             true,
+	"reddit.com":        true,
+	"www.reddit.com":    true,
+	"v.redd.it":         true,
 }
 
 // dangerousCharsRegex matches shell metacharacters and control chars
@@ -100,7 +100,8 @@ func validateURL(rawURL string) error {
 
 // Download downloads a video from a URL to a temporary file
 // It uses yt-dlp to handle various video platforms (YouTube, TikTok, etc.)
-// Returns: (videoPath, thumbnailPath, error)
+// Returns: (videoPath, thumbnailURL, error)
+// NOTE: thumbnailURL is the CDN link, not a local file path
 func (d *Downloader) Download(rawURL string) (string, string, error) {
 	// SECURITY: Strict URL validation to prevent command injection
 	if err := validateURL(rawURL); err != nil {
@@ -117,6 +118,13 @@ func (d *Downloader) Download(rawURL string) (string, string, error) {
 		return "", "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
+	// First, get the thumbnail URL without downloading
+	thumbnailURL, err := d.getThumbnailURL(rawURL)
+	if err != nil {
+		// Log but don't fail - thumbnail is optional
+		thumbnailURL = ""
+	}
+
 	// Prepare yt-dlp command
 	// SECURITY: exec.Command does NOT use shell, so each arg is passed directly
 	// This means shell metacharacters in rawURL won't be interpreted
@@ -124,16 +132,11 @@ func (d *Downloader) Download(rawURL string) (string, string, error) {
 	//
 	// -f best: best quality
 	// -S res:720: cap resolution at 720p to save processing time/bandwidth (Gemini doesn't need 4K)
-	// --write-thumbnail: extract video thumbnail
-	// --convert-thumbnails jpg: convert thumbnail to JPG format
-	// --force-overwrites: overwrite if exists
 	// --no-playlist: only download single video, not entire playlist
 	// -o ...: output template
 	cmd := exec.Command("yt-dlp",
 		"-f", "b[ext=mp4]/best[ext=mp4]/best",
 		"-S", "res:720",
-		"--write-thumbnail",
-		"--convert-thumbnails", "jpg",
 		"--force-overwrites",
 		"--no-playlist",
 		"-o", outputPath,
@@ -157,14 +160,13 @@ func (d *Downloader) Download(rawURL string) (string, string, error) {
 		return "", "", fmt.Errorf("download successful but file not found")
 	}
 
-	// Find video file (not thumbnail)
+	// Find video file
 	var videoPath string
-	var thumbnailPath string
 	for _, match := range videoMatches {
-		if strings.HasSuffix(match, ".jpg") {
-			thumbnailPath = match
-		} else {
+		// Skip any thumbnails that might have been downloaded accidentally
+		if !strings.HasSuffix(match, ".jpg") && !strings.HasSuffix(match, ".webp") {
 			videoPath = match
+			break
 		}
 	}
 
@@ -172,8 +174,28 @@ func (d *Downloader) Download(rawURL string) (string, string, error) {
 		return "", "", fmt.Errorf("video file not found")
 	}
 
-	// Return both paths (thumbnail might be empty if extraction failed)
-	return videoPath, thumbnailPath, nil
+	// Return video path and thumbnail CDN URL
+	return videoPath, thumbnailURL, nil
+}
+
+// getThumbnailURL extracts the thumbnail CDN URL using yt-dlp
+func (d *Downloader) getThumbnailURL(rawURL string) (string, error) {
+	cmd := exec.Command("yt-dlp", "--get-thumbnail", rawURL)
+
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to get thumbnail URL: %v, stderr: %s", err, stderr.String())
+	}
+
+	thumbnailURL := strings.TrimSpace(stdout.String())
+	if thumbnailURL == "" {
+		return "", fmt.Errorf("empty thumbnail URL returned")
+	}
+
+	return thumbnailURL, nil
 }
 
 // Cleanup removes the temporary file

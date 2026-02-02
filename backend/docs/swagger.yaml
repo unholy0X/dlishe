@@ -2,18 +2,20 @@ basePath: /api/v1
 definitions:
   github_com_dishflow_backend_internal_model.AppliedFilters:
     properties:
+      appliedCuisine:
+        type: string
       appliedDiet:
         type: string
       appliedExclusions:
         items:
           type: string
         type: array
-      excludedByNutrition:
-        description: recipes excluded by nutrition filters
+      appliedMaxTime:
         type: integer
-      excludedRecipes:
-        description: recipes excluded by dietary filters
-        type: integer
+      appliedMealType:
+        type: string
+      appliedMood:
+        type: string
       nutritionFilters:
         $ref: '#/definitions/github_com_dishflow_backend_internal_model.NutritionFilters'
     type: object
@@ -237,6 +239,21 @@ definitions:
     type: object
   github_com_dishflow_backend_internal_model.RecipeRecommendation:
     properties:
+      filtersMatched:
+        description: Filter match metadata - helps frontend display/sort recommendations
+        items:
+          type: string
+        type: array
+      filtersNotMatched:
+        description: filters this recipe doesn't match
+        items:
+          type: string
+        type: array
+      filtersUnknown:
+        description: filters where recipe has no data
+        items:
+          type: string
+        type: array
       matchScore:
         description: 0-100 percentage
         type: integer
@@ -801,30 +818,36 @@ definitions:
         type: string
     type: object
   internal_handler.SwaggerRecipe:
-    description: Full recipe with ingredients and steps
+    description: Full recipe with ingredients, steps, nutrition, and dietary information
     properties:
       cookTime:
-        example: 20
+        example: 25
         type: integer
       createdAt:
-        example: "2024-02-01T10:30:00Z"
+        example: "2026-02-02T19:30:10.803252Z"
         type: string
       cuisine:
-        example: Italian
+        example: Indian/Jewish Fusion
         type: string
       description:
-        example: Classic Italian pasta dish
+        example: A creative twist on the traditional latke by incorporating the flavors
+          of an Indian samosa
         type: string
+      dietaryInfo:
+        $ref: '#/definitions/internal_handler.SwaggerRecipeDietaryInfo'
       difficulty:
         enum:
-        - easy
-        - medium
-        - hard
-        example: medium
+        - Easy
+        - Medium
+        - Hard
+        example: Medium
         type: string
       id:
         example: 550e8400-e29b-41d4-a716-446655440000
         type: string
+      ingredientCount:
+        example: 14
+        type: integer
       ingredients:
         items:
           $ref: '#/definitions/internal_handler.SwaggerRecipeIngredient'
@@ -835,8 +858,10 @@ definitions:
       isPublic:
         example: false
         type: boolean
+      nutrition:
+        $ref: '#/definitions/internal_handler.SwaggerRecipeNutritionInfo'
       prepTime:
-        example: 15
+        example: 20
         type: integer
       servings:
         example: 4
@@ -848,28 +873,36 @@ definitions:
         enum:
         - manual
         - video
+        - video_extraction
         - ai
         - photo
         - webpage
         - image
         - cloned
-        example: manual
+        example: video
         type: string
       sourceUrl:
-        example: https://youtube.com/watch?v=xyz
+        example: https://www.tiktok.com/@eitan/video/7582674293838908703
         type: string
+      stepCount:
+        example: 9
+        type: integer
       steps:
         items:
           $ref: '#/definitions/internal_handler.SwaggerRecipeStep'
         type: array
       syncVersion:
-        example: 1
+        example: 0
         type: integer
       tags:
         example:
-        - italian
-        - pasta
-        - quick
+        - latkes
+        - samosa
+        - Indian
+        - Hanukkah
+        - fusion
+        - potato
+        - fried
         items:
           type: string
         type: array
@@ -877,14 +910,58 @@ definitions:
         example: https://example.com/thumb.jpg
         type: string
       title:
-        example: Spaghetti Carbonara
+        example: Indian Samosa Latkes
         type: string
       updatedAt:
-        example: "2024-02-01T10:30:00Z"
+        example: "2026-02-02T19:30:10.803252Z"
         type: string
       userId:
         example: 550e8400-e29b-41d4-a716-446655440099
         type: string
+    type: object
+  internal_handler.SwaggerRecipeDietaryInfo:
+    description: Dietary flags and allergen information for filtering recipes
+    properties:
+      allergens:
+        example:
+        - dairy
+        - eggs
+        - gluten
+        items:
+          type: string
+        type: array
+      isDairyFree:
+        example: false
+        type: boolean
+      isGlutenFree:
+        example: true
+        type: boolean
+      isHalal:
+        example: false
+        type: boolean
+      isKeto:
+        example: false
+        type: boolean
+      isKosher:
+        example: false
+        type: boolean
+      isNutFree:
+        example: true
+        type: boolean
+      isVegan:
+        example: false
+        type: boolean
+      isVegetarian:
+        example: true
+        type: boolean
+      mealTypes:
+        example:
+        - lunch
+        - dinner
+        - snack
+        items:
+          type: string
+        type: array
     type: object
   internal_handler.SwaggerRecipeIngredient:
     description: Recipe ingredient
@@ -952,6 +1029,41 @@ definitions:
       total:
         example: 25
         type: integer
+    type: object
+  internal_handler.SwaggerRecipeNutritionInfo:
+    description: Nutritional information per serving (AI-estimated)
+    properties:
+      calories:
+        example: 450
+        type: integer
+      carbs:
+        example: 30
+        type: integer
+      confidence:
+        example: 0.75
+        type: number
+      fat:
+        example: 20
+        type: integer
+      fiber:
+        example: 5
+        type: integer
+      protein:
+        example: 25
+        type: integer
+      sodium:
+        example: 600
+        type: integer
+      sugar:
+        example: 8
+        type: integer
+      tags:
+        example:
+        - high-protein
+        - moderate-carb
+        items:
+          type: string
+        type: array
     type: object
   internal_handler.SwaggerRecipeStep:
     description: Recipe step

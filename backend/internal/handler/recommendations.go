@@ -56,6 +56,10 @@ func NewRecommendationsHandler(
 func (h *RecommendationsHandler) GetRecommendations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
+	if claims == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
 
 	// Parse filter parameters
 	filters := &model.RecommendationRequest{}

@@ -71,12 +71,16 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	}
 
 	var extractor ai.RecipeExtractor = geminiClient
+	var enricher ai.RecipeEnricher = geminiClient // GeminiClient also implements RecipeEnricher
 
 	// Initialize recommendation service (uses same Gemini client)
 	var recommender ai.RecipeRecommender
 	if geminiClient != nil && geminiClient.IsAvailable(geminiCtx) {
 		recommender = ai.NewRecommendationService(geminiClient.GetClient())
 	}
+
+	// Initialize extraction cache repository
+	extractionCacheRepo := postgres.NewExtractionCacheRepository(db)
 
 	pantryRepo := postgres.NewPantryRepository(db)
 	pantryHandler := handler.NewPantryHandler(pantryRepo, geminiClient)
@@ -96,7 +100,8 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 	// Unified extraction handler (handles url, image, video extraction with async jobs)
 	// Also handles job listing, status, and cancellation
-	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, extractor, downloader, logger)
+	// Now includes enrichment and caching support
+	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, extractor, enricher, extractionCacheRepo, downloader, logger)
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(redis)

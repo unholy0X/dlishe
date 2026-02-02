@@ -40,6 +40,7 @@ type ExtractionJob struct {
 	Language       string     `json:"language" db:"language"`              // "en", "fr", "es", "auto"
 	DetailLevel    string     `json:"detailLevel" db:"detail_level"`       // "quick", "detailed"
 	SaveAuto       bool       `json:"saveAuto" db:"save_auto"`             // Auto-save extracted recipe
+	ForceRefresh   bool       `json:"-" db:"-"`                            // Bypass cache (not persisted)
 	Status         JobStatus  `json:"status" db:"status"`
 	Progress       int        `json:"progress" db:"progress"` // 0-100
 	StatusMessage  *string    `json:"statusMessage,omitempty" db:"status_message"`
@@ -80,7 +81,7 @@ type JobError struct {
 }
 
 // NewExtractionJob creates a new extraction job
-func NewExtractionJob(userID uuid.UUID, jobType JobType, sourceURL, language, detailLevel string, saveAuto bool) *ExtractionJob {
+func NewExtractionJob(userID uuid.UUID, jobType JobType, sourceURL, language, detailLevel string, saveAuto, forceRefresh bool) *ExtractionJob {
 	idempotencyKey := uuid.New().String()
 	return &ExtractionJob{
 		ID:             uuid.New(),
@@ -90,6 +91,7 @@ func NewExtractionJob(userID uuid.UUID, jobType JobType, sourceURL, language, de
 		Language:       language,
 		DetailLevel:    detailLevel,
 		SaveAuto:       saveAuto,
+		ForceRefresh:   forceRefresh,
 		Status:         JobStatusPending,
 		Progress:       0,
 		IdempotencyKey: &idempotencyKey,

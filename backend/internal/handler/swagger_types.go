@@ -162,30 +162,63 @@ type SwaggerRecipeStep struct {
 	CreatedAt           string  `json:"createdAt" example:"2024-02-01T10:30:00Z"`
 }
 
+// SwaggerRecipeNutritionInfo represents nutritional information per serving
+// @Description Nutritional information per serving (AI-estimated)
+type SwaggerRecipeNutritionInfo struct {
+	Calories   int      `json:"calories" example:"450"`
+	Protein    int      `json:"protein" example:"25"`
+	Carbs      int      `json:"carbs" example:"30"`
+	Fat        int      `json:"fat" example:"20"`
+	Fiber      int      `json:"fiber,omitempty" example:"5"`
+	Sugar      int      `json:"sugar,omitempty" example:"8"`
+	Sodium     int      `json:"sodium,omitempty" example:"600"`
+	Tags       []string `json:"tags,omitempty" example:"high-protein,moderate-carb"`
+	Confidence float64  `json:"confidence,omitempty" example:"0.75"`
+}
+
+// SwaggerRecipeDietaryInfo represents dietary information for filtering
+// @Description Dietary flags and allergen information for filtering recipes
+type SwaggerRecipeDietaryInfo struct {
+	IsVegetarian bool     `json:"isVegetarian,omitempty" example:"true"`
+	IsVegan      bool     `json:"isVegan,omitempty" example:"false"`
+	IsGlutenFree bool     `json:"isGlutenFree,omitempty" example:"true"`
+	IsDairyFree  bool     `json:"isDairyFree,omitempty" example:"false"`
+	IsNutFree    bool     `json:"isNutFree,omitempty" example:"true"`
+	IsKeto       bool     `json:"isKeto,omitempty" example:"false"`
+	IsHalal      bool     `json:"isHalal,omitempty" example:"false"`
+	IsKosher     bool     `json:"isKosher,omitempty" example:"false"`
+	Allergens    []string `json:"allergens,omitempty" example:"dairy,eggs,gluten"`
+	MealTypes    []string `json:"mealTypes,omitempty" example:"lunch,dinner,snack"`
+}
+
 // SwaggerRecipe represents a full recipe
-// @Description Full recipe with ingredients and steps
+// @Description Full recipe with ingredients, steps, nutrition, and dietary information
 type SwaggerRecipe struct {
-	ID             string                    `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	UserID         string                    `json:"userId" example:"550e8400-e29b-41d4-a716-446655440099"`
-	Title          string                    `json:"title" example:"Spaghetti Carbonara"`
-	Description    *string                   `json:"description,omitempty" example:"Classic Italian pasta dish"`
-	Servings       *int                      `json:"servings,omitempty" example:"4"`
-	PrepTime       *int                      `json:"prepTime,omitempty" example:"15"`
-	CookTime       *int                      `json:"cookTime,omitempty" example:"20"`
-	Difficulty     *string                   `json:"difficulty,omitempty" example:"medium" enums:"easy,medium,hard"`
-	Cuisine        *string                   `json:"cuisine,omitempty" example:"Italian"`
-	ThumbnailURL   *string                   `json:"thumbnailUrl,omitempty" example:"https://example.com/thumb.jpg"`
-	SourceType     string                    `json:"sourceType" example:"manual" enums:"manual,video,ai,photo,webpage,image,cloned"`
-	SourceURL      *string                   `json:"sourceUrl,omitempty" example:"https://youtube.com/watch?v=xyz"`
-	SourceRecipeID *string                   `json:"sourceRecipeId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
-	Tags           []string                  `json:"tags,omitempty" example:"italian,pasta,quick"`
-	IsPublic       bool                      `json:"isPublic" example:"false"`
-	IsFavorite     bool                      `json:"isFavorite" example:"false"`
-	SyncVersion    int                       `json:"syncVersion" example:"1"`
-	CreatedAt      string                    `json:"createdAt" example:"2024-02-01T10:30:00Z"`
-	UpdatedAt      string                    `json:"updatedAt" example:"2024-02-01T10:30:00Z"`
-	Ingredients    []SwaggerRecipeIngredient `json:"ingredients,omitempty"`
-	Steps          []SwaggerRecipeStep       `json:"steps,omitempty"`
+	ID              string                      `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	UserID          string                      `json:"userId" example:"550e8400-e29b-41d4-a716-446655440099"`
+	Title           string                      `json:"title" example:"Indian Samosa Latkes"`
+	Description     *string                     `json:"description,omitempty" example:"A creative twist on the traditional latke by incorporating the flavors of an Indian samosa"`
+	Servings        *int                        `json:"servings,omitempty" example:"4"`
+	PrepTime        *int                        `json:"prepTime,omitempty" example:"20"`
+	CookTime        *int                        `json:"cookTime,omitempty" example:"25"`
+	Difficulty      *string                     `json:"difficulty,omitempty" example:"Medium" enums:"Easy,Medium,Hard"`
+	Cuisine         *string                     `json:"cuisine,omitempty" example:"Indian/Jewish Fusion"`
+	ThumbnailURL    *string                     `json:"thumbnailUrl,omitempty" example:"https://example.com/thumb.jpg"`
+	SourceType      string                      `json:"sourceType" example:"video" enums:"manual,video,ai,photo,webpage,image,cloned"`
+	SourceURL       *string                     `json:"sourceUrl,omitempty" example:"https://www.tiktok.com/@eitan/video/7582674293838908703"`
+	SourceRecipeID  *string                     `json:"sourceRecipeId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	Tags            []string                    `json:"tags,omitempty" example:"latkes,samosa,Indian,Hanukkah,fusion,potato,fried"`
+	IsPublic        bool                        `json:"isPublic" example:"false"`
+	IsFavorite      bool                        `json:"isFavorite" example:"false"`
+	Nutrition       *SwaggerRecipeNutritionInfo `json:"nutrition,omitempty"`
+	DietaryInfo     *SwaggerRecipeDietaryInfo   `json:"dietaryInfo,omitempty"`
+	SyncVersion     int                         `json:"syncVersion" example:"0"`
+	CreatedAt       string                      `json:"createdAt" example:"2026-02-02T19:30:10.803252Z"`
+	UpdatedAt       string                      `json:"updatedAt" example:"2026-02-02T19:30:10.803252Z"`
+	IngredientCount int                         `json:"ingredientCount,omitempty" example:"14"`
+	StepCount       int                         `json:"stepCount,omitempty" example:"9"`
+	Ingredients     []SwaggerRecipeIngredient   `json:"ingredients,omitempty"`
+	Steps           []SwaggerRecipeStep         `json:"steps,omitempty"`
 }
 
 // SwaggerRecipeListResponse represents paginated recipe list

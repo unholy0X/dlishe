@@ -2564,6 +2564,9 @@ const docTemplate = `{
         "github_com_dishflow_backend_internal_model.AppliedFilters": {
             "type": "object",
             "properties": {
+                "appliedCuisine": {
+                    "type": "string"
+                },
                 "appliedDiet": {
                     "type": "string"
                 },
@@ -2573,13 +2576,14 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "excludedByNutrition": {
-                    "description": "recipes excluded by nutrition filters",
+                "appliedMaxTime": {
                     "type": "integer"
                 },
-                "excludedRecipes": {
-                    "description": "recipes excluded by dietary filters",
-                    "type": "integer"
+                "appliedMealType": {
+                    "type": "string"
+                },
+                "appliedMood": {
+                    "type": "string"
                 },
                 "nutritionFilters": {
                     "$ref": "#/definitions/github_com_dishflow_backend_internal_model.NutritionFilters"
@@ -2908,6 +2912,27 @@ const docTemplate = `{
         "github_com_dishflow_backend_internal_model.RecipeRecommendation": {
             "type": "object",
             "properties": {
+                "filtersMatched": {
+                    "description": "Filter match metadata - helps frontend display/sort recommendations",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "filtersNotMatched": {
+                    "description": "filters this recipe doesn't match",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "filtersUnknown": {
+                    "description": "filters where recipe has no data",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "matchScore": {
                     "description": "0-100 percentage",
                     "type": "integer"
@@ -3697,37 +3722,44 @@ const docTemplate = `{
             }
         },
         "internal_handler.SwaggerRecipe": {
-            "description": "Full recipe with ingredients and steps",
+            "description": "Full recipe with ingredients, steps, nutrition, and dietary information",
             "type": "object",
             "properties": {
                 "cookTime": {
                     "type": "integer",
-                    "example": 20
+                    "example": 25
                 },
                 "createdAt": {
                     "type": "string",
-                    "example": "2024-02-01T10:30:00Z"
+                    "example": "2026-02-02T19:30:10.803252Z"
                 },
                 "cuisine": {
                     "type": "string",
-                    "example": "Italian"
+                    "example": "Indian/Jewish Fusion"
                 },
                 "description": {
                     "type": "string",
-                    "example": "Classic Italian pasta dish"
+                    "example": "A creative twist on the traditional latke by incorporating the flavors of an Indian samosa"
+                },
+                "dietaryInfo": {
+                    "$ref": "#/definitions/internal_handler.SwaggerRecipeDietaryInfo"
                 },
                 "difficulty": {
                     "type": "string",
                     "enum": [
-                        "easy",
-                        "medium",
-                        "hard"
+                        "Easy",
+                        "Medium",
+                        "Hard"
                     ],
-                    "example": "medium"
+                    "example": "Medium"
                 },
                 "id": {
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "ingredientCount": {
+                    "type": "integer",
+                    "example": 14
                 },
                 "ingredients": {
                     "type": "array",
@@ -3743,9 +3775,12 @@ const docTemplate = `{
                     "type": "boolean",
                     "example": false
                 },
+                "nutrition": {
+                    "$ref": "#/definitions/internal_handler.SwaggerRecipeNutritionInfo"
+                },
                 "prepTime": {
                     "type": "integer",
-                    "example": 15
+                    "example": 20
                 },
                 "servings": {
                     "type": "integer",
@@ -3760,17 +3795,22 @@ const docTemplate = `{
                     "enum": [
                         "manual",
                         "video",
+                        "video_extraction",
                         "ai",
                         "photo",
                         "webpage",
                         "image",
                         "cloned"
                     ],
-                    "example": "manual"
+                    "example": "video"
                 },
                 "sourceUrl": {
                     "type": "string",
-                    "example": "https://youtube.com/watch?v=xyz"
+                    "example": "https://www.tiktok.com/@eitan/video/7582674293838908703"
+                },
+                "stepCount": {
+                    "type": "integer",
+                    "example": 9
                 },
                 "steps": {
                     "type": "array",
@@ -3780,7 +3820,7 @@ const docTemplate = `{
                 },
                 "syncVersion": {
                     "type": "integer",
-                    "example": 1
+                    "example": 0
                 },
                 "tags": {
                     "type": "array",
@@ -3788,9 +3828,13 @@ const docTemplate = `{
                         "type": "string"
                     },
                     "example": [
-                        "italian",
-                        "pasta",
-                        "quick"
+                        "latkes",
+                        "samosa",
+                        "Indian",
+                        "Hanukkah",
+                        "fusion",
+                        "potato",
+                        "fried"
                     ]
                 },
                 "thumbnailUrl": {
@@ -3799,15 +3843,75 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string",
-                    "example": "Spaghetti Carbonara"
+                    "example": "Indian Samosa Latkes"
                 },
                 "updatedAt": {
                     "type": "string",
-                    "example": "2024-02-01T10:30:00Z"
+                    "example": "2026-02-02T19:30:10.803252Z"
                 },
                 "userId": {
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440099"
+                }
+            }
+        },
+        "internal_handler.SwaggerRecipeDietaryInfo": {
+            "description": "Dietary flags and allergen information for filtering recipes",
+            "type": "object",
+            "properties": {
+                "allergens": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "dairy",
+                        "eggs",
+                        "gluten"
+                    ]
+                },
+                "isDairyFree": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "isGlutenFree": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "isHalal": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "isKeto": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "isKosher": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "isNutFree": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "isVegan": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "isVegetarian": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "mealTypes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "lunch",
+                        "dinner",
+                        "snack"
+                    ]
                 }
             }
         },
@@ -3896,6 +4000,54 @@ const docTemplate = `{
                 "total": {
                     "type": "integer",
                     "example": 25
+                }
+            }
+        },
+        "internal_handler.SwaggerRecipeNutritionInfo": {
+            "description": "Nutritional information per serving (AI-estimated)",
+            "type": "object",
+            "properties": {
+                "calories": {
+                    "type": "integer",
+                    "example": 450
+                },
+                "carbs": {
+                    "type": "integer",
+                    "example": 30
+                },
+                "confidence": {
+                    "type": "number",
+                    "example": 0.75
+                },
+                "fat": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "fiber": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "protein": {
+                    "type": "integer",
+                    "example": 25
+                },
+                "sodium": {
+                    "type": "integer",
+                    "example": 600
+                },
+                "sugar": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "high-protein",
+                        "moderate-carb"
+                    ]
                 }
             }
         },

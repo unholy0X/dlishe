@@ -21,7 +21,9 @@ export function NavHeader() {
 
                     <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
                         <Link href="/" className="text-text-secondary hover:text-honey-600 transition-colors">Extraction</Link>
-                        <Link href="/recipes" className="text-text-secondary hover:text-honey-600 transition-colors">Recipes</Link>
+                        <Link href="/recipes" className="text-text-secondary hover:text-honey-600 transition-colors">My Recipes</Link>
+                        <Link href="/suggested" className="text-text-secondary hover:text-honey-600 transition-colors">Suggested</Link>
+                        <Link href="/recommendations" className="text-text-secondary hover:text-honey-600 transition-colors">Recommendations</Link>
                         <Link href="/pantry" className="text-text-secondary hover:text-honey-600 transition-colors">Pantry</Link>
                         <Link href="/shopping" className="text-text-secondary hover:text-honey-600 transition-colors">Shopping</Link>
                     </nav>

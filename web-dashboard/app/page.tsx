@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import api from '@/lib/api';
 import { NavHeader } from '@/lib/components/NavHeader';
+import { extractionService } from '@/lib/services/extraction';
+import { Job } from '@/lib/types';
 import {
   Plus,
   Video,
@@ -22,19 +23,6 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 
-interface Job {
-  jobId: string;
-  status: 'pending' | 'downloading' | 'processing' | 'extracting' | 'completed' | 'failed';
-  progress: number;
-  message: string;
-  videoUrl: string;
-  createdAt: string;
-  recipe?: {
-    id: string;
-    title: string;
-  };
-}
-
 export default function DashboardPage() {
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const router = useRouter();
@@ -49,6 +37,20 @@ export default function DashboardPage() {
   const [extractionProgress, setExtractionProgress] = useState('');
   const [error, setError] = useState('');
 
+  // Derived state for job display
+  const activeJobs = jobs.filter(j =>
+    ['pending', 'downloading', 'processing', 'extracting'].includes(j.status)
+  );
+
+  const sortedJobs = [...jobs].sort((a, b) => {
+    const aIsActive = ['pending', 'downloading', 'processing', 'extracting'].includes(a.status);
+    const bIsActive = ['pending', 'downloading', 'processing', 'extracting'].includes(b.status);
+
+    if (aIsActive && !bIsActive) return -1;
+    if (!aIsActive && bIsActive) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
   // 1. Initial Load & Auth Check
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -59,8 +61,8 @@ export default function DashboardPage() {
   // 2. Load Jobs
   const fetchJobs = async () => {
     try {
-      const res = await api.get('/jobs');
-      setJobs(res.data || []);
+      const data = await extractionService.listJobs();
+      setJobs(data.items || []);
     } catch (err) {
       console.error('Failed to fetch jobs', err);
     }
@@ -91,72 +93,65 @@ export default function DashboardPage() {
     setExtractionProgress('');
 
     try {
+      setIsSubmitting(true);
+      let job: Job;
+
       if (extractionMode === 'video') {
         if (!videoUrl) return;
-        setIsSubmitting(true);
-        await api.post('/video/extract', {
-          videoUrl,
-          language: 'en',
-          detailLevel: 'detailed'
+        setExtractionProgress('Starting video extraction...');
+
+        job = await extractionService.extract({
+          type: 'video',
+          url: videoUrl,
+          language: 'auto',
+          detailLevel: 'detailed',
+          saveAuto: true
         });
+
         setVideoUrl('');
       } else if (extractionMode === 'url') {
         if (!webUrl) return;
-        setIsSubmitting(true);
         setExtractionProgress('Fetching webpage...');
 
-        const res = await api.post('/recipes/extract-url', { url: webUrl, saveAuto: true });
-
-        setExtractionProgress('Gemini extracting recipe...');
-        await new Promise(r => setTimeout(r, 500)); // Brief pause for UX
-
-        const recipeId = res.data?.savedId || res.data?.id;
-        if (recipeId) {
-          setExtractionProgress('Complete!');
-          await new Promise(r => setTimeout(r, 300));
-          await fetchJobs(); // Refresh jobs list
-          router.push(`/recipes/${recipeId}`);
-        } else {
-          console.warn('No recipe ID in response:', res.data);
-          setError('Recipe extracted but not saved');
-        }
-        setWebUrl('');
-
-      } else if (extractionMode === 'image') {
-        if (!imageFile) return;
-        setIsSubmitting(true);
-        setExtractionProgress('Uploading image...');
-
-        const formData = new FormData();
-        formData.append('image', imageFile);
-        formData.append('saveAuto', 'true');
-
-        setExtractionProgress('Gemini analyzing image...');
-        const res = await api.post('/recipes/extract-image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+        job = await extractionService.extract({
+          type: 'url',
+          url: webUrl,
+          language: 'auto',
+          detailLevel: 'detailed',
+          saveAuto: true
         });
 
-        setExtractionProgress('Refining recipe...');
-        await new Promise(r => setTimeout(r, 500)); // Brief pause for UX
+        setWebUrl('');
+      } else if (extractionMode === 'image') {
+        if (!imageFile) return;
+        setExtractionProgress('Uploading image...');
 
-        const recipeId = res.data?.savedId;
-
-        if (recipeId) {
-          setExtractionProgress('Complete!');
-          await new Promise(r => setTimeout(r, 300));
-          router.push(`/recipes/${recipeId}`);
-        } else {
-          console.warn('No recipe ID found:', res.data);
-          setError('Recipe extracted but not saved');
-        }
+        job = await extractionService.extractImageFile(imageFile, {
+          language: 'auto',
+          detailLevel: 'detailed',
+          saveAuto: true
+        });
 
         setImageFile(null);
         setImagePreview(null);
+      } else {
+        return;
       }
 
-      fetchJobs(); // Refresh jobs anyway
+      // Update progress message and keep it visible
+      setExtractionProgress('✓ Extraction started! Your recipe will appear below when ready.');
+
+      // Trigger immediate job list refresh
+      await fetchJobs();
+
+      // Keep the success message visible longer
+      setTimeout(() => {
+        setExtractionProgress('');
+      }, 3000);
+
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Extraction failed');
+      console.error('Extraction failed:', err);
+      setError(err.response?.data?.error?.message || 'Extraction failed. Please try again.');
       setExtractionProgress('');
     } finally {
       setIsSubmitting(false);
@@ -174,6 +169,32 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-stone-50">
       <NavHeader />
+
+      {/* Active Jobs Banner */}
+      {activeJobs.length > 0 && (
+        <div className="sticky top-16 z-10 bg-gradient-to-r from-honey-50 to-sage-50 border-b border-honey-200 shadow-sm">
+          <div className="max-w-5xl mx-auto px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-honey-600 animate-spin shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-honey-900">
+                  {activeJobs.length === 1
+                    ? 'Extracting recipe...'
+                    : `Extracting ${activeJobs.length} recipes...`}
+                </p>
+                <p className="text-xs text-honey-700">
+                  {activeJobs[0].message || 'Processing with AI'} • Scroll down to see progress
+                </p>
+              </div>
+              <RefreshCw
+                onClick={fetchJobs}
+                className="w-4 h-4 text-honey-600 cursor-pointer hover:text-honey-700 transition shrink-0"
+                title="Refresh status"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-12">
 
@@ -306,7 +327,7 @@ export default function DashboardPage() {
                 No extractions yet. Try adding a video above!
               </div>
             ) : (
-              jobs.map((job) => (
+              sortedJobs.map((job) => (
                 <div key={job.jobId} className="bg-white rounded-xl shadow-soft border border-stone-200 p-4 flex items-center gap-4 transition hover:shadow-warm">
                   {/* Icon / Status */}
                   <div className={clsx(
@@ -338,8 +359,13 @@ export default function DashboardPage() {
                         <Clock className="w-3 h-3" />
                         {new Date(job.createdAt).toLocaleTimeString()}
                       </span>
-                      <span className="truncate max-w-[200px] hover:underline cursor-pointer" title={job.videoUrl}>
-                        {job.videoUrl}
+                      {job.sourceUrl && (
+                        <span className="truncate max-w-[200px] hover:underline cursor-pointer" title={job.sourceUrl}>
+                          {job.sourceUrl}
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 capitalize text-xs">
+                        {job.jobType}
                       </span>
                     </div>
 

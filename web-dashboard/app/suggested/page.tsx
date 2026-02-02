@@ -1,21 +1,34 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, Clock, Users, Trash2, Search, Plus, Loader2, Heart, Leaf, Wheat, Milk } from 'lucide-react';
-import { useAuth } from '../../lib/auth';
-import { recipeService } from '../../lib/services/recipe';
-import { Recipe } from '../../lib/types';
-import Link from 'next/link';
+import { useAuth } from '@/lib/auth';
+import { recipeService } from '@/lib/services/recipe';
+import { Recipe } from '@/lib/types';
 import { NavHeader } from '@/lib/components/NavHeader';
+import {
+    Loader2,
+    ChefHat,
+    Clock,
+    Users,
+    Search,
+    BookmarkPlus,
+    Check,
+    Leaf,
+    Wheat,
+    Milk
+} from 'lucide-react';
+import Link from 'next/link';
 
-export default function RecipesPage() {
+export default function SuggestedRecipesPage() {
     const { isAuthenticated, isLoading: authLoading } = useAuth();
     const router = useRouter();
     const [recipes, setRecipes] = useState<Recipe[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
+    const [savedRecipeIds, setSavedRecipeIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -24,35 +37,45 @@ export default function RecipesPage() {
         }
 
         if (isAuthenticated) {
-            fetchRecipes();
+            fetchSuggestedRecipes();
         }
     }, [isAuthenticated, authLoading, router]);
 
-    const fetchRecipes = async () => {
+    const fetchSuggestedRecipes = async () => {
         try {
             setLoading(true);
-            const data = await recipeService.getAll();
-            console.log('Recipes API response:', data);
-            setRecipes(data.items || []); // Backend returns 'items', not 'recipes'
+            const data = await recipeService.getSuggested();
+            setRecipes(data.items || []);
             setError(null);
         } catch (err) {
-            console.error('Failed to fetch recipes:', err);
-            setError('Failed to load recipes');
+            console.error('Failed to fetch suggested recipes:', err);
+            setError('Failed to load suggested recipes');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDelete = async (id: string, e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!window.confirm('Are you sure you want to delete this recipe?')) return;
+    const handleSaveRecipe = async (recipeId: string) => {
         try {
-            await recipeService.delete(id);
-            setRecipes(recipes.filter(r => r.id !== id));
-        } catch (err) {
-            console.error('Failed to delete recipe:', err);
-            setError('Failed to delete recipe');
+            setSavingRecipeId(recipeId);
+            await recipeService.saveRecipe(recipeId);
+            setSavedRecipeIds(prev => new Set(prev).add(recipeId));
+            // Show success notification (could be replaced with a toast)
+            setTimeout(() => setSavingRecipeId(null), 1000);
+        } catch (err: any) {
+            console.error('Failed to save recipe:', err);
+
+            // Handle 409 conflict (already cloned)
+            if (err.response?.status === 409) {
+                const existingRecipeId = err.response?.data?.error?.details?.existingRecipeId;
+                if (existingRecipeId) {
+                    setSavedRecipeIds(prev => new Set(prev).add(recipeId));
+                    alert('You already have this recipe in your collection!');
+                }
+            } else {
+                alert(err.response?.data?.error?.message || 'Failed to save recipe');
+            }
+            setSavingRecipeId(null);
         }
     };
 
@@ -62,7 +85,7 @@ export default function RecipesPage() {
         recipe.cuisine?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    if (authLoading || (!isAuthenticated && loading)) {
+    if (authLoading) {
         return (
             <div className="flex justify-center items-center h-screen bg-stone-50">
                 <Loader2 className="w-8 h-8 text-honey-400 animate-spin" />
@@ -75,12 +98,22 @@ export default function RecipesPage() {
             <NavHeader />
 
             <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+                {/* Header */}
+                <div className="text-center space-y-3">
+                    <h1 className="text-4xl font-display font-medium text-text-primary">
+                        Suggested Recipes
+                    </h1>
+                    <p className="text-text-muted max-w-2xl mx-auto">
+                        Discover curated recipes from our collection. Save any recipe to your personal collection to get started.
+                    </p>
+                </div>
+
                 {/* Search */}
                 <div className="relative">
                     <Search className="absolute left-3 top-3 w-5 h-5 text-text-muted" />
                     <input
                         type="text"
-                        placeholder="Search recipes by name, cuisine, or ingredients..."
+                        placeholder="Search suggested recipes..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-stone-300 focus:ring-2 focus:ring-honey-300 focus:border-honey-300 outline-none transition bg-white"
@@ -100,53 +133,47 @@ export default function RecipesPage() {
                             <ChefHat className="w-8 h-8 text-stone-400" />
                         </div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">
-                            {searchQuery ? 'No recipes found' : 'No recipes yet'}
+                            {searchQuery ? 'No recipes found' : 'No suggested recipes available'}
                         </h3>
                         <p className="text-gray-500 mb-6 max-w-sm mx-auto">
                             {searchQuery
                                 ? 'Try adjusting your search terms'
-                                : 'Start by extracting a recipe from a video, webpage, or image'}
+                                : 'Check back later for curated recipe suggestions'}
                         </p>
-                        {!searchQuery && (
-                            <Link
-                                href="/"
-                                className="inline-flex items-center gap-2 bg-honey-400 hover:bg-honey-500 text-white px-6 py-2.5 rounded-xl font-medium transition-colors shadow-honey"
-                            >
-                                <Plus className="w-5 h-5" />
-                                Add Your First Recipe
-                            </Link>
-                        )}
                     </div>
                 )}
 
                 {/* Recipe Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredRecipes.map((recipe) => (
-                        <Link
+                        <div
                             key={recipe.id}
-                            href={`/recipes/${recipe.id}`}
                             className="group block bg-white rounded-xl shadow-soft border border-stone-200 overflow-hidden transition-all hover:shadow-warm hover:border-honey-200"
                         >
                             {/* Thumbnail */}
-                            {recipe.thumbnailUrl ? (
-                                <div className="aspect-video bg-stone-100 overflow-hidden">
-                                    <img
-                                        src={recipe.thumbnailUrl}
-                                        alt={recipe.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    />
-                                </div>
-                            ) : (
-                                <div className="aspect-video bg-gradient-to-br from-honey-100 to-sage-100 flex items-center justify-center">
-                                    <ChefHat className="w-12 h-12 text-honey-300" />
-                                </div>
-                            )}
+                            <Link href={`/recipes/${recipe.id}`}>
+                                {recipe.thumbnailUrl ? (
+                                    <div className="aspect-video bg-stone-100 overflow-hidden">
+                                        <img
+                                            src={recipe.thumbnailUrl}
+                                            alt={recipe.title}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="aspect-video bg-gradient-to-br from-honey-100 to-sage-100 flex items-center justify-center">
+                                        <ChefHat className="w-12 h-12 text-honey-300" />
+                                    </div>
+                                )}
+                            </Link>
 
                             {/* Content */}
                             <div className="p-5">
-                                <h3 className="font-semibold text-lg text-text-primary mb-2 group-hover:text-honey-600 transition-colors line-clamp-2">
-                                    {recipe.title}
-                                </h3>
+                                <Link href={`/recipes/${recipe.id}`}>
+                                    <h3 className="font-semibold text-lg text-text-primary mb-2 group-hover:text-honey-600 transition-colors line-clamp-2">
+                                        {recipe.title}
+                                    </h3>
+                                </Link>
 
                                 {recipe.description && (
                                     <p className="text-text-muted text-sm mb-4 line-clamp-2">
@@ -200,50 +227,36 @@ export default function RecipesPage() {
                                             {recipe.servings} servings
                                         </span>
                                     )}
-                                    {recipe.difficulty && (
-                                        <span className={`px-2 py-0.5 rounded-full capitalize ${recipe.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                                            recipe.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                                'bg-red-100 text-red-700'
-                                            }`}>
-                                            {recipe.difficulty}
-                                        </span>
-                                    )}
                                 </div>
 
-                                <div className="flex items-center justify-between pt-4 border-t border-stone-100">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-xs text-text-muted">
-                                            {new Date(recipe.createdAt).toLocaleDateString()}
-                                        </span>
-                                        {recipe.sourceType === 'cloned' && recipe.sourceRecipeId && (
-                                            <span className="text-xs text-honey-600 italic">
-                                                Cloned recipe
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                // TODO: Implement favorite toggle
-                                            }}
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-honey-600 rounded-md transition-all"
-                                            title={recipe.isFavorite ? "Remove from favorites" : "Add to favorites"}
-                                        >
-                                            <Heart className={`w-4 h-4 ${recipe.isFavorite ? 'fill-honey-500 text-honey-500' : ''}`} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleDelete(recipe.id, e)}
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
-                                            title="Delete Recipe"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </div>
+                                {/* Save Button */}
+                                <button
+                                    onClick={() => handleSaveRecipe(recipe.id)}
+                                    disabled={savingRecipeId === recipe.id || savedRecipeIds.has(recipe.id)}
+                                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${savedRecipeIds.has(recipe.id)
+                                            ? 'bg-sage-100 text-sage-700 cursor-not-allowed'
+                                            : 'bg-honey-400 hover:bg-honey-500 text-white'
+                                        }`}
+                                >
+                                    {savingRecipeId === recipe.id ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : savedRecipeIds.has(recipe.id) ? (
+                                        <>
+                                            <Check className="w-4 h-4" />
+                                            Saved to My Recipes
+                                        </>
+                                    ) : (
+                                        <>
+                                            <BookmarkPlus className="w-4 h-4" />
+                                            Save to My Recipes
+                                        </>
+                                    )}
+                                </button>
                             </div>
-                        </Link>
+                        </div>
                     ))}
                 </div>
 

@@ -6,6 +6,33 @@ import (
 	"github.com/google/uuid"
 )
 
+// RecipeNutrition represents nutritional information per serving
+type RecipeNutrition struct {
+	Calories   int      `json:"calories"`             // kcal per serving
+	Protein    int      `json:"protein"`              // grams
+	Carbs      int      `json:"carbs"`                // grams
+	Fat        int      `json:"fat"`                  // grams
+	Fiber      int      `json:"fiber,omitempty"`      // grams
+	Sugar      int      `json:"sugar,omitempty"`      // grams
+	Sodium     int      `json:"sodium,omitempty"`     // mg
+	Tags       []string `json:"tags,omitempty"`       // e.g., "high-protein", "low-carb", "keto-friendly"
+	Confidence float64  `json:"confidence,omitempty"` // AI confidence score 0-1
+}
+
+// DietaryInfo contains dietary flags for filtering
+type DietaryInfo struct {
+	IsVegetarian   bool     `json:"isVegetarian,omitempty"`
+	IsVegan        bool     `json:"isVegan,omitempty"`
+	IsGlutenFree   bool     `json:"isGlutenFree,omitempty"`
+	IsDairyFree    bool     `json:"isDairyFree,omitempty"`
+	IsNutFree      bool     `json:"isNutFree,omitempty"`
+	IsKeto         bool     `json:"isKeto,omitempty"`
+	IsHalal        bool     `json:"isHalal,omitempty"`
+	IsKosher       bool     `json:"isKosher,omitempty"`
+	Allergens      []string `json:"allergens,omitempty"`      // e.g., ["gluten", "dairy", "nuts"]
+	MealTypes      []string `json:"mealTypes,omitempty"`      // e.g., ["breakfast", "lunch", "dinner"]
+}
+
 // Recipe represents a recipe in DishFlow
 type Recipe struct {
 	ID             uuid.UUID          `json:"id" db:"id"`
@@ -18,11 +45,15 @@ type Recipe struct {
 	Difficulty     *string            `json:"difficulty,omitempty" db:"difficulty"`    // easy, medium, hard
 	Cuisine        *string            `json:"cuisine,omitempty" db:"cuisine"`
 	ThumbnailURL   *string            `json:"thumbnailUrl,omitempty" db:"thumbnail_url"`
-	SourceType     string             `json:"sourceType" db:"source_type"` // manual, video, ai, photo
+	SourceType     string             `json:"sourceType" db:"source_type"` // manual, video, ai, photo, cloned
 	SourceURL      *string            `json:"sourceUrl,omitempty" db:"source_url"`
+	SourceRecipeID *uuid.UUID         `json:"sourceRecipeId,omitempty" db:"source_recipe_id"` // ID of original recipe if cloned
 	SourceMetadata map[string]any     `json:"sourceMetadata,omitempty" db:"source_metadata"`
 	Tags           []string           `json:"tags,omitempty" db:"tags"`
+	IsPublic       bool               `json:"isPublic" db:"is_public"`     // Public/suggested recipes visible to all users
 	IsFavorite     bool               `json:"isFavorite" db:"is_favorite"`
+	Nutrition      *RecipeNutrition   `json:"nutrition,omitempty" db:"nutrition"`      // Nutritional info per serving
+	DietaryInfo    *DietaryInfo       `json:"dietaryInfo,omitempty" db:"dietary_info"` // Dietary flags for filtering
 	SyncVersion    int                `json:"syncVersion" db:"sync_version"`
 	CreatedAt      time.Time          `json:"createdAt" db:"created_at"`
 	UpdatedAt      time.Time          `json:"updatedAt" db:"updated_at"`
@@ -91,6 +122,52 @@ var IngredientCategories = []string{
 	"frozen",
 	"household",
 	"other",
+}
+
+// MealTypes for recipe categorization
+var MealTypes = []string{
+	"breakfast",
+	"lunch",
+	"dinner",
+	"snack",
+	"dessert",
+}
+
+// DietaryRestrictions for filtering
+var DietaryRestrictions = []string{
+	"vegetarian",
+	"vegan",
+	"keto",
+	"halal",
+	"kosher",
+	"pescatarian",
+	"paleo",
+}
+
+// Allergens/Intolerances for filtering
+var Allergens = []string{
+	"gluten",
+	"dairy",
+	"lactose",
+	"nuts",
+	"peanuts",
+	"shellfish",
+	"eggs",
+	"soy",
+	"fish",
+	"pork",
+	"sesame",
+}
+
+// NutritionTags for categorizing recipes by nutrition
+var NutritionTags = []string{
+	"low-calorie",   // < 300 cal/serving
+	"high-protein",  // > 25g protein/serving
+	"low-carb",      // < 20g carbs/serving
+	"keto-friendly", // < 10g net carbs
+	"low-fat",       // < 10g fat/serving
+	"high-fiber",    // > 8g fiber/serving
+	"low-sodium",    // < 400mg sodium
 }
 
 // ValidateCategory checks if a category is valid

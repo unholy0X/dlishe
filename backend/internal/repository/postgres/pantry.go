@@ -76,6 +76,39 @@ func (r *PantryRepository) List(ctx context.Context, userID uuid.UUID, category 
 	return items, total, rows.Err()
 }
 
+// ListAll returns all pantry items for a user (for recommendations)
+func (r *PantryRepository) ListAll(ctx context.Context, userID uuid.UUID) ([]model.PantryItem, error) {
+	query := `
+		SELECT id, user_id, name, category, quantity, unit, expiration_date,
+		       sync_version, created_at, updated_at, deleted_at
+		FROM pantry_items
+		WHERE user_id = $1 AND deleted_at IS NULL
+		ORDER BY name ASC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []model.PantryItem
+	for rows.Next() {
+		var item model.PantryItem
+		err := rows.Scan(
+			&item.ID, &item.UserID, &item.Name, &item.Category,
+			&item.Quantity, &item.Unit, &item.ExpirationDate,
+			&item.SyncVersion, &item.CreatedAt, &item.UpdatedAt, &item.DeletedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	return items, rows.Err()
+}
+
 // Get returns a single pantry item by ID
 func (r *PantryRepository) Get(ctx context.Context, id, userID uuid.UUID) (*model.PantryItem, error) {
 	query := `

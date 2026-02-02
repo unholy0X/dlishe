@@ -24,7 +24,10 @@ type UserRepository interface {
 type RecipeRepository interface {
 	Create(ctx context.Context, recipe *model.Recipe) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Recipe, error)
+	GetBySourceRecipeID(ctx context.Context, userID, sourceRecipeID uuid.UUID) (*model.Recipe, error)
 	ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error)
+	ListPublic(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
+	ListForRecommendations(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error)
 	Update(ctx context.Context, recipe *model.Recipe) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
 	SetFavorite(ctx context.Context, id uuid.UUID, isFavorite bool) error
@@ -33,6 +36,7 @@ type RecipeRepository interface {
 // PantryRepository defines the interface for pantry persistence
 type PantryRepository interface {
 	List(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error)
+	ListAll(ctx context.Context, userID uuid.UUID) ([]model.PantryItem, error)
 	Get(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.PantryItem, error)
 	Create(ctx context.Context, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
 	Update(ctx context.Context, id uuid.UUID, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)

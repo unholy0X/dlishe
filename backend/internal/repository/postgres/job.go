@@ -25,21 +25,26 @@ func NewJobRepository(db *sql.DB) *JobRepository {
 	return &JobRepository{db: db}
 }
 
-// Create creates a new video job
-func (r *JobRepository) Create(ctx context.Context, job *model.VideoJob) error {
+// Create creates a new extraction job
+func (r *JobRepository) Create(ctx context.Context, job *model.ExtractionJob) error {
 	query := `
 		INSERT INTO video_jobs (
-			id, user_id, video_url, language, detail_level, status,
+			id, user_id, job_type, source_url, source_path, mime_type,
+			language, detail_level, save_auto, status,
 			progress, status_message, idempotency_key, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		job.ID,
 		job.UserID,
-		job.VideoURL,
+		job.JobType,
+		job.SourceURL,
+		job.SourcePath,
+		job.MimeType,
 		job.Language,
 		job.DetailLevel,
+		job.SaveAuto,
 		job.Status,
 		job.Progress,
 		job.StatusMessage,
@@ -51,22 +56,27 @@ func (r *JobRepository) Create(ctx context.Context, job *model.VideoJob) error {
 }
 
 // GetByID retrieves a job by ID
-func (r *JobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.VideoJob, error) {
+func (r *JobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.ExtractionJob, error) {
 	query := `
-		SELECT id, user_id, video_url, language, detail_level, status,
+		SELECT id, user_id, COALESCE(job_type, 'video'), source_url, source_path, mime_type,
+			   language, detail_level, COALESCE(save_auto, true), status,
 			   progress, status_message, result_recipe_id, error_code,
 			   error_message, idempotency_key, started_at, completed_at, created_at
 		FROM video_jobs
 		WHERE id = $1
 	`
 
-	job := &model.VideoJob{}
+	job := &model.ExtractionJob{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&job.ID,
 		&job.UserID,
-		&job.VideoURL,
+		&job.JobType,
+		&job.SourceURL,
+		&job.SourcePath,
+		&job.MimeType,
 		&job.Language,
 		&job.DetailLevel,
+		&job.SaveAuto,
 		&job.Status,
 		&job.Progress,
 		&job.StatusMessage,
@@ -90,22 +100,27 @@ func (r *JobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Video
 }
 
 // GetByIdempotencyKey retrieves a job by idempotency key
-func (r *JobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid.UUID, key string) (*model.VideoJob, error) {
+func (r *JobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid.UUID, key string) (*model.ExtractionJob, error) {
 	query := `
-		SELECT id, user_id, video_url, language, detail_level, status,
+		SELECT id, user_id, COALESCE(job_type, 'video'), source_url, source_path, mime_type,
+			   language, detail_level, COALESCE(save_auto, true), status,
 			   progress, status_message, result_recipe_id, error_code,
 			   error_message, idempotency_key, started_at, completed_at, created_at
 		FROM video_jobs
 		WHERE user_id = $1 AND idempotency_key = $2
 	`
 
-	job := &model.VideoJob{}
+	job := &model.ExtractionJob{}
 	err := r.db.QueryRowContext(ctx, query, userID, key).Scan(
 		&job.ID,
 		&job.UserID,
-		&job.VideoURL,
+		&job.JobType,
+		&job.SourceURL,
+		&job.SourcePath,
+		&job.MimeType,
 		&job.Language,
 		&job.DetailLevel,
+		&job.SaveAuto,
 		&job.Status,
 		&job.Progress,
 		&job.StatusMessage,
@@ -129,9 +144,10 @@ func (r *JobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid.UUI
 }
 
 // ListByUser retrieves all jobs for a user
-func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.VideoJob, error) {
+func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.ExtractionJob, error) {
 	query := `
-		SELECT id, user_id, video_url, language, detail_level, status,
+		SELECT id, user_id, COALESCE(job_type, 'video'), source_url, source_path, mime_type,
+			   language, detail_level, COALESCE(save_auto, true), status,
 			   progress, status_message, result_recipe_id, error_code,
 			   error_message, idempotency_key, started_at, completed_at, created_at
 		FROM video_jobs
@@ -146,15 +162,19 @@ func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit,
 	}
 	defer rows.Close()
 
-	var jobs []*model.VideoJob
+	var jobs []*model.ExtractionJob
 	for rows.Next() {
-		job := &model.VideoJob{}
+		job := &model.ExtractionJob{}
 		err := rows.Scan(
 			&job.ID,
 			&job.UserID,
-			&job.VideoURL,
+			&job.JobType,
+			&job.SourceURL,
+			&job.SourcePath,
+			&job.MimeType,
 			&job.Language,
 			&job.DetailLevel,
+			&job.SaveAuto,
 			&job.Status,
 			&job.Progress,
 			&job.StatusMessage,
@@ -176,12 +196,12 @@ func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit,
 }
 
 // Update updates a job
-func (r *JobRepository) Update(ctx context.Context, job *model.VideoJob) error {
+func (r *JobRepository) Update(ctx context.Context, job *model.ExtractionJob) error {
 	query := `
 		UPDATE video_jobs SET
 			status = $2, progress = $3, status_message = $4,
 			result_recipe_id = $5, error_code = $6, error_message = $7,
-			started_at = $8, completed_at = $9
+			started_at = $8, completed_at = $9, source_path = $10, mime_type = $11
 		WHERE id = $1
 	`
 
@@ -195,6 +215,8 @@ func (r *JobRepository) Update(ctx context.Context, job *model.VideoJob) error {
 		job.ErrorMessage,
 		job.StartedAt,
 		job.CompletedAt,
+		job.SourcePath,
+		job.MimeType,
 	)
 	if err != nil {
 		return err

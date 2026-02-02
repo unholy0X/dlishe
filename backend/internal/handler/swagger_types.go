@@ -175,9 +175,11 @@ type SwaggerRecipe struct {
 	Difficulty     *string                   `json:"difficulty,omitempty" example:"medium" enums:"easy,medium,hard"`
 	Cuisine        *string                   `json:"cuisine,omitempty" example:"Italian"`
 	ThumbnailURL   *string                   `json:"thumbnailUrl,omitempty" example:"https://example.com/thumb.jpg"`
-	SourceType     string                    `json:"sourceType" example:"manual" enums:"manual,video,ai,photo,webpage,image"`
+	SourceType     string                    `json:"sourceType" example:"manual" enums:"manual,video,ai,photo,webpage,image,cloned"`
 	SourceURL      *string                   `json:"sourceUrl,omitempty" example:"https://youtube.com/watch?v=xyz"`
+	SourceRecipeID *string                   `json:"sourceRecipeId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
 	Tags           []string                  `json:"tags,omitempty" example:"italian,pasta,quick"`
+	IsPublic       bool                      `json:"isPublic" example:"false"`
 	IsFavorite     bool                      `json:"isFavorite" example:"false"`
 	SyncVersion    int                       `json:"syncVersion" example:"1"`
 	CreatedAt      string                    `json:"createdAt" example:"2024-02-01T10:30:00Z"`
@@ -208,11 +210,30 @@ type SwaggerFavoriteResponse struct {
 	IsFavorite bool `json:"isFavorite" example:"true"`
 }
 
+// SwaggerCloneResponse represents clone recipe response
+// @Description Cloned recipe response
+type SwaggerCloneResponse struct {
+	SwaggerRecipe
+	SourceRecipeID string `json:"sourceRecipeId" example:"550e8400-e29b-41d4-a716-446655440001"`
+}
+
 // ============================================================================
 // Extraction Types
 // ============================================================================
 
-// SwaggerExtractURLRequest represents URL extraction request
+// SwaggerUnifiedExtractRequest represents unified extraction request
+// @Description Unified recipe extraction request (url, image, or video)
+type SwaggerUnifiedExtractRequest struct {
+	Type        string `json:"type" example:"url" binding:"required" enums:"url,image,video"`
+	URL         string `json:"url,omitempty" example:"https://example.com/recipe/carbonara"`
+	ImageBase64 string `json:"imageBase64,omitempty" example:"/9j/4AAQSkZJRgABAQ..."`
+	MimeType    string `json:"mimeType,omitempty" example:"image/jpeg"`
+	Language    string `json:"language,omitempty" example:"en" enums:"en,fr,es,auto"`
+	DetailLevel string `json:"detailLevel,omitempty" example:"detailed" enums:"quick,detailed"`
+	SaveAuto    bool   `json:"saveAuto,omitempty" example:"true"`
+}
+
+// SwaggerExtractURLRequest represents URL extraction request (deprecated - use unified)
 // @Description Extract recipe from URL request
 type SwaggerExtractURLRequest struct {
 	URL      string `json:"url" example:"https://example.com/recipe/carbonara" binding:"required"`
@@ -305,15 +326,17 @@ type SwaggerJobError struct {
 }
 
 // SwaggerJobResponse represents job status response
-// @Description Video extraction job status
+// @Description Recipe extraction job status
 type SwaggerJobResponse struct {
 	JobID            string           `json:"jobId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	JobType          string           `json:"jobType" example:"url" enums:"url,image,video"`
 	Status           string           `json:"status" example:"processing" enums:"pending,downloading,processing,extracting,completed,failed,cancelled"`
 	Progress         int              `json:"progress" example:"45"`
-	Message          string           `json:"message,omitempty" example:"Downloading video..."`
+	Message          string           `json:"message,omitempty" example:"Extracting recipe..."`
+	SourceURL        string           `json:"sourceUrl,omitempty" example:"https://example.com/recipe"`
 	StatusURL        string           `json:"statusUrl,omitempty" example:"/api/v1/jobs/550e8400-e29b-41d4-a716-446655440000"`
 	StreamURL        string           `json:"streamUrl,omitempty" example:"/api/v1/jobs/550e8400-e29b-41d4-a716-446655440000/stream"`
-	EstimatedSeconds int              `json:"estimatedSeconds,omitempty" example:"45"`
+	EstimatedSeconds int              `json:"estimatedSeconds,omitempty" example:"15"`
 	Recipe           *SwaggerRecipe   `json:"recipe,omitempty"`
 	Error            *SwaggerJobError `json:"error,omitempty"`
 	CreatedAt        string           `json:"createdAt" example:"2024-02-01T10:30:00Z"`
@@ -539,6 +562,133 @@ type SwaggerSyncResponse struct {
 	ShoppingLists   []SwaggerShoppingList `json:"shoppingLists,omitempty"`
 	ShoppingItems   []SwaggerShoppingItem `json:"shoppingItems,omitempty"`
 	Conflicts       []SwaggerConflict     `json:"conflicts,omitempty"`
+}
+
+// ============================================================================
+// Recommendation Types
+// ============================================================================
+
+// SwaggerRecommendationRequest represents recommendation filter parameters
+// @Description Recipe recommendation filter parameters
+type SwaggerRecommendationRequest struct {
+	MealType    string   `json:"mealType,omitempty" example:"dinner" enums:"breakfast,lunch,dinner,snack,dessert"`
+	MaxTime     int      `json:"maxTime,omitempty" example:"30"`
+	Cuisine     string   `json:"cuisine,omitempty" example:"italian"`
+	Mood        string   `json:"mood,omitempty" example:"quick" enums:"quick,comfort,healthy,indulgent"`
+	Exclude     []string `json:"exclude,omitempty" example:"gluten,dairy"`
+	Diet        string   `json:"diet,omitempty" example:"vegetarian" enums:"vegetarian,vegan,keto,halal,kosher,pescatarian,paleo"`
+	MaxCalories int      `json:"maxCalories,omitempty" example:"500"`
+	MinProtein  int      `json:"minProtein,omitempty" example:"20"`
+	MaxCarbs    int      `json:"maxCarbs,omitempty" example:"50"`
+	MaxFat      int      `json:"maxFat,omitempty" example:"25"`
+	MinMatch    int      `json:"minMatch,omitempty" example:"50"`
+	Limit       int      `json:"limit,omitempty" example:"10"`
+}
+
+// SwaggerIngredientMatch represents a matched ingredient between pantry and recipe
+// @Description Matched ingredient with substitution info
+type SwaggerIngredientMatch struct {
+	RecipeIngredient string `json:"recipeIngredient" example:"butter"`
+	PantryItem       string `json:"pantryItem" example:"Margarine"`
+	IsSubstitute     bool   `json:"isSubstitute,omitempty" example:"true"`
+	SubstituteRatio  string `json:"substituteRatio,omitempty" example:"1:1"`
+}
+
+// SwaggerSubstituteSuggestion represents a substitute suggestion
+// @Description Suggested substitute for an ingredient
+type SwaggerSubstituteSuggestion struct {
+	Source string `json:"source" example:"pantry" enums:"pantry,common"`
+	Item   string `json:"item" example:"Greek Yogurt"`
+	Ratio  string `json:"ratio,omitempty" example:"1:1"`
+	Notes  string `json:"notes,omitempty" example:"Works well in baking"`
+}
+
+// SwaggerMissingIngredient represents a missing ingredient
+// @Description Missing ingredient with substitution options
+type SwaggerMissingIngredient struct {
+	Ingredient  string                        `json:"ingredient" example:"heavy cream"`
+	Substitutes []SwaggerSubstituteSuggestion `json:"substitutes,omitempty"`
+	CanSkip     bool                          `json:"canSkip" example:"false"`
+	Category    string                        `json:"category,omitempty" example:"dairy"`
+}
+
+// SwaggerRecipeNutrition represents nutritional info per serving
+// @Description Nutritional information per serving
+type SwaggerRecipeNutrition struct {
+	Calories   int      `json:"calories" example:"450"`
+	Protein    int      `json:"protein" example:"25"`
+	Carbs      int      `json:"carbs" example:"30"`
+	Fat        int      `json:"fat" example:"20"`
+	Fiber      int      `json:"fiber,omitempty" example:"5"`
+	Sugar      int      `json:"sugar,omitempty" example:"8"`
+	Sodium     int      `json:"sodium,omitempty" example:"600"`
+	Tags       []string `json:"tags,omitempty" example:"high-protein,low-carb"`
+	Confidence float64  `json:"confidence,omitempty" example:"0.85"`
+}
+
+// SwaggerRecipeRecommendation represents a single recipe recommendation
+// @Description Recipe recommendation with matching details and filter metadata
+type SwaggerRecipeRecommendation struct {
+	Recipe              *SwaggerRecipe             `json:"recipe"`
+	MatchScore          int                        `json:"matchScore" example:"95"`
+	MatchedIngredients  []SwaggerIngredientMatch   `json:"matchedIngredients"`
+	MissingIngredients  []SwaggerMissingIngredient `json:"missingIngredients"`
+	ShoppingListItems   []string                   `json:"shoppingListItems,omitempty" example:"heavy cream,fresh thyme"`
+	Reason              string                     `json:"reason,omitempty" example:"You have all the ingredients • Perfect for lunch • 450 cal/serving"`
+	NutritionPerServing *SwaggerRecipeNutrition    `json:"nutritionPerServing,omitempty"`
+	FiltersMatched      []string                   `json:"filtersMatched,omitempty" example:"mealType,maxCalories"`
+	FiltersUnknown      []string                   `json:"filtersUnknown,omitempty" example:"minProtein"`
+	FiltersNotMatched   []string                   `json:"filtersNotMatched,omitempty" example:"cuisine"`
+}
+
+// SwaggerRecipeQuickInfo represents minimal recipe info for summary
+// @Description Minimal recipe info for summary statistics
+type SwaggerRecipeQuickInfo struct {
+	ID        string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Title     string `json:"title" example:"Quick Stir Fry"`
+	Value     int    `json:"value" example:"15"`
+	ValueUnit string `json:"valueUnit,omitempty" example:"min"`
+}
+
+// SwaggerRecommendationSummary contains summary statistics
+// @Description Summary statistics for recommendations
+type SwaggerRecommendationSummary struct {
+	TotalRecipes          int                     `json:"totalRecipes" example:"15"`
+	AvgCaloriesPerServing int                     `json:"avgCaloriesPerServing,omitempty" example:"380"`
+	QuickestRecipe        *SwaggerRecipeQuickInfo `json:"quickestRecipe,omitempty"`
+	HighestProtein        *SwaggerRecipeQuickInfo `json:"highestProtein,omitempty"`
+	BestMatch             *SwaggerRecipeQuickInfo `json:"bestMatch,omitempty"`
+}
+
+// SwaggerNutritionFilters shows applied nutrition constraints
+// @Description Applied nutrition filter constraints
+type SwaggerNutritionFilters struct {
+	MaxCalories int `json:"maxCalories,omitempty" example:"500"`
+	MinProtein  int `json:"minProtein,omitempty" example:"20"`
+	MaxCarbs    int `json:"maxCarbs,omitempty" example:"50"`
+	MaxFat      int `json:"maxFat,omitempty" example:"25"`
+}
+
+// SwaggerAppliedFilters shows what filters were requested by user
+// @Description Applied filter information (shows what user requested, not exclusion counts)
+type SwaggerAppliedFilters struct {
+	AppliedMealType   string                   `json:"appliedMealType,omitempty" example:"lunch"`
+	AppliedCuisine    string                   `json:"appliedCuisine,omitempty" example:"italian"`
+	AppliedMood       string                   `json:"appliedMood,omitempty" example:"quick"`
+	AppliedMaxTime    int                      `json:"appliedMaxTime,omitempty" example:"30"`
+	AppliedDiet       string                   `json:"appliedDiet,omitempty" example:"vegetarian"`
+	AppliedExclusions []string                 `json:"appliedExclusions,omitempty" example:"gluten,dairy"`
+	NutritionFilters  *SwaggerNutritionFilters `json:"nutritionFilters,omitempty"`
+}
+
+// SwaggerRecommendationResponse represents the full recommendation response
+// @Description Recipe recommendations categorized by match percentage
+type SwaggerRecommendationResponse struct {
+	ReadyToCook   []SwaggerRecipeRecommendation `json:"readyToCook"`
+	AlmostReady   []SwaggerRecipeRecommendation `json:"almostReady"`
+	NeedsShopping []SwaggerRecipeRecommendation `json:"needsShopping"`
+	Summary       SwaggerRecommendationSummary  `json:"summary"`
+	Filters       SwaggerAppliedFilters         `json:"filters"`
 }
 
 // ============================================================================

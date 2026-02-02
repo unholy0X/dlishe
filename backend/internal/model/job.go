@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// JobStatus represents the status of a video extraction job
+// JobStatus represents the status of an extraction job
 type JobStatus string
 
 const (
@@ -19,15 +19,29 @@ const (
 	JobStatusCancelled   JobStatus = "cancelled"
 )
 
-// VideoJob represents a video-to-recipe extraction job
-type VideoJob struct {
+// JobType represents the type of extraction job
+type JobType string
+
+const (
+	JobTypeURL   JobType = "url"
+	JobTypeImage JobType = "image"
+	JobTypeVideo JobType = "video"
+)
+
+// ExtractionJob represents a recipe extraction job (url, image, or video)
+// Note: Database table is still named 'video_jobs' for backwards compatibility
+type ExtractionJob struct {
 	ID             uuid.UUID  `json:"id" db:"id"`
 	UserID         uuid.UUID  `json:"userId" db:"user_id"`
-	VideoURL       string     `json:"videoUrl" db:"video_url"`
-	Language       string     `json:"language" db:"language"`         // "en", "fr", "es", "auto"
-	DetailLevel    string     `json:"detailLevel" db:"detail_level"` // "quick", "detailed"
+	JobType        JobType    `json:"jobType" db:"job_type"`               // url, image, video
+	SourceURL      string     `json:"sourceUrl,omitempty" db:"source_url"` // URL for url/video types
+	SourcePath     *string    `json:"-" db:"source_path"`                  // Temp file path for image/video
+	MimeType       *string    `json:"-" db:"mime_type"`                    // MIME type for image
+	Language       string     `json:"language" db:"language"`              // "en", "fr", "es", "auto"
+	DetailLevel    string     `json:"detailLevel" db:"detail_level"`       // "quick", "detailed"
+	SaveAuto       bool       `json:"saveAuto" db:"save_auto"`             // Auto-save extracted recipe
 	Status         JobStatus  `json:"status" db:"status"`
-	Progress       int        `json:"progress" db:"progress"`             // 0-100
+	Progress       int        `json:"progress" db:"progress"` // 0-100
 	StatusMessage  *string    `json:"statusMessage,omitempty" db:"status_message"`
 	ResultRecipeID *uuid.UUID `json:"resultRecipeId,omitempty" db:"result_recipe_id"`
 	ErrorCode      *string    `json:"errorCode,omitempty" db:"error_code"`
@@ -38,12 +52,17 @@ type VideoJob struct {
 	CreatedAt      time.Time  `json:"createdAt" db:"created_at"`
 }
 
+// VideoJob is an alias for ExtractionJob for backwards compatibility
+type VideoJob = ExtractionJob
+
 // JobResponse is the API response for a job
 type JobResponse struct {
 	JobID            string     `json:"jobId"`
+	JobType          JobType    `json:"jobType"`
 	Status           JobStatus  `json:"status"`
 	Progress         int        `json:"progress"`
 	Message          string     `json:"message,omitempty"`
+	SourceURL        string     `json:"sourceUrl,omitempty"`
 	StatusURL        string     `json:"statusUrl,omitempty"`
 	StreamURL        string     `json:"streamUrl,omitempty"`
 	EstimatedSeconds int        `json:"estimatedSeconds,omitempty"`
@@ -60,14 +79,17 @@ type JobError struct {
 	Retryable bool   `json:"retryable"`
 }
 
-// NewVideoJob creates a new video extraction job
-func NewVideoJob(userID uuid.UUID, videoURL, language, detailLevel, idempotencyKey string) *VideoJob {
-	return &VideoJob{
+// NewExtractionJob creates a new extraction job
+func NewExtractionJob(userID uuid.UUID, jobType JobType, sourceURL, language, detailLevel string, saveAuto bool) *ExtractionJob {
+	idempotencyKey := uuid.New().String()
+	return &ExtractionJob{
 		ID:             uuid.New(),
 		UserID:         userID,
-		VideoURL:       videoURL,
+		JobType:        jobType,
+		SourceURL:      sourceURL,
 		Language:       language,
 		DetailLevel:    detailLevel,
+		SaveAuto:       saveAuto,
 		Status:         JobStatusPending,
 		Progress:       0,
 		IdempotencyKey: &idempotencyKey,
@@ -75,12 +97,31 @@ func NewVideoJob(userID uuid.UUID, videoURL, language, detailLevel, idempotencyK
 	}
 }
 
-// ToResponse converts a VideoJob to an API response
-func (j *VideoJob) ToResponse(baseURL string) JobResponse {
+// NewVideoJob creates a new video extraction job (backwards compatible)
+func NewVideoJob(userID uuid.UUID, videoURL, language, detailLevel, idempotencyKey string) *ExtractionJob {
+	return &ExtractionJob{
+		ID:             uuid.New(),
+		UserID:         userID,
+		JobType:        JobTypeVideo,
+		SourceURL:      videoURL,
+		Language:       language,
+		DetailLevel:    detailLevel,
+		SaveAuto:       true,
+		Status:         JobStatusPending,
+		Progress:       0,
+		IdempotencyKey: &idempotencyKey,
+		CreatedAt:      time.Now().UTC(),
+	}
+}
+
+// ToResponse converts an ExtractionJob to an API response
+func (j *ExtractionJob) ToResponse(baseURL string) JobResponse {
 	resp := JobResponse{
 		JobID:     j.ID.String(),
+		JobType:   j.JobType,
 		Status:    j.Status,
 		Progress:  j.Progress,
+		SourceURL: j.SourceURL,
 		CreatedAt: j.CreatedAt,
 	}
 
@@ -89,10 +130,20 @@ func (j *VideoJob) ToResponse(baseURL string) JobResponse {
 	}
 
 	if j.Status == JobStatusPending || j.Status == JobStatusDownloading ||
-	   j.Status == JobStatusProcessing || j.Status == JobStatusExtracting {
+		j.Status == JobStatusProcessing || j.Status == JobStatusExtracting {
 		resp.StatusURL = baseURL + "/api/v1/jobs/" + j.ID.String()
 		resp.StreamURL = baseURL + "/api/v1/jobs/" + j.ID.String() + "/stream"
-		resp.EstimatedSeconds = 45 // Default estimate
+		// Estimated time depends on job type
+		switch j.JobType {
+		case JobTypeURL:
+			resp.EstimatedSeconds = 10
+		case JobTypeImage:
+			resp.EstimatedSeconds = 15
+		case JobTypeVideo:
+			resp.EstimatedSeconds = 45
+		default:
+			resp.EstimatedSeconds = 30
+		}
 	}
 
 	if j.CompletedAt != nil {
@@ -122,14 +173,14 @@ func isRetryableError(code string) bool {
 }
 
 // UpdateProgress updates the job progress and status message
-func (j *VideoJob) UpdateProgress(status JobStatus, progress int, message string) {
+func (j *ExtractionJob) UpdateProgress(status JobStatus, progress int, message string) {
 	j.Status = status
 	j.Progress = progress
 	j.StatusMessage = &message
 }
 
 // MarkCompleted marks the job as completed with a recipe
-func (j *VideoJob) MarkCompleted(recipeID uuid.UUID) {
+func (j *ExtractionJob) MarkCompleted(recipeID uuid.UUID) {
 	now := time.Now().UTC()
 	j.Status = JobStatusCompleted
 	j.Progress = 100
@@ -140,7 +191,7 @@ func (j *VideoJob) MarkCompleted(recipeID uuid.UUID) {
 }
 
 // MarkFailed marks the job as failed with an error
-func (j *VideoJob) MarkFailed(code, message string) {
+func (j *ExtractionJob) MarkFailed(code, message string) {
 	now := time.Now().UTC()
 	j.Status = JobStatusFailed
 	j.ErrorCode = &code
@@ -149,10 +200,16 @@ func (j *VideoJob) MarkFailed(code, message string) {
 }
 
 // MarkCancelled marks the job as cancelled
-func (j *VideoJob) MarkCancelled() {
+func (j *ExtractionJob) MarkCancelled() {
 	now := time.Now().UTC()
 	j.Status = JobStatusCancelled
 	j.CompletedAt = &now
 	msg := "Job cancelled by user"
 	j.StatusMessage = &msg
+}
+
+// SetSourcePath sets the source path for image jobs
+func (j *ExtractionJob) SetSourcePath(path, mimeType string) {
+	j.SourcePath = &path
+	j.MimeType = &mimeType
 }

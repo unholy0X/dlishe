@@ -294,7 +294,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get list of video extraction jobs for the current user",
+                "description": "Get list of extraction jobs for the current user (includes url, image, and video extractions)",
                 "produces": [
                     "application/json"
                 ],
@@ -302,6 +302,33 @@
                     "Jobs"
                 ],
                 "summary": "List user's jobs",
+                "parameters": [
+                    {
+                        "enum": [
+                            "url",
+                            "image",
+                            "video"
+                        ],
+                        "type": "string",
+                        "description": "Filter by job type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "List of jobs",
@@ -334,7 +361,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get the current status of a video extraction job",
+                "description": "Get the current status of an extraction job (url, image, or video)",
                 "produces": [
                     "application/json"
                 ],
@@ -392,7 +419,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cancel a running video extraction job",
+                "description": "Cancel a running extraction job",
                 "tags": [
                     "Jobs"
                 ],
@@ -985,14 +1012,14 @@
                 }
             }
         },
-        "/recipes/extract-image": {
+        "/recipes/extract": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Extract a recipe from an uploaded image using AI (cookbook photo, screenshot)",
+                "description": "Extract a recipe from URL, image, or video using AI. Returns a job ID for async processing.",
                 "consumes": [
                     "multipart/form-data",
                     "application/json"
@@ -1003,50 +1030,85 @@
                 "tags": [
                     "Recipes"
                 ],
-                "summary": "Extract recipe from image",
+                "summary": "Extract recipe (unified)",
                 "parameters": [
                     {
+                        "enum": [
+                            "url",
+                            "image",
+                            "video"
+                        ],
+                        "type": "string",
+                        "description": "Extraction type",
+                        "name": "type",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "URL for url/video extraction",
+                        "name": "url",
+                        "in": "formData"
+                    },
+                    {
                         "type": "file",
-                        "description": "Image file (multipart)",
+                        "description": "Image file for image extraction (multipart)",
                         "name": "image",
                         "in": "formData"
                     },
                     {
+                        "enum": [
+                            "en",
+                            "fr",
+                            "es",
+                            "auto"
+                        ],
+                        "type": "string",
+                        "description": "Language hint",
+                        "name": "language",
+                        "in": "formData"
+                    },
+                    {
+                        "enum": [
+                            "quick",
+                            "detailed"
+                        ],
+                        "type": "string",
+                        "description": "Detail level",
+                        "name": "detailLevel",
+                        "in": "formData"
+                    },
+                    {
                         "type": "boolean",
+                        "default": true,
                         "description": "Auto-save extracted recipe",
                         "name": "saveAuto",
                         "in": "formData"
                     },
                     {
-                        "description": "JSON with base64 image",
+                        "description": "JSON request body",
                         "name": "request",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerExtractImageRequest"
+                            "$ref": "#/definitions/internal_handler.SwaggerUnifiedExtractRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Extracted recipe",
+                    "201": {
+                        "description": "Job created",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerExtractImageResponse"
+                            "$ref": "#/definitions/internal_handler.SwaggerJobResponse"
                         }
                     },
                     "400": {
-                        "description": "Invalid image",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Extraction failed or no recipe found",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
                         }
@@ -1066,14 +1128,14 @@
                 }
             }
         },
-        "/recipes/extract-url": {
-            "post": {
+        "/recipes/recommendations": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Extract a recipe from a webpage URL using AI (recipe blogs, cooking sites)",
+                "description": "Get personalized recipe recommendations based on pantry items with dietary and nutrition filters",
                 "consumes": [
                     "application/json"
                 ],
@@ -1083,29 +1145,112 @@
                 "tags": [
                     "Recipes"
                 ],
-                "summary": "Extract recipe from URL",
+                "summary": "Get recipe recommendations",
                 "parameters": [
                     {
-                        "description": "URL and options",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerExtractURLRequest"
-                        }
+                        "enum": [
+                            "breakfast",
+                            "lunch",
+                            "dinner",
+                            "snack",
+                            "dessert"
+                        ],
+                        "type": "string",
+                        "description": "Filter by meal type",
+                        "name": "mealType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum total time in minutes",
+                        "name": "maxTime",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by cuisine (e.g., italian, asian, mexican)",
+                        "name": "cuisine",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "quick",
+                            "comfort",
+                            "healthy",
+                            "indulgent"
+                        ],
+                        "type": "string",
+                        "description": "Mood filter",
+                        "name": "mood",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "vegetarian",
+                            "vegan",
+                            "keto",
+                            "halal",
+                            "kosher",
+                            "pescatarian",
+                            "paleo"
+                        ],
+                        "type": "string",
+                        "description": "Dietary restriction",
+                        "name": "diet",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Allergens/ingredients to exclude (e.g., gluten, dairy, nuts)",
+                        "name": "exclude",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum calories per serving",
+                        "name": "maxCalories",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum protein grams per serving",
+                        "name": "minProtein",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum carbs grams per serving",
+                        "name": "maxCarbs",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum fat grams per serving",
+                        "name": "maxFat",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum ingredient match percentage (default: 50)",
+                        "name": "minMatch",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max results per category (default: 10)",
+                        "name": "limit",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Extracted recipe",
+                        "description": "Recipe recommendations",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerExtractURLResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid URL",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecommendationResponse"
                         }
                     },
                     "401": {
@@ -1114,20 +1259,50 @@
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
                         }
                     },
-                    "422": {
-                        "description": "Extraction failed or no recipe found",
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
                         }
+                    }
+                }
+            }
+        },
+        "/recipes/suggested": {
+            "get": {
+                "description": "Get paginated list of curated public recipes available to all users",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Recipes"
+                ],
+                "summary": "List suggested/public recipes",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Items per page (max 50)",
+                        "name": "limit",
+                        "in": "query"
                     },
-                    "429": {
-                        "description": "Rate limit exceeded",
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Pagination offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of suggested recipes",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                            "$ref": "#/definitions/internal_handler.SwaggerRecipeListResponse"
                         }
                     },
-                    "503": {
-                        "description": "Service unavailable",
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
                         }
@@ -1374,6 +1549,70 @@
                     },
                     "404": {
                         "description": "Recipe not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/recipes/{recipeID}/save": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Clone a recipe to the current user's collection. Works with own recipes, shared recipes, or public recipes.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Recipes"
+                ],
+                "summary": "Save/clone a recipe",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source Recipe UUID",
+                        "name": "recipeID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Cloned recipe",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerRecipe"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid recipe ID",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied - cannot view source recipe",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Recipe not found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Recipe already cloned",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
                         }
@@ -2313,72 +2552,514 @@
                     }
                 }
             }
-        },
-        "/video/extract": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Submit video URL for AI-powered recipe extraction (async job)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Jobs"
-                ],
-                "summary": "Start video recipe extraction",
-                "parameters": [
-                    {
-                        "description": "Video URL and options",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerVideoExtractRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Job created",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerJobResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "429": {
-                        "description": "Rate limit exceeded (5/hour)",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
+        "github_com_dishflow_backend_internal_model.AppliedFilters": {
+            "type": "object",
+            "properties": {
+                "appliedDiet": {
+                    "type": "string"
+                },
+                "appliedExclusions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "excludedByNutrition": {
+                    "description": "recipes excluded by nutrition filters",
+                    "type": "integer"
+                },
+                "excludedRecipes": {
+                    "description": "recipes excluded by dietary filters",
+                    "type": "integer"
+                },
+                "nutritionFilters": {
+                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.NutritionFilters"
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.DietaryInfo": {
+            "type": "object",
+            "properties": {
+                "allergens": {
+                    "description": "e.g., [\"gluten\", \"dairy\", \"nuts\"]",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "isDairyFree": {
+                    "type": "boolean"
+                },
+                "isGlutenFree": {
+                    "type": "boolean"
+                },
+                "isHalal": {
+                    "type": "boolean"
+                },
+                "isKeto": {
+                    "type": "boolean"
+                },
+                "isKosher": {
+                    "type": "boolean"
+                },
+                "isNutFree": {
+                    "type": "boolean"
+                },
+                "isVegan": {
+                    "type": "boolean"
+                },
+                "isVegetarian": {
+                    "type": "boolean"
+                },
+                "mealTypes": {
+                    "description": "e.g., [\"breakfast\", \"lunch\", \"dinner\"]",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.IngredientMatch": {
+            "type": "object",
+            "properties": {
+                "isSubstitute": {
+                    "description": "true if pantry item is a substitute",
+                    "type": "boolean"
+                },
+                "pantryItem": {
+                    "description": "matched item from pantry",
+                    "type": "string"
+                },
+                "recipeIngredient": {
+                    "description": "ingredient name in recipe",
+                    "type": "string"
+                },
+                "substituteRatio": {
+                    "description": "e.g., \"1 tsp dried = 1 tbsp fresh\"",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.MissingIngredient": {
+            "type": "object",
+            "properties": {
+                "canSkip": {
+                    "description": "true if optional",
+                    "type": "boolean"
+                },
+                "category": {
+                    "description": "ingredient category for shopping",
+                    "type": "string"
+                },
+                "ingredient": {
+                    "description": "ingredient name",
+                    "type": "string"
+                },
+                "substitutes": {
+                    "description": "possible substitutes",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.SubstituteSuggestion"
+                    }
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.NutritionFilters": {
+            "type": "object",
+            "properties": {
+                "maxCalories": {
+                    "type": "integer"
+                },
+                "maxCarbs": {
+                    "type": "integer"
+                },
+                "maxFat": {
+                    "type": "integer"
+                },
+                "minProtein": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.Recipe": {
+            "type": "object",
+            "properties": {
+                "cookTime": {
+                    "description": "minutes",
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "cuisine": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "dietaryInfo": {
+                    "description": "Dietary flags for filtering",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.DietaryInfo"
+                        }
+                    ]
+                },
+                "difficulty": {
+                    "description": "easy, medium, hard",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "ingredientCount": {
+                    "description": "Computed fields (for list views without loading full relations)",
+                    "type": "integer"
+                },
+                "ingredients": {
+                    "description": "Related data (not stored in recipes table, loaded on GetByID)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeIngredient"
+                    }
+                },
+                "isFavorite": {
+                    "type": "boolean"
+                },
+                "isPublic": {
+                    "description": "Public/suggested recipes visible to all users",
+                    "type": "boolean"
+                },
+                "nutrition": {
+                    "description": "Nutritional info per serving",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeNutrition"
+                        }
+                    ]
+                },
+                "prepTime": {
+                    "description": "minutes",
+                    "type": "integer"
+                },
+                "servings": {
+                    "type": "integer"
+                },
+                "sourceMetadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "sourceRecipeId": {
+                    "description": "ID of original recipe if cloned",
+                    "type": "string"
+                },
+                "sourceType": {
+                    "description": "manual, video, ai, photo, cloned",
+                    "type": "string"
+                },
+                "sourceUrl": {
+                    "type": "string"
+                },
+                "stepCount": {
+                    "type": "integer"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeStep"
+                    }
+                },
+                "syncVersion": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "thumbnailUrl": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.RecipeIngredient": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "description": "dairy, produce, proteins, etc.",
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isOptional": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "number"
+                },
+                "recipeId": {
+                    "type": "string"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "videoTimestamp": {
+                    "description": "seconds",
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.RecipeNutrition": {
+            "type": "object",
+            "properties": {
+                "calories": {
+                    "description": "kcal per serving",
+                    "type": "integer"
+                },
+                "carbs": {
+                    "description": "grams",
+                    "type": "integer"
+                },
+                "confidence": {
+                    "description": "AI confidence score 0-1",
+                    "type": "number"
+                },
+                "fat": {
+                    "description": "grams",
+                    "type": "integer"
+                },
+                "fiber": {
+                    "description": "grams",
+                    "type": "integer"
+                },
+                "protein": {
+                    "description": "grams",
+                    "type": "integer"
+                },
+                "sodium": {
+                    "description": "mg",
+                    "type": "integer"
+                },
+                "sugar": {
+                    "description": "grams",
+                    "type": "integer"
+                },
+                "tags": {
+                    "description": "e.g., \"high-protein\", \"low-carb\", \"keto-friendly\"",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.RecipeQuickInfo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "value": {
+                    "description": "the relevant metric (time, protein, match score)",
+                    "type": "integer"
+                },
+                "valueUnit": {
+                    "description": "e.g., \"min\", \"g\", \"%\"",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.RecipeRecommendation": {
+            "type": "object",
+            "properties": {
+                "matchScore": {
+                    "description": "0-100 percentage",
+                    "type": "integer"
+                },
+                "matchedIngredients": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.IngredientMatch"
+                    }
+                },
+                "missingIngredients": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.MissingIngredient"
+                    }
+                },
+                "nutritionPerServing": {
+                    "description": "estimated nutrition",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeNutrition"
+                        }
+                    ]
+                },
+                "reason": {
+                    "description": "why this was recommended",
+                    "type": "string"
+                },
+                "recipe": {
+                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.Recipe"
+                },
+                "shoppingListItems": {
+                    "description": "items to buy",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.RecipeStep": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "durationSeconds": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instruction": {
+                    "type": "string"
+                },
+                "recipeId": {
+                    "type": "string"
+                },
+                "stepNumber": {
+                    "type": "integer"
+                },
+                "technique": {
+                    "type": "string"
+                },
+                "temperature": {
+                    "type": "string"
+                },
+                "videoTimestampEnd": {
+                    "type": "integer"
+                },
+                "videoTimestampStart": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.RecommendationResponse": {
+            "type": "object",
+            "properties": {
+                "almostReady": {
+                    "description": "70-89% match",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation"
+                    }
+                },
+                "filters": {
+                    "description": "Applied filters info",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.AppliedFilters"
+                        }
+                    ]
+                },
+                "needsShopping": {
+                    "description": "50-69% match",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation"
+                    }
+                },
+                "readyToCook": {
+                    "description": "Categorized recommendations",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation"
+                    }
+                },
+                "summary": {
+                    "description": "Summary statistics",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecommendationSummary"
+                        }
+                    ]
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.RecommendationSummary": {
+            "type": "object",
+            "properties": {
+                "avgCaloriesPerServing": {
+                    "type": "integer"
+                },
+                "bestMatch": {
+                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo"
+                },
+                "highestProtein": {
+                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo"
+                },
+                "quickestRecipe": {
+                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo"
+                },
+                "totalRecipes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_dishflow_backend_internal_model.SubstituteSuggestion": {
+            "type": "object",
+            "properties": {
+                "item": {
+                    "description": "substitute item name",
+                    "type": "string"
+                },
+                "notes": {
+                    "description": "any notes about the substitution",
+                    "type": "string"
+                },
+                "ratio": {
+                    "description": "substitution ratio",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "\"pantry\" or \"common\"",
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler.SwaggerAddFromRecipeRequest": {
             "description": "Add ingredients from recipe to shopping list",
             "type": "object",
@@ -2608,211 +3289,6 @@
                 }
             }
         },
-        "internal_handler.SwaggerExtractImageRequest": {
-            "description": "Extract recipe from image request",
-            "type": "object",
-            "required": [
-                "imageBase64"
-            ],
-            "properties": {
-                "imageBase64": {
-                    "type": "string",
-                    "example": "/9j/4AAQSkZJRgABAQ..."
-                },
-                "mimeType": {
-                    "type": "string",
-                    "example": "image/jpeg"
-                },
-                "saveAuto": {
-                    "type": "boolean",
-                    "example": true
-                }
-            }
-        },
-        "internal_handler.SwaggerExtractImageResponse": {
-            "description": "Image extraction response",
-            "type": "object",
-            "properties": {
-                "recipe": {
-                    "$ref": "#/definitions/internal_handler.SwaggerExtractionResult"
-                },
-                "savedId": {
-                    "type": "string",
-                    "example": "550e8400-e29b-41d4-a716-446655440000"
-                },
-                "source": {
-                    "type": "string",
-                    "example": "image"
-                }
-            }
-        },
-        "internal_handler.SwaggerExtractURLRequest": {
-            "description": "Extract recipe from URL request",
-            "type": "object",
-            "required": [
-                "url"
-            ],
-            "properties": {
-                "saveAuto": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "url": {
-                    "type": "string",
-                    "example": "https://example.com/recipe/carbonara"
-                }
-            }
-        },
-        "internal_handler.SwaggerExtractURLResponse": {
-            "description": "URL extraction response",
-            "type": "object",
-            "properties": {
-                "alreadyExists": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "recipe": {
-                    "$ref": "#/definitions/internal_handler.SwaggerExtractionResult"
-                },
-                "savedId": {
-                    "type": "string",
-                    "example": "550e8400-e29b-41d4-a716-446655440000"
-                },
-                "source": {
-                    "type": "string",
-                    "example": "webpage"
-                }
-            }
-        },
-        "internal_handler.SwaggerExtractedIngredient": {
-            "description": "AI-extracted ingredient",
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string",
-                    "example": "pantry"
-                },
-                "isOptional": {
-                    "type": "boolean",
-                    "example": false
-                },
-                "name": {
-                    "type": "string",
-                    "example": "Spaghetti"
-                },
-                "notes": {
-                    "type": "string",
-                    "example": "dried pasta"
-                },
-                "quantity": {
-                    "type": "string",
-                    "example": "400"
-                },
-                "unit": {
-                    "type": "string",
-                    "example": "g"
-                },
-                "videoTimestamp": {
-                    "type": "number",
-                    "example": 1.5
-                }
-            }
-        },
-        "internal_handler.SwaggerExtractedStep": {
-            "description": "AI-extracted recipe step",
-            "type": "object",
-            "properties": {
-                "durationSeconds": {
-                    "type": "integer",
-                    "example": 600
-                },
-                "instruction": {
-                    "type": "string",
-                    "example": "Boil pasta according to package directions"
-                },
-                "stepNumber": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "technique": {
-                    "type": "string",
-                    "example": "boiling"
-                },
-                "temperature": {
-                    "type": "string",
-                    "example": ""
-                },
-                "videoTimestampEnd": {
-                    "type": "number",
-                    "example": 2
-                },
-                "videoTimestampStart": {
-                    "type": "number",
-                    "example": 0.5
-                }
-            }
-        },
-        "internal_handler.SwaggerExtractionResult": {
-            "description": "AI-extracted recipe data",
-            "type": "object",
-            "properties": {
-                "cookTime": {
-                    "type": "integer",
-                    "example": 20
-                },
-                "cuisine": {
-                    "type": "string",
-                    "example": "Italian"
-                },
-                "description": {
-                    "type": "string",
-                    "example": "Classic Roman pasta dish"
-                },
-                "difficulty": {
-                    "type": "string",
-                    "example": "medium"
-                },
-                "ingredients": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/internal_handler.SwaggerExtractedIngredient"
-                    }
-                },
-                "prepTime": {
-                    "type": "integer",
-                    "example": 10
-                },
-                "servings": {
-                    "type": "integer",
-                    "example": 4
-                },
-                "steps": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/internal_handler.SwaggerExtractedStep"
-                    }
-                },
-                "tags": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "pasta",
-                        "italian",
-                        "quick"
-                    ]
-                },
-                "thumbnailUrl": {
-                    "type": "string",
-                    "example": "https://example.com/thumb.jpg"
-                },
-                "title": {
-                    "type": "string",
-                    "example": "Spaghetti Carbonara"
-                }
-            }
-        },
         "internal_handler.SwaggerFavoriteRequest": {
             "description": "Toggle favorite request",
             "type": "object",
@@ -2899,7 +3375,7 @@
             }
         },
         "internal_handler.SwaggerJobResponse": {
-            "description": "Video extraction job status",
+            "description": "Recipe extraction job status",
             "type": "object",
             "properties": {
                 "completedAt": {
@@ -2915,15 +3391,24 @@
                 },
                 "estimatedSeconds": {
                     "type": "integer",
-                    "example": 45
+                    "example": 15
                 },
                 "jobId": {
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440000"
                 },
+                "jobType": {
+                    "type": "string",
+                    "enum": [
+                        "url",
+                        "image",
+                        "video"
+                    ],
+                    "example": "url"
+                },
                 "message": {
                     "type": "string",
-                    "example": "Downloading video..."
+                    "example": "Extracting recipe..."
                 },
                 "progress": {
                     "type": "integer",
@@ -2931,6 +3416,10 @@
                 },
                 "recipe": {
                     "$ref": "#/definitions/internal_handler.SwaggerRecipe"
+                },
+                "sourceUrl": {
+                    "type": "string",
+                    "example": "https://example.com/recipe"
                 },
                 "status": {
                     "type": "string",
@@ -3244,6 +3733,10 @@
                     "type": "boolean",
                     "example": false
                 },
+                "isPublic": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "prepTime": {
                     "type": "integer",
                     "example": 15
@@ -3251,6 +3744,10 @@
                 "servings": {
                     "type": "integer",
                     "example": 4
+                },
+                "sourceRecipeId": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440001"
                 },
                 "sourceType": {
                     "type": "string",
@@ -3260,7 +3757,8 @@
                         "ai",
                         "photo",
                         "webpage",
-                        "image"
+                        "image",
+                        "cloned"
                     ],
                     "example": "manual"
                 },
@@ -3897,6 +4395,58 @@
                 }
             }
         },
+        "internal_handler.SwaggerUnifiedExtractRequest": {
+            "description": "Unified recipe extraction request (url, image, or video)",
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "detailLevel": {
+                    "type": "string",
+                    "enum": [
+                        "quick",
+                        "detailed"
+                    ],
+                    "example": "detailed"
+                },
+                "imageBase64": {
+                    "type": "string",
+                    "example": "/9j/4AAQSkZJRgABAQ..."
+                },
+                "language": {
+                    "type": "string",
+                    "enum": [
+                        "en",
+                        "fr",
+                        "es",
+                        "auto"
+                    ],
+                    "example": "en"
+                },
+                "mimeType": {
+                    "type": "string",
+                    "example": "image/jpeg"
+                },
+                "saveAuto": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "url",
+                        "image",
+                        "video"
+                    ],
+                    "example": "url"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "https://example.com/recipe/carbonara"
+                }
+            }
+        },
         "internal_handler.SwaggerUserResponse": {
             "description": "User data",
             "type": "object",
@@ -3920,37 +4470,6 @@
                 "name": {
                     "type": "string",
                     "example": "John Doe"
-                }
-            }
-        },
-        "internal_handler.SwaggerVideoExtractRequest": {
-            "description": "Video extraction request",
-            "type": "object",
-            "required": [
-                "videoUrl"
-            ],
-            "properties": {
-                "detailLevel": {
-                    "type": "string",
-                    "enum": [
-                        "quick",
-                        "detailed"
-                    ],
-                    "example": "detailed"
-                },
-                "language": {
-                    "type": "string",
-                    "enum": [
-                        "en",
-                        "fr",
-                        "es",
-                        "auto"
-                    ],
-                    "example": "en"
-                },
-                "videoUrl": {
-                    "type": "string",
-                    "example": "https://youtube.com/watch?v=abc123"
                 }
             }
         }

@@ -44,14 +44,33 @@ func (r *RecipeRepository) Create(ctx context.Context, recipe *model.Recipe) err
 		}
 	}
 
+	// Marshal nutrition to JSON
+	var nutritionJSON []byte
+	if recipe.Nutrition != nil {
+		nutritionJSON, err = json.Marshal(recipe.Nutrition)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Marshal dietary info to JSON
+	var dietaryInfoJSON []byte
+	if recipe.DietaryInfo != nil {
+		dietaryInfoJSON, err = json.Marshal(recipe.DietaryInfo)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Insert recipe
 	query := `
 		INSERT INTO recipes (
 			id, user_id, title, description, servings, prep_time, cook_time,
 			difficulty, cuisine, thumbnail_url, source_type, source_url,
-			source_metadata, tags, is_favorite, sync_version, created_at, updated_at
+			source_recipe_id, source_metadata, tags, is_public, is_favorite,
+			nutrition, dietary_info, sync_version, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
 		)
 	`
 
@@ -68,9 +87,13 @@ func (r *RecipeRepository) Create(ctx context.Context, recipe *model.Recipe) err
 		recipe.ThumbnailURL,
 		recipe.SourceType,
 		recipe.SourceURL,
+		recipe.SourceRecipeID,
 		sourceMetadata,
 		pq.Array(recipe.Tags),
+		recipe.IsPublic,
 		recipe.IsFavorite,
+		nutritionJSON,
+		dietaryInfoJSON,
 		recipe.SyncVersion,
 		recipe.CreatedAt,
 		recipe.UpdatedAt,
@@ -164,13 +187,14 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 	query := `
 		SELECT id, user_id, title, description, servings, prep_time, cook_time,
 			   difficulty, cuisine, thumbnail_url, source_type, source_url,
-			   source_metadata, tags, is_favorite, sync_version, created_at, updated_at
+			   source_recipe_id, source_metadata, tags, is_public, is_favorite,
+			   nutrition, dietary_info, sync_version, created_at, updated_at
 		FROM recipes
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
 	recipe := &model.Recipe{}
-	var sourceMetadata []byte
+	var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
 	var tags pq.StringArray
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
@@ -186,9 +210,13 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 		&recipe.ThumbnailURL,
 		&recipe.SourceType,
 		&recipe.SourceURL,
+		&recipe.SourceRecipeID,
 		&sourceMetadata,
 		&tags,
+		&recipe.IsPublic,
 		&recipe.IsFavorite,
+		&nutritionJSON,
+		&dietaryInfoJSON,
 		&recipe.SyncVersion,
 		&recipe.CreatedAt,
 		&recipe.UpdatedAt,
@@ -205,6 +233,14 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 
 	if sourceMetadata != nil {
 		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+	}
+	if nutritionJSON != nil {
+		recipe.Nutrition = &model.RecipeNutrition{}
+		json.Unmarshal(nutritionJSON, recipe.Nutrition)
+	}
+	if dietaryInfoJSON != nil {
+		recipe.DietaryInfo = &model.DietaryInfo{}
+		json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
 	}
 
 	// Load ingredients
@@ -228,14 +264,15 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 	query := `
 		SELECT id, user_id, title, description, servings, prep_time, cook_time,
 			   difficulty, cuisine, thumbnail_url, source_type, source_url,
-			   source_metadata, tags, is_favorite, sync_version, created_at, updated_at
+			   source_recipe_id, source_metadata, tags, is_public, is_favorite,
+			   nutrition, dietary_info, sync_version, created_at, updated_at
 		FROM recipes
 		WHERE user_id = $1 AND source_url = $2 AND deleted_at IS NULL
 		LIMIT 1
 	`
 
 	recipe := &model.Recipe{}
-	var sourceMetadata []byte
+	var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
 	var tags pq.StringArray
 
 	err := r.db.QueryRowContext(ctx, query, userID, sourceURL).Scan(
@@ -251,9 +288,13 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 		&recipe.ThumbnailURL,
 		&recipe.SourceType,
 		&recipe.SourceURL,
+		&recipe.SourceRecipeID,
 		&sourceMetadata,
 		&tags,
+		&recipe.IsPublic,
 		&recipe.IsFavorite,
+		&nutritionJSON,
+		&dietaryInfoJSON,
 		&recipe.SyncVersion,
 		&recipe.CreatedAt,
 		&recipe.UpdatedAt,
@@ -271,6 +312,14 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 	if sourceMetadata != nil {
 		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
 	}
+	if nutritionJSON != nil {
+		recipe.Nutrition = &model.RecipeNutrition{}
+		json.Unmarshal(nutritionJSON, recipe.Nutrition)
+	}
+	if dietaryInfoJSON != nil {
+		recipe.DietaryInfo = &model.DietaryInfo{}
+		json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
+	}
 
 	// Load ingredients
 	recipe.Ingredients, err = r.getIngredients(ctx, recipe.ID)
@@ -282,6 +331,72 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 	recipe.Steps, err = r.getSteps(ctx, recipe.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	return recipe, nil
+}
+
+// GetBySourceRecipeID retrieves a recipe by its source recipe ID for a specific user
+// This is used to check if a user already has a clone of a recipe
+func (r *RecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sourceRecipeID uuid.UUID) (*model.Recipe, error) {
+	query := `
+		SELECT id, user_id, title, description, servings, prep_time, cook_time,
+			   difficulty, cuisine, thumbnail_url, source_type, source_url,
+			   source_recipe_id, source_metadata, tags, is_public, is_favorite,
+			   nutrition, dietary_info, sync_version, created_at, updated_at
+		FROM recipes
+		WHERE user_id = $1 AND source_recipe_id = $2 AND deleted_at IS NULL
+		LIMIT 1
+	`
+
+	recipe := &model.Recipe{}
+	var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
+	var tags pq.StringArray
+
+	err := r.db.QueryRowContext(ctx, query, userID, sourceRecipeID).Scan(
+		&recipe.ID,
+		&recipe.UserID,
+		&recipe.Title,
+		&recipe.Description,
+		&recipe.Servings,
+		&recipe.PrepTime,
+		&recipe.CookTime,
+		&recipe.Difficulty,
+		&recipe.Cuisine,
+		&recipe.ThumbnailURL,
+		&recipe.SourceType,
+		&recipe.SourceURL,
+		&recipe.SourceRecipeID,
+		&sourceMetadata,
+		&tags,
+		&recipe.IsPublic,
+		&recipe.IsFavorite,
+		&nutritionJSON,
+		&dietaryInfoJSON,
+		&recipe.SyncVersion,
+		&recipe.CreatedAt,
+		&recipe.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrRecipeNotFound
+		}
+		return nil, err
+	}
+
+	recipe.Tags = tags
+
+	if sourceMetadata != nil {
+		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+	}
+	if nutritionJSON != nil {
+		recipe.Nutrition = &model.RecipeNutrition{}
+		json.Unmarshal(nutritionJSON, recipe.Nutrition)
+	}
+	if dietaryInfoJSON != nil {
+		recipe.DietaryInfo = &model.DietaryInfo{}
+		json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
 	}
 
 	return recipe, nil
@@ -380,7 +495,8 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 	query := `
 		SELECT r.id, r.user_id, r.title, r.description, r.servings, r.prep_time, r.cook_time,
 			   r.difficulty, r.cuisine, r.thumbnail_url, r.source_type, r.source_url,
-			   r.source_metadata, r.tags, r.is_favorite, r.sync_version, r.created_at, r.updated_at,
+			   r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
+			   r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
 			   COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
 			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
 		FROM recipes r
@@ -398,7 +514,7 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 	var recipes []*model.Recipe
 	for rows.Next() {
 		recipe := &model.Recipe{}
-		var sourceMetadata []byte
+		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
 		var tags pq.StringArray
 
 		err := rows.Scan(
@@ -414,9 +530,13 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 			&recipe.ThumbnailURL,
 			&recipe.SourceType,
 			&recipe.SourceURL,
+			&recipe.SourceRecipeID,
 			&sourceMetadata,
 			&tags,
+			&recipe.IsPublic,
 			&recipe.IsFavorite,
+			&nutritionJSON,
+			&dietaryInfoJSON,
 			&recipe.SyncVersion,
 			&recipe.CreatedAt,
 			&recipe.UpdatedAt,
@@ -430,6 +550,99 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 		recipe.Tags = tags
 		if sourceMetadata != nil {
 			json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+		}
+		if nutritionJSON != nil {
+			recipe.Nutrition = &model.RecipeNutrition{}
+			json.Unmarshal(nutritionJSON, recipe.Nutrition)
+		}
+		if dietaryInfoJSON != nil {
+			recipe.DietaryInfo = &model.DietaryInfo{}
+			json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
+		}
+
+		recipes = append(recipes, recipe)
+	}
+
+	return recipes, total, rows.Err()
+}
+
+// ListPublic retrieves all public/suggested recipes with ingredient/step counts
+func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
+	// Get total count
+	countQuery := `SELECT COUNT(*) FROM recipes WHERE is_public = TRUE AND deleted_at IS NULL`
+	var total int
+	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get public recipes with ingredient and step counts
+	query := `
+		SELECT r.id, r.user_id, r.title, r.description, r.servings, r.prep_time, r.cook_time,
+			   r.difficulty, r.cuisine, r.thumbnail_url, r.source_type, r.source_url,
+			   r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
+			   r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
+			   COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
+			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
+		FROM recipes r
+		WHERE r.is_public = TRUE AND r.deleted_at IS NULL
+		ORDER BY r.created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var recipes []*model.Recipe
+	for rows.Next() {
+		recipe := &model.Recipe{}
+		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
+		var tags pq.StringArray
+
+		err := rows.Scan(
+			&recipe.ID,
+			&recipe.UserID,
+			&recipe.Title,
+			&recipe.Description,
+			&recipe.Servings,
+			&recipe.PrepTime,
+			&recipe.CookTime,
+			&recipe.Difficulty,
+			&recipe.Cuisine,
+			&recipe.ThumbnailURL,
+			&recipe.SourceType,
+			&recipe.SourceURL,
+			&recipe.SourceRecipeID,
+			&sourceMetadata,
+			&tags,
+			&recipe.IsPublic,
+			&recipe.IsFavorite,
+			&nutritionJSON,
+			&dietaryInfoJSON,
+			&recipe.SyncVersion,
+			&recipe.CreatedAt,
+			&recipe.UpdatedAt,
+			&recipe.IngredientCount,
+			&recipe.StepCount,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		recipe.Tags = tags
+		if sourceMetadata != nil {
+			json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+		}
+		if nutritionJSON != nil {
+			recipe.Nutrition = &model.RecipeNutrition{}
+			json.Unmarshal(nutritionJSON, recipe.Nutrition)
+		}
+		if dietaryInfoJSON != nil {
+			recipe.DietaryInfo = &model.DietaryInfo{}
+			json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
 		}
 
 		recipes = append(recipes, recipe)
@@ -454,6 +667,22 @@ func (r *RecipeRepository) Update(ctx context.Context, recipe *model.Recipe) err
 		}
 	}
 
+	var nutritionJSON []byte
+	if recipe.Nutrition != nil {
+		nutritionJSON, err = json.Marshal(recipe.Nutrition)
+		if err != nil {
+			return err
+		}
+	}
+
+	var dietaryInfoJSON []byte
+	if recipe.DietaryInfo != nil {
+		dietaryInfoJSON, err = json.Marshal(recipe.DietaryInfo)
+		if err != nil {
+			return err
+		}
+	}
+
 	recipe.UpdatedAt = time.Now().UTC()
 	recipe.SyncVersion++
 
@@ -461,8 +690,9 @@ func (r *RecipeRepository) Update(ctx context.Context, recipe *model.Recipe) err
 		UPDATE recipes SET
 			title = $2, description = $3, servings = $4, prep_time = $5, cook_time = $6,
 			difficulty = $7, cuisine = $8, thumbnail_url = $9, source_type = $10,
-			source_url = $11, source_metadata = $12, tags = $13, is_favorite = $14,
-			sync_version = $15, updated_at = $16
+			source_url = $11, source_recipe_id = $12, source_metadata = $13, tags = $14,
+			is_public = $15, is_favorite = $16, nutrition = $17, dietary_info = $18,
+			sync_version = $19, updated_at = $20
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -478,9 +708,13 @@ func (r *RecipeRepository) Update(ctx context.Context, recipe *model.Recipe) err
 		recipe.ThumbnailURL,
 		recipe.SourceType,
 		recipe.SourceURL,
+		recipe.SourceRecipeID,
 		sourceMetadata,
 		pq.Array(recipe.Tags),
+		recipe.IsPublic,
 		recipe.IsFavorite,
+		nutritionJSON,
+		dietaryInfoJSON,
 		recipe.SyncVersion,
 		recipe.UpdatedAt,
 	)
@@ -603,8 +837,8 @@ func (r *RecipeRepository) CountByUser(ctx context.Context, userID uuid.UUID) (i
 func (r *RecipeRepository) GetChangesSince(ctx context.Context, userID uuid.UUID, since time.Time) ([]model.Recipe, error) {
 	query := `
 		SELECT id, user_id, title, description, servings, prep_time, cook_time,
-		       difficulty, cuisine, thumbnail_url, source_type, source_url, source_metadata,
-		       tags, is_favorite, sync_version, created_at, updated_at, deleted_at
+		       difficulty, cuisine, thumbnail_url, source_type, source_url, source_recipe_id, source_metadata,
+		       tags, is_public, is_favorite, nutrition, dietary_info, sync_version, created_at, updated_at, deleted_at
 		FROM recipes
 		WHERE user_id = $1 AND updated_at > $2
 		ORDER BY updated_at ASC
@@ -619,14 +853,15 @@ func (r *RecipeRepository) GetChangesSince(ctx context.Context, userID uuid.UUID
 	var recipes []model.Recipe
 	for rows.Next() {
 		var recipe model.Recipe
-		var sourceMetadata []byte
+		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
 
 		err := rows.Scan(
 			&recipe.ID, &recipe.UserID, &recipe.Title, &recipe.Description,
 			&recipe.Servings, &recipe.PrepTime, &recipe.CookTime,
 			&recipe.Difficulty, &recipe.Cuisine, &recipe.ThumbnailURL,
-			&recipe.SourceType, &recipe.SourceURL, &sourceMetadata,
-			pq.Array(&recipe.Tags), &recipe.IsFavorite, &recipe.SyncVersion,
+			&recipe.SourceType, &recipe.SourceURL, &recipe.SourceRecipeID, &sourceMetadata,
+			pq.Array(&recipe.Tags), &recipe.IsPublic, &recipe.IsFavorite,
+			&nutritionJSON, &dietaryInfoJSON, &recipe.SyncVersion,
 			&recipe.CreatedAt, &recipe.UpdatedAt, &recipe.DeletedAt,
 		)
 		if err != nil {
@@ -636,6 +871,18 @@ func (r *RecipeRepository) GetChangesSince(ctx context.Context, userID uuid.UUID
 		// Unmarshal source metadata
 		if len(sourceMetadata) > 0 {
 			if err := json.Unmarshal(sourceMetadata, &recipe.SourceMetadata); err != nil {
+				return nil, err
+			}
+		}
+		if len(nutritionJSON) > 0 {
+			recipe.Nutrition = &model.RecipeNutrition{}
+			if err := json.Unmarshal(nutritionJSON, recipe.Nutrition); err != nil {
+				return nil, err
+			}
+		}
+		if len(dietaryInfoJSON) > 0 {
+			recipe.DietaryInfo = &model.DietaryInfo{}
+			if err := json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo); err != nil {
 				return nil, err
 			}
 		}
@@ -675,4 +922,82 @@ func (r *RecipeRepository) Upsert(ctx context.Context, recipe *model.Recipe) err
 	// We need to preserve the ID and user_id
 	recipe.UserID = existing.UserID
 	return r.Update(ctx, recipe)
+}
+
+// ListForRecommendations retrieves all recipes for a user with full ingredients loaded
+// This is optimized for the recommendation engine which needs ingredient data for matching
+func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error) {
+	query := `
+		SELECT r.id, r.user_id, r.title, r.description, r.servings, r.prep_time, r.cook_time,
+			   r.difficulty, r.cuisine, r.thumbnail_url, r.source_type, r.source_url,
+			   r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
+			   r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at
+		FROM recipes r
+		WHERE r.user_id = $1 AND r.deleted_at IS NULL
+		ORDER BY r.created_at DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var recipes []*model.Recipe
+	for rows.Next() {
+		recipe := &model.Recipe{}
+		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
+		var tags pq.StringArray
+
+		err := rows.Scan(
+			&recipe.ID,
+			&recipe.UserID,
+			&recipe.Title,
+			&recipe.Description,
+			&recipe.Servings,
+			&recipe.PrepTime,
+			&recipe.CookTime,
+			&recipe.Difficulty,
+			&recipe.Cuisine,
+			&recipe.ThumbnailURL,
+			&recipe.SourceType,
+			&recipe.SourceURL,
+			&recipe.SourceRecipeID,
+			&sourceMetadata,
+			&tags,
+			&recipe.IsPublic,
+			&recipe.IsFavorite,
+			&nutritionJSON,
+			&dietaryInfoJSON,
+			&recipe.SyncVersion,
+			&recipe.CreatedAt,
+			&recipe.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		recipe.Tags = tags
+		if sourceMetadata != nil {
+			json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+		}
+		if nutritionJSON != nil {
+			recipe.Nutrition = &model.RecipeNutrition{}
+			json.Unmarshal(nutritionJSON, recipe.Nutrition)
+		}
+		if dietaryInfoJSON != nil {
+			recipe.DietaryInfo = &model.DietaryInfo{}
+			json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
+		}
+
+		// Load ingredients for matching
+		recipe.Ingredients, err = r.getIngredients(ctx, recipe.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		recipes = append(recipes, recipe)
+	}
+
+	return recipes, rows.Err()
 }

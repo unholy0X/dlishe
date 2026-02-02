@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -96,6 +97,53 @@ func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Created(w, req)
+}
+
+// ListSuggested handles GET /api/v1/recipes/suggested
+// @Summary List suggested/public recipes
+// @Description Get paginated list of curated public recipes available to all users
+// @Tags Recipes
+// @Produce json
+// @Param limit query int false "Items per page (max 50)" default(20)
+// @Param offset query int false "Pagination offset" default(0)
+// @Success 200 {object} SwaggerRecipeListResponse "List of suggested recipes"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /recipes/suggested [get]
+func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
+	// No auth required - public endpoint
+
+	// Pagination
+	limit := 20
+	offset := 0
+
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 50 {
+			limit = val
+		}
+	}
+
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if val, err := strconv.Atoi(o); err == nil && val >= 0 {
+			offset = val
+		}
+	}
+
+	recipes, total, err := h.repo.ListPublic(r.Context(), limit, offset)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	if recipes == nil {
+		recipes = []*model.Recipe{}
+	}
+
+	response.OK(w, map[string]interface{}{
+		"items":  recipes,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
 }
 
 // List handles GET /api/v1/recipes
@@ -405,4 +453,128 @@ func (h *RecipeHandler) ToggleFavorite(w http.ResponseWriter, r *http.Request) {
 		"success":    true,
 		"isFavorite": req.IsFavorite,
 	})
+}
+
+// Clone handles POST /api/v1/recipes/{recipeID}/save
+// @Summary Save/clone a recipe
+// @Description Clone a recipe to the current user's collection. Works with own recipes, shared recipes, or public recipes.
+// @Tags Recipes
+// @Produce json
+// @Security BearerAuth
+// @Param recipeID path string true "Source Recipe UUID"
+// @Success 201 {object} SwaggerRecipe "Cloned recipe"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid recipe ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 403 {object} SwaggerErrorResponse "Access denied - cannot view source recipe"
+// @Failure 404 {object} SwaggerErrorResponse "Recipe not found"
+// @Failure 409 {object} SwaggerErrorResponse "Recipe already cloned"
+// @Router /recipes/{recipeID}/save [post]
+func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	idStr := chi.URLParam(r, "recipeID")
+	sourceID, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "Invalid recipe ID")
+		return
+	}
+
+	// Get source recipe
+	source, err := h.repo.GetByID(r.Context(), sourceID)
+	if err != nil {
+		if err == postgres.ErrRecipeNotFound {
+			response.NotFound(w, "Recipe not found")
+			return
+		}
+		response.InternalError(w)
+		return
+	}
+
+	// Check access:
+	// - User can clone their own recipes (useful for creating variants)
+	// - User can clone public/suggested recipes
+	// - Future: User can clone recipes shared with them
+	if source.UserID != claims.UserID && !source.IsPublic {
+		// Recipe is not owned by user and not public
+		response.Forbidden(w, "Access denied - recipe not accessible")
+		return
+	}
+
+	// Check if user already has a clone of this recipe
+	// This prevents duplicate clones
+	existingClone, _ := h.repo.GetBySourceRecipeID(r.Context(), claims.UserID, sourceID)
+	if existingClone != nil {
+		response.ErrorJSON(w, http.StatusConflict, "ALREADY_CLONED",
+			"You already have a copy of this recipe", map[string]interface{}{
+				"existingRecipeId": existingClone.ID,
+			})
+		return
+	}
+
+	// Create clone
+	now := time.Now().UTC()
+	clone := &model.Recipe{
+		ID:             uuid.New(),
+		UserID:         claims.UserID,
+		Title:          source.Title,
+		Description:    source.Description,
+		Servings:       source.Servings,
+		PrepTime:       source.PrepTime,
+		CookTime:       source.CookTime,
+		Difficulty:     source.Difficulty,
+		Cuisine:        source.Cuisine,
+		ThumbnailURL:   source.ThumbnailURL,
+		SourceType:     "cloned",
+		SourceURL:      source.SourceURL,
+		SourceRecipeID: &sourceID,
+		Tags:           source.Tags,
+		IsFavorite:     false, // Don't copy favorite status
+		SyncVersion:    1,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+
+	// Clone ingredients with new IDs
+	for i, ing := range source.Ingredients {
+		clone.Ingredients = append(clone.Ingredients, model.RecipeIngredient{
+			ID:             uuid.New(),
+			RecipeID:       clone.ID,
+			Name:           ing.Name,
+			Quantity:       ing.Quantity,
+			Unit:           ing.Unit,
+			Category:       ing.Category,
+			IsOptional:     ing.IsOptional,
+			Notes:          ing.Notes,
+			VideoTimestamp: ing.VideoTimestamp,
+			SortOrder:      i,
+			CreatedAt:      now,
+		})
+	}
+
+	// Clone steps with new IDs
+	for i, step := range source.Steps {
+		clone.Steps = append(clone.Steps, model.RecipeStep{
+			ID:                  uuid.New(),
+			RecipeID:            clone.ID,
+			StepNumber:          i + 1,
+			Instruction:         step.Instruction,
+			DurationSeconds:     step.DurationSeconds,
+			Technique:           step.Technique,
+			Temperature:         step.Temperature,
+			VideoTimestampStart: step.VideoTimestampStart,
+			VideoTimestampEnd:   step.VideoTimestampEnd,
+			CreatedAt:           now,
+		})
+	}
+
+	if err := h.repo.Create(r.Context(), clone); err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	response.Created(w, clone)
 }

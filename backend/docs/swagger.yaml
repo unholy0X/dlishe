@@ -1,5 +1,345 @@
 basePath: /api/v1
 definitions:
+  github_com_dishflow_backend_internal_model.AppliedFilters:
+    properties:
+      appliedDiet:
+        type: string
+      appliedExclusions:
+        items:
+          type: string
+        type: array
+      excludedByNutrition:
+        description: recipes excluded by nutrition filters
+        type: integer
+      excludedRecipes:
+        description: recipes excluded by dietary filters
+        type: integer
+      nutritionFilters:
+        $ref: '#/definitions/github_com_dishflow_backend_internal_model.NutritionFilters'
+    type: object
+  github_com_dishflow_backend_internal_model.DietaryInfo:
+    properties:
+      allergens:
+        description: e.g., ["gluten", "dairy", "nuts"]
+        items:
+          type: string
+        type: array
+      isDairyFree:
+        type: boolean
+      isGlutenFree:
+        type: boolean
+      isHalal:
+        type: boolean
+      isKeto:
+        type: boolean
+      isKosher:
+        type: boolean
+      isNutFree:
+        type: boolean
+      isVegan:
+        type: boolean
+      isVegetarian:
+        type: boolean
+      mealTypes:
+        description: e.g., ["breakfast", "lunch", "dinner"]
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_dishflow_backend_internal_model.IngredientMatch:
+    properties:
+      isSubstitute:
+        description: true if pantry item is a substitute
+        type: boolean
+      pantryItem:
+        description: matched item from pantry
+        type: string
+      recipeIngredient:
+        description: ingredient name in recipe
+        type: string
+      substituteRatio:
+        description: e.g., "1 tsp dried = 1 tbsp fresh"
+        type: string
+    type: object
+  github_com_dishflow_backend_internal_model.MissingIngredient:
+    properties:
+      canSkip:
+        description: true if optional
+        type: boolean
+      category:
+        description: ingredient category for shopping
+        type: string
+      ingredient:
+        description: ingredient name
+        type: string
+      substitutes:
+        description: possible substitutes
+        items:
+          $ref: '#/definitions/github_com_dishflow_backend_internal_model.SubstituteSuggestion'
+        type: array
+    type: object
+  github_com_dishflow_backend_internal_model.NutritionFilters:
+    properties:
+      maxCalories:
+        type: integer
+      maxCarbs:
+        type: integer
+      maxFat:
+        type: integer
+      minProtein:
+        type: integer
+    type: object
+  github_com_dishflow_backend_internal_model.Recipe:
+    properties:
+      cookTime:
+        description: minutes
+        type: integer
+      createdAt:
+        type: string
+      cuisine:
+        type: string
+      description:
+        type: string
+      dietaryInfo:
+        allOf:
+        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.DietaryInfo'
+        description: Dietary flags for filtering
+      difficulty:
+        description: easy, medium, hard
+        type: string
+      id:
+        type: string
+      ingredientCount:
+        description: Computed fields (for list views without loading full relations)
+        type: integer
+      ingredients:
+        description: Related data (not stored in recipes table, loaded on GetByID)
+        items:
+          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeIngredient'
+        type: array
+      isFavorite:
+        type: boolean
+      isPublic:
+        description: Public/suggested recipes visible to all users
+        type: boolean
+      nutrition:
+        allOf:
+        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeNutrition'
+        description: Nutritional info per serving
+      prepTime:
+        description: minutes
+        type: integer
+      servings:
+        type: integer
+      sourceMetadata:
+        additionalProperties: {}
+        type: object
+      sourceRecipeId:
+        description: ID of original recipe if cloned
+        type: string
+      sourceType:
+        description: manual, video, ai, photo, cloned
+        type: string
+      sourceUrl:
+        type: string
+      stepCount:
+        type: integer
+      steps:
+        items:
+          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeStep'
+        type: array
+      syncVersion:
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+      thumbnailUrl:
+        type: string
+      title:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  github_com_dishflow_backend_internal_model.RecipeIngredient:
+    properties:
+      category:
+        description: dairy, produce, proteins, etc.
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      isOptional:
+        type: boolean
+      name:
+        type: string
+      notes:
+        type: string
+      quantity:
+        type: number
+      recipeId:
+        type: string
+      sortOrder:
+        type: integer
+      unit:
+        type: string
+      videoTimestamp:
+        description: seconds
+        type: integer
+    type: object
+  github_com_dishflow_backend_internal_model.RecipeNutrition:
+    properties:
+      calories:
+        description: kcal per serving
+        type: integer
+      carbs:
+        description: grams
+        type: integer
+      confidence:
+        description: AI confidence score 0-1
+        type: number
+      fat:
+        description: grams
+        type: integer
+      fiber:
+        description: grams
+        type: integer
+      protein:
+        description: grams
+        type: integer
+      sodium:
+        description: mg
+        type: integer
+      sugar:
+        description: grams
+        type: integer
+      tags:
+        description: e.g., "high-protein", "low-carb", "keto-friendly"
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_dishflow_backend_internal_model.RecipeQuickInfo:
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+      value:
+        description: the relevant metric (time, protein, match score)
+        type: integer
+      valueUnit:
+        description: e.g., "min", "g", "%"
+        type: string
+    type: object
+  github_com_dishflow_backend_internal_model.RecipeRecommendation:
+    properties:
+      matchScore:
+        description: 0-100 percentage
+        type: integer
+      matchedIngredients:
+        items:
+          $ref: '#/definitions/github_com_dishflow_backend_internal_model.IngredientMatch'
+        type: array
+      missingIngredients:
+        items:
+          $ref: '#/definitions/github_com_dishflow_backend_internal_model.MissingIngredient'
+        type: array
+      nutritionPerServing:
+        allOf:
+        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeNutrition'
+        description: estimated nutrition
+      reason:
+        description: why this was recommended
+        type: string
+      recipe:
+        $ref: '#/definitions/github_com_dishflow_backend_internal_model.Recipe'
+      shoppingListItems:
+        description: items to buy
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_dishflow_backend_internal_model.RecipeStep:
+    properties:
+      createdAt:
+        type: string
+      durationSeconds:
+        type: integer
+      id:
+        type: string
+      instruction:
+        type: string
+      recipeId:
+        type: string
+      stepNumber:
+        type: integer
+      technique:
+        type: string
+      temperature:
+        type: string
+      videoTimestampEnd:
+        type: integer
+      videoTimestampStart:
+        type: integer
+    type: object
+  github_com_dishflow_backend_internal_model.RecommendationResponse:
+    properties:
+      almostReady:
+        description: 70-89% match
+        items:
+          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation'
+        type: array
+      filters:
+        allOf:
+        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.AppliedFilters'
+        description: Applied filters info
+      needsShopping:
+        description: 50-69% match
+        items:
+          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation'
+        type: array
+      readyToCook:
+        description: Categorized recommendations
+        items:
+          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation'
+        type: array
+      summary:
+        allOf:
+        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecommendationSummary'
+        description: Summary statistics
+    type: object
+  github_com_dishflow_backend_internal_model.RecommendationSummary:
+    properties:
+      avgCaloriesPerServing:
+        type: integer
+      bestMatch:
+        $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo'
+      highestProtein:
+        $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo'
+      quickestRecipe:
+        $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo'
+      totalRecipes:
+        type: integer
+    type: object
+  github_com_dishflow_backend_internal_model.SubstituteSuggestion:
+    properties:
+      item:
+        description: substitute item name
+        type: string
+      notes:
+        description: any notes about the substitution
+        type: string
+      ratio:
+        description: substitution ratio
+        type: string
+      source:
+        description: '"pantry" or "common"'
+        type: string
+    type: object
   internal_handler.SwaggerAddFromRecipeRequest:
     description: Add ingredients from recipe to shopping list
     properties:
@@ -163,154 +503,6 @@ definitions:
       error:
         $ref: '#/definitions/internal_handler.SwaggerError'
     type: object
-  internal_handler.SwaggerExtractImageRequest:
-    description: Extract recipe from image request
-    properties:
-      imageBase64:
-        example: /9j/4AAQSkZJRgABAQ...
-        type: string
-      mimeType:
-        example: image/jpeg
-        type: string
-      saveAuto:
-        example: true
-        type: boolean
-    required:
-    - imageBase64
-    type: object
-  internal_handler.SwaggerExtractImageResponse:
-    description: Image extraction response
-    properties:
-      recipe:
-        $ref: '#/definitions/internal_handler.SwaggerExtractionResult'
-      savedId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      source:
-        example: image
-        type: string
-    type: object
-  internal_handler.SwaggerExtractURLRequest:
-    description: Extract recipe from URL request
-    properties:
-      saveAuto:
-        example: true
-        type: boolean
-      url:
-        example: https://example.com/recipe/carbonara
-        type: string
-    required:
-    - url
-    type: object
-  internal_handler.SwaggerExtractURLResponse:
-    description: URL extraction response
-    properties:
-      alreadyExists:
-        example: false
-        type: boolean
-      recipe:
-        $ref: '#/definitions/internal_handler.SwaggerExtractionResult'
-      savedId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      source:
-        example: webpage
-        type: string
-    type: object
-  internal_handler.SwaggerExtractedIngredient:
-    description: AI-extracted ingredient
-    properties:
-      category:
-        example: pantry
-        type: string
-      isOptional:
-        example: false
-        type: boolean
-      name:
-        example: Spaghetti
-        type: string
-      notes:
-        example: dried pasta
-        type: string
-      quantity:
-        example: "400"
-        type: string
-      unit:
-        example: g
-        type: string
-      videoTimestamp:
-        example: 1.5
-        type: number
-    type: object
-  internal_handler.SwaggerExtractedStep:
-    description: AI-extracted recipe step
-    properties:
-      durationSeconds:
-        example: 600
-        type: integer
-      instruction:
-        example: Boil pasta according to package directions
-        type: string
-      stepNumber:
-        example: 1
-        type: integer
-      technique:
-        example: boiling
-        type: string
-      temperature:
-        example: ""
-        type: string
-      videoTimestampEnd:
-        example: 2
-        type: number
-      videoTimestampStart:
-        example: 0.5
-        type: number
-    type: object
-  internal_handler.SwaggerExtractionResult:
-    description: AI-extracted recipe data
-    properties:
-      cookTime:
-        example: 20
-        type: integer
-      cuisine:
-        example: Italian
-        type: string
-      description:
-        example: Classic Roman pasta dish
-        type: string
-      difficulty:
-        example: medium
-        type: string
-      ingredients:
-        items:
-          $ref: '#/definitions/internal_handler.SwaggerExtractedIngredient'
-        type: array
-      prepTime:
-        example: 10
-        type: integer
-      servings:
-        example: 4
-        type: integer
-      steps:
-        items:
-          $ref: '#/definitions/internal_handler.SwaggerExtractedStep'
-        type: array
-      tags:
-        example:
-        - pasta
-        - italian
-        - quick
-        items:
-          type: string
-        type: array
-      thumbnailUrl:
-        example: https://example.com/thumb.jpg
-        type: string
-      title:
-        example: Spaghetti Carbonara
-        type: string
-    type: object
   internal_handler.SwaggerFavoriteRequest:
     description: Toggle favorite request
     properties:
@@ -373,7 +565,7 @@ definitions:
         type: boolean
     type: object
   internal_handler.SwaggerJobResponse:
-    description: Video extraction job status
+    description: Recipe extraction job status
     properties:
       completedAt:
         example: "2024-02-01T10:31:30Z"
@@ -384,19 +576,29 @@ definitions:
       error:
         $ref: '#/definitions/internal_handler.SwaggerJobError'
       estimatedSeconds:
-        example: 45
+        example: 15
         type: integer
       jobId:
         example: 550e8400-e29b-41d4-a716-446655440000
         type: string
+      jobType:
+        enum:
+        - url
+        - image
+        - video
+        example: url
+        type: string
       message:
-        example: Downloading video...
+        example: Extracting recipe...
         type: string
       progress:
         example: 45
         type: integer
       recipe:
         $ref: '#/definitions/internal_handler.SwaggerRecipe'
+      sourceUrl:
+        example: https://example.com/recipe
+        type: string
       status:
         enum:
         - pending
@@ -630,12 +832,18 @@ definitions:
       isFavorite:
         example: false
         type: boolean
+      isPublic:
+        example: false
+        type: boolean
       prepTime:
         example: 15
         type: integer
       servings:
         example: 4
         type: integer
+      sourceRecipeId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
       sourceType:
         enum:
         - manual
@@ -644,6 +852,7 @@ definitions:
         - photo
         - webpage
         - image
+        - cloned
         example: manual
         type: string
       sourceUrl:
@@ -1105,6 +1314,45 @@ definitions:
           $ref: '#/definitions/internal_handler.SwaggerShoppingList'
         type: array
     type: object
+  internal_handler.SwaggerUnifiedExtractRequest:
+    description: Unified recipe extraction request (url, image, or video)
+    properties:
+      detailLevel:
+        enum:
+        - quick
+        - detailed
+        example: detailed
+        type: string
+      imageBase64:
+        example: /9j/4AAQSkZJRgABAQ...
+        type: string
+      language:
+        enum:
+        - en
+        - fr
+        - es
+        - auto
+        example: en
+        type: string
+      mimeType:
+        example: image/jpeg
+        type: string
+      saveAuto:
+        example: true
+        type: boolean
+      type:
+        enum:
+        - url
+        - image
+        - video
+        example: url
+        type: string
+      url:
+        example: https://example.com/recipe/carbonara
+        type: string
+    required:
+    - type
+    type: object
   internal_handler.SwaggerUserResponse:
     description: User data
     properties:
@@ -1123,29 +1371,6 @@ definitions:
       name:
         example: John Doe
         type: string
-    type: object
-  internal_handler.SwaggerVideoExtractRequest:
-    description: Video extraction request
-    properties:
-      detailLevel:
-        enum:
-        - quick
-        - detailed
-        example: detailed
-        type: string
-      language:
-        enum:
-        - en
-        - fr
-        - es
-        - auto
-        example: en
-        type: string
-      videoUrl:
-        example: https://youtube.com/watch?v=abc123
-        type: string
-    required:
-    - videoUrl
     type: object
 host: api.dishflow.app
 info:
@@ -1337,7 +1562,27 @@ paths:
       - Health
   /jobs:
     get:
-      description: Get list of video extraction jobs for the current user
+      description: Get list of extraction jobs for the current user (includes url,
+        image, and video extractions)
+      parameters:
+      - description: Filter by job type
+        enum:
+        - url
+        - image
+        - video
+        in: query
+        name: type
+        type: string
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -1362,7 +1607,7 @@ paths:
       - Jobs
   /jobs/{jobID}:
     get:
-      description: Get the current status of a video extraction job
+      description: Get the current status of an extraction job (url, image, or video)
       parameters:
       - description: Job UUID
         in: path
@@ -1399,7 +1644,7 @@ paths:
       - Jobs
   /jobs/{jobID}/cancel:
     post:
-      description: Cancel a running video extraction job
+      description: Cancel a running extraction job
       parameters:
       - description: Job UUID
         in: path
@@ -1944,44 +2189,112 @@ paths:
       summary: Toggle recipe favorite status
       tags:
       - Recipes
-  /recipes/extract-image:
+  /recipes/{recipeID}/save:
+    post:
+      description: Clone a recipe to the current user's collection. Works with own
+        recipes, shared recipes, or public recipes.
+      parameters:
+      - description: Source Recipe UUID
+        in: path
+        name: recipeID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Cloned recipe
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerRecipe'
+        "400":
+          description: Invalid recipe ID
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "403":
+          description: Access denied - cannot view source recipe
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "404":
+          description: Recipe not found
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "409":
+          description: Recipe already cloned
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Save/clone a recipe
+      tags:
+      - Recipes
+  /recipes/extract:
     post:
       consumes:
       - multipart/form-data
       - application/json
-      description: Extract a recipe from an uploaded image using AI (cookbook photo,
-        screenshot)
+      description: Extract a recipe from URL, image, or video using AI. Returns a
+        job ID for async processing.
       parameters:
-      - description: Image file (multipart)
+      - description: Extraction type
+        enum:
+        - url
+        - image
+        - video
+        in: formData
+        name: type
+        required: true
+        type: string
+      - description: URL for url/video extraction
+        in: formData
+        name: url
+        type: string
+      - description: Image file for image extraction (multipart)
         in: formData
         name: image
         type: file
-      - description: Auto-save extracted recipe
+      - description: Language hint
+        enum:
+        - en
+        - fr
+        - es
+        - auto
+        in: formData
+        name: language
+        type: string
+      - description: Detail level
+        enum:
+        - quick
+        - detailed
+        in: formData
+        name: detailLevel
+        type: string
+      - default: true
+        description: Auto-save extracted recipe
         in: formData
         name: saveAuto
         type: boolean
-      - description: JSON with base64 image
+      - description: JSON request body
         in: body
         name: request
         schema:
-          $ref: '#/definitions/internal_handler.SwaggerExtractImageRequest'
+          $ref: '#/definitions/internal_handler.SwaggerUnifiedExtractRequest'
       produces:
       - application/json
       responses:
-        "200":
-          description: Extracted recipe
+        "201":
+          description: Job created
           schema:
-            $ref: '#/definitions/internal_handler.SwaggerExtractImageResponse'
+            $ref: '#/definitions/internal_handler.SwaggerJobResponse'
         "400":
-          description: Invalid image
+          description: Invalid request
           schema:
             $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
         "401":
           description: Unauthorized
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "422":
-          description: Extraction failed or no recipe found
           schema:
             $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
         "429":
@@ -1994,52 +2307,132 @@ paths:
             $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
       security:
       - BearerAuth: []
-      summary: Extract recipe from image
+      summary: Extract recipe (unified)
       tags:
       - Recipes
-  /recipes/extract-url:
-    post:
+  /recipes/recommendations:
+    get:
       consumes:
       - application/json
-      description: Extract a recipe from a webpage URL using AI (recipe blogs, cooking
-        sites)
+      description: Get personalized recipe recommendations based on pantry items with
+        dietary and nutrition filters
       parameters:
-      - description: URL and options
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/internal_handler.SwaggerExtractURLRequest'
+      - description: Filter by meal type
+        enum:
+        - breakfast
+        - lunch
+        - dinner
+        - snack
+        - dessert
+        in: query
+        name: mealType
+        type: string
+      - description: Maximum total time in minutes
+        in: query
+        name: maxTime
+        type: integer
+      - description: Filter by cuisine (e.g., italian, asian, mexican)
+        in: query
+        name: cuisine
+        type: string
+      - description: Mood filter
+        enum:
+        - quick
+        - comfort
+        - healthy
+        - indulgent
+        in: query
+        name: mood
+        type: string
+      - description: Dietary restriction
+        enum:
+        - vegetarian
+        - vegan
+        - keto
+        - halal
+        - kosher
+        - pescatarian
+        - paleo
+        in: query
+        name: diet
+        type: string
+      - collectionFormat: csv
+        description: Allergens/ingredients to exclude (e.g., gluten, dairy, nuts)
+        in: query
+        items:
+          type: string
+        name: exclude
+        type: array
+      - description: Maximum calories per serving
+        in: query
+        name: maxCalories
+        type: integer
+      - description: Minimum protein grams per serving
+        in: query
+        name: minProtein
+        type: integer
+      - description: Maximum carbs grams per serving
+        in: query
+        name: maxCarbs
+        type: integer
+      - description: Maximum fat grams per serving
+        in: query
+        name: maxFat
+        type: integer
+      - description: 'Minimum ingredient match percentage (default: 50)'
+        in: query
+        name: minMatch
+        type: integer
+      - description: 'Max results per category (default: 10)'
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
         "200":
-          description: Extracted recipe
+          description: Recipe recommendations
           schema:
-            $ref: '#/definitions/internal_handler.SwaggerExtractURLResponse'
-        "400":
-          description: Invalid URL
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+            $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecommendationResponse'
         "401":
           description: Unauthorized
           schema:
             $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "422":
-          description: Extraction failed or no recipe found
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "429":
-          description: Rate limit exceeded
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "503":
-          description: Service unavailable
+        "500":
+          description: Internal server error
           schema:
             $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
       security:
       - BearerAuth: []
-      summary: Extract recipe from URL
+      summary: Get recipe recommendations
+      tags:
+      - Recipes
+  /recipes/suggested:
+    get:
+      description: Get paginated list of curated public recipes available to all users
+      parameters:
+      - default: 20
+        description: Items per page (max 50)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of suggested recipes
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerRecipeListResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      summary: List suggested/public recipes
       tags:
       - Recipes
   /shopping-lists:
@@ -2639,46 +3032,6 @@ paths:
       summary: Get current user
       tags:
       - Auth
-  /video/extract:
-    post:
-      consumes:
-      - application/json
-      description: Submit video URL for AI-powered recipe extraction (async job)
-      parameters:
-      - description: Video URL and options
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/internal_handler.SwaggerVideoExtractRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Job created
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerJobResponse'
-        "400":
-          description: Invalid request body
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "429":
-          description: Rate limit exceeded (5/hour)
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Start video recipe extraction
-      tags:
-      - Jobs
 securityDefinitions:
   BearerAuth:
     description: 'Enter: Bearer {your_token}'

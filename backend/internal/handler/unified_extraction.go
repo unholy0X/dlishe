@@ -1,0 +1,720 @@
+package handler
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/dishflow/backend/internal/middleware"
+	"github.com/dishflow/backend/internal/model"
+	"github.com/dishflow/backend/internal/pkg/response"
+	"github.com/dishflow/backend/internal/service/ai"
+)
+
+// UnifiedExtractionHandler handles all recipe extraction types (url, image, video)
+type UnifiedExtractionHandler struct {
+	jobRepo    JobRepository
+	recipeRepo RecipeRepository
+	extractor  ai.RecipeExtractor
+	downloader VideoDownloader
+	logger     *slog.Logger
+
+	// activeJobs stores cancel functions for running jobs
+	activeJobs sync.Map // map[uuid.UUID]context.CancelFunc
+
+	// jobSemaphore limits concurrent processing jobs
+	jobSemaphore chan struct{}
+
+	// tempDir for storing temporary files
+	tempDir string
+}
+
+// NewUnifiedExtractionHandler creates a new unified extraction handler
+func NewUnifiedExtractionHandler(
+	jobRepo JobRepository,
+	recipeRepo RecipeRepository,
+	extractor ai.RecipeExtractor,
+	downloader VideoDownloader,
+	logger *slog.Logger,
+) *UnifiedExtractionHandler {
+	return &UnifiedExtractionHandler{
+		jobRepo:      jobRepo,
+		recipeRepo:   recipeRepo,
+		extractor:    extractor,
+		downloader:   downloader,
+		logger:       logger,
+		jobSemaphore: make(chan struct{}, 10), // Allow 10 concurrent jobs
+		tempDir:      os.TempDir(),
+	}
+}
+
+// UnifiedExtractRequest represents a unified extraction request
+type UnifiedExtractRequest struct {
+	Type        string `json:"type"`                  // "url", "image", "video"
+	URL         string `json:"url,omitempty"`         // For url and video types
+	ImageBase64 string `json:"imageBase64,omitempty"` // For image type (JSON)
+	MimeType    string `json:"mimeType,omitempty"`    // For image type
+	Language    string `json:"language,omitempty"`    // "en", "fr", "es", "auto"
+	DetailLevel string `json:"detailLevel,omitempty"` // "quick", "detailed"
+	SaveAuto    bool   `json:"saveAuto,omitempty"`    // Auto-save extracted recipe
+}
+
+// Extract handles POST /api/v1/recipes/extract
+// @Summary Extract recipe (unified)
+// @Description Extract a recipe from URL, image, or video using AI. Returns a job ID for async processing.
+// @Tags Recipes
+// @Accept multipart/form-data,application/json
+// @Produce json
+// @Security BearerAuth
+// @Param type formData string true "Extraction type" Enums(url, image, video)
+// @Param url formData string false "URL for url/video extraction"
+// @Param image formData file false "Image file for image extraction (multipart)"
+// @Param language formData string false "Language hint" Enums(en, fr, es, auto)
+// @Param detailLevel formData string false "Detail level" Enums(quick, detailed)
+// @Param saveAuto formData bool false "Auto-save extracted recipe" default(true)
+// @Param request body SwaggerUnifiedExtractRequest false "JSON request body"
+// @Success 201 {object} SwaggerJobResponse "Job created"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 429 {object} SwaggerErrorResponse "Rate limit exceeded"
+// @Failure 503 {object} SwaggerErrorResponse "Service unavailable"
+// @Router /recipes/extract [post]
+func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	// Check if extractor is available
+	if h.extractor == nil {
+		response.ErrorJSON(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE",
+			"Recipe extraction service is not available", nil)
+		return
+	}
+
+	// Parse request based on content type
+	var req UnifiedExtractRequest
+	var imageData []byte
+	contentType := r.Header.Get("Content-Type")
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// Handle multipart form upload
+		if err := r.ParseMultipartForm(50 << 20); err != nil { // 50MB max for video
+			response.BadRequest(w, "Failed to parse form: "+err.Error())
+			return
+		}
+		defer r.MultipartForm.RemoveAll()
+
+		req.Type = r.FormValue("type")
+		req.URL = r.FormValue("url")
+		req.Language = r.FormValue("language")
+		req.DetailLevel = r.FormValue("detailLevel")
+		req.SaveAuto = r.FormValue("saveAuto") != "false" // Default true
+		req.MimeType = r.FormValue("mimeType")
+
+		// Handle image file if present
+		if file, header, err := r.FormFile("image"); err == nil {
+			defer file.Close()
+			imageData, err = io.ReadAll(file)
+			if err != nil {
+				response.BadRequest(w, "Failed to read image file")
+				return
+			}
+			if req.MimeType == "" {
+				req.MimeType = header.Header.Get("Content-Type")
+				if req.MimeType == "" {
+					req.MimeType = detectMimeType(imageData)
+				}
+			}
+		}
+	} else {
+		// Handle JSON request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			response.BadRequest(w, "Invalid request body")
+			return
+		}
+
+		// Decode base64 image if provided
+		if req.ImageBase64 != "" {
+			var err error
+			imageData, err = base64.StdEncoding.DecodeString(req.ImageBase64)
+			if err != nil {
+				response.ValidationFailed(w, "imageBase64", "Invalid base64 encoding")
+				return
+			}
+			if req.MimeType == "" {
+				req.MimeType = detectMimeType(imageData)
+			}
+		}
+
+		// Default saveAuto to true for JSON requests if not explicitly set
+		// Note: JSON unmarshalling sets false as default, so we check if the field was present
+		// For simplicity, we'll default to true unless explicitly false in the request
+	}
+
+	// Validate type
+	var jobType model.JobType
+	switch strings.ToLower(req.Type) {
+	case "url":
+		jobType = model.JobTypeURL
+	case "image":
+		jobType = model.JobTypeImage
+	case "video":
+		jobType = model.JobTypeVideo
+	default:
+		response.ValidationFailed(w, "type", "Must be 'url', 'image', or 'video'")
+		return
+	}
+
+	// Validate based on type
+	switch jobType {
+	case model.JobTypeURL:
+		if req.URL == "" {
+			response.ValidationFailed(w, "url", "URL is required for URL extraction")
+			return
+		}
+		parsedURL, err := url.Parse(req.URL)
+		if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+			response.ValidationFailed(w, "url", "Invalid URL format")
+			return
+		}
+
+	case model.JobTypeImage:
+		if len(imageData) == 0 {
+			response.ValidationFailed(w, "image", "Image is required for image extraction")
+			return
+		}
+		if len(imageData) > 10*1024*1024 {
+			response.ValidationFailed(w, "image", "Image size exceeds 10MB limit")
+			return
+		}
+		validTypes := map[string]bool{
+			"image/jpeg": true, "image/png": true, "image/webp": true, "image/gif": true,
+		}
+		if !validTypes[req.MimeType] {
+			response.ValidationFailed(w, "mimeType", "Unsupported image type. Use JPEG, PNG, WebP, or GIF")
+			return
+		}
+
+	case model.JobTypeVideo:
+		if req.URL == "" {
+			response.ValidationFailed(w, "url", "Video URL is required for video extraction")
+			return
+		}
+	}
+
+	// Set defaults
+	if req.Language == "" {
+		req.Language = "auto"
+	}
+	if req.DetailLevel == "" {
+		req.DetailLevel = "detailed"
+	}
+
+	// Create job
+	job := model.NewExtractionJob(
+		claims.UserID,
+		jobType,
+		req.URL,
+		req.Language,
+		req.DetailLevel,
+		req.SaveAuto,
+	)
+
+	// For image jobs, save image to temp file
+	if jobType == model.JobTypeImage && len(imageData) > 0 {
+		tempPath := filepath.Join(h.tempDir, fmt.Sprintf("extract_%s.tmp", job.ID.String()))
+		if err := os.WriteFile(tempPath, imageData, 0644); err != nil {
+			h.logger.Error("Failed to save temp image", "error", err)
+			response.InternalError(w)
+			return
+		}
+		job.SetSourcePath(tempPath, req.MimeType)
+	}
+
+	// Save job to database
+	if err := h.jobRepo.Create(r.Context(), job); err != nil {
+		h.logger.Error("Failed to create job", "error", err)
+		response.InternalError(w)
+		return
+	}
+
+	// Create cancellable context with timeout
+	timeout := 30 * time.Minute
+	if jobType == model.JobTypeURL {
+		timeout = 5 * time.Minute
+	} else if jobType == model.JobTypeImage {
+		timeout = 5 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
+	// Store cancel function
+	h.activeJobs.Store(job.ID, cancel)
+
+	// Start processing in background
+	go func() {
+		defer cancel()
+		defer h.activeJobs.Delete(job.ID)
+
+		// Acquire semaphore
+		select {
+		case h.jobSemaphore <- struct{}{}:
+			defer func() { <-h.jobSemaphore }()
+		case <-ctx.Done():
+			h.jobRepo.MarkFailed(context.Background(), job.ID, "TIMEOUT", "Job timed out waiting for processing slot")
+			return
+		}
+
+		h.processJob(ctx, job)
+	}()
+
+	response.Created(w, job.ToResponse(""))
+}
+
+// processJob handles the background processing for all extraction types
+func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.ExtractionJob) {
+	// Helper functions
+	isCancelled := func() bool {
+		select {
+		case <-ctx.Done():
+			return true
+		default:
+			return false
+		}
+	}
+
+	updateProgress := func(status model.JobStatus, progress int, msg string) {
+		if !isCancelled() {
+			h.jobRepo.UpdateProgress(ctx, job.ID, status, progress, msg)
+		}
+	}
+
+	failJob := func(code, msg string) {
+		h.jobRepo.MarkFailed(ctx, job.ID, code, msg)
+	}
+
+	if isCancelled() {
+		failJob("CANCELLED", "Job was cancelled")
+		return
+	}
+
+	var result *ai.ExtractionResult
+	var err error
+
+	switch job.JobType {
+	case model.JobTypeURL:
+		result, err = h.processURLExtraction(ctx, job, updateProgress)
+	case model.JobTypeImage:
+		result, err = h.processImageExtraction(ctx, job, updateProgress)
+	case model.JobTypeVideo:
+		result, err = h.processVideoExtraction(ctx, job, updateProgress)
+	default:
+		failJob("INVALID_TYPE", "Unknown job type")
+		return
+	}
+
+	if err != nil {
+		if isCancelled() {
+			failJob("CANCELLED", "Job was cancelled")
+		} else {
+			failJob("EXTRACTION_FAILED", err.Error())
+		}
+		return
+	}
+
+	if result == nil || result.Title == "" || len(result.Ingredients) == 0 {
+		failJob("NO_RECIPE_FOUND", "No recipe could be extracted")
+		return
+	}
+
+	// Refine the recipe
+	updateProgress(model.JobStatusExtracting, 90, "Refining recipe...")
+	refined, refineErr := h.extractor.RefineRecipe(ctx, result)
+	if refineErr == nil && refined != nil {
+		result = refined
+	}
+
+	if isCancelled() {
+		failJob("CANCELLED", "Job was cancelled")
+		return
+	}
+
+	// Save recipe if saveAuto is enabled
+	if job.SaveAuto {
+		updateProgress(model.JobStatusExtracting, 95, "Saving recipe...")
+		recipeID, saveErr := h.saveExtractedRecipe(ctx, job, result)
+		if saveErr != nil {
+			h.logger.Error("Failed to save recipe", "error", saveErr)
+			failJob("SAVE_FAILED", "Failed to save recipe: "+saveErr.Error())
+			return
+		}
+		h.jobRepo.MarkCompleted(ctx, job.ID, recipeID)
+	} else {
+		// Mark as completed without saving
+		// Store result in status message for retrieval
+		h.jobRepo.MarkCompleted(ctx, job.ID, uuid.Nil)
+	}
+}
+
+// processURLExtraction handles URL extraction
+func (h *UnifiedExtractionHandler) processURLExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
+	updateProgress(model.JobStatusProcessing, 10, "Fetching webpage...")
+
+	result, err := h.extractor.ExtractFromWebpage(ctx, job.SourceURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract from URL: %w", err)
+	}
+
+	updateProgress(model.JobStatusExtracting, 70, "Processing recipe...")
+	return result, nil
+}
+
+// processImageExtraction handles image extraction
+func (h *UnifiedExtractionHandler) processImageExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
+	updateProgress(model.JobStatusProcessing, 10, "Reading image...")
+
+	if job.SourcePath == nil || *job.SourcePath == "" {
+		return nil, fmt.Errorf("image source path not found")
+	}
+
+	imageData, err := os.ReadFile(*job.SourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read image: %w", err)
+	}
+
+	// Cleanup temp file after reading
+	defer os.Remove(*job.SourcePath)
+
+	mimeType := "image/jpeg"
+	if job.MimeType != nil {
+		mimeType = *job.MimeType
+	}
+
+	updateProgress(model.JobStatusExtracting, 30, "Extracting recipe from image...")
+
+	result, err := h.extractor.ExtractFromImage(ctx, imageData, mimeType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract from image: %w", err)
+	}
+
+	updateProgress(model.JobStatusExtracting, 70, "Processing recipe...")
+	return result, nil
+}
+
+// processVideoExtraction handles video extraction
+func (h *UnifiedExtractionHandler) processVideoExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
+	updateProgress(model.JobStatusDownloading, 10, "Downloading video...")
+
+	localPath, thumbnailPath, err := h.downloader.Download(job.SourceURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download video: %w", err)
+	}
+	defer func() {
+		h.downloader.Cleanup(localPath)
+		if thumbnailPath != "" {
+			h.downloader.Cleanup(thumbnailPath)
+		}
+	}()
+
+	updateProgress(model.JobStatusExtracting, 40, "Extracting recipe from video...")
+
+	extractReq := ai.ExtractionRequest{
+		VideoURL:    localPath,
+		Language:    job.Language,
+		DetailLevel: job.DetailLevel,
+	}
+
+	result, err := h.extractor.ExtractRecipe(ctx, extractReq, func(status model.JobStatus, progress int, msg string) {
+		updateProgress(status, progress, msg)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract from video: %w", err)
+	}
+
+	return result, nil
+}
+
+// saveExtractedRecipe saves the extracted recipe to the database
+func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job *model.ExtractionJob, result *ai.ExtractionResult) (uuid.UUID, error) {
+	sourceType := "extraction"
+	switch job.JobType {
+	case model.JobTypeURL:
+		sourceType = "webpage"
+	case model.JobTypeImage:
+		sourceType = "image"
+	case model.JobTypeVideo:
+		sourceType = "video"
+	}
+
+	recipe := &model.Recipe{
+		ID:          uuid.New(),
+		UserID:      job.UserID,
+		Title:       result.Title,
+		Description: stringPtr(result.Description),
+		Servings:    intPtr(result.Servings),
+		PrepTime:    intPtr(result.PrepTime),
+		CookTime:    intPtr(result.CookTime),
+		Difficulty:  stringPtr(result.Difficulty),
+		Cuisine:     stringPtr(result.Cuisine),
+		SourceType:  sourceType,
+		SourceURL:   stringPtr(job.SourceURL),
+		Tags:        result.Tags,
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+	}
+
+	// Convert ingredients
+	for i, ing := range result.Ingredients {
+		if ing.Name == "" {
+			continue
+		}
+
+		qty := parseQuantity(ing.Quantity)
+		category := model.NormalizeCategory(ing.Category)
+
+		recipe.Ingredients = append(recipe.Ingredients, model.RecipeIngredient{
+			ID:         uuid.New(),
+			RecipeID:   recipe.ID,
+			Name:       ing.Name,
+			Quantity:   qty,
+			Unit:       stringPtr(ing.Unit),
+			Category:   category,
+			IsOptional: ing.IsOptional,
+			Notes:      stringPtr(ing.Notes),
+			SortOrder:  i,
+		})
+	}
+
+	// Convert steps
+	for _, step := range result.Steps {
+		recipe.Steps = append(recipe.Steps, model.RecipeStep{
+			ID:              uuid.New(),
+			RecipeID:        recipe.ID,
+			StepNumber:      step.StepNumber,
+			Instruction:     step.Instruction,
+			DurationSeconds: intPtr(step.DurationSeconds),
+			Technique:       stringPtr(step.Technique),
+			Temperature:     stringPtr(step.Temperature),
+		})
+	}
+
+	if err := h.recipeRepo.Create(ctx, recipe); err != nil {
+		return uuid.Nil, err
+	}
+
+	return recipe.ID, nil
+}
+
+// CancelJobInternal cancels a running extraction job (internal use)
+func (h *UnifiedExtractionHandler) CancelJobInternal(jobID uuid.UUID) {
+	if cancelFn, ok := h.activeJobs.Load(jobID); ok {
+		if cancel, ok := cancelFn.(context.CancelFunc); ok {
+			cancel()
+		}
+	}
+}
+
+// GetJob handles GET /api/v1/jobs/{jobID}
+// @Summary Get job status
+// @Description Get the current status of an extraction job (url, image, or video)
+// @Tags Jobs
+// @Produce json
+// @Security BearerAuth
+// @Param jobID path string true "Job UUID"
+// @Success 200 {object} SwaggerJobResponse "Job status"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid job ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 403 {object} SwaggerErrorResponse "Access denied"
+// @Failure 404 {object} SwaggerErrorResponse "Job not found"
+// @Router /jobs/{jobID} [get]
+func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	idStr := chi.URLParam(r, "jobID")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "Invalid job ID")
+		return
+	}
+
+	job, err := h.jobRepo.GetByID(r.Context(), id)
+	if err != nil {
+		if err.Error() == "job not found" {
+			response.NotFound(w, "Job not found")
+			return
+		}
+		h.logger.Error("Failed to get job", "error", err)
+		response.InternalError(w)
+		return
+	}
+
+	if job.UserID != claims.UserID {
+		response.Forbidden(w, "Access denied")
+		return
+	}
+
+	// Include Recipe if completed
+	var resultRecipe *model.Recipe
+	if job.Status == model.JobStatusCompleted && job.ResultRecipeID != nil {
+		resultRecipe, _ = h.recipeRepo.GetByID(r.Context(), *job.ResultRecipeID)
+	}
+
+	resp := job.ToResponse("")
+	resp.Recipe = resultRecipe
+	response.OK(w, resp)
+}
+
+// ListJobs handles GET /api/v1/jobs
+// @Summary List user's jobs
+// @Description Get list of extraction jobs for the current user (includes url, image, and video extractions)
+// @Tags Jobs
+// @Produce json
+// @Security BearerAuth
+// @Param type query string false "Filter by job type" Enums(url, image, video)
+// @Param limit query int false "Items per page" default(20)
+// @Param offset query int false "Pagination offset" default(0)
+// @Success 200 {array} SwaggerJobResponse "List of jobs"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /jobs [get]
+func (h *UnifiedExtractionHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	// Parse query params
+	limit := 20
+	offset := 0
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	jobs, err := h.jobRepo.ListByUser(r.Context(), claims.UserID, limit, offset)
+	if err != nil {
+		h.logger.Error("Failed to list jobs", "error", err)
+		response.InternalError(w)
+		return
+	}
+
+	if jobs == nil {
+		jobs = []*model.ExtractionJob{}
+	}
+
+	// Filter by type if specified
+	jobType := r.URL.Query().Get("type")
+	if jobType != "" {
+		filtered := make([]*model.ExtractionJob, 0)
+		for _, job := range jobs {
+			if string(job.JobType) == jobType {
+				filtered = append(filtered, job)
+			}
+		}
+		jobs = filtered
+	}
+
+	// Convert to response
+	resp := make([]model.JobResponse, 0)
+	for _, job := range jobs {
+		jobResp := job.ToResponse("")
+
+		// Populate basic recipe info if completed
+		if job.Status == model.JobStatusCompleted && job.ResultRecipeID != nil {
+			if recipe, err := h.recipeRepo.GetByID(r.Context(), *job.ResultRecipeID); err == nil {
+				jobResp.Recipe = recipe
+			}
+		}
+
+		resp = append(resp, jobResp)
+	}
+
+	response.OK(w, resp)
+}
+
+// CancelJob handles POST /api/v1/jobs/{jobID}/cancel
+// @Summary Cancel a job
+// @Description Cancel a running extraction job
+// @Tags Jobs
+// @Security BearerAuth
+// @Param jobID path string true "Job UUID"
+// @Success 204 "Job cancelled"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid job ID"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 403 {object} SwaggerErrorResponse "Access denied"
+// @Failure 404 {object} SwaggerErrorResponse "Job not found"
+// @Router /jobs/{jobID}/cancel [post]
+func (h *UnifiedExtractionHandler) CancelJob(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	idStr := chi.URLParam(r, "jobID")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "Invalid job ID")
+		return
+	}
+
+	// Verify ownership
+	job, err := h.jobRepo.GetByID(r.Context(), id)
+	if err != nil {
+		if err.Error() == "job not found" {
+			response.NotFound(w, "Job not found")
+			return
+		}
+		h.logger.Error("Failed to get job", "error", err)
+		response.InternalError(w)
+		return
+	}
+
+	if job.UserID != claims.UserID {
+		response.Forbidden(w, "Access denied")
+		return
+	}
+
+	// Cancel the running job if it's active
+	h.CancelJobInternal(id)
+
+	if err := h.jobRepo.MarkCancelled(r.Context(), id); err != nil {
+		if err.Error() == "job not found" {
+			// Job was already in a terminal state
+			response.NoContent(w)
+			return
+		}
+		h.logger.Error("Failed to mark job cancelled", "error", err)
+		response.InternalError(w)
+		return
+	}
+
+	h.logger.Info("Job cancelled", "jobID", id)
+	response.NoContent(w)
+}

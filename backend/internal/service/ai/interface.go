@@ -189,6 +189,34 @@ type BBox struct {
 	Height float64 `json:"height"` // Height (0-1 normalized)
 }
 
+// RecipeRecommender defines the interface for AI-powered recipe recommendations
+type RecipeRecommender interface {
+	// GetRecommendations returns recipe recommendations based on pantry items and filters
+	GetRecommendations(ctx context.Context, req *RecommendationInput) (*RecommendationOutput, error)
+
+	// EstimateNutrition estimates nutrition info for a recipe based on ingredients
+	EstimateNutrition(ctx context.Context, ingredients []model.RecipeIngredient) (*model.RecipeNutrition, error)
+
+	// SuggestSubstitutes suggests ingredient substitutes from pantry or common alternatives
+	SuggestSubstitutes(ctx context.Context, ingredient string, pantryItems []string) ([]model.SubstituteSuggestion, error)
+}
+
+// RecommendationInput contains inputs for recipe recommendations
+type RecommendationInput struct {
+	Recipes     []*model.Recipe              // User's recipes with ingredients
+	PantryItems []model.PantryItem           // User's pantry items
+	Filters     *model.RecommendationRequest // Filters (mealType, diet, exclude, nutrition, etc.)
+}
+
+// RecommendationOutput contains the recommendation results
+type RecommendationOutput struct {
+	ReadyToCook   []model.RecipeRecommendation `json:"readyToCook"`   // 90-100% match
+	AlmostReady   []model.RecipeRecommendation `json:"almostReady"`   // 70-89% match
+	NeedsShopping []model.RecipeRecommendation `json:"needsShopping"` // 50-69% match
+	Summary       model.RecommendationSummary  `json:"summary"`
+	Filters       model.AppliedFilters         `json:"filters"`
+}
+
 // Supported video platforms
 var SupportedPlatforms = []string{
 	"youtube.com",

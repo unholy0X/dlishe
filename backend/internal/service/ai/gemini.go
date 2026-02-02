@@ -535,6 +535,11 @@ func (g *GeminiClient) IsAvailable(ctx context.Context) bool {
 	return g.client != nil
 }
 
+// GetClient returns the underlying genai.Client for use by other services
+func (g *GeminiClient) GetClient() *genai.Client {
+	return g.client
+}
+
 // ExtractFromWebpage extracts a recipe from a webpage URL
 func (g *GeminiClient) ExtractFromWebpage(ctx context.Context, url string) (*ExtractionResult, error) {
 	// Fetch the webpage content

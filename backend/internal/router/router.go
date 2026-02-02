@@ -72,11 +72,14 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 	var extractor ai.RecipeExtractor = geminiClient
 
+	// Initialize recommendation service (uses same Gemini client)
+	var recommender ai.RecipeRecommender
+	if geminiClient != nil && geminiClient.IsAvailable(geminiCtx) {
+		recommender = ai.NewRecommendationService(geminiClient.GetClient())
+	}
+
 	pantryRepo := postgres.NewPantryRepository(db)
 	pantryHandler := handler.NewPantryHandler(pantryRepo, geminiClient)
-
-	// Extraction handler for URL and image extraction
-	extractionHandler := handler.NewExtractionHandler(extractor, recipeRepo)
 
 	shoppingRepo := postgres.NewShoppingRepository(db)
 	shoppingHandler := handler.NewShoppingHandler(shoppingRepo, recipeRepo, geminiClient)
@@ -85,10 +88,15 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	syncService := sync.NewService(recipeRepo, pantryRepo, shoppingRepo)
 	syncHandler := handler.NewSyncHandler(syncService)
 
-	jobRepo := postgres.NewJobRepository(db)
+	// Initialize recommendations handler
+	recommendationsHandler := handler.NewRecommendationsHandler(recipeRepo, pantryRepo, recommender)
 
+	jobRepo := postgres.NewJobRepository(db)
 	downloader := video.NewDownloader(os.TempDir())
-	videoHandler := handler.NewVideoHandler(jobRepo, recipeRepo, extractor, downloader, logger)
+
+	// Unified extraction handler (handles url, image, video extraction with async jobs)
+	// Also handles job listing, status, and cancellation
+	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, extractor, downloader, logger)
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(redis)
@@ -101,6 +109,9 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public info endpoint
 		r.With(rateLimiter.Public()).Get("/info", healthHandler.Info)
+
+		// Public recipes endpoint (suggested/curated recipes for all users)
+		r.With(rateLimiter.Public()).Get("/recipes/suggested", recipeHandler.ListSuggested)
 
 		// Auth routes (no auth required)
 		r.Route("/auth", func(r chi.Router) {
@@ -128,39 +139,35 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 			r.Route("/recipes", func(r chi.Router) {
 				r.Get("/", recipeHandler.List)
 				r.Post("/", recipeHandler.Create)
-				// r.Get("/shared-with-me", placeholderHandler("shared recipes")) // TODO: Implement shared recipes
 				r.Post("/generate", placeholderHandler("generate recipe"))
 				r.Post("/generate-from-ingredients", placeholderHandler("generate from ingredients"))
 
-				// Extraction endpoints (AI-powered)
-				r.With(rateLimiter.VideoExtraction()).Post("/extract-url", extractionHandler.ExtractFromURL)
-				r.With(rateLimiter.VideoExtraction()).Post("/extract-image", extractionHandler.ExtractFromImage)
+				// Recipe recommendations based on pantry items
+				r.Get("/recommendations", recommendationsHandler.GetRecommendations)
+
+				// Unified extraction endpoint (AI-powered, async job pattern)
+				// Supports: url, image, video extraction with consistent job-based response
+				r.With(rateLimiter.VideoExtraction()).Post("/extract", unifiedExtractionHandler.Extract)
 
 				r.Route("/{recipeID}", func(r chi.Router) {
 					r.Get("/", recipeHandler.Get)
 					r.Put("/", recipeHandler.Update)
 					r.Delete("/", recipeHandler.Delete)
 					r.Post("/favorite", recipeHandler.ToggleFavorite)
-					// r.Delete("/favorite", recipeHandler.ToggleFavorite) // Handled by generic toggle mainly, but kept flexible
+					r.Post("/save", recipeHandler.Clone) // Clone/save recipe to user's collection
 
-					// Sharing - Todo later
+					// Sharing - TODO: Implement later
 					r.Post("/share", placeholderHandler("share recipe"))
-					r.Post("/save-shared", placeholderHandler("save shared recipe"))
 					r.Delete("/shares/{shareID}", placeholderHandler("revoke share"))
 				})
 			})
 
-			// Video extraction routes (stricter rate limiting)
-			r.Route("/video", func(r chi.Router) {
-				r.With(rateLimiter.VideoExtraction()).Post("/extract", videoHandler.Extract)
-			})
-
-			// Job routes
+			// Job routes (extraction job tracking)
 			r.Route("/jobs", func(r chi.Router) {
-				r.Get("/", videoHandler.ListJobs)
-				r.Get("/{jobID}", videoHandler.GetJob)
+				r.Get("/", unifiedExtractionHandler.ListJobs)
+				r.Get("/{jobID}", unifiedExtractionHandler.GetJob)
 				r.Get("/{jobID}/stream", placeholderHandler("stream job")) // TODO: Implement SSE
-				r.Post("/{jobID}/cancel", videoHandler.CancelJob)
+				r.Post("/{jobID}/cancel", unifiedExtractionHandler.CancelJob)
 			})
 
 			// Pantry routes

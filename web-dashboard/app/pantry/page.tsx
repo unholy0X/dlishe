@@ -6,10 +6,14 @@ import { Plus, Search, Edit2, Trash2, AlertTriangle, Calendar, Package } from 'l
 import { useAuth } from '../../lib/auth';
 import { pantryService } from '../../lib/services/pantry';
 import { PantryItem, PantryItemInput, PantryCategory } from '../../lib/types';
+import { VALID_CATEGORIES } from '../../lib/categories';
 import { NavHeader } from '@/lib/components/NavHeader';
 
 export default function PantryPage() {
     const { isAuthenticated, isLoading: authLoading } = useAuth();
+    // ... (rest of function)
+
+    const categories = [...VALID_CATEGORIES] as PantryCategory[];
     const router = useRouter();
     const [items, setItems] = useState<PantryItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -125,10 +129,7 @@ export default function PantryPage() {
         return diffDays;
     };
 
-    const categories: PantryCategory[] = [
-        'produce', 'proteins', 'dairy', 'grains', 'pantry',
-        'spices', 'condiments', 'beverages', 'frozen', 'canned', 'baking', 'other'
-    ];
+
 
     if (authLoading || (!isAuthenticated && loading)) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>;

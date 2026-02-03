@@ -54,6 +54,11 @@ type ShoppingItemInput struct {
 	RecipeName *string  `json:"recipeName,omitempty"`
 }
 
+// SmartMergeRequest represents request to merge lists
+type SmartMergeRequest struct {
+	SourceListIDs []uuid.UUID `json:"sourceListIds"`
+}
+
 // ShoppingListWithItems represents a list with its items
 type ShoppingListWithItems struct {
 	ShoppingList

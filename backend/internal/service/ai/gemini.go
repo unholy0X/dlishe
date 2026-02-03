@@ -380,8 +380,12 @@ func (g *GeminiClient) RefineRecipe(ctx context.Context, rawRecipe *ExtractionRe
    - If category is empty or invalid, assign the most appropriate one
    - Default to "other" if truly uncertain
 
-4. **Verify steps**:
+4. **Verify and Enhance steps**:
    - Ensure instructions are clear and sequential
+   - **CRITICAL**: If steps are extremely brief (common in TikTok recipes), EXPAND them with necessary details:
+     - Add visual cues (e.g., "until golden brown", "until stiff peaks form")
+     - specific techniques (e.g., "fold gently", "whisk vigorously")
+     - implicit intermediate steps (e.g., "preheat oven", "grease pan" if missing)
    - Fix any grammatical issues
    - Ensure step numbers are correct (1, 2, 3...)
 
@@ -468,66 +472,105 @@ func (g *GeminiClient) ValidateURL(url string) error {
 	return nil
 }
 
-// AnalyzeShoppingList analyzes a shopping list for improvements
-func (g *GeminiClient) AnalyzeShoppingList(ctx context.Context, list model.ShoppingListWithItems) (*ListAnalysisResult, error) {
+// SmartMergeItems takes a list of raw items and returns a consolidated, categorized list
+func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string) ([]model.ShoppingItemInput, error) {
 	genModel := g.client.GenerativeModel(g.model)
 	genModel.ResponseMIMEType = "application/json"
 
-	// Prepare list data for prompt
-	listJSON, err := json.Marshal(list)
+	// Prepare list data for prompt - simplify to just names/quantities/units
+	type simpleItem struct {
+		Name     string   `json:"name"`
+		Quantity *float64 `json:"quantity,omitempty"`
+		Unit     *string  `json:"unit,omitempty"`
+		Category *string  `json:"category,omitempty"`
+	}
+
+	var itemsToMerge []simpleItem
+	for _, item := range currentItems {
+		var qty *float64
+		if item.Quantity != nil {
+			q := *item.Quantity
+			qty = &q
+		}
+		var unit *string
+		if item.Unit != nil {
+			u := *item.Unit
+			unit = &u
+		}
+		var cat *string
+		if item.Category != nil {
+			c := *item.Category
+			cat = &c
+		}
+		itemsToMerge = append(itemsToMerge, simpleItem{
+			Name:     item.Name,
+			Quantity: qty,
+			Unit:     unit,
+			Category: cat,
+		})
+	}
+
+	listJSON, err := json.Marshal(itemsToMerge)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal list: %w", err)
 	}
 
+	// Get all valid categories for the prompt
+	categories := model.GetAllCategories()
+	categoriesJSON, _ := json.Marshal(categories)
+
+	// Determine unit instructions based on preference
+	unitInstruction := `2. **Normalize Units**: Combine quantities of same items (e.g., "100g Cheese" + "4oz Cheese" -> "220g Cheese"). Use the most common standard unit.`
+	if preferredUnitSystem == "metric" {
+		unitInstruction = `2. **Normalize Units**: Combine quantities and **STRICTLY CONVERT TO METRIC** (grams, kg, ml, liters, celsius). Convert ounces/lbs to grams/kg. Example: "4oz" -> "113g".`
+	} else if preferredUnitSystem == "imperial" {
+		unitInstruction = `2. **Normalize Units**: Combine quantities and **STRICTLY CONVERT TO IMPERIAL** (ounces, lbs, cups, tsp, tbsp, fahrenheit). Convert grams/kg to oz/lbs. Example: "100g" -> "3.5oz".`
+	}
+
 	prompt := fmt.Sprintf(`
-		You are an expert home economist and chef. Analyze this shopping list and provide helpful suggestions.
+		You are an expert home economist and chef. Your task is to take a raw shopping list and "Smart Merge" it into a clean, organized perfection.
 		
-		**Shopping List**:
+		**Input List**:
 		%s
 		
-		**Analysis Tasks**:
-		1. **Detect Duplicates**: Identify items that might be duplicates (e.g., "Onions" and "Red Onion" if likely for same use, or just exact duplicates).
-		2. **Merge Suggestions**: Suggest combining items (e.g. "2 cans of tomatoes" and "1 can crushed tomatoes" -> "3 cans tomatoes" if suitable).
-		3. **Missing Essentials**: Based on the items present, are there obvious missing companions? (e.g. "Pasta Sauce" but no "Pasta", "Cereal" but no "Milk").
-		4. **Category Check**: Are items in the correct categories? (e.g. "Apples" should be "produce").
+		**Valid Categories**:
+		%s
 		
-		**Return structured JSON**:
-		{
-			"suggestions": [
-				{ "type": "duplicate", "message": "You have 'Onions' and 'Red Onion'.", "itemNames": ["Onions", "Red Onion"], "actionLabel": "Review" },
-				{ "type": "general", "message": "You have pasta sauce but no pasta.", "actionLabel": "Add Pasta" }
-			],
-			"missingEssentials": ["Pasta", "Milk"],
-			"categoryOptimizations": [
-				{ "itemName": "Apples", "currentCategory": "other", "newCategory": "produce", "reason": "Apples are produce" }
-			]
-		}
+		**Instructions**:
+		1. **Merge Duplicates**: Combine items that are effectively the same (e.g., "Onions" + "1 Red Onion" -> "2 Onions" unless specific distinction matters for a recipe).
+		%s
+		3. **Categorize**: Assign the correct category from the **Valid Categories** list provided.
+		4. **Standardize Names**: Use clean, capitalized names (e.g., "milk" -> "Milk").
 		
-		Return ONLY the JSON. Empty arrays if no suggestions.
-	`, string(listJSON))
+		**Return ONLY structured JSON**:
+		[
+			{ "name": "Milk", "quantity": 1, "unit": "gallon", "category": "dairy" },
+			{ "name": "Onions", "quantity": 3, "unit": "pieces", "category": "produce" }
+		]
+	`, string(listJSON), string(categoriesJSON), unitInstruction)
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
 		return genModel.GenerateContent(ctx, genai.Text(prompt))
 	})
 	if err != nil {
-		return nil, fmt.Errorf("analysis generation failed: %w", err)
+		return nil, fmt.Errorf("smart merge generation failed: %w", err)
 	}
 
 	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, fmt.Errorf("no analysis content generated")
+		return nil, fmt.Errorf("no content generated")
 	}
 
-	var result ListAnalysisResult
+	var result []model.ShoppingItemInput
 	for _, part := range resp.Candidates[0].Content.Parts {
 		if txt, ok := part.(genai.Text); ok {
 			if err := json.Unmarshal([]byte(txt), &result); err != nil {
-				return nil, fmt.Errorf("failed to parse analysis JSON: %w", err)
+				return nil, fmt.Errorf("failed to parse JSON: %w", err)
 			}
 			break
 		}
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // IsAvailable checks if the service is configured

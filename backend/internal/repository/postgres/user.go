@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	ErrUserNotFound      = errors.New("user not found")
-	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrUserAlreadyExists  = errors.New("user already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 )
 
@@ -31,8 +31,8 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // Create creates a new user
 func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 	query := `
-		INSERT INTO users (id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO users (id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, preferred_unit_system)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -44,6 +44,7 @@ func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 		user.DeviceID,
 		user.CreatedAt,
 		user.UpdatedAt,
+		user.PreferredUnitSystem,
 	)
 
 	if err != nil {
@@ -61,7 +62,7 @@ func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 // GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	query := `
-		SELECT id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at
+		SELECT id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -77,6 +78,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.DeletedAt,
+		&user.PreferredUnitSystem,
 	)
 
 	if err != nil {
@@ -92,7 +94,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 // GetByEmail retrieves a user by email
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	query := `
-		SELECT id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at
+		SELECT id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
 		FROM users
 		WHERE email = $1 AND deleted_at IS NULL
 	`
@@ -108,6 +110,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.DeletedAt,
+		&user.PreferredUnitSystem,
 	)
 
 	if err != nil {
@@ -123,7 +126,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 // GetByDeviceID retrieves an anonymous user by device ID
 func (r *UserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*model.User, error) {
 	query := `
-		SELECT id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at
+		SELECT id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
 		FROM users
 		WHERE device_id = $1 AND is_anonymous = TRUE AND deleted_at IS NULL
 	`
@@ -139,6 +142,7 @@ func (r *UserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*m
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.DeletedAt,
+		&user.PreferredUnitSystem,
 	)
 
 	if err != nil {
@@ -155,7 +159,7 @@ func (r *UserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*m
 func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	query := `
 		UPDATE users
-		SET email = $2, password_hash = $3, name = $4, is_anonymous = $5, updated_at = $6
+		SET email = $2, password_hash = $3, name = $4, is_anonymous = $5, updated_at = $6, preferred_unit_system = $7
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -168,6 +172,7 @@ func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 		user.Name,
 		user.IsAnonymous,
 		user.UpdatedAt,
+		user.PreferredUnitSystem,
 	)
 
 	if err != nil {

@@ -16,6 +16,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.User, error)
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	GetOrCreateAnonymous(ctx context.Context, deviceID string) (*model.User, bool, error)
+	Update(ctx context.Context, user *model.User) error
 	CreateSubscription(ctx context.Context, userID uuid.UUID) error
 	GetSubscription(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
 }
@@ -60,11 +61,16 @@ type ShoppingRepository interface {
 	UpdateItem(ctx context.Context, itemID, listID uuid.UUID, input *model.ShoppingItemInput) (*model.ShoppingItem, error)
 	ToggleItemChecked(ctx context.Context, itemID, listID uuid.UUID) (*model.ShoppingItem, error)
 	DeleteItem(ctx context.Context, itemID, listID uuid.UUID) error
+	DeleteAllItems(ctx context.Context, tx *sql.Tx, listID uuid.UUID) error
 	CompleteList(ctx context.Context, listID, userID uuid.UUID) error
 
 	// Transaction support for batch operations
 	BeginTransaction(ctx context.Context) (*sql.Tx, error)
 	CreateItemBatch(ctx context.Context, tx *sql.Tx, listID uuid.UUID, inputs []*model.ShoppingItemInput) ([]*model.ShoppingItem, error)
+
+	// Smart Merge support
+	ListItemsInLists(ctx context.Context, listIDs []uuid.UUID) ([]model.ShoppingItem, error)
+	VerifyListsOwnership(ctx context.Context, userID uuid.UUID, listIDs []uuid.UUID) (bool, error)
 
 	// Idempotency check for recipe additions
 	HasRecipeItems(ctx context.Context, listID uuid.UUID, recipeName string) (bool, error)
@@ -99,6 +105,7 @@ type TokenBlacklist interface {
 type VideoDownloader interface {
 	// Download downloads a video and returns (videoPath, thumbnailURL, error)
 	// The thumbnailURL is the CDN link from YouTube/TikTok, not a local file
-	Download(url string) (string, string, error)
+	// Context allows cancellation of download operations
+	Download(ctx context.Context, url string) (string, string, error)
 	Cleanup(path string) error
 }

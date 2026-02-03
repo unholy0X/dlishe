@@ -342,6 +342,13 @@ definitions:
       totalRecipes:
         type: integer
     type: object
+  github_com_dishflow_backend_internal_model.SmartMergeRequest:
+    properties:
+      sourceListIds:
+        items:
+          type: string
+        type: array
+    type: object
   github_com_dishflow_backend_internal_model.SubstituteSuggestion:
     properties:
       item:
@@ -383,46 +390,6 @@ definitions:
       items:
         items:
           $ref: '#/definitions/internal_handler.SwaggerShoppingItem'
-        type: array
-    type: object
-  internal_handler.SwaggerAnalyzeRequest:
-    description: Analyze shopping list with AI
-    properties:
-      recipeId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-    type: object
-  internal_handler.SwaggerAnalyzeResponse:
-    description: AI shopping list analysis
-    properties:
-      categoryGroups:
-        additionalProperties:
-          items:
-            type: string
-          type: array
-        type: object
-      duplicateItems:
-        example:
-        - milk
-        items:
-          type: string
-        type: array
-      estimatedTotal:
-        example: 45.99
-        type: number
-      missingStaples:
-        example:
-        - salt
-        - pepper
-        items:
-          type: string
-        type: array
-      suggestions:
-        example:
-        - Consider adding bread
-        - You might need more eggs
-        items:
-          type: string
         type: array
     type: object
   internal_handler.SwaggerAnonymousRequest:
@@ -873,7 +840,6 @@ definitions:
         enum:
         - manual
         - video
-        - video_extraction
         - ai
         - photo
         - webpage
@@ -2762,81 +2728,6 @@ paths:
       summary: Add recipe ingredients to shopping list
       tags:
       - Shopping
-  /shopping-lists/{id}/analyze:
-    post:
-      description: Get AI-powered suggestions and insights for the shopping list
-      parameters:
-      - description: Shopping list UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: AI analysis results
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerAnalyzeResponse'
-        "400":
-          description: AI service not available
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "404":
-          description: Shopping list not found
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Analyze shopping list with AI
-      tags:
-      - Shopping
-  /shopping-lists/{id}/analyze-add-recipe:
-    post:
-      consumes:
-      - application/json
-      description: Preview what would happen if recipe ingredients were added (AI
-        analysis)
-      parameters:
-      - description: Shopping list UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Recipe to analyze
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/internal_handler.SwaggerAnalyzeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Analysis results
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerAnalyzeResponse'
-        "400":
-          description: Invalid request body
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-        "404":
-          description: Shopping list or recipe not found
-          schema:
-            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Analyze adding recipe to shopping list
-      tags:
-      - Shopping
   /shopping-lists/{id}/archive:
     post:
       description: Mark a shopping list as archived
@@ -3083,6 +2974,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Toggle item checked status
+      tags:
+      - Shopping
+  /shopping-lists/smart-merge:
+    post:
+      consumes:
+      - application/json
+      description: Uses AI to merge duplicates, normalize units, and categorize items
+        from multiple lists into a NEW list
+      parameters:
+      - description: Source list IDs
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_dishflow_backend_internal_model.SmartMergeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New merged list
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerShoppingListWithItems'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "403":
+          description: Forbidden (Access denied to some lists)
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/internal_handler.SwaggerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Smart merge multiple shopping lists using AI
       tags:
       - Shopping
   /sync:

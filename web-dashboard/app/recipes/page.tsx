@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChefHat, Clock, Users, Trash2, Search, Plus, Loader2, Heart, Leaf, Wheat, Milk } from 'lucide-react';
+import { ChefHat, Search, Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { recipeService } from '../../lib/services/recipe';
 import { Recipe } from '../../lib/types';
 import Link from 'next/link';
 import { NavHeader } from '@/lib/components/NavHeader';
+import { RecipeCard } from '@/lib/components/RecipeCard';
 
 export default function RecipesPage() {
     const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -32,7 +33,6 @@ export default function RecipesPage() {
         try {
             setLoading(true);
             const data = await recipeService.getAll();
-            console.log('Recipes API response:', data);
             setRecipes(data.items || []); // Backend returns 'items', not 'recipes'
             setError(null);
         } catch (err) {
@@ -43,9 +43,7 @@ export default function RecipesPage() {
         }
     };
 
-    const handleDelete = async (id: string, e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const handleDelete = async (id: string) => {
         if (!window.confirm('Are you sure you want to delete this recipe?')) return;
         try {
             await recipeService.delete(id);
@@ -53,6 +51,23 @@ export default function RecipesPage() {
         } catch (err) {
             console.error('Failed to delete recipe:', err);
             setError('Failed to delete recipe');
+        }
+    };
+
+    const handleToggleFavorite = async (id: string, isFavorite: boolean) => {
+        // Optimistic update
+        setRecipes(prev => prev.map(r =>
+            r.id === id ? { ...r, isFavorite } : r
+        ));
+
+        try {
+            await recipeService.toggleFavorite(id, isFavorite);
+        } catch (err) {
+            console.error('Failed to toggle favorite', err);
+            // Revert on error
+            setRecipes(prev => prev.map(r =>
+                r.id === id ? { ...r, isFavorite: !isFavorite } : r
+            ));
         }
     };
 
@@ -122,128 +137,13 @@ export default function RecipesPage() {
                 {/* Recipe Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredRecipes.map((recipe) => (
-                        <Link
+                        <RecipeCard
                             key={recipe.id}
-                            href={`/recipes/${recipe.id}`}
-                            className="group block bg-white rounded-xl shadow-soft border border-stone-200 overflow-hidden transition-all hover:shadow-warm hover:border-honey-200"
-                        >
-                            {/* Thumbnail */}
-                            {recipe.thumbnailUrl ? (
-                                <div className="aspect-video bg-stone-100 overflow-hidden">
-                                    <img
-                                        src={recipe.thumbnailUrl}
-                                        alt={recipe.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    />
-                                </div>
-                            ) : (
-                                <div className="aspect-video bg-gradient-to-br from-honey-100 to-sage-100 flex items-center justify-center">
-                                    <ChefHat className="w-12 h-12 text-honey-300" />
-                                </div>
-                            )}
-
-                            {/* Content */}
-                            <div className="p-5">
-                                <h3 className="font-semibold text-lg text-text-primary mb-2 group-hover:text-honey-600 transition-colors line-clamp-2">
-                                    {recipe.title}
-                                </h3>
-
-                                {recipe.description && (
-                                    <p className="text-text-muted text-sm mb-4 line-clamp-2">
-                                        {recipe.description}
-                                    </p>
-                                )}
-
-                                {/* Nutrition & Dietary Badges */}
-                                <div className="flex flex-wrap gap-1.5 mb-3">
-                                    {recipe.nutrition?.tags?.slice(0, 2).map(tag => (
-                                        <span key={tag} className="px-2 py-0.5 rounded-full bg-sage-100 text-sage-700 text-xs capitalize">
-                                            {tag}
-                                        </span>
-                                    ))}
-                                    {recipe.dietaryInfo?.isVegetarian && (
-                                        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs flex items-center gap-1">
-                                            <Leaf className="w-3 h-3" />
-                                            Vegetarian
-                                        </span>
-                                    )}
-                                    {recipe.dietaryInfo?.isVegan && (
-                                        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs flex items-center gap-1">
-                                            <Leaf className="w-3 h-3" />
-                                            Vegan
-                                        </span>
-                                    )}
-                                    {recipe.dietaryInfo?.isGlutenFree && (
-                                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs flex items-center gap-1">
-                                            <Wheat className="w-3 h-3" />
-                                            Gluten-Free
-                                        </span>
-                                    )}
-                                    {recipe.dietaryInfo?.isDairyFree && (
-                                        <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center gap-1">
-                                            <Milk className="w-3 h-3" />
-                                            Dairy-Free
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center gap-4 text-xs text-text-secondary mb-4">
-                                    {recipe.prepTime && (
-                                        <span className="flex items-center gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            {recipe.prepTime}m
-                                        </span>
-                                    )}
-                                    {recipe.servings && (
-                                        <span className="flex items-center gap-1">
-                                            <Users className="w-3 h-3" />
-                                            {recipe.servings} servings
-                                        </span>
-                                    )}
-                                    {recipe.difficulty && (
-                                        <span className={`px-2 py-0.5 rounded-full capitalize ${recipe.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                                            recipe.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                                'bg-red-100 text-red-700'
-                                            }`}>
-                                            {recipe.difficulty}
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center justify-between pt-4 border-t border-stone-100">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-xs text-text-muted">
-                                            {new Date(recipe.createdAt).toLocaleDateString()}
-                                        </span>
-                                        {recipe.sourceType === 'cloned' && recipe.sourceRecipeId && (
-                                            <span className="text-xs text-honey-600 italic">
-                                                Cloned recipe
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                // TODO: Implement favorite toggle
-                                            }}
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-honey-600 rounded-md transition-all"
-                                            title={recipe.isFavorite ? "Remove from favorites" : "Add to favorites"}
-                                        >
-                                            <Heart className={`w-4 h-4 ${recipe.isFavorite ? 'fill-honey-500 text-honey-500' : ''}`} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleDelete(recipe.id, e)}
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"
-                                            title="Delete Recipe"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </Link>
+                            recipe={recipe}
+                            onToggleFavorite={handleToggleFavorite}
+                            onDelete={handleDelete}
+                            showDelete={true}
+                        />
                     ))}
                 </div>
 

@@ -45,6 +45,9 @@ export function NavHeader() {
                     <span className="w-px h-6 bg-stone-200 mx-1"></span>
 
                     <span className="text-sm text-text-secondary">Hello, {user?.name}</span>
+                    <Link href="/settings" className="text-sm text-text-muted hover:text-text-primary">
+                        Settings
+                    </Link>
                     <button
                         onClick={logout}
                         className="text-sm text-text-muted hover:text-text-primary"

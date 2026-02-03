@@ -38,6 +38,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -47,6 +48,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/dishflow/backend/internal/config"
 	"github.com/dishflow/backend/internal/repository/postgres"
@@ -63,7 +65,20 @@ func main() {
 	if cfg.LogLevel == "debug" {
 		logLevel = slog.LevelDebug
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+
+	// Configure file rotation logging
+	fileLogger := &lumberjack.Logger{
+		Filename:   "logs/dishflow-backend.jsonl",
+		MaxSize:    500, // megabytes
+		MaxBackups: 3,
+		MaxAge:     7, // days
+		Compress:   true,
+	}
+
+	// Log to both file and stdout
+	w := io.MultiWriter(os.Stdout, fileLogger)
+
+	logger := slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: logLevel,
 	}))
 	slog.SetDefault(logger)
@@ -183,10 +198,17 @@ func connectPostgres(databaseURL string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open connection: %w", err)
 	}
 
-	// Configure connection pool
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	// Configure connection pool for production load
+	// CRITICAL: With video extraction (30s+), SSE polling (500ms), and concurrent users,
+	// 25 connections is insufficient. At 50 concurrent users:
+	// - 5 video extractions = 5 conns
+	// - 25 SSE polls = 25 conns
+	// - 20 API requests = 20 conns
+	// Total: 50 conns needed vs old limit of 25 → connection exhaustion!
+	db.SetMaxOpenConns(100)                 // Scale with expected concurrent users
+	db.SetMaxIdleConns(25)                  // Keep pool warm for burst traffic
+	db.SetConnMaxLifetime(15 * time.Minute) // Longer for persistent connections
+	db.SetConnMaxIdleTime(5 * time.Minute)  // Close truly idle connections
 
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -197,6 +197,12 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			response.ValidationFailed(w, "url", "URL is required for URL extraction")
 			return
 		}
+		// SECURITY: Max URL length per RFC 2616 and browser limits
+		// Prevents database bloat and DoS via huge URLs
+		if len(req.URL) > 2083 {
+			response.ValidationFailed(w, "url", "URL too long (max 2083 characters)")
+			return
+		}
 		parsedURL, err := url.Parse(req.URL)
 		if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
 			response.ValidationFailed(w, "url", "Invalid URL format")
@@ -223,6 +229,11 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 	case model.JobTypeVideo:
 		if req.URL == "" {
 			response.ValidationFailed(w, "url", "Video URL is required for video extraction")
+			return
+		}
+		// SECURITY: Same URLlength limit applies to video URLs
+		if len(req.URL) > 2083 {
+			response.ValidationFailed(w, "url", "URL too long (max 2083 characters)")
 			return
 		}
 	}
@@ -266,12 +277,14 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 
 	// Create cancellable context with timeout
 	timeout := 30 * time.Minute
-	if jobType == model.JobTypeURL {
-		timeout = 5 * time.Minute
-	} else if jobType == model.JobTypeImage {
+	switch jobType {
+	case model.JobTypeURL, model.JobTypeImage:
 		timeout = 5 * time.Minute
 	}
+	// Use background context but carry over the logger from request
+	reqLogger := middleware.GetLogger(r.Context())
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx = context.WithValue(ctx, middleware.LoggerKey, reqLogger)
 
 	// Store cancel function
 	h.activeJobs.Store(job.ID, cancel)
@@ -284,7 +297,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		// Recover from any panics to prevent server crash
 		defer func() {
 			if r := recover(); r != nil {
-				h.logger.Error("Panic in job processing", "error", r, "jobID", job.ID)
+				reqLogger.Error("Panic in job processing", "error", r, "jobID", job.ID)
 				h.jobRepo.MarkFailed(context.Background(), job.ID, "INTERNAL_ERROR", "An unexpected error occurred")
 			}
 		}()
@@ -301,11 +314,44 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		h.processJob(ctx, job)
 	}()
 
-	response.Created(w, job.ToResponse(""))
+	// Return job ID immediately
+	response.Created(w, map[string]string{
+		"jobId":  job.ID.String(),
+		"status": string(job.Status),
+	})
 }
 
 // processJob handles the background processing for all extraction types
 func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.ExtractionJob) {
+	logger := middleware.GetLogger(ctx)
+	logger.Info("JobStarted",
+		"job_id", job.ID,
+		"type", job.JobType, // Changed from job.Type to job.JobType to match model.ExtractionJob
+		"user_id", job.UserID,
+		"source_url", job.SourceURL,
+	)
+
+	// Determine extraction strategy based on job type
+	var err error
+
+	// Mark status as extracting/downloading
+	if job.JobType == model.JobTypeVideo {
+		err = h.jobRepo.UpdateProgress(ctx, job.ID, model.JobStatusDownloading, 10, "Downloading video...")
+	} else {
+		err = h.jobRepo.UpdateProgress(ctx, job.ID, model.JobStatusExtracting, 10, "Analyzing content...")
+	}
+
+	if err != nil {
+		logger.Error("Failed to update job status", "error", err, "job_id", job.ID)
+		return
+	}
+	// CRITICAL: Clean up activeJobs map when job completes (success, failure, or cancellation)
+	// This prevents unbounded memory growth as jobs accumulate
+	defer func() {
+		h.activeJobs.Delete(job.ID)
+		h.logger.Debug("Cleaned up job from activeJobs map", "jobID", job.ID)
+	}()
+
 	// Helper functions
 	isCancelled := func() bool {
 		select {
@@ -332,7 +378,6 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 	}
 
 	var result *ai.ExtractionResult
-	var err error
 
 	switch job.JobType {
 	case model.JobTypeURL:
@@ -360,6 +405,15 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 		return
 	}
 
+	// Log raw result for debugging (Monitoring Strategy)
+	if resultJSON, err := json.Marshal(result); err == nil {
+		logger.Info("GeminiRawResponse",
+			"job_id", job.ID,
+			"json_length", len(resultJSON),
+			"payload", string(resultJSON),
+		)
+	}
+
 	// Refine the recipe
 	updateProgress(model.JobStatusExtracting, 85, "Refining recipe...")
 	refined, refineErr := h.extractor.RefineRecipe(ctx, result)
@@ -381,6 +435,13 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 		if err != nil {
 			// Log but continue without enrichment
 			h.logger.Warn("Enrichment failed", "error", err)
+		} else if enrichmentJSON, err := json.Marshal(enrichment); err == nil {
+			// Log raw enrichment result (Monitoring Strategy)
+			logger.Info("GeminiEnrichmentResult",
+				"job_id", job.ID,
+				"json_length", len(enrichmentJSON),
+				"payload", string(enrichmentJSON),
+			)
 		}
 	}
 
@@ -538,7 +599,7 @@ func (h *UnifiedExtractionHandler) processVideoExtraction(ctx context.Context, j
 
 	updateProgress(model.JobStatusDownloading, 10, "Downloading video...")
 
-	localPath, thumbnailURL, err := h.downloader.Download(job.SourceURL)
+	localPath, thumbnailURL, err := h.downloader.Download(ctx, job.SourceURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download video: %w", err)
 	}

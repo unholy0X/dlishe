@@ -183,12 +183,13 @@ export default function ShoppingListDetailPage() {
                 </div>
 
                 <div className="flex gap-2">
+
                     <button
                         onClick={() => setIsAnalyzeModalOpen(true)}
                         className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors py-2"
+                        title="Get suggestions"
                     >
-                        <Sparkles size={20} />
-                        Analyze List
+                        <MoreVertical size={20} />
                     </button>
                     <button
                         onClick={handleCompleteShopping}

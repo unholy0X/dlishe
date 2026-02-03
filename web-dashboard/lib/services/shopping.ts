@@ -90,5 +90,10 @@ export const shoppingService = {
     async analyze(listId: string): Promise<ListAnalysisResult> {
         const response = await api.post<ListAnalysisResult>(`/shopping-lists/${listId}/analyze`);
         return response.data;
+    },
+
+    async smartMergeLists(sourceListIds: string[]): Promise<ShoppingListWithItems> {
+        const response = await api.post<ShoppingListWithItems>('/shopping-lists/smart-merge', { sourceListIds });
+        return response.data;
     }
 };

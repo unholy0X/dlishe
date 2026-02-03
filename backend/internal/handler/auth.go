@@ -49,11 +49,12 @@ type AnonymousResponse struct {
 
 // UserResponse represents a user in API responses
 type UserResponse struct {
-	ID          string  `json:"id"`
-	Email       *string `json:"email,omitempty"`
-	Name        *string `json:"name,omitempty"`
-	IsAnonymous bool    `json:"isAnonymous"`
-	CreatedAt   string  `json:"createdAt"`
+	ID                  string  `json:"id"`
+	Email               *string `json:"email,omitempty"`
+	Name                *string `json:"name,omitempty"`
+	PreferredUnitSystem string  `json:"preferredUnitSystem"`
+	IsAnonymous         bool    `json:"isAnonymous"`
+	CreatedAt           string  `json:"createdAt"`
 }
 
 // Anonymous handles POST /api/v1/auth/anonymous
@@ -102,11 +103,12 @@ func (h *AuthHandler) Anonymous(w http.ResponseWriter, r *http.Request) {
 
 	resp := AnonymousResponse{
 		User: UserResponse{
-			ID:          user.ID.String(),
-			Email:       user.Email,
-			Name:        user.Name,
-			IsAnonymous: user.IsAnonymous,
-			CreatedAt:   user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:                  user.ID.String(),
+			Email:               user.Email,
+			Name:                user.Name,
+			PreferredUnitSystem: user.PreferredUnitSystem,
+			IsAnonymous:         user.IsAnonymous,
+			CreatedAt:           user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		},
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
@@ -195,11 +197,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	resp := AuthResponse{
 		User: UserResponse{
-			ID:          user.ID.String(),
-			Email:       user.Email,
-			Name:        user.Name,
-			IsAnonymous: false,
-			CreatedAt:   user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:                  user.ID.String(),
+			Email:               user.Email,
+			Name:                user.Name,
+			PreferredUnitSystem: user.PreferredUnitSystem,
+			IsAnonymous:         false,
+			CreatedAt:           user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		},
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
@@ -286,11 +289,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp := AuthResponse{
 		User: UserResponse{
-			ID:          user.ID.String(),
-			Email:       user.Email,
-			Name:        user.Name,
-			IsAnonymous: user.IsAnonymous,
-			CreatedAt:   user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:                  user.ID.String(),
+			Email:               user.Email,
+			Name:                user.Name,
+			PreferredUnitSystem: user.PreferredUnitSystem,
+			IsAnonymous:         user.IsAnonymous,
+			CreatedAt:           user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		},
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
@@ -494,17 +498,72 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		} `json:"subscription"`
 	}{
 		User: UserResponse{
-			ID:          user.ID.String(),
-			Email:       user.Email,
-			Name:        user.Name,
-			IsAnonymous: user.IsAnonymous,
-			CreatedAt:   user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			ID:                  user.ID.String(),
+			Email:               user.Email,
+			Name:                user.Name,
+			PreferredUnitSystem: user.PreferredUnitSystem,
+			IsAnonymous:         user.IsAnonymous,
+			CreatedAt:           user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		},
 	}
 	resp.Subscription.Entitlement = subscription.Entitlement
 	if subscription.ExpiresAt != nil {
 		exp := subscription.ExpiresAt.Format("2006-01-02T15:04:05Z07:00")
 		resp.Subscription.ExpiresAt = &exp
+	}
+
+	response.OK(w, resp)
+}
+
+// UpdatePreferencesRequest represents the request to update user preferences
+type UpdatePreferencesRequest struct {
+	PreferredUnitSystem string `json:"preferredUnitSystem"`
+}
+
+// UpdatePreferences handles PATCH /api/v1/users/me/preferences
+func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		response.Unauthorized(w, "Not authenticated")
+		return
+	}
+
+	var req UpdatePreferencesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "Invalid request body")
+		return
+	}
+
+	if req.PreferredUnitSystem != "metric" && req.PreferredUnitSystem != "imperial" {
+		response.ValidationFailed(w, "preferredUnitSystem", "must be 'metric' or 'imperial'")
+		return
+	}
+
+	user, err := h.userRepo.GetByID(r.Context(), claims.UserID)
+	if err != nil {
+		if err == postgres.ErrUserNotFound {
+			response.NotFound(w, "User")
+			return
+		}
+		response.InternalError(w)
+		return
+	}
+
+	// Update user
+	user.PreferredUnitSystem = req.PreferredUnitSystem
+	if err := h.userRepo.Update(r.Context(), user); err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	// Return updated user
+	resp := UserResponse{
+		ID:                  user.ID.String(),
+		Email:               user.Email,
+		Name:                user.Name,
+		PreferredUnitSystem: user.PreferredUnitSystem,
+		IsAnonymous:         user.IsAnonymous,
+		CreatedAt:           user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 
 	response.OK(w, resp)

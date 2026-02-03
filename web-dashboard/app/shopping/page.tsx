@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Archive, Trash2, Edit2, ShoppingCart, ChevronRight } from 'lucide-react';
+import { Plus, Archive, Trash2, Edit2, ShoppingCart, ChevronRight, Sparkles, CheckSquare, Square } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { shoppingService } from '../../lib/services/shopping';
 import { ShoppingList, ShoppingListInput } from '../../lib/types';
@@ -16,6 +16,10 @@ export default function ShoppingListsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showArchived, setShowArchived] = useState(false);
+
+    // Multi-select for Smart Merge
+    const [selectedLists, setSelectedLists] = useState<Set<string>>(new Set());
+    const [isMerging, setIsMerging] = useState(false);
 
     // Modal & Form
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -100,6 +104,39 @@ export default function ShoppingListsPage() {
         }
     };
 
+    const toggleListSelection = (id: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const newSelection = new Set(selectedLists);
+        if (newSelection.has(id)) {
+            newSelection.delete(id);
+        } else {
+            newSelection.add(id);
+        }
+        setSelectedLists(newSelection);
+    };
+
+    const handleSmartMerge = async () => {
+        if (selectedLists.size < 2) {
+            alert("Please select at least 2 lists to merge.");
+            return;
+        }
+        if (!window.confirm(`Merge ${selectedLists.size} lists into a new optimized list?`)) return;
+
+        try {
+            setIsMerging(true);
+            await shoppingService.smartMergeLists(Array.from(selectedLists));
+            setSelectedLists(new Set()); // Clear selection
+            await fetchLists(); // Refresh to see new list
+            alert("Lists merged successfully! Check out your new list.");
+        } catch (err) {
+            console.error('Smart merge failed', err);
+            setError('Failed to merge lists. Please try again.');
+        } finally {
+            setIsMerging(false);
+        }
+    };
+
     const openEditModal = (list: ShoppingList, e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -153,6 +190,19 @@ export default function ShoppingListsPage() {
                             Show Archived
                         </label>
 
+                        {selectedLists.size > 0 && (
+                            <button
+                                onClick={handleSmartMerge}
+                                disabled={isMerging || selectedLists.size < 1}
+                                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm ${isMerging
+                                        ? 'bg-gray-400 cursor-not-allowed text-white'
+                                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                    }`}
+                            >
+                                <Sparkles size={20} className={isMerging ? "animate-spin" : ""} />
+                                {isMerging ? 'Merging...' : `Merge (${selectedLists.size})`}
+                            </button>
+                        )}
                         <button
                             onClick={openAddModal}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
@@ -202,6 +252,12 @@ export default function ShoppingListsPage() {
                         >
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={(e) => toggleListSelection(list.id, e)}
+                                        className={`transition-colors p-1 rounded hover:bg-gray-100 ${selectedLists.has(list.id) ? 'text-indigo-600' : 'text-gray-300'}`}
+                                    >
+                                        {selectedLists.has(list.id) ? <CheckSquare size={24} /> : <Square size={24} />}
+                                    </button>
                                     <span className="text-2xl bg-gray-50 w-10 h-10 flex items-center justify-center rounded-lg border border-gray-100">
                                         {list.icon || '🛒'}
                                     </span>
@@ -217,7 +273,7 @@ export default function ShoppingListsPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={(e) => openEditModal(list, e)}
                                         className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"

@@ -1,5 +1,6 @@
 // Import canonical category types from single source of truth
-export { VALID_CATEGORIES, CATEGORY_LABELS, CATEGORY_ICONS, type PantryCategory } from './categories';
+import { VALID_CATEGORIES, CATEGORY_LABELS, CATEGORY_ICONS, type PantryCategory } from './categories';
+export { VALID_CATEGORIES, CATEGORY_LABELS, CATEGORY_ICONS, type PantryCategory };
 
 export interface PantryItem {
     id: string;

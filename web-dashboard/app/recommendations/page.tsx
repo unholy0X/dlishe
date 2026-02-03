@@ -6,16 +6,10 @@ import { useAuth } from '@/lib/auth';
 import { recipeService } from '@/lib/services/recipe';
 import { Recipe, RecommendationFilters, RecommendationResponse, RecipeRecommendation } from '@/lib/types';
 import { NavHeader } from '@/lib/components/NavHeader';
+import { RecommendationCard } from '@/lib/components/RecommendationCard';
 import {
     Loader2,
     ChefHat,
-    Clock,
-    Users,
-    Heart,
-    ShoppingCart,
-    Leaf,
-    Wheat,
-    Milk,
     Filter,
     X,
     TrendingUp,
@@ -75,121 +69,6 @@ export default function RecommendationsPage() {
         const clearedFilters: RecommendationFilters = { limit: 5 };
         setFilters(clearedFilters);
         fetchRecommendations(clearedFilters);
-    };
-
-    const renderRecipeCard = (recommendation: RecipeRecommendation) => {
-        const { recipe, matchScore, matchedIngredients, missingIngredients, reason } = recommendation;
-
-        return (
-            <Link
-                key={recipe.id}
-                href={`/recipes/${recipe.id}`}
-                className="block bg-white rounded-xl shadow-soft border border-stone-200 overflow-hidden transition-all hover:shadow-warm hover:border-honey-200"
-            >
-                {/* Thumbnail */}
-                {recipe.thumbnailUrl ? (
-                    <div className="aspect-video bg-stone-100 overflow-hidden">
-                        <img
-                            src={recipe.thumbnailUrl}
-                            alt={recipe.title}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        />
-                    </div>
-                ) : (
-                    <div className="aspect-video bg-gradient-to-br from-honey-100 to-sage-100 flex items-center justify-center">
-                        <ChefHat className="w-12 h-12 text-honey-300" />
-                    </div>
-                )}
-
-                {/* Content */}
-                <div className="p-5">
-                    {/* Match Score Badge */}
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <div className={`px-3 py-1 rounded-full text-xs font-semibold ${matchScore >= 90 ? 'bg-green-100 text-green-700' :
-                                    matchScore >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                                        'bg-orange-100 text-orange-700'
-                                }`}>
-                                {matchScore}% Match
-                            </div>
-                        </div>
-                        {recipe.isFavorite && (
-                            <Heart className="w-4 h-4 fill-honey-500 text-honey-500" />
-                        )}
-                    </div>
-
-                    <h3 className="font-semibold text-lg text-text-primary mb-2 hover:text-honey-600 transition-colors line-clamp-2">
-                        {recipe.title}
-                    </h3>
-
-                    {/* Reason */}
-                    <p className="text-xs text-text-muted mb-3 italic">
-                        {reason}
-                    </p>
-
-                    {/* Ingredients Match */}
-                    <div className="text-xs mb-3">
-                        <div className="flex items-center gap-2 text-green-600 mb-1">
-                            <span className="font-medium">✓ {matchedIngredients.length} ingredients you have</span>
-                        </div>
-                        {missingIngredients.length > 0 && (
-                            <div className="flex items-center gap-2 text-orange-600">
-                                <ShoppingCart className="w-3 h-3" />
-                                <span>{missingIngredients.length} to buy</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Nutrition & Dietary Badges */}
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                        {recipe.nutrition?.tags?.slice(0, 2).map(tag => (
-                            <span key={tag} className="px-2 py-0.5 rounded-full bg-sage-100 text-sage-700 text-xs capitalize">
-                                {tag}
-                            </span>
-                        ))}
-                        {recipe.dietaryInfo?.isVegetarian && (
-                            <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs flex items-center gap-1">
-                                <Leaf className="w-3 h-3" />
-                                Vegetarian
-                            </span>
-                        )}
-                        {recipe.dietaryInfo?.isGlutenFree && (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs flex items-center gap-1">
-                                <Wheat className="w-3 h-3" />
-                                Gluten-Free
-                            </span>
-                        )}
-                        {recipe.dietaryInfo?.isDairyFree && (
-                            <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center gap-1">
-                                <Milk className="w-3 h-3" />
-                                Dairy-Free
-                            </span>
-                        )}
-                    </div>
-
-                    {/* Meta */}
-                    <div className="flex items-center gap-4 text-xs text-text-secondary">
-                        {recipe.prepTime && (
-                            <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {recipe.prepTime}m
-                            </span>
-                        )}
-                        {recipe.servings && (
-                            <span className="flex items-center gap-1">
-                                <Users className="w-3 h-3" />
-                                {recipe.servings}
-                            </span>
-                        )}
-                        {recommendation.nutritionPerServing?.calories && (
-                            <span className="flex items-center gap-1">
-                                {recommendation.nutritionPerServing.calories} cal
-                            </span>
-                        )}
-                    </div>
-                </div>
-            </Link>
-        );
     };
 
     if (authLoading) {
@@ -416,7 +295,9 @@ export default function RecommendationsPage() {
                                     You have 90-100% of the ingredients needed
                                 </p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {recommendations.readyToCook.map(renderRecipeCard)}
+                                    {recommendations.readyToCook.map(rec => (
+                                        <RecommendationCard key={rec.recipe.id} recommendation={rec} />
+                                    ))}
                                 </div>
                             </section>
                         )}
@@ -432,7 +313,9 @@ export default function RecommendationsPage() {
                                     You have 70-89% of the ingredients needed
                                 </p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {recommendations.almostReady.map(renderRecipeCard)}
+                                    {recommendations.almostReady.map(rec => (
+                                        <RecommendationCard key={rec.recipe.id} recommendation={rec} />
+                                    ))}
                                 </div>
                             </section>
                         )}
@@ -448,7 +331,9 @@ export default function RecommendationsPage() {
                                     You have 50-69% of the ingredients needed
                                 </p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {recommendations.needsShopping.map(renderRecipeCard)}
+                                    {recommendations.needsShopping.map(rec => (
+                                        <RecommendationCard key={rec.recipe.id} recommendation={rec} />
+                                    ))}
                                 </div>
                             </section>
                         )}

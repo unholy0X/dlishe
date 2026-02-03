@@ -195,7 +195,7 @@ func (h *VideoHandler) processJob(ctx context.Context, jobID uuid.UUID, req ai.E
 	updateProgress(model.JobStatusDownloading, 10, "Downloading video...")
 
 	// 1. Download Video
-	localPath, thumbnailURL, err := h.downloader.Download(req.VideoURL)
+	localPath, thumbnailURL, err := h.downloader.Download(ctx, req.VideoURL)
 	if err != nil {
 		if isCancelled() {
 			failJob("CANCELLED", "Job was cancelled during download")

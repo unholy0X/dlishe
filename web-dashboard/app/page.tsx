@@ -186,11 +186,13 @@ export default function DashboardPage() {
                   {activeJobs[0].message || 'Processing with AI'} • Scroll down to see progress
                 </p>
               </div>
-              <RefreshCw
+              <button
                 onClick={fetchJobs}
-                className="w-4 h-4 text-honey-600 cursor-pointer hover:text-honey-700 transition shrink-0"
+                className="cursor-pointer hover:bg-honey-50 rounded p-0.5 transition shrink-0"
                 title="Refresh status"
-              />
+              >
+                <RefreshCw className="w-4 h-4 text-honey-600 hover:text-honey-700" />
+              </button>
             </div>
           </div>
         </div>

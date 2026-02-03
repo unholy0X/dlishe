@@ -257,17 +257,32 @@ func (r *JobRepository) UpdateProgress(ctx context.Context, id uuid.UUID, status
 	return nil
 }
 
-// MarkStarted marks a job as started
-func (r *JobRepository) MarkStarted(ctx context.Context, id uuid.UUID) error {
+// MarkStarted atomically marks a job as started
+// Returns (true, nil) if successfully started
+// Returns (false, nil) if job was already started by another goroutine
+// Returns (_, error) on database error
+// CRITICAL: This prevents race conditions where multiple goroutines try to process the same job
+func (r *JobRepository) MarkStarted(ctx context.Context, id uuid.UUID) (bool, error) {
 	query := `
 		UPDATE video_jobs
 		SET status = $2, started_at = $3
-		WHERE id = $1
+		WHERE id = $1 AND status = $4
+		RETURNING id
 	`
 
 	now := time.Now().UTC()
-	_, err := r.db.ExecContext(ctx, query, id, model.JobStatusDownloading, now)
-	return err
+	var returnedID uuid.UUID
+	err := r.db.QueryRowContext(ctx, query, id, model.JobStatusDownloading, now, model.JobStatusPending).Scan(&returnedID)
+
+	if err == sql.ErrNoRows {
+		// Job was already started by another goroutine
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // MarkCompleted marks a job as completed

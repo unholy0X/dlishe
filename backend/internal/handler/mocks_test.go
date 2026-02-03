@@ -20,6 +20,7 @@ type mockUserRepository struct {
 	GetOrCreateAnonymousFunc func(ctx context.Context, deviceID string) (*model.User, bool, error)
 	CreateSubscriptionFunc   func(ctx context.Context, userID uuid.UUID) error
 	GetSubscriptionFunc      func(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
+	UpdateFunc               func(ctx context.Context, user *model.User) error
 }
 
 func (m *mockUserRepository) Create(ctx context.Context, user *model.User) error {
@@ -46,14 +47,24 @@ func (m *mockUserRepository) GetSubscription(ctx context.Context, userID uuid.UU
 	}
 	return m.GetSubscriptionFunc(ctx, userID)
 }
+func (m *mockUserRepository) Update(ctx context.Context, user *model.User) error {
+	if m.UpdateFunc == nil {
+		return nil
+	}
+	return m.UpdateFunc(ctx, user)
+}
 
 type mockRecipeRepository struct {
-	CreateFunc      func(ctx context.Context, recipe *model.Recipe) error
-	GetByIDFunc     func(ctx context.Context, id uuid.UUID) (*model.Recipe, error)
-	ListByUserFunc  func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error)
-	UpdateFunc      func(ctx context.Context, recipe *model.Recipe) error
-	SoftDeleteFunc  func(ctx context.Context, id uuid.UUID) error
-	SetFavoriteFunc func(ctx context.Context, id uuid.UUID, isFavorite bool) error
+	CreateFunc                 func(ctx context.Context, recipe *model.Recipe) error
+	GetByIDFunc                func(ctx context.Context, id uuid.UUID) (*model.Recipe, error)
+	GetBySourceRecipeIDFunc    func(ctx context.Context, userID, sourceRecipeID uuid.UUID) (*model.Recipe, error)
+	GetBySourceURLFunc         func(ctx context.Context, userID uuid.UUID, sourceURL string) (*model.Recipe, error)
+	ListByUserFunc             func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error)
+	ListPublicFunc             func(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
+	ListForRecommendationsFunc func(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error)
+	UpdateFunc                 func(ctx context.Context, recipe *model.Recipe) error
+	SoftDeleteFunc             func(ctx context.Context, id uuid.UUID) error
+	SetFavoriteFunc            func(ctx context.Context, id uuid.UUID, isFavorite bool) error
 }
 
 func (m *mockRecipeRepository) Create(ctx context.Context, recipe *model.Recipe) error {
@@ -68,11 +79,35 @@ func (m *mockRecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*mode
 	}
 	return m.GetByIDFunc(ctx, id)
 }
+func (m *mockRecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sourceRecipeID uuid.UUID) (*model.Recipe, error) {
+	if m.GetBySourceRecipeIDFunc == nil {
+		return nil, nil // Return nil to indicate not found by default
+	}
+	return m.GetBySourceRecipeIDFunc(ctx, userID, sourceRecipeID)
+}
+func (m *mockRecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID, sourceURL string) (*model.Recipe, error) {
+	if m.GetBySourceURLFunc == nil {
+		return nil, nil
+	}
+	return m.GetBySourceURLFunc(ctx, userID, sourceURL)
+}
 func (m *mockRecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error) {
 	if m.ListByUserFunc == nil {
 		return nil, 0, nil
 	}
 	return m.ListByUserFunc(ctx, userID, limit, offset)
+}
+func (m *mockRecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
+	if m.ListPublicFunc == nil {
+		return nil, 0, nil
+	}
+	return m.ListPublicFunc(ctx, limit, offset)
+}
+func (m *mockRecipeRepository) ListForRecommendations(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error) {
+	if m.ListForRecommendationsFunc == nil {
+		return nil, nil
+	}
+	return m.ListForRecommendationsFunc(ctx, userID)
 }
 func (m *mockRecipeRepository) Update(ctx context.Context, recipe *model.Recipe) error {
 	if m.UpdateFunc == nil {
@@ -95,6 +130,7 @@ func (m *mockRecipeRepository) SetFavorite(ctx context.Context, id uuid.UUID, is
 
 type mockPantryRepository struct {
 	ListFunc        func(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error)
+	ListAllFunc     func(ctx context.Context, userID uuid.UUID) ([]model.PantryItem, error)
 	GetFunc         func(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.PantryItem, error)
 	CreateFunc      func(ctx context.Context, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
 	UpdateFunc      func(ctx context.Context, id uuid.UUID, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
@@ -104,6 +140,12 @@ type mockPantryRepository struct {
 
 func (m *mockPantryRepository) List(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error) {
 	return m.ListFunc(ctx, userID, category, limit, offset)
+}
+func (m *mockPantryRepository) ListAll(ctx context.Context, userID uuid.UUID) ([]model.PantryItem, error) {
+	if m.ListAllFunc == nil {
+		return nil, nil
+	}
+	return m.ListAllFunc(ctx, userID)
 }
 func (m *mockPantryRepository) Get(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.PantryItem, error) {
 	return m.GetFunc(ctx, id, userID)
@@ -122,22 +164,25 @@ func (m *mockPantryRepository) GetExpiring(ctx context.Context, userID uuid.UUID
 }
 
 type mockShoppingRepository struct {
-	ListListsFunc         func(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*model.ShoppingList, error)
-	GetListFunc           func(ctx context.Context, id, userID uuid.UUID) (*model.ShoppingList, error)
-	GetListWithItemsFunc  func(ctx context.Context, id, userID uuid.UUID) (*model.ShoppingListWithItems, error)
-	CreateListFunc        func(ctx context.Context, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error)
-	UpdateListFunc        func(ctx context.Context, id, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error)
-	DeleteListFunc        func(ctx context.Context, id, userID uuid.UUID) error
-	ArchiveListFunc       func(ctx context.Context, id, userID uuid.UUID, archive bool) error
-	ListItemsFunc         func(ctx context.Context, listID uuid.UUID) ([]model.ShoppingItem, error)
-	CreateItemFunc        func(ctx context.Context, listID uuid.UUID, input *model.ShoppingItemInput) (*model.ShoppingItem, error)
-	UpdateItemFunc        func(ctx context.Context, itemID, listID uuid.UUID, input *model.ShoppingItemInput) (*model.ShoppingItem, error)
-	ToggleItemCheckedFunc func(ctx context.Context, itemID, listID uuid.UUID) (*model.ShoppingItem, error)
-	DeleteItemFunc        func(ctx context.Context, itemID, listID uuid.UUID) error
-	CompleteListFunc      func(ctx context.Context, listID, userID uuid.UUID) error
-	BeginTransactionFunc  func(ctx context.Context) (*sql.Tx, error)
-	CreateItemBatchFunc   func(ctx context.Context, tx *sql.Tx, listID uuid.UUID, inputs []*model.ShoppingItemInput) ([]*model.ShoppingItem, error)
-	HasRecipeItemsFunc    func(ctx context.Context, listID uuid.UUID, recipeName string) (bool, error)
+	ListListsFunc            func(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*model.ShoppingList, error)
+	GetListFunc              func(ctx context.Context, id, userID uuid.UUID) (*model.ShoppingList, error)
+	GetListWithItemsFunc     func(ctx context.Context, id, userID uuid.UUID) (*model.ShoppingListWithItems, error)
+	CreateListFunc           func(ctx context.Context, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error)
+	UpdateListFunc           func(ctx context.Context, id, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error)
+	DeleteListFunc           func(ctx context.Context, id, userID uuid.UUID) error
+	ArchiveListFunc          func(ctx context.Context, id, userID uuid.UUID, archive bool) error
+	ListItemsFunc            func(ctx context.Context, listID uuid.UUID) ([]model.ShoppingItem, error)
+	CreateItemFunc           func(ctx context.Context, listID uuid.UUID, input *model.ShoppingItemInput) (*model.ShoppingItem, error)
+	UpdateItemFunc           func(ctx context.Context, itemID, listID uuid.UUID, input *model.ShoppingItemInput) (*model.ShoppingItem, error)
+	ToggleItemCheckedFunc    func(ctx context.Context, itemID, listID uuid.UUID) (*model.ShoppingItem, error)
+	DeleteItemFunc           func(ctx context.Context, itemID, listID uuid.UUID) error
+	CompleteListFunc         func(ctx context.Context, listID, userID uuid.UUID) error
+	BeginTransactionFunc     func(ctx context.Context) (*sql.Tx, error)
+	CreateItemBatchFunc      func(ctx context.Context, tx *sql.Tx, listID uuid.UUID, inputs []*model.ShoppingItemInput) ([]*model.ShoppingItem, error)
+	HasRecipeItemsFunc       func(ctx context.Context, listID uuid.UUID, recipeName string) (bool, error)
+	DeleteAllItemsFunc       func(ctx context.Context, tx *sql.Tx, listID uuid.UUID) error
+	ListItemsInListsFunc     func(ctx context.Context, listIDs []uuid.UUID) ([]model.ShoppingItem, error)
+	VerifyListsOwnershipFunc func(ctx context.Context, userID uuid.UUID, listIDs []uuid.UUID) (bool, error)
 }
 
 func (m *mockShoppingRepository) ListLists(ctx context.Context, userID uuid.UUID, includeArchived bool) ([]*model.ShoppingList, error) {
@@ -176,6 +221,12 @@ func (m *mockShoppingRepository) ToggleItemChecked(ctx context.Context, itemID, 
 func (m *mockShoppingRepository) DeleteItem(ctx context.Context, itemID, listID uuid.UUID) error {
 	return m.DeleteItemFunc(ctx, itemID, listID)
 }
+func (m *mockShoppingRepository) DeleteAllItems(ctx context.Context, tx *sql.Tx, listID uuid.UUID) error {
+	if m.DeleteAllItemsFunc == nil {
+		return nil
+	}
+	return m.DeleteAllItemsFunc(ctx, tx, listID)
+}
 func (m *mockShoppingRepository) CompleteList(ctx context.Context, listID, userID uuid.UUID) error {
 	return m.CompleteListFunc(ctx, listID, userID)
 }
@@ -196,6 +247,18 @@ func (m *mockShoppingRepository) HasRecipeItems(ctx context.Context, listID uuid
 		return false, nil
 	}
 	return m.HasRecipeItemsFunc(ctx, listID, recipeName)
+}
+func (m *mockShoppingRepository) ListItemsInLists(ctx context.Context, listIDs []uuid.UUID) ([]model.ShoppingItem, error) {
+	if m.ListItemsInListsFunc == nil {
+		return nil, nil
+	}
+	return m.ListItemsInListsFunc(ctx, listIDs)
+}
+func (m *mockShoppingRepository) VerifyListsOwnership(ctx context.Context, userID uuid.UUID, listIDs []uuid.UUID) (bool, error) {
+	if m.VerifyListsOwnershipFunc == nil {
+		return true, nil
+	}
+	return m.VerifyListsOwnershipFunc(ctx, userID, listIDs)
 }
 
 type mockJobRepository struct {
@@ -284,15 +347,15 @@ func (m *mockTokenBlacklist) IsRevoked(ctx context.Context, tokenID string) (boo
 }
 
 type mockVideoDownloader struct {
-	DownloadFunc func(url string) (string, string, error)
+	DownloadFunc func(ctx context.Context, url string) (string, string, error)
 	CleanupFunc  func(path string) error
 }
 
-func (m *mockVideoDownloader) Download(url string) (string, string, error) {
+func (m *mockVideoDownloader) Download(ctx context.Context, url string) (string, string, error) {
 	if m.DownloadFunc == nil {
 		return "", "", nil
 	}
-	return m.DownloadFunc(url)
+	return m.DownloadFunc(ctx, url)
 }
 func (m *mockVideoDownloader) Cleanup(path string) error {
 	if m.CleanupFunc == nil {
@@ -350,9 +413,12 @@ func (m *mockRecipeExtractor) IsAvailable(ctx context.Context) bool {
 }
 
 type mockShoppingListAnalyzer struct {
-	AnalyzeShoppingListFunc func(ctx context.Context, list model.ShoppingListWithItems) (*ai.ListAnalysisResult, error)
+	SmartMergeItemsFunc func(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string) ([]model.ShoppingItemInput, error)
 }
 
-func (m *mockShoppingListAnalyzer) AnalyzeShoppingList(ctx context.Context, list model.ShoppingListWithItems) (*ai.ListAnalysisResult, error) {
-	return m.AnalyzeShoppingListFunc(ctx, list)
+func (m *mockShoppingListAnalyzer) SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string) ([]model.ShoppingItemInput, error) {
+	if m.SmartMergeItemsFunc == nil {
+		return nil, nil
+	}
+	return m.SmartMergeItemsFunc(ctx, currentItems, preferredUnitSystem)
 }

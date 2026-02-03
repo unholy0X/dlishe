@@ -205,8 +205,9 @@ func stripPort(addr string) string {
 // getUserIdentifier extracts user ID from request context
 func getUserIdentifier(r *http.Request) string {
 	// Try to get user ID from context (set by auth middleware)
-	if userID := r.Context().Value("userID"); userID != nil {
-		return fmt.Sprintf("user:%v", userID)
+	// FIX: Use GetClaims helper to access strongly-typed context value
+	if claims := GetClaims(r.Context()); claims != nil {
+		return fmt.Sprintf("user:%v", claims.UserID)
 	}
 
 	// Fall back to IP if no user ID

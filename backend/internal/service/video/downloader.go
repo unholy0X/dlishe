@@ -1,6 +1,7 @@
 package video
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -102,7 +103,8 @@ func validateURL(rawURL string) error {
 // It uses yt-dlp to handle various video platforms (YouTube, TikTok, etc.)
 // Returns: (videoPath, thumbnailURL, error)
 // NOTE: thumbnailURL is the CDN link, not a local file path
-func (d *Downloader) Download(rawURL string) (string, string, error) {
+// Context is used to cancel download if job is cancelled or times out
+func (d *Downloader) Download(ctx context.Context, rawURL string) (string, string, error) {
 	// SECURITY: Strict URL validation to prevent command injection
 	if err := validateURL(rawURL); err != nil {
 		return "", "", fmt.Errorf("invalid URL: %w", err)
@@ -119,22 +121,25 @@ func (d *Downloader) Download(rawURL string) (string, string, error) {
 	}
 
 	// First, get the thumbnail URL without downloading
-	thumbnailURL, err := d.getThumbnailURL(rawURL)
+	thumbnailURL, err := d.getThumbnailURL(ctx, rawURL)
 	if err != nil {
 		// Log but don't fail - thumbnail is optional
 		thumbnailURL = ""
 	}
 
-	// Prepare yt-dlp command
-	// SECURITY: exec.Command does NOT use shell, so each arg is passed directly
+	// Prepare yt-dlp command with context for cancellation
+	// SECURITY: exec.CommandContext does NOT use shell, so each arg is passed directly
 	// This means shell metacharacters in rawURL won't be interpreted
 	// But we still validate above for defense in depth
+	//
+	// CRITICAL: Using CommandContext ensures that if the job is cancelled,
+	// the yt-dlp process is terminated, preventing orphaned processes
 	//
 	// -f best: best quality
 	// -S res:720: cap resolution at 720p to save processing time/bandwidth (Gemini doesn't need 4K)
 	// --no-playlist: only download single video, not entire playlist
 	// -o ...: output template
-	cmd := exec.Command("yt-dlp",
+	cmd := exec.CommandContext(ctx, "yt-dlp",
 		"-f", "b[ext=mp4]/best[ext=mp4]/best",
 		"-S", "res:720",
 		"--force-overwrites",
@@ -179,8 +184,9 @@ func (d *Downloader) Download(rawURL string) (string, string, error) {
 }
 
 // getThumbnailURL extracts the thumbnail CDN URL using yt-dlp
-func (d *Downloader) getThumbnailURL(rawURL string) (string, error) {
-	cmd := exec.Command("yt-dlp", "--get-thumbnail", rawURL)
+// Context ensures the process can be cancelled if the job is cancelled
+func (d *Downloader) getThumbnailURL(ctx context.Context, rawURL string) (string, error) {
+	cmd := exec.CommandContext(ctx, "yt-dlp", "--get-thumbnail", rawURL)
 
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout

@@ -86,7 +86,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	pantryHandler := handler.NewPantryHandler(pantryRepo, geminiClient)
 
 	shoppingRepo := postgres.NewShoppingRepository(db)
-	shoppingHandler := handler.NewShoppingHandler(shoppingRepo, recipeRepo, geminiClient)
+	shoppingHandler := handler.NewShoppingHandler(shoppingRepo, recipeRepo, userRepo, geminiClient)
 
 	// Initialize sync service
 	syncService := sync.NewService(recipeRepo, pantryRepo, shoppingRepo)
@@ -136,6 +136,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 			// User routes
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/me", authHandler.Me)
+				r.Patch("/me/preferences", authHandler.UpdatePreferences)
 				r.Patch("/me", placeholderHandler("update user"))
 				r.Delete("/me", placeholderHandler("delete user"))
 			})
@@ -191,6 +192,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 			r.Route("/shopping-lists", func(r chi.Router) {
 				r.Get("/", shoppingHandler.ListLists)
 				r.Post("/", shoppingHandler.CreateList)
+				r.Post("/smart-merge", shoppingHandler.SmartMergeList)
 
 				r.Route("/{id}", func(r chi.Router) {
 					r.Get("/", shoppingHandler.GetList)
@@ -208,9 +210,6 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 					r.Post("/complete", shoppingHandler.CompleteList)
 					// Supervised Add
 					r.Post("/add-from-recipe", shoppingHandler.AddFromRecipe)
-					r.Post("/analyze-add-recipe", shoppingHandler.AnalyzeAddFromRecipe)
-
-					r.Post("/analyze", shoppingHandler.AnalyzeList)
 				})
 			})
 

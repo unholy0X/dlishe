@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -18,14 +19,16 @@ import (
 type ShoppingHandler struct {
 	shoppingRepo ShoppingRepository
 	recipeRepo   RecipeRepository
+	userRepo     UserRepository
 	aiService    ai.ShoppingListAnalyzer
 }
 
 // NewShoppingHandler creates a new shopping handler
-func NewShoppingHandler(shoppingRepo ShoppingRepository, recipeRepo RecipeRepository, aiService ai.ShoppingListAnalyzer) *ShoppingHandler {
+func NewShoppingHandler(shoppingRepo ShoppingRepository, recipeRepo RecipeRepository, userRepo UserRepository, aiService ai.ShoppingListAnalyzer) *ShoppingHandler {
 	return &ShoppingHandler{
 		shoppingRepo: shoppingRepo,
 		recipeRepo:   recipeRepo,
+		userRepo:     userRepo,
 		aiService:    aiService,
 	}
 }
@@ -780,21 +783,21 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// AnalyzeAddFromRecipe handles POST /api/v1/shopping-lists/{id}/analyze-add-recipe
-// @Summary Analyze adding recipe to shopping list
-// @Description Preview what would happen if recipe ingredients were added (AI analysis)
+// SmartMergeList handles POST /api/v1/shopping-lists/smart-merge
+// @Summary Smart merge multiple shopping lists using AI
+// @Description Uses AI to merge duplicates, normalize units, and categorize items from multiple lists into a NEW list
 // @Tags Shopping
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path string true "Shopping list UUID"
-// @Param request body SwaggerAnalyzeRequest true "Recipe to analyze"
-// @Success 200 {object} SwaggerAnalyzeResponse "Analysis results"
-// @Failure 400 {object} SwaggerErrorResponse "Invalid request body"
+// @Param request body model.SmartMergeRequest true "Source list IDs"
+// @Success 200 {object} SwaggerShoppingListWithItems "New merged list"
+// @Failure 400 {object} SwaggerErrorResponse "Invalid request"
 // @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
-// @Failure 404 {object} SwaggerErrorResponse "Shopping list or recipe not found"
-// @Router /shopping-lists/{id}/analyze-add-recipe [post]
-func (h *ShoppingHandler) AnalyzeAddFromRecipe(w http.ResponseWriter, r *http.Request) {
+// @Failure 403 {object} SwaggerErrorResponse "Forbidden (Access denied to some lists)"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /shopping-lists/smart-merge [post]
+func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := middleware.GetClaims(ctx)
 	if claims == nil {
@@ -802,77 +805,151 @@ func (h *ShoppingHandler) AnalyzeAddFromRecipe(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if h.aiService == nil {
-		response.BadRequest(w, "AI service not available")
-		return
-	}
-
-	idStr := chi.URLParam(r, "id")
-	listID, err := uuid.Parse(idStr)
-	if err != nil {
-		response.BadRequest(w, "Invalid list ID")
-		return
-	}
-
-	var req struct {
-		RecipeID uuid.UUID `json:"recipeId"`
-	}
+	// Parse request body
+	var req model.SmartMergeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.BadRequest(w, "Invalid request body")
 		return
 	}
 
-	// Get List
-	list, err := h.shoppingRepo.GetListWithItems(ctx, listID, claims.UserID)
+	if len(req.SourceListIDs) == 0 {
+		response.BadRequest(w, "At least one source list ID is required")
+		return
+	}
+
+	// Verify ownership of all lists
+	// This prevents users from merging lists they don't own
+	owned, err := h.shoppingRepo.VerifyListsOwnership(ctx, claims.UserID, req.SourceListIDs)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+	if !owned {
+		response.ErrorJSON(w, http.StatusForbidden, "ACCESS_DENIED", "You do not have access to one or more provided lists", nil)
+		return
+	}
+
+	// Fetch all items from all source lists
+	items, err := h.shoppingRepo.ListItemsInLists(ctx, req.SourceListIDs)
 	if err != nil {
 		response.InternalError(w)
 		return
 	}
 
-	// Get Recipe
-	recipe, err := h.recipeRepo.GetByID(ctx, req.RecipeID)
+	if len(items) == 0 {
+		response.BadRequest(w, "Source lists contain no items to merge")
+		return
+	}
+
+	// AI Processing: Merge items
+	// Fetch user to get preference
+	user, err := h.userRepo.GetByID(ctx, claims.UserID)
 	if err != nil {
 		if err == model.ErrNotFound {
-			response.NotFound(w, "Recipe")
-		} else {
-			response.InternalError(w)
+			response.NotFound(w, "User")
+			return
 		}
+		response.InternalError(w)
 		return
 	}
 
-	// Create a temporary list with combined items for analysis
-	simulatedList := *list
-	// We need to clone items slice to avoid mutating original if we were using a pointer (we passed by value but slice is ref)
-	// But appending to simulatedList.Items (slice) will likely allocate new array if cap exceeded.
-	// To be safe, let's just append.
-
-	var proposedItems []model.ShoppingItem
-	for _, ing := range recipe.Ingredients {
-		// Mock a shopping item
-		// Handle loop variable scoping for category pointer
-		cat := ing.Category
-		mockItem := model.ShoppingItem{
-			ID:       uuid.New(),
-			Name:     ing.Name,
-			Quantity: ing.Quantity,
-			Unit:     ing.Unit,
-			Category: &cat,
-		}
-		simulatedList.Items = append(simulatedList.Items, mockItem)
-		proposedItems = append(proposedItems, mockItem)
+	// Call AI service with user's preferred unit system
+	mergedItems, err := h.aiService.SmartMergeItems(ctx, items, user.PreferredUnitSystem)
+	if err != nil {
+		response.ErrorJSON(w, http.StatusInternalServerError, "AI_PROCESSING_FAILED", "Failed to merge items", map[string]interface{}{"error": err.Error()})
+		return
 	}
 
-	// Analyze
-	analysis, err := h.aiService.AnalyzeShoppingList(ctx, simulatedList)
+	// normalize inputs just in case AI missed something (e.g. categories)
+	for i := range mergedItems {
+		mergedItems[i].NormalizeInput()
+	}
+
+	// Create NEW Shopping List
+	// Name format: "Smart Merge: [Date]"
+	timeStr := time.Now().Format("Jan 02, 15:04")
+	listInput := &model.ShoppingListInput{
+		Name:        "Smart Merge: " + timeStr,
+		Description: ptr("Automatically merged from " + strings.Join(uuidSliceToStrings(req.SourceListIDs), ", ")),
+	}
+	// Simplified description
+	count := len(req.SourceListIDs)
+	desc := "Merged from " + strings.Join(stringSlice(count, "list(s)"), "")
+	if count == 1 {
+		desc = "Optimized copy of original list"
+	}
+	listInput.Description = &desc
+
+	newList, err := h.shoppingRepo.CreateList(ctx, claims.UserID, listInput)
 	if err != nil {
 		response.InternalError(w)
 		return
 	}
 
-	response.OK(w, map[string]interface{}{
-		"analysis":      analysis,
-		"proposedItems": proposedItems,
-	})
+	// Insert items into new list
+	tx, err := h.shoppingRepo.BeginTransaction(ctx)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+	defer tx.Rollback()
+
+	// Convert structs to pointers for repository
+	var itemPtrs []*model.ShoppingItemInput
+	for i := range mergedItems {
+		itemPtrs = append(itemPtrs, &mergedItems[i])
+	}
+
+	addedItems, err := h.shoppingRepo.CreateItemBatch(ctx, tx, newList.ID, itemPtrs)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	// Return full list with items
+	result := model.ShoppingListWithItems{
+		ShoppingList: *newList,
+		Items:        make([]model.ShoppingItem, len(addedItems)),
+	}
+	for i, item := range addedItems {
+		result.Items[i] = *item
+	}
+
+	response.OK(w, result)
+}
+
+// Helper functions for formatting
+func uuidSliceToStrings(ids []uuid.UUID) []string {
+	strs := make([]string, len(ids))
+	for i, id := range ids {
+		strs[i] = id.String()
+	}
+	return strs
+}
+
+func uuidSliceToStringsShort(ids []uuid.UUID) []string {
+	strs := make([]string, len(ids))
+	for i, id := range ids {
+		strs[i] = id.String()[:8] + "..."
+	}
+	return strs
+}
+
+func stringSlice(n int, s string) []string {
+	return []string{s} // Just dummy for the closure logic above
+}
+
+func ptrSliceToPtrSlice(inputs []model.ShoppingItemInput) []*model.ShoppingItemInput {
+	ptrs := make([]*model.ShoppingItemInput, len(inputs))
+	for i := range inputs {
+		ptrs[i] = &inputs[i]
+	}
+	return ptrs
 }
 
 // CompleteList handles POST /api/v1/shopping-lists/{id}/complete
@@ -921,56 +998,7 @@ func (h *ShoppingHandler) CompleteList(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
-// AnalyzeList handles POST /api/v1/shopping-lists/{id}/analyze
-// @Summary Analyze shopping list with AI
-// @Description Get AI-powered suggestions and insights for the shopping list
-// @Tags Shopping
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Shopping list UUID"
-// @Success 200 {object} SwaggerAnalyzeResponse "AI analysis results"
-// @Failure 400 {object} SwaggerErrorResponse "AI service not available"
-// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
-// @Failure 404 {object} SwaggerErrorResponse "Shopping list not found"
-// @Router /shopping-lists/{id}/analyze [post]
-func (h *ShoppingHandler) AnalyzeList(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
-		response.Unauthorized(w, "Authentication required")
-		return
-	}
-
-	if h.aiService == nil {
-		response.BadRequest(w, "AI service not available")
-		return
-	}
-
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		response.BadRequest(w, "Invalid list ID")
-		return
-	}
-
-	// Verify user owns the list and get items
-	listWithItems, err := h.shoppingRepo.GetListWithItems(ctx, id, claims.UserID)
-	if err == model.ErrNotFound {
-		response.NotFound(w, "Shopping list")
-		return
-	}
-	if err != nil {
-		response.InternalError(w)
-		return
-	}
-
-	// Analyze
-	analysis, err := h.aiService.AnalyzeShoppingList(ctx, *listWithItems)
-	if err != nil {
-		// Log error
-		response.InternalError(w)
-		return
-	}
-
-	response.OK(w, analysis)
+// ptr returns a pointer to the given value
+func ptr[T any](v T) *T {
+	return &v
 }

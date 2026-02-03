@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import api from '@/lib/api';
 import {
     ArrowLeft,
     Clock,
@@ -12,62 +11,34 @@ import {
     ChefHat,
     Flame,
     Loader2,
-    Calendar,
     Share2,
     Heart,
     ShoppingCart,
     Plus,
-    Sparkles
+    Sparkles,
+    Trash2,
+    Edit,
+    Link as LinkIcon
 } from 'lucide-react';
 import clsx from 'clsx';
-import { ShoppingList } from '../../../lib/types';
-import { shoppingService } from '../../../lib/services/shopping';
+import { Recipe, ShoppingList } from '@/lib/types';
+import { shoppingService } from '@/lib/services/shopping';
+import { recipeService } from '@/lib/services/recipe';
 import SupervisedAddModal from './SupervisedAddModal';
-
-// Types (Frontend representation)
-interface Ingredient {
-    id: string;
-    name: string;
-    quantity?: number;
-    unit?: string;
-    category: string;
-    notes?: string;
-}
-
-interface Step {
-    id: string;
-    stepNumber: number;
-    instruction: string;
-    durationSeconds?: number;
-    technique?: string;
-    temperature?: string;
-}
-
-interface Recipe {
-    id: string;
-    title: string;
-    description?: string;
-    servings?: number;
-    prepTime?: number;
-    cookTime?: number;
-    difficulty?: string;
-    cuisine?: string;
-    thumbnailUrl?: string;
-    isFavorite: boolean;
-    ingredients?: Ingredient[];
-    steps?: Step[];
-    tags?: string[];
-}
+import { NutritionPanel } from '@/lib/components/NutritionPanel';
+import { DietaryBadges } from '@/lib/components/DietaryBadges';
 
 export default function RecipeDetailPage() {
     const { id } = useParams();
     const router = useRouter();
-    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
     // Recipe State
     const [recipe, setRecipe] = useState<Recipe | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isFavorite, setIsFavorite] = useState(false);
+    const [favoriteLoading, setFavoriteLoading] = useState(false);
 
     // Shopping List State
     const [lists, setLists] = useState<ShoppingList[]>([]);
@@ -80,7 +51,6 @@ export default function RecipeDetailPage() {
     const [isSupervisedMode, setIsSupervisedMode] = useState(true);
 
     useEffect(() => {
-        // Only redirect if explicitly not loading and not authenticated
         if (!authLoading && !isAuthenticated) {
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
             if (!token) {
@@ -103,8 +73,9 @@ export default function RecipeDetailPage() {
 
     const fetchRecipe = async (recipeId: string) => {
         try {
-            const res = await api.get(`/recipes/${recipeId}`);
-            setRecipe(res.data);
+            const data = await recipeService.getOne(recipeId);
+            setRecipe(data);
+            setIsFavorite(data.isFavorite);
         } catch (err: any) {
             setError(err.response?.data?.error?.message || 'Failed to load recipe');
         } finally {
@@ -121,6 +92,31 @@ export default function RecipeDetailPage() {
         }
     };
 
+    const handleToggleFavorite = async () => {
+        if (!recipe) return;
+        setFavoriteLoading(true);
+        try {
+            const newState = !isFavorite;
+            await recipeService.toggleFavorite(recipe.id, newState);
+            setIsFavorite(newState);
+        } catch (err) {
+            console.error('Failed to toggle favorite', err);
+        } finally {
+            setFavoriteLoading(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!confirm('Are you sure you want to delete this recipe?')) return;
+        try {
+            await recipeService.delete(id as string);
+            router.push('/recipes');
+        } catch (err) {
+            console.error('Failed to delete', err);
+            alert('Failed to delete recipe');
+        }
+    };
+
     const handleAddToList = async (listId: string) => {
         if (!recipe?.id) return;
 
@@ -134,7 +130,6 @@ export default function RecipeDetailPage() {
             setAddingToList(true);
             await shoppingService.addFromRecipe(listId, recipe.id);
             setIsShoppingModalOpen(false);
-            // In a real app, replace with a toast notification
             alert('Added to shopping list!');
         } catch (err) {
             console.error('Failed to add to list', err);
@@ -148,20 +143,16 @@ export default function RecipeDetailPage() {
         if (!recipe) return;
         try {
             setAddingToList(true);
-            // 1. Create List
             const newList = await shoppingService.create({
-                name: recipe.title, // Use recipe title as list name
+                name: recipe.title,
                 icon: '🍳',
                 description: `Created from ${recipe.title}`
             });
 
-            // 2. Add Ingredients
             await shoppingService.addFromRecipe(newList.id, recipe.id);
 
             setIsShoppingModalOpen(false);
             alert(`Created list "${recipe.title}" and added ingredients!`);
-
-            // Optional: Redirect to the new list?
             router.push(`/shopping/${newList.id}`);
         } catch (err) {
             console.error('Failed to create and add to list', err);
@@ -184,21 +175,41 @@ export default function RecipeDetailPage() {
             <div className="min-h-screen flex items-center justify-center bg-stone-50 text-center">
                 <div>
                     <p className="text-red-500 mb-4">{error || 'Recipe not found'}</p>
-                    <Link href="/" className="text-honey-500 hover:underline">Return to Dashboard</Link>
+                    <Link href="/recipes" className="text-honey-500 hover:underline">Return to Recipes</Link>
                 </div>
             </div>
         );
     }
 
+    const isOwner = user?.id === recipe.userId;
+
     return (
         <div className="min-h-screen bg-stone-50 pb-20">
             {/* Navigation */}
             <nav className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 h-16 flex items-center justify-between">
-                <Link href="/" className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition">
+                <Link href="/recipes" className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition">
                     <ArrowLeft className="w-5 h-5" />
                     <span className="font-medium">Back</span>
                 </Link>
-                <div className="flex gap-4">
+                <div className="flex gap-2">
+                    {isOwner && (
+                        <>
+                            <button
+                                onClick={handleDelete}
+                                className="p-2 text-text-muted hover:text-red-500 transition"
+                                title="Delete Recipe"
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                            <button
+                                className="p-2 text-text-muted hover:text-text-primary transition"
+                                title="Edit Recipe"
+                                onClick={() => alert('Edit feature coming soon')}
+                            >
+                                <Edit className="w-5 h-5" />
+                            </button>
+                        </>
+                    )}
                     <button
                         onClick={() => setIsShoppingModalOpen(true)}
                         className="p-2 text-text-muted hover:text-emerald-600 transition flex items-center gap-2"
@@ -207,11 +218,12 @@ export default function RecipeDetailPage() {
                         <ShoppingCart className="w-5 h-5" />
                         <span className="hidden sm:inline text-sm font-medium">Add to List</span>
                     </button>
-                    <button className="p-2 text-text-muted hover:text-honey-500 transition">
-                        <Heart className={clsx("w-5 h-5", recipe.isFavorite && "fill-current text-honey-500")} />
-                    </button>
-                    <button className="p-2 text-text-muted hover:text-text-primary transition">
-                        <Share2 className="w-5 h-5" />
+                    <button
+                        onClick={handleToggleFavorite}
+                        disabled={favoriteLoading}
+                        className="p-2 text-text-muted hover:text-honey-500 transition"
+                    >
+                        <Heart className={clsx("w-5 h-5 transition-transform active:scale-95", isFavorite && "fill-current text-honey-500")} />
                     </button>
                 </div>
             </nav>
@@ -230,20 +242,39 @@ export default function RecipeDetailPage() {
                                 {recipe.difficulty}
                             </span>
                         )}
+                        {recipe.sourceType === 'cloned' && (
+                            <span className="bg-purple-100 text-purple-600 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider flex items-center gap-1">
+                                <Sparkles className="w-3 h-3" /> Cloned
+                            </span>
+                        )}
                     </div>
+
                     <h1 className="text-4xl md:text-5xl font-display font-bold text-text-primary leading-tight text-center">
                         {recipe.title}
                     </h1>
+
+                    <div className="flex justify-center">
+                        <DietaryBadges dietaryInfo={recipe.dietaryInfo} />
+                    </div>
+
                     {recipe.description && (
                         <p className="text-lg text-text-muted max-w-3xl mx-auto leading-relaxed text-center">
                             {recipe.description}
                         </p>
                     )}
+
+                    {recipe.sourceUrl && (
+                        <div className="text-center">
+                            <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-honey-600 hover:text-honey-700 hover:underline">
+                                <LinkIcon className="w-3 h-3" /> View Source
+                            </a>
+                        </div>
+                    )}
                 </header>
 
                 {/* Thumbnail Card */}
                 {recipe.thumbnailUrl && (
-                    <div className="bg-white rounded-2xl shadow-warm border border-stone-200 overflow-hidden">
+                    <div className="bg-white rounded-2xl shadow-warm border border-stone-200 overflow-hidden max-w-4xl mx-auto">
                         <img
                             src={recipe.thumbnailUrl}
                             alt={recipe.title}
@@ -253,12 +284,12 @@ export default function RecipeDetailPage() {
                 )}
 
                 {/* Meta Stats */}
-                <div className="bg-white rounded-2xl shadow-warm border border-stone-200 p-6">
-                    <div className="flex justify-around gap-4 max-w-2xl mx-auto">
+                <div className="bg-white rounded-2xl shadow-warm border border-stone-200 p-6 max-w-4xl mx-auto">
+                    <div className="flex justify-around gap-4">
                         <div className="text-center">
                             <div className="flex justify-center mb-2 text-honey-400"><Clock className="w-6 h-6" /></div>
                             <div className="font-display font-bold text-2xl text-text-primary">{((recipe.prepTime || 0) + (recipe.cookTime || 0))}m</div>
-                            <div className="text-sm text-text-muted uppercase tracking-wide">Total Time</div>
+                            <div className="text-sm text-text-muted uppercase tracking-wide">Total</div>
                         </div>
                         <div className="text-center">
                             <div className="flex justify-center mb-2 text-honey-400"><Users className="w-6 h-6" /></div>
@@ -268,16 +299,29 @@ export default function RecipeDetailPage() {
                         <div className="text-center">
                             <div className="flex justify-center mb-2 text-honey-400"><Flame className="w-6 h-6" /></div>
                             <div className="font-display font-bold text-2xl text-text-primary">{(recipe.ingredients || []).length}</div>
-                            <div className="text-sm text-text-muted uppercase tracking-wide">Ingredients</div>
+                            <div className="text-sm text-text-muted uppercase tracking-wide">Items</div>
                         </div>
+                        {recipe.nutrition?.calories && (
+                            <div className="text-center hidden sm:block">
+                                <div className="flex justify-center mb-2 text-emerald-500"><Heart className="w-6 h-6" /></div>
+                                <div className="font-display font-bold text-2xl text-text-primary">{recipe.nutrition.calories}</div>
+                                <div className="text-sm text-text-muted uppercase tracking-wide">Calories</div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Two Column Layout: Ingredients (Left) | Steps (Right) */}
-                <div className="grid lg:grid-cols-2 gap-8">
+                {/* Nutrition Panel (if available) */}
+                {recipe.nutrition && (
+                    <div className="max-w-4xl mx-auto">
+                        <NutritionPanel nutrition={recipe.nutrition} />
+                    </div>
+                )}
 
+                {/* Ingredients & Steps */}
+                <div className="grid lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
                     {/* Ingredients Column */}
-                    <section className="bg-white rounded-2xl shadow-warm border border-stone-200 p-6 md:p-8 h-fit lg:sticky lg:top-8">
+                    <section className="bg-white rounded-2xl shadow-warm border border-stone-200 p-6 md:p-8 h-fit lg:sticky lg:top-24">
                         <h2 className="font-display text-3xl font-bold text-text-primary mb-6 flex items-center gap-2">
                             <Flame className="w-7 h-7 text-honey-400" />
                             <span>Ingredients</span>
@@ -338,7 +382,6 @@ export default function RecipeDetailPage() {
                             )}
                         </div>
                     </section>
-
                 </div>
             </main>
 
@@ -399,9 +442,6 @@ export default function RecipeDetailPage() {
                                 {addingToList ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus size={18} />}
                                 <span className="font-medium">Create New List "{recipe.title}"</span>
                             </button>
-                            <p className="text-xs text-center text-gray-400 mt-2">
-                                Check your shopping lists for items after adding.
-                            </p>
                         </div>
                     </div>
                 </div>

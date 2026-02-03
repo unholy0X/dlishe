@@ -6,17 +6,13 @@ import { useAuth } from '@/lib/auth';
 import { recipeService } from '@/lib/services/recipe';
 import { Recipe } from '@/lib/types';
 import { NavHeader } from '@/lib/components/NavHeader';
+import { RecipeCard } from '@/lib/components/RecipeCard';
 import {
     Loader2,
     ChefHat,
-    Clock,
-    Users,
     Search,
     BookmarkPlus,
-    Check,
-    Leaf,
-    Wheat,
-    Milk
+    Check
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -146,117 +142,43 @@ export default function SuggestedRecipesPage() {
                 {/* Recipe Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredRecipes.map((recipe) => (
-                        <div
+                        <RecipeCard
                             key={recipe.id}
-                            className="group block bg-white rounded-xl shadow-soft border border-stone-200 overflow-hidden transition-all hover:shadow-warm hover:border-honey-200"
+                            recipe={recipe}
+                            hideFooter={true}
+                            showFavorite={false}
+                            showDelete={false}
                         >
-                            {/* Thumbnail */}
-                            <Link href={`/recipes/${recipe.id}`}>
-                                {recipe.thumbnailUrl ? (
-                                    <div className="aspect-video bg-stone-100 overflow-hidden">
-                                        <img
-                                            src={recipe.thumbnailUrl}
-                                            alt={recipe.title}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                        />
-                                    </div>
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSaveRecipe(recipe.id);
+                                }}
+                                disabled={savingRecipeId === recipe.id || savedRecipeIds.has(recipe.id)}
+                                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${savedRecipeIds.has(recipe.id)
+                                    ? 'bg-sage-100 text-sage-700 cursor-not-allowed'
+                                    : 'bg-honey-400 hover:bg-honey-500 text-white'
+                                    }`}
+                            >
+                                {savingRecipeId === recipe.id ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : savedRecipeIds.has(recipe.id) ? (
+                                    <>
+                                        <Check className="w-4 h-4" />
+                                        Saved
+                                    </>
                                 ) : (
-                                    <div className="aspect-video bg-gradient-to-br from-honey-100 to-sage-100 flex items-center justify-center">
-                                        <ChefHat className="w-12 h-12 text-honey-300" />
-                                    </div>
+                                    <>
+                                        <BookmarkPlus className="w-4 h-4" />
+                                        Save to My Recipes
+                                    </>
                                 )}
-                            </Link>
-
-                            {/* Content */}
-                            <div className="p-5">
-                                <Link href={`/recipes/${recipe.id}`}>
-                                    <h3 className="font-semibold text-lg text-text-primary mb-2 group-hover:text-honey-600 transition-colors line-clamp-2">
-                                        {recipe.title}
-                                    </h3>
-                                </Link>
-
-                                {recipe.description && (
-                                    <p className="text-text-muted text-sm mb-4 line-clamp-2">
-                                        {recipe.description}
-                                    </p>
-                                )}
-
-                                {/* Nutrition & Dietary Badges */}
-                                <div className="flex flex-wrap gap-1.5 mb-3">
-                                    {recipe.nutrition?.tags?.slice(0, 2).map(tag => (
-                                        <span key={tag} className="px-2 py-0.5 rounded-full bg-sage-100 text-sage-700 text-xs capitalize">
-                                            {tag}
-                                        </span>
-                                    ))}
-                                    {recipe.dietaryInfo?.isVegetarian && (
-                                        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs flex items-center gap-1">
-                                            <Leaf className="w-3 h-3" />
-                                            Vegetarian
-                                        </span>
-                                    )}
-                                    {recipe.dietaryInfo?.isVegan && (
-                                        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs flex items-center gap-1">
-                                            <Leaf className="w-3 h-3" />
-                                            Vegan
-                                        </span>
-                                    )}
-                                    {recipe.dietaryInfo?.isGlutenFree && (
-                                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs flex items-center gap-1">
-                                            <Wheat className="w-3 h-3" />
-                                            Gluten-Free
-                                        </span>
-                                    )}
-                                    {recipe.dietaryInfo?.isDairyFree && (
-                                        <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center gap-1">
-                                            <Milk className="w-3 h-3" />
-                                            Dairy-Free
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center gap-4 text-xs text-text-secondary mb-4">
-                                    {recipe.prepTime && (
-                                        <span className="flex items-center gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            {recipe.prepTime}m
-                                        </span>
-                                    )}
-                                    {recipe.servings && (
-                                        <span className="flex items-center gap-1">
-                                            <Users className="w-3 h-3" />
-                                            {recipe.servings} servings
-                                        </span>
-                                    )}
-                                </div>
-
-                                {/* Save Button */}
-                                <button
-                                    onClick={() => handleSaveRecipe(recipe.id)}
-                                    disabled={savingRecipeId === recipe.id || savedRecipeIds.has(recipe.id)}
-                                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${savedRecipeIds.has(recipe.id)
-                                            ? 'bg-sage-100 text-sage-700 cursor-not-allowed'
-                                            : 'bg-honey-400 hover:bg-honey-500 text-white'
-                                        }`}
-                                >
-                                    {savingRecipeId === recipe.id ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Saving...
-                                        </>
-                                    ) : savedRecipeIds.has(recipe.id) ? (
-                                        <>
-                                            <Check className="w-4 h-4" />
-                                            Saved to My Recipes
-                                        </>
-                                    ) : (
-                                        <>
-                                            <BookmarkPlus className="w-4 h-4" />
-                                            Save to My Recipes
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
+                            </button>
+                        </RecipeCard>
                     ))}
                 </div>
 

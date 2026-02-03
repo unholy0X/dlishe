@@ -131,30 +131,8 @@ type RecipeExtractor interface {
 
 // ShoppingListAnalyzer defines the interface for AI-powered shopping list analysis
 type ShoppingListAnalyzer interface {
-	AnalyzeShoppingList(ctx context.Context, list model.ShoppingListWithItems) (*ListAnalysisResult, error)
-}
-
-// ListAnalysisResult contains the analysis of a shopping list
-type ListAnalysisResult struct {
-	Suggestions           []ListSuggestion       `json:"suggestions"`
-	MissingEssentials     []string               `json:"missingEssentials"`
-	CategoryOptimizations []CategoryOptimization `json:"categoryOptimizations"`
-}
-
-// ListSuggestion represents a specific suggestion for the list
-type ListSuggestion struct {
-	Type        string   `json:"type"` // "duplicate", "merge", "general"
-	Message     string   `json:"message"`
-	ItemNames   []string `json:"itemNames,omitempty"`
-	ActionLabel string   `json:"actionLabel,omitempty"`
-}
-
-// CategoryOptimization represents a suggestion to move items to a better category
-type CategoryOptimization struct {
-	ItemName        string `json:"itemName"`
-	CurrentCategory string `json:"currentCategory"`
-	NewCategory     string `json:"newCategory"`
-	Reason          string `json:"reason"`
+	// SmartMergeItems takes a list of raw items and returns a consolidated, categorized list
+	SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string) ([]model.ShoppingItemInput, error)
 }
 
 // PantryScanner defines the interface for AI-powered pantry scanning

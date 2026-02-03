@@ -8,15 +8,16 @@ import (
 
 // User represents a DishFlow user
 type User struct {
-	ID           uuid.UUID  `json:"id" db:"id"`
-	Email        *string    `json:"email,omitempty" db:"email"`
-	PasswordHash *string    `json:"-" db:"password_hash"`
-	Name         *string    `json:"name,omitempty" db:"name"`
-	IsAnonymous  bool       `json:"isAnonymous" db:"is_anonymous"`
-	DeviceID     *string    `json:"deviceId,omitempty" db:"device_id"`
-	CreatedAt    time.Time  `json:"createdAt" db:"created_at"`
-	UpdatedAt    time.Time  `json:"updatedAt" db:"updated_at"`
-	DeletedAt    *time.Time `json:"-" db:"deleted_at"`
+	ID                  uuid.UUID  `json:"id" db:"id"`
+	Email               *string    `json:"email,omitempty" db:"email"`
+	PasswordHash        *string    `json:"-" db:"password_hash"`
+	Name                *string    `json:"name,omitempty" db:"name"`
+	PreferredUnitSystem string     `json:"preferredUnitSystem" db:"preferred_unit_system"`
+	IsAnonymous         bool       `json:"isAnonymous" db:"is_anonymous"`
+	DeviceID            *string    `json:"deviceId,omitempty" db:"device_id"`
+	CreatedAt           time.Time  `json:"createdAt" db:"created_at"`
+	UpdatedAt           time.Time  `json:"updatedAt" db:"updated_at"`
+	DeletedAt           *time.Time `json:"-" db:"deleted_at"`
 }
 
 // UserSubscription represents a user's subscription status

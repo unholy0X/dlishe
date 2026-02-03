@@ -102,3 +102,6 @@ See `/Users/naoufal/shipyard/dishflow/.agent/specs/` for detailed architecture d
 ## Status
 
 See `TRACKING.md` for current implementation status.
+``
+
+docker cp backend-api-1:/app/logs/dishflow-backend.jsonl ./logs/

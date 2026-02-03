@@ -1727,6 +1727,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/shopping-lists/smart-merge": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Uses AI to merge duplicates, normalize units, and categorize items from multiple lists into a NEW list",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Shopping"
+                ],
+                "summary": "Smart merge multiple shopping lists using AI",
+                "parameters": [
+                    {
+                        "description": "Source list IDs",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.SmartMergeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New merged list",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerShoppingListWithItems"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (Access denied to some lists)",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/shopping-lists/{id}": {
             "get": {
                 "security": [
@@ -1955,122 +2018,6 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Recipe already added",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/shopping-lists/{id}/analyze": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get AI-powered suggestions and insights for the shopping list",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Shopping"
-                ],
-                "summary": "Analyze shopping list with AI",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Shopping list UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "AI analysis results",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerAnalyzeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "AI service not available",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Shopping list not found",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/shopping-lists/{id}/analyze-add-recipe": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Preview what would happen if recipe ingredients were added (AI analysis)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Shopping"
-                ],
-                "summary": "Analyze adding recipe to shopping list",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Shopping list UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Recipe to analyze",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerAnalyzeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Analysis results",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerAnalyzeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Shopping list or recipe not found",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
                         }
@@ -3070,6 +3017,17 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_dishflow_backend_internal_model.SmartMergeRequest": {
+            "type": "object",
+            "properties": {
+                "sourceListIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "github_com_dishflow_backend_internal_model.SubstituteSuggestion": {
             "type": "object",
             "properties": {
@@ -3128,64 +3086,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/internal_handler.SwaggerShoppingItem"
                     }
-                }
-            }
-        },
-        "internal_handler.SwaggerAnalyzeRequest": {
-            "description": "Analyze shopping list with AI",
-            "type": "object",
-            "properties": {
-                "recipeId": {
-                    "type": "string",
-                    "example": "550e8400-e29b-41d4-a716-446655440000"
-                }
-            }
-        },
-        "internal_handler.SwaggerAnalyzeResponse": {
-            "description": "AI shopping list analysis",
-            "type": "object",
-            "properties": {
-                "categoryGroups": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "duplicateItems": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "milk"
-                    ]
-                },
-                "estimatedTotal": {
-                    "type": "number",
-                    "example": 45.99
-                },
-                "missingStaples": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "salt",
-                        "pepper"
-                    ]
-                },
-                "suggestions": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "Consider adding bread",
-                        "You might need more eggs"
-                    ]
                 }
             }
         },
@@ -3795,7 +3695,6 @@ const docTemplate = `{
                     "enum": [
                         "manual",
                         "video",
-                        "video_extraction",
                         "ai",
                         "photo",
                         "webpage",

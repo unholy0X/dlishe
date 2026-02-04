@@ -19,9 +19,9 @@ import (
 	"google.golang.org/api/option"
 )
 
-// fetchWebpage fetches the content of a webpage and returns it as text
+// fetchWebpage fetches the content of a webpage and returns it as text along with a main image URL
 // It uses goquery for proper HTML parsing and extracts readable text content
-func fetchWebpage(ctx context.Context, url string) (string, error) {
+func fetchWebpage(ctx context.Context, url string) (string, string, error) {
 	// Create HTTP client with timeout and redirect handling
 	client := &http.Client{
 		Timeout: 45 * time.Second,
@@ -35,7 +35,7 @@ func fetchWebpage(ctx context.Context, url string) (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Set user agent to avoid being blocked
@@ -45,12 +45,12 @@ func fetchWebpage(ctx context.Context, url string) (string, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("fetch failed: %w", err)
+		return "", "", fmt.Errorf("fetch failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+		return "", "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
 	// Read body with size limit (5MB max to avoid memory issues)
@@ -59,7 +59,64 @@ func fetchWebpage(ctx context.Context, url string) (string, error) {
 	// Parse HTML with goquery
 	doc, err := goquery.NewDocumentFromReader(limitedReader)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse HTML: %w", err)
+		return "", "", fmt.Errorf("failed to parse HTML: %w", err)
+	}
+
+	content, imageURL := parseWebpageContent(doc)
+	return content, imageURL, nil
+}
+
+// parseWebpageContent extracts the main content and image URL from a parsed document
+func parseWebpageContent(doc *goquery.Document) (string, string) {
+	// --- Extract Metadata (Images) BEFORE removing elements ---
+	var imageURL string
+
+	// 1. Open Graph Image (Standard)
+	if val, exists := doc.Find("meta[property='og:image']").Attr("content"); exists {
+		imageURL = val
+	}
+
+	// 2. Twitter Image (Fallback)
+	if imageURL == "" {
+		if val, exists := doc.Find("meta[name='twitter:image']").Attr("content"); exists {
+			imageURL = val
+		}
+	}
+
+	// 3. JSON-LD Image (Structured Data)
+	// We scan JSON-LD blocks for "image" or "thumbnailUrl"
+	if imageURL == "" {
+		doc.Find("script[type='application/ld+json']").EachWithBreak(func(i int, s *goquery.Selection) bool {
+			jsonText := s.Text()
+			// Simple heuristic check first
+			if strings.Contains(jsonText, "Recipe") || strings.Contains(jsonText, "recipe") {
+				// We don't want to fully unmarshal everything if not needed, but for image extraction it's safer
+				// Let's try to extract image field via regex for robustness vs unmarshalling large unknown structs
+				// Regex to find "image": "url" or "image": ["url"] or "thumbnailUrl": "url"
+
+				// Look for thumbnailUrl
+				reThumb := regexp.MustCompile(`"thumbnailUrl"\s*:\s*"([^"]+)"`)
+				if match := reThumb.FindStringSubmatch(jsonText); len(match) > 1 {
+					imageURL = match[1]
+					return false // Break
+				}
+
+				// Look for image as string
+				reImg := regexp.MustCompile(`"image"\s*:\s*"([^"]+)"`)
+				if match := reImg.FindStringSubmatch(jsonText); len(match) > 1 {
+					imageURL = match[1]
+					return false // Break
+				}
+
+				// Look for image object url
+				reImgObj := regexp.MustCompile(`"image"\s*:\s*\{\s*"@type"\s*:\s*"ImageObject"[^}]*"url"\s*:\s*"([^"]+)"`)
+				if match := reImgObj.FindStringSubmatch(jsonText); len(match) > 1 {
+					imageURL = match[1]
+					return false
+				}
+			}
+			return true // Continue
+		})
 	}
 
 	// Remove non-content elements
@@ -68,7 +125,7 @@ func fetchWebpage(ctx context.Context, url string) (string, error) {
 	// Try to find recipe-specific content first (common recipe schema selectors)
 	var contentBuilder strings.Builder
 
-	// Look for JSON-LD recipe schema (most reliable source)
+	// Look for JSON-LD recipe schema (most reliable source for TEXT as well)
 	doc.Find("script[type='application/ld+json']").Each(func(i int, s *goquery.Selection) {
 		jsonText := s.Text()
 		if strings.Contains(jsonText, "Recipe") || strings.Contains(jsonText, "recipe") {
@@ -123,7 +180,7 @@ func fetchWebpage(ctx context.Context, url string) (string, error) {
 		finalText = finalText[:50000] + "\n[Content truncated...]"
 	}
 
-	return finalText, nil
+	return finalText, imageURL
 }
 
 // cleanText cleans up extracted text by removing excess whitespace
@@ -622,8 +679,8 @@ func (g *GeminiClient) ExtractFromWebpage(ctx context.Context, url string, onPro
 		onProgress(model.JobStatusProcessing, 10, "Fetching webpage...")
 	}
 
-	// Fetch the webpage content
-	htmlContent, err := fetchWebpage(ctx, url)
+	// Fetch the webpage content and generic image URL
+	htmlContent, imageURL, err := fetchWebpage(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch webpage: %w", err)
 	}
@@ -712,6 +769,12 @@ Return ONLY the JSON, no markdown or explanations.`, url, htmlContent)
 	// Check for rejection
 	if result.NonRecipe {
 		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
+	}
+
+	// Use extracted image URL if AI didn't find one or if we prefer metadata
+	// Metadata is usually higher quality/resolution than what AI surmises from body text
+	if imageURL != "" {
+		result.Thumbnail = imageURL
 	}
 
 	return &result, nil

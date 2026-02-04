@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/dishflow/backend/internal/model"
 )
 
@@ -89,6 +90,108 @@ func TestExtractRecipe_InputValidation(t *testing.T) {
 				if err != nil && (strings.Contains(err.Error(), "invalid language format") || strings.Contains(err.Error(), "invalid detail level format")) {
 					t.Errorf("ExtractRecipe() unexpected validation error = %v", err)
 				}
+			}
+		})
+	}
+}
+
+func TestParseWebpageContent_ImageExtraction(t *testing.T) {
+	tests := []struct {
+		name          string
+		html          string
+		wantImageURL  string
+		wantInContent string
+	}{
+		{
+			name:          "Open Graph Image",
+			html:          `<html><head><meta property="og:image" content="http://example.com/og.jpg"></head><body><h1>Recipe Title</h1></body></html>`,
+			wantImageURL:  "http://example.com/og.jpg",
+			wantInContent: "Recipe Title",
+		},
+		{
+			name:          "Twitter Image Fallback",
+			html:          `<html><head><meta name="twitter:image" content="http://example.com/twitter.jpg"></head><body><h1>Recipe Title</h1></body></html>`,
+			wantImageURL:  "http://example.com/twitter.jpg",
+			wantInContent: "Recipe Title",
+		},
+		{
+			name: "JSON-LD thumbnailUrl",
+			html: `
+				<html>
+				<head>
+					<script type="application/ld+json">
+					{
+						"@context": "https://schema.org/",
+						"@type": "Recipe",
+						"name": "Pizza",
+						"thumbnailUrl": "http://example.com/thumb.jpg"
+					}
+					</script>
+				</head>
+				<body><h1>Pizza</h1></body>
+				</html>`,
+			wantImageURL:  "http://example.com/thumb.jpg",
+			wantInContent: "Pizza",
+		},
+		{
+			name: "JSON-LD image string",
+			html: `
+				<html>
+				<head>
+					<script type="application/ld+json">
+					{
+						"@type": "Recipe",
+						"image": "http://example.com/img.jpg"
+					}
+					</script>
+				</head>
+				<body><h1>Test</h1></body>
+				</html>`,
+			wantImageURL: "http://example.com/img.jpg",
+		},
+		{
+			name: "JSON-LD ImageObject",
+			html: `
+				<html>
+				<head>
+					<script type="application/ld+json">
+					{
+						"@type": "Recipe",
+						"image": {
+							"@type": "ImageObject",
+							"url": "http://example.com/obj.jpg"
+						}
+					}
+					</script>
+				</head>
+				<body><h1>Test</h1></body>
+				</html>`,
+			wantImageURL: "http://example.com/obj.jpg",
+		},
+		{
+			name: "Priority: OG > Twitter",
+			html: `
+				<html>
+				<head>
+					<meta property="og:image" content="http://example.com/og.jpg">
+					<meta name="twitter:image" content="http://example.com/twitter.jpg">
+				</head>
+				<body></body>
+				</html>`,
+			wantImageURL: "http://example.com/og.jpg",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc, _ := goquery.NewDocumentFromReader(strings.NewReader(tt.html))
+			content, imageURL := parseWebpageContent(doc)
+
+			if imageURL != tt.wantImageURL {
+				t.Errorf("parseWebpageContent() imageURL = %v, want %v", imageURL, tt.wantImageURL)
+			}
+			if tt.wantInContent != "" && !strings.Contains(content, tt.wantInContent) {
+				t.Errorf("parseWebpageContent() content missing %v", tt.wantInContent)
 			}
 		})
 	}

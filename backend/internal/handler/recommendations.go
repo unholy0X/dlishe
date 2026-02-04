@@ -12,9 +12,9 @@ import (
 
 // RecommendationsHandler handles recipe recommendation requests
 type RecommendationsHandler struct {
-	recipeRepo    RecipeRepository
-	pantryRepo    PantryRepository
-	recommender   ai.RecipeRecommender
+	recipeRepo  RecipeRepository
+	pantryRepo  PantryRepository
+	recommender ai.RecipeRecommender
 }
 
 // NewRecommendationsHandler creates a new recommendations handler
@@ -55,8 +55,8 @@ func NewRecommendationsHandler(
 // @Router /recipes/recommendations [get]
 func (h *RecommendationsHandler) GetRecommendations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -125,14 +125,14 @@ func (h *RecommendationsHandler) GetRecommendations(w http.ResponseWriter, r *ht
 	}
 
 	// Fetch user's recipes with ingredients
-	recipes, err := h.recipeRepo.ListForRecommendations(ctx, claims.UserID)
+	recipes, err := h.recipeRepo.ListForRecommendations(ctx, user.ID)
 	if err != nil {
 		response.InternalError(w)
 		return
 	}
 
 	// Fetch user's pantry items
-	pantryItems, err := h.pantryRepo.ListAll(ctx, claims.UserID)
+	pantryItems, err := h.pantryRepo.ListAll(ctx, user.ID)
 	if err != nil {
 		response.InternalError(w)
 		return

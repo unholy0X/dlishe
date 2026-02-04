@@ -42,8 +42,11 @@ type UnifiedExtractionHandler struct {
 	// activeJobs stores cancel functions for running jobs
 	activeJobs sync.Map // map[uuid.UUID]context.CancelFunc
 
-	// jobSemaphore limits concurrent processing jobs
-	jobSemaphore chan struct{}
+	// semaphores limit concurrent processing jobs
+	// Video jobs are heavy (download+processing), so we limit them strictly
+	// URL/Image jobs are lighter, so we allow more concurrency
+	videoSemaphore chan struct{}
+	lightSemaphore chan struct{}
 
 	// tempDir for storing temporary files
 	tempDir string
@@ -61,16 +64,17 @@ func NewUnifiedExtractionHandler(
 	logger *slog.Logger,
 ) *UnifiedExtractionHandler {
 	h := &UnifiedExtractionHandler{
-		jobRepo:      jobRepo,
-		recipeRepo:   recipeRepo,
-		extractor:    extractor,
-		enricher:     enricher,
-		cacheRepo:    cacheRepo,
-		downloader:   downloader,
-		redis:        redisClient,
-		logger:       logger,
-		jobSemaphore: make(chan struct{}, 10), // Allow 10 concurrent jobs
-		tempDir:      os.TempDir(),
+		jobRepo:        jobRepo,
+		recipeRepo:     recipeRepo,
+		extractor:      extractor,
+		enricher:       enricher,
+		cacheRepo:      cacheRepo,
+		downloader:     downloader,
+		redis:          redisClient,
+		logger:         logger,
+		videoSemaphore: make(chan struct{}, 2),  // Max 2 concurrent video jobs
+		lightSemaphore: make(chan struct{}, 20), // Max 20 concurrent URL/image jobs
+		tempDir:        os.TempDir(),
 	}
 
 	// Start distributed cancellation listener
@@ -114,8 +118,8 @@ type UnifiedExtractRequest struct {
 // @Failure 503 {object} SwaggerErrorResponse "Service unavailable"
 // @Router /recipes/extract [post]
 func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -274,7 +278,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 
 	// Create job
 	job := model.NewExtractionJob(
-		claims.UserID,
+		user.ID,
 		jobType,
 		sourceURL,
 		req.Language,
@@ -328,10 +332,17 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			}
 		}()
 
-		// Acquire semaphore
+		// Acquire semaphore based on job type
+		var semaphore chan struct{}
+		if job.JobType == model.JobTypeVideo {
+			semaphore = h.videoSemaphore
+		} else {
+			semaphore = h.lightSemaphore
+		}
+
 		select {
-		case h.jobSemaphore <- struct{}{}:
-			defer func() { <-h.jobSemaphore }()
+		case semaphore <- struct{}{}:
+			defer func() { <-semaphore }()
 		case <-ctx.Done():
 			h.jobRepo.MarkFailed(context.Background(), job.ID, "TIMEOUT", "Job timed out waiting for processing slot")
 			return
@@ -1048,8 +1059,8 @@ func (h *UnifiedExtractionHandler) subscribeToCancellation() {
 // @Failure 404 {object} SwaggerErrorResponse "Job not found"
 // @Router /jobs/{jobID}/cancel [post]
 func (h *UnifiedExtractionHandler) CancelJob(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -1071,7 +1082,7 @@ func (h *UnifiedExtractionHandler) CancelJob(w http.ResponseWriter, r *http.Requ
 		response.InternalError(w)
 		return
 	}
-	if job.UserID != claims.UserID {
+	if job.UserID != user.ID {
 		response.Forbidden(w, "Access denied")
 		return
 	}
@@ -1102,8 +1113,8 @@ func (h *UnifiedExtractionHandler) CancelJob(w http.ResponseWriter, r *http.Requ
 
 // ListJobs returns a list of jobs for the user
 func (h *UnifiedExtractionHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -1122,7 +1133,7 @@ func (h *UnifiedExtractionHandler) ListJobs(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	jobs, err := h.jobRepo.ListByUser(r.Context(), claims.UserID, limit, offset)
+	jobs, err := h.jobRepo.ListByUser(r.Context(), user.ID, limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -1152,8 +1163,8 @@ func (h *UnifiedExtractionHandler) ListJobs(w http.ResponseWriter, r *http.Reque
 
 // GetJob returns a single job
 func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -1175,7 +1186,7 @@ func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if job.UserID != claims.UserID {
+	if job.UserID != user.ID {
 		response.Forbidden(w, "Access denied")
 		return
 	}
@@ -1193,8 +1204,8 @@ func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request
 
 // DeleteJob deletes a single job
 func (h *UnifiedExtractionHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -1217,7 +1228,7 @@ func (h *UnifiedExtractionHandler) DeleteJob(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if job.UserID != claims.UserID {
+	if job.UserID != user.ID {
 		response.Forbidden(w, "Not authorized to access this job")
 		return
 	}
@@ -1229,7 +1240,7 @@ func (h *UnifiedExtractionHandler) DeleteJob(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Delete from DB
-	if err := h.jobRepo.Delete(r.Context(), jobID, claims.UserID); err != nil {
+	if err := h.jobRepo.Delete(r.Context(), jobID, user.ID); err != nil {
 		h.logger.Error("Failed to delete job", "error", err)
 		response.InternalError(w)
 		return
@@ -1240,13 +1251,13 @@ func (h *UnifiedExtractionHandler) DeleteJob(w http.ResponseWriter, r *http.Requ
 
 // ClearJobHistory deletes all finished jobs for the user
 func (h *UnifiedExtractionHandler) ClearJobHistory(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
 
-	if err := h.jobRepo.DeleteAllByUser(r.Context(), claims.UserID); err != nil {
+	if err := h.jobRepo.DeleteAllByUser(r.Context(), user.ID); err != nil {
 		h.logger.Error("Failed to clear job history", "error", err)
 		response.InternalError(w)
 		return

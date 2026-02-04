@@ -200,6 +200,15 @@ func cleanText(text string) string {
 	return strings.Join(cleanLines, "\n")
 }
 
+// cleanJSON removes markdown code blocks and whitespace from JSON strings
+func cleanJSON(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.TrimPrefix(text, "```json")
+	text = strings.TrimPrefix(text, "```")
+	text = strings.TrimSuffix(text, "```")
+	return strings.TrimSpace(text)
+}
+
 // retryConfig holds retry parameters
 type retryConfig struct {
 	maxAttempts int
@@ -373,12 +382,14 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		Target Language: %s
 		Detail Level: %s (if 'detailed', provide very precise steps and timestamps).
 
-		**Video Context (Title & Description)**:
+		<video_context>
 		%s
-		Use this context to accurately identify ingredients and steps that might be spoken quickly or listed in the caption.
+		</video_context>
+
+		Use the context above to accurately identify ingredients and steps that might be spoken quickly or listed in the caption.
 
 		**CRITICAL INSTRUCTION**: 
-		Analyze the content. If this is clearly **NOT a cooking recipe or food preparation video** (e.g. a dance video, news article, vlog without food, gaming, etc.),
+		Analyze the content provided in <video_context>. If this is clearly **NOT a cooking recipe or food preparation video** (e.g. a dance video, news article, vlog without food, gaming, etc.),
 		return a JSON with: {"non_recipe": true, "reason": "Content appears to be [description of content]"}.
 		DO NOT try to invent a recipe if one does not exist.
 
@@ -399,7 +410,8 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 			],
 			"tags": ["pasta", "dinner"]
 		}
-	`, req.Language, req.DetailLevel, req.Metadata)
+	`,
+		req.Language, req.DetailLevel, req.Metadata)
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
 		return genModel.GenerateContent(ctx, genai.FileData{URI: f.URI}, genai.Text(prompt))
@@ -418,10 +430,10 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 	var result ExtractionResult
 	for _, part := range resp.Candidates[0].Content.Parts {
 		if txt, ok := part.(genai.Text); ok {
-			if err := json.Unmarshal([]byte(txt), &result); err != nil {
+			clean := cleanJSON(string(txt))
+			if err := json.Unmarshal([]byte(clean), &result); err != nil {
 				// Try to sanitize markdown code blocks if present
-				s := string(txt)
-				return nil, fmt.Errorf("failed to parse JSON: %w (content: %s)", err, s)
+				return nil, fmt.Errorf("failed to parse JSON: %w (content: %s)", err, clean)
 			}
 			break
 		}
@@ -504,7 +516,8 @@ Return ONLY the JSON, no explanations.`, string(rawJSON), len(rawRecipe.Ingredie
 	var refined ExtractionResult
 	for _, part := range resp.Candidates[0].Content.Parts {
 		if txt, ok := part.(genai.Text); ok {
-			if err := json.Unmarshal([]byte(txt), &refined); err != nil {
+			clean := cleanJSON(string(txt))
+			if err := json.Unmarshal([]byte(clean), &refined); err != nil {
 				return nil, fmt.Errorf("failed to parse refined JSON: %w", err)
 			}
 			break
@@ -618,19 +631,21 @@ func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model
 
 	prompt := fmt.Sprintf(`
 		You are an expert home economist and chef. Your task is to take a raw shopping list and "Smart Merge" it into a clean, organized perfection.
-		
-		**Input List**:
+
+		<input_list>
 		%s
-		
-		**Valid Categories**:
+		</input_list>
+
+		<valid_categories>
 		%s
-		
+		</valid_categories>
+
 		**Instructions**:
 		1. **Merge Duplicates**: Combine items that are effectively the same (e.g., "Onions" + "1 Red Onion" -> "2 Onions" unless specific distinction matters for a recipe).
 		%s
-		3. **Categorize**: Assign the correct category from the **Valid Categories** list provided.
+		3. **Categorize**: Assign the correct category from the <valid_categories> list provided.
 		4. **Standardize Names**: Use clean, capitalized names (e.g., "milk" -> "Milk").
-		
+
 		**Return ONLY structured JSON**:
 		[
 			{ "name": "Milk", "quantity": 1, "unit": "gallon", "category": "dairy" },
@@ -652,7 +667,8 @@ func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model
 	var result []model.ShoppingItemInput
 	for _, part := range resp.Candidates[0].Content.Parts {
 		if txt, ok := part.(genai.Text); ok {
-			if err := json.Unmarshal([]byte(txt), &result); err != nil {
+			clean := cleanJSON(string(txt))
+			if err := json.Unmarshal([]byte(clean), &result); err != nil {
 				return nil, fmt.Errorf("failed to parse JSON: %w", err)
 			}
 			break
@@ -709,11 +725,12 @@ Extract the recipe from this webpage content.
 
 **Webpage URL**: %s
 
-**Webpage Content**:
+<webpage_content>
 %s
+</webpage_content>
 
 **Instructions**:
-1. Analyze the content. If this is clearly **NOT a cooking recipe** (e.g. a news article, blog post without recipe, product page, etc.),
+1. Analyze the content in <webpage_content>. If this is clearly **NOT a cooking recipe** (e.g. a news article, blog post without recipe, product page, etc.),
    return a JSON with: {"non_recipe": true, "reason": "Content appears to be [description]"}.
    DO NOT invent a recipe.
 
@@ -759,7 +776,8 @@ Return ONLY the JSON, no markdown or explanations.`, url, htmlContent)
 	var result ExtractionResult
 	for _, part := range resp.Candidates[0].Content.Parts {
 		if txt, ok := part.(genai.Text); ok {
-			if err := json.Unmarshal([]byte(txt), &result); err != nil {
+			clean := cleanJSON(string(txt))
+			if err := json.Unmarshal([]byte(clean), &result); err != nil {
 				return nil, fmt.Errorf("failed to parse JSON: %w", err)
 			}
 			break
@@ -868,7 +886,8 @@ Return ONLY the JSON, no markdown or explanations. If no food items are detected
 	var result PantryScanResult
 	for _, part := range resp.Candidates[0].Content.Parts {
 		if txt, ok := part.(genai.Text); ok {
-			if err := json.Unmarshal([]byte(txt), &result); err != nil {
+			clean := cleanJSON(string(txt))
+			if err := json.Unmarshal([]byte(clean), &result); err != nil {
 				return nil, fmt.Errorf("failed to parse JSON: %w", err)
 			}
 			break
@@ -988,14 +1007,10 @@ Guidelines:
 		for _, part := range resp.Candidates[0].Content.Parts {
 			if txt, ok := part.(genai.Text); ok {
 				// Try to clean up the response if it has markdown code blocks
-				jsonStr := strings.TrimSpace(string(txt))
-				jsonStr = strings.TrimPrefix(jsonStr, "```json")
-				jsonStr = strings.TrimPrefix(jsonStr, "```")
-				jsonStr = strings.TrimSuffix(jsonStr, "```")
-				jsonStr = strings.TrimSpace(jsonStr)
+				clean := cleanJSON(string(txt))
 
-				if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
-					lastErr = fmt.Errorf("failed to parse enrichment JSON: %w (content: %.200s)", err, jsonStr)
+				if err := json.Unmarshal([]byte(clean), &result); err != nil {
+					lastErr = fmt.Errorf("failed to parse enrichment JSON: %w (content: %.200s)", err, clean)
 					break // Try again
 				}
 				parsed = true
@@ -1110,7 +1125,8 @@ Return ONLY the JSON, no markdown or explanations.`
 	var result ExtractionResult
 	for _, part := range resp.Candidates[0].Content.Parts {
 		if txt, ok := part.(genai.Text); ok {
-			if err := json.Unmarshal([]byte(txt), &result); err != nil {
+			clean := cleanJSON(string(txt))
+			if err := json.Unmarshal([]byte(clean), &result); err != nil {
 				return nil, fmt.Errorf("failed to parse JSON: %w", err)
 			}
 			break

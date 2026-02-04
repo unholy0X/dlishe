@@ -6,7 +6,7 @@ import {
     Plus, ArrowLeft, MoreVertical, Archive, Trash2,
     CheckSquare, Square, ChefHat, Package, Sparkles
 } from 'lucide-react';
-import { useAuth } from '../../../lib/auth';
+import { useAuth } from "@clerk/nextjs";
 import { shoppingService } from '../../../lib/services/shopping';
 import { ShoppingList, ShoppingItem, ShoppingItemInput, PantryCategory } from '../../../lib/types';
 import { VALID_CATEGORIES } from '../../../lib/categories';
@@ -14,7 +14,7 @@ import Link from 'next/link';
 import AnalyzeListModal from './AnalyzeListModal';
 
 export default function ShoppingListDetailPage() {
-    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const { isSignedIn: isAuthenticated, isLoaded: authLoaded, getToken } = useAuth();
     const router = useRouter();
     const params = useParams();
     const listId = params.id as string;
@@ -37,20 +37,17 @@ export default function ShoppingListDetailPage() {
     });
 
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-
         if (isAuthenticated && listId) {
             fetchListDetails();
         }
-    }, [isAuthenticated, authLoading, listId, router]);
+    }, [isAuthenticated, listId, router]);
 
     const fetchListDetails = async () => {
         try {
             setLoading(true);
-            const listData = await shoppingService.getOne(listId, true) as any;
+            const token = await getToken();
+            if (!token) return;
+            const listData = await shoppingService.getOne(listId, token, true) as any;
             // Depending on backend return, listData might be ShoppingListWithItems
             // Or if I didn't cast, TS complains. Casting to any or implicit assumption.
             // Backend returns ShoppingListWithItems which has "items" field.
@@ -78,7 +75,8 @@ export default function ShoppingListDetailPage() {
         ));
 
         try {
-            await shoppingService.toggleCheck(listId, itemId);
+            const token = await getToken();
+            if (token) await shoppingService.toggleCheck(listId, itemId, token);
         } catch (err) {
             console.error('Failed to toggle item:', err);
             setItems(originalItems); // Revert
@@ -89,7 +87,8 @@ export default function ShoppingListDetailPage() {
     const handleDeleteItem = async (itemId: string) => {
         if (!window.confirm('Remove this item?')) return;
         try {
-            await shoppingService.deleteItem(listId, itemId);
+            const token = await getToken();
+            if (token) await shoppingService.deleteItem(listId, itemId, token);
             setItems(items.filter(i => i.id !== itemId));
         } catch (err) {
             console.error('Failed to delete item:', err);
@@ -100,7 +99,9 @@ export default function ShoppingListDetailPage() {
     const handleAddItem = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const addedItem = await shoppingService.addItem(listId, newItem);
+            const token = await getToken();
+            if (!token) return;
+            const addedItem = await shoppingService.addItem(listId, newItem, token);
             setItems([...items, addedItem]);
             setIsAddModalOpen(false);
             setNewItem({ name: '', quantity: 1, unit: 'pcs', category: 'produce' });
@@ -113,7 +114,8 @@ export default function ShoppingListDetailPage() {
     const handleCompleteShopping = async () => {
         if (!window.confirm('Mark checked items as bought and move to pantry? This will remove them from the list.')) return;
         try {
-            await shoppingService.completeList(listId);
+            const token = await getToken();
+            if (token) await shoppingService.completeList(listId, token);
             // Re-fetch list to show cleared state
             await fetchListDetails();
             alert('Items moved to pantry!');
@@ -146,7 +148,7 @@ export default function ShoppingListDetailPage() {
 
     const activeCategories = categories.filter(cat => groupedItems[cat] && groupedItems[cat].length > 0);
 
-    if (authLoading || (!isAuthenticated && loading)) {
+    if (!authLoaded || (!isAuthenticated && loading)) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>;
     }
 

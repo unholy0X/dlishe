@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from "@clerk/nextjs";
 import { recipeService } from '@/lib/services/recipe';
 import { Recipe } from '@/lib/types';
 import { NavHeader } from '@/lib/components/NavHeader';
@@ -17,7 +17,7 @@ import {
 import Link from 'next/link';
 
 export default function SuggestedRecipesPage() {
-    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const { isSignedIn: isAuthenticated, isLoaded: authLoaded, getToken } = useAuth();
     const router = useRouter();
     const [recipes, setRecipes] = useState<Recipe[]>([]);
     const [loading, setLoading] = useState(true);
@@ -27,20 +27,17 @@ export default function SuggestedRecipesPage() {
     const [savedRecipeIds, setSavedRecipeIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-
         if (isAuthenticated) {
             fetchSuggestedRecipes();
         }
-    }, [isAuthenticated, authLoading, router]);
+    }, [isAuthenticated]);
 
     const fetchSuggestedRecipes = async () => {
         try {
             setLoading(true);
-            const data = await recipeService.getSuggested();
+            const token = await getToken();
+            if (!token) return;
+            const data = await recipeService.getSuggested(token);
             setRecipes(data.items || []);
             setError(null);
         } catch (err) {
@@ -54,7 +51,8 @@ export default function SuggestedRecipesPage() {
     const handleSaveRecipe = async (recipeId: string) => {
         try {
             setSavingRecipeId(recipeId);
-            await recipeService.saveRecipe(recipeId);
+            const token = await getToken();
+            if (token) await recipeService.saveRecipe(recipeId, token);
             setSavedRecipeIds(prev => new Set(prev).add(recipeId));
             // Show success notification (could be replaced with a toast)
             setTimeout(() => setSavingRecipeId(null), 1000);
@@ -81,7 +79,7 @@ export default function SuggestedRecipesPage() {
         recipe.cuisine?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    if (authLoading) {
+    if (!authLoaded) {
         return (
             <div className="flex justify-center items-center h-screen bg-stone-50">
                 <Loader2 className="w-8 h-8 text-honey-400 animate-spin" />

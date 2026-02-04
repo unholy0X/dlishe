@@ -97,6 +97,10 @@ func Load() *Config {
 		StorageAccessKey: getEnv("STORAGE_ACCESS_KEY", ""),
 		StorageSecretKey: getEnv("STORAGE_SECRET_KEY", ""),
 
+		// Clerk
+		ClerkPublishableKey: getEnv("CLERK_PUBLISHABLE_KEY", ""),
+		ClerkSecretKey:      getEnv("CLERK_SECRET_KEY", ""),
+
 		// Cleanup worker
 		CleanupEnabled:   getBoolEnv("CLEANUP_ENABLED", true),
 		CleanupInterval:  getEnv("CLEANUP_INTERVAL", "5m"),

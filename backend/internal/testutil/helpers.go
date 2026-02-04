@@ -10,20 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/dishflow/backend/internal/service/auth"
+	"github.com/dishflow/backend/internal/middleware"
+	"github.com/dishflow/backend/internal/model"
 )
-
-// TestJWTSecret is a secret used for testing
-const TestJWTSecret = "test-secret-key-for-unit-testing-min-32-chars"
-
-// NewTestJWTService creates a JWT service for testing
-func NewTestJWTService() *auth.JWTService {
-	return auth.NewJWTService(
-		TestJWTSecret,
-		15*time.Minute,  // Access token expiry
-		7*24*time.Hour,  // Refresh token expiry
-	)
-}
 
 // NewTestRedisClient creates a miniredis client for testing
 // Returns nil if redis is not available (tests should handle this)
@@ -52,16 +41,6 @@ func GenerateTestUserID() uuid.UUID {
 	return uuid.New()
 }
 
-// GenerateTestToken creates a valid JWT token for testing
-func GenerateTestToken(t *testing.T, userID uuid.UUID, email string, isAnonymous bool) string {
-	svc := NewTestJWTService()
-	tokens, err := svc.GenerateTokenPair(userID, email, isAnonymous, "test-device")
-	if err != nil {
-		t.Fatalf("Failed to generate test token: %v", err)
-	}
-	return tokens.AccessToken
-}
-
 // CreateTestRequest creates an HTTP request for testing
 func CreateTestRequest(method, path string, body string) *http.Request {
 	req := httptest.NewRequest(method, path, nil)
@@ -72,12 +51,21 @@ func CreateTestRequest(method, path string, body string) *http.Request {
 	return req
 }
 
-// CreateAuthenticatedRequest creates an HTTP request with auth header
+// CreateAuthenticatedRequest creates an HTTP request with user context injected
 func CreateAuthenticatedRequest(t *testing.T, method, path, body string, userID uuid.UUID) *http.Request {
 	req := CreateTestRequest(method, path, body)
-	token := GenerateTestToken(t, userID, "test@example.com", false)
-	req.Header.Set("Authorization", "Bearer "+token)
-	return req
+
+	// Create mock user
+	email := "test@example.com"
+	user := &model.User{
+		ID:        userID,
+		Email:     &email,
+		CreatedAt: time.Now(),
+	}
+
+	// Inject usage into context using the key from Clerk middleware
+	ctx := context.WithValue(req.Context(), middleware.UserContextKey, user)
+	return req.WithContext(ctx)
 }
 
 // stringReader creates a simple string reader

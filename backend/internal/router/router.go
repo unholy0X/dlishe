@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -17,7 +16,6 @@ import (
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/service/ai"
-	"github.com/dishflow/backend/internal/service/auth"
 	"github.com/dishflow/backend/internal/service/sync"
 	"github.com/dishflow/backend/internal/service/video"
 
@@ -45,19 +43,14 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	}
 
 	// Initialize services
-	jwtService := auth.NewJWTService(
-		cfg.JWTSecret,
-		15*time.Minute, // Access token expiry
-		7*24*time.Hour, // Refresh token expiry (7 days)
-	)
 	userRepo := postgres.NewUserRepository(db)
 
-	// Initialize token blacklist for logout/revocation
-	tokenBlacklist := auth.NewTokenBlacklist(redis)
+	// Initialize middleware
+	clerkMiddleware := middleware.NewClerkMiddleware(userRepo, logger)
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db, redis)
-	authHandler := handler.NewAuthHandler(jwtService, userRepo, tokenBlacklist)
+	authHandler := handler.NewAuthHandler(userRepo)
 
 	// Services
 	recipeRepo := postgres.NewRecipeRepository(db)
@@ -118,19 +111,13 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 		// Public recipes endpoint (suggested/curated recipes for all users)
 		r.With(rateLimiter.Public()).Get("/recipes/suggested", recipeHandler.ListSuggested)
 
-		// Auth routes (no auth required)
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/anonymous", authHandler.Anonymous)
-			r.Post("/register", authHandler.Register)
-			r.Post("/login", authHandler.Login)
-			r.Post("/refresh", authHandler.Refresh)
-			// Logout requires auth
-			r.With(middleware.Auth(jwtService, tokenBlacklist)).Post("/logout", authHandler.Logout)
-		})
+		// Auth routes
+		// Deprecated: Login/Register handled by Clerk frontend
+		// We can keep specific backend-only auth endpoints if needed, but standard auth is gone.
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(jwtService, tokenBlacklist))
+			r.Use(clerkMiddleware.RequireAuth)
 			r.Use(rateLimiter.General()) // Apply general rate limiting to all protected routes
 
 			// User routes

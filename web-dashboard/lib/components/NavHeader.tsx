@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { ChefHat, RefreshCw } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
+import { UserButton, useUser } from "@clerk/nextjs";
 import { useSync } from '@/lib/sync';
 import clsx from 'clsx';
 
 export function NavHeader() {
-    const { user, logout } = useAuth();
+    const { user } = useUser();
     const { sync, isSyncing } = useSync();
 
     return (
@@ -44,16 +44,9 @@ export function NavHeader() {
 
                     <span className="w-px h-6 bg-stone-200 mx-1"></span>
 
-                    <span className="text-sm text-text-secondary">Hello, {user?.name}</span>
-                    <Link href="/settings" className="text-sm text-text-muted hover:text-text-primary">
-                        Settings
-                    </Link>
-                    <button
-                        onClick={logout}
-                        className="text-sm text-text-muted hover:text-text-primary"
-                    >
-                        Logout
-                    </button>
+                    <span className="text-sm text-text-secondary">Hello, {user?.firstName}</span>
+                    {/* Settings link removed or can point to Clerk profile if needed, UserButton handles profile */}
+                    <UserButton afterSignOutUrl="/login" />
                 </div>
             </div>
         </header>

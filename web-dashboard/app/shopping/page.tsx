@@ -3,14 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Archive, Trash2, Edit2, ShoppingCart, ChevronRight, Sparkles, CheckSquare, Square } from 'lucide-react';
-import { useAuth } from '../../lib/auth';
+import { useAuth } from "@clerk/nextjs";
 import { shoppingService } from '../../lib/services/shopping';
 import { ShoppingList, ShoppingListInput } from '../../lib/types';
 import Link from 'next/link';
 import { NavHeader } from '@/lib/components/NavHeader';
 
 export default function ShoppingListsPage() {
-    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const { isSignedIn: isAuthenticated, isLoaded: authLoaded, getToken } = useAuth();
     const router = useRouter();
     const [lists, setLists] = useState<ShoppingList[]>([]);
     const [loading, setLoading] = useState(true);
@@ -32,20 +32,17 @@ export default function ShoppingListsPage() {
     });
 
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-
         if (isAuthenticated) {
             fetchLists();
         }
-    }, [isAuthenticated, authLoading, router, showArchived]);
+    }, [isAuthenticated, showArchived]);
 
     const fetchLists = async () => {
         try {
             setLoading(true);
-            const data = await shoppingService.getAll(showArchived);
+            const token = await getToken();
+            if (!token) return;
+            const data = await shoppingService.getAll(token, showArchived);
             setLists(data.lists || []);
             setError(null);
         } catch (err) {
@@ -63,10 +60,13 @@ export default function ShoppingListsPage() {
             // Ensure empty strings are treated as optional per backend preference if needed
             // But types allow string.
 
+            const token = await getToken();
+            if (!token) return;
+
             if (editingList) {
-                await shoppingService.update(editingList.id, payload);
+                await shoppingService.update(editingList.id, payload, token);
             } else {
-                await shoppingService.create(payload);
+                await shoppingService.create(payload, token);
             }
             setIsModalOpen(false);
             setEditingList(null);
@@ -83,7 +83,8 @@ export default function ShoppingListsPage() {
         e.stopPropagation();
         if (!window.confirm('Are you sure you want to delete this list?')) return;
         try {
-            await shoppingService.delete(id);
+            const token = await getToken();
+            if (token) await shoppingService.delete(id, token);
             fetchLists();
         } catch (err) {
             console.error('Failed to delete list:', err);
@@ -96,7 +97,8 @@ export default function ShoppingListsPage() {
         e.stopPropagation();
         if (!window.confirm('Are you sure you want to archive this list?')) return;
         try {
-            await shoppingService.archive(id);
+            const token = await getToken();
+            if (token) await shoppingService.archive(id, token);
             fetchLists();
         } catch (err) {
             console.error('Failed to archive list:', err);
@@ -125,7 +127,8 @@ export default function ShoppingListsPage() {
 
         try {
             setIsMerging(true);
-            await shoppingService.smartMergeLists(Array.from(selectedLists));
+            const token = await getToken();
+            if (token) await shoppingService.smartMergeLists(Array.from(selectedLists), token);
             setSelectedLists(new Set()); // Clear selection
             await fetchLists(); // Refresh to see new list
             alert("Lists merged successfully! Check out your new list.");
@@ -165,7 +168,7 @@ export default function ShoppingListsPage() {
         });
     };
 
-    if (authLoading || (!isAuthenticated && loading)) {
+    if (!authLoaded || (!isAuthenticated && loading)) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>;
     }
 
@@ -195,8 +198,8 @@ export default function ShoppingListsPage() {
                                 onClick={handleSmartMerge}
                                 disabled={isMerging || selectedLists.size < 1}
                                 className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm ${isMerging
-                                        ? 'bg-gray-400 cursor-not-allowed text-white'
-                                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                    ? 'bg-gray-400 cursor-not-allowed text-white'
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                                     }`}
                             >
                                 <Sparkles size={20} className={isMerging ? "animate-spin" : ""} />

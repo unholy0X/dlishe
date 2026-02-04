@@ -10,7 +10,6 @@ import (
 
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/model"
-	"github.com/dishflow/backend/internal/service/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -38,7 +37,7 @@ func TestRecipeHandler_List(t *testing.T) {
 		}
 
 		req := httptest.NewRequest("GET", "/recipes", nil)
-		ctx := context.WithValue(req.Context(), middleware.ClaimsKey, &auth.Claims{UserID: userID})
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
 		rr := httptest.NewRecorder()
 
 		handler.List(rr, req.WithContext(ctx))
@@ -63,7 +62,7 @@ func TestRecipeHandler_List(t *testing.T) {
 		}
 
 		req := httptest.NewRequest("GET", "/recipes", nil)
-		ctx := context.WithValue(req.Context(), middleware.ClaimsKey, &auth.Claims{UserID: userID})
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
 		rr := httptest.NewRecorder()
 
 		handler.List(rr, req.WithContext(ctx))
@@ -92,7 +91,7 @@ func TestRecipeHandler_Get(t *testing.T) {
 		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
 		// Add Auth context
-		ctx := context.WithValue(req.Context(), middleware.ClaimsKey, &auth.Claims{UserID: userID})
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
 
 		rr := httptest.NewRecorder()
 		handler.Get(rr, req.WithContext(ctx))
@@ -112,7 +111,7 @@ func TestRecipeHandler_Get(t *testing.T) {
 		rctx := chi.NewRouteContext()
 		rctx.URLParams.Add("recipeID", recipeID.String())
 		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-		ctx := context.WithValue(req.Context(), middleware.ClaimsKey, &auth.Claims{UserID: userID})
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
 
 		rr := httptest.NewRecorder()
 		handler.Get(rr, req.WithContext(ctx))

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, X, AlertTriangle, Check, ArrowRight } from 'lucide-react';
 import { shoppingService } from '../../../lib/services/shopping';
 import { AnalyzeAddResponse, ShoppingItem } from '../../../lib/types';
+import { useAuth } from "@clerk/nextjs";
 
 interface SupervisedAddModalProps {
     listId: string;
@@ -11,6 +12,7 @@ interface SupervisedAddModalProps {
 }
 
 export default function SupervisedAddModal({ listId, recipeId, onClose, onSuccess }: SupervisedAddModalProps) {
+    const { getToken } = useAuth();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<AnalyzeAddResponse | null>(null);
     const [selectedIngredients, setSelectedIngredients] = useState<Set<string>>(new Set());
@@ -23,7 +25,9 @@ export default function SupervisedAddModal({ listId, recipeId, onClose, onSucces
     const analyze = async () => {
         try {
             setLoading(true);
-            const result = await shoppingService.analyzeAddFromRecipe(listId, recipeId);
+            const token = await getToken();
+            if (!token) return;
+            const result = await shoppingService.analyzeAddFromRecipe(listId, recipeId, token);
             setData(result);
 
             // Default select all, UNLESS simple duplicates?
@@ -53,7 +57,9 @@ export default function SupervisedAddModal({ listId, recipeId, onClose, onSucces
     const handleConfirm = async () => {
         try {
             setLoading(true);
-            const res: any = await shoppingService.addFromRecipe(listId, recipeId, Array.from(selectedIngredients));
+            const token = await getToken();
+            if (!token) return;
+            const res: any = await shoppingService.addFromRecipe(listId, recipeId, token, Array.from(selectedIngredients));
 
             if (res.warnings && res.warnings.length > 0) {
                 alert(`Some items could not be added:\n${res.warnings.join('\n')}`);

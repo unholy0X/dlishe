@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from "@clerk/nextjs";
 import { NavHeader } from '@/lib/components/NavHeader';
 import { extractionService } from '@/lib/services/extraction';
 import { Job } from '@/lib/types';
@@ -26,7 +26,7 @@ import {
 import clsx from 'clsx';
 
 export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const { isSignedIn: isAuthenticated, isLoaded: authLoaded, getToken } = useAuth();
   const router = useRouter();
   const [extractionMode, setExtractionMode] = useState<'video' | 'url' | 'image'>('video');
   const [videoUrl, setVideoUrl] = useState('');
@@ -55,16 +55,15 @@ export default function DashboardPage() {
   });
 
   // 1. Initial Load & Auth Check
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [authLoading, isAuthenticated, router]);
+  // 1. Initial Load & Auth Check - Middleware handles protection now.
+  // We keep this just to start fetching data once loaded.
 
   // 2. Load Jobs
   const fetchJobs = async () => {
     try {
-      const data = await extractionService.listJobs();
+      const token = await getToken();
+      if (!token) return;
+      const data = await extractionService.listJobs(undefined, token);
       setJobs(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch jobs', err);
@@ -103,18 +102,24 @@ export default function DashboardPage() {
         if (!videoUrl) return;
         setExtractionProgress('Starting video extraction...');
 
+        const token = await getToken();
+        if (!token) return;
+
         job = await extractionService.extract({
           type: 'video',
           url: videoUrl,
           language: 'auto',
           detailLevel: 'detailed',
           saveAuto: true
-        });
+        }, token);
 
         setVideoUrl('');
       } else if (extractionMode === 'url') {
         if (!webUrl) return;
         setExtractionProgress('Fetching webpage...');
+
+        const token = await getToken();
+        if (!token) return;
 
         job = await extractionService.extract({
           type: 'url',
@@ -122,18 +127,21 @@ export default function DashboardPage() {
           language: 'auto',
           detailLevel: 'detailed',
           saveAuto: true
-        });
+        }, token);
 
         setWebUrl('');
       } else if (extractionMode === 'image') {
         if (!imageFile) return;
         setExtractionProgress('Uploading image...');
 
+        const token = await getToken();
+        if (!token) return;
+
         job = await extractionService.extractImageFile(imageFile, {
           language: 'auto',
           detailLevel: 'detailed',
           saveAuto: true
-        });
+        }, token);
 
         setImageFile(null);
         setImagePreview(null);
@@ -169,7 +177,8 @@ export default function DashboardPage() {
     setJobs(prev => prev.filter(j => j.jobId !== jobId));
 
     try {
-      await extractionService.deleteJob(jobId);
+      const token = await getToken();
+      if (token) await extractionService.deleteJob(jobId, token);
     } catch (err) {
       console.error('Failed to delete job', err);
       // Revert on failure (simple fetch)
@@ -187,7 +196,8 @@ export default function DashboardPage() {
         ['pending', 'downloading', 'processing', 'extracting'].includes(j.status)
       ));
 
-      await extractionService.clearJobHistory();
+      const token = await getToken();
+      if (token) await extractionService.clearJobHistory(token);
     } catch (err) {
       console.error('Failed to clear history', err);
       fetchJobs();
@@ -196,7 +206,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (authLoading || !isAuthenticated) {
+  if (!authLoaded || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
         <Loader2 className="w-8 h-8 text-honey-400 animate-spin" />

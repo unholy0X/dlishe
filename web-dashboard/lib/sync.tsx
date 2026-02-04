@@ -2,9 +2,10 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { syncService } from './services/sync';
-import { useAuth } from './auth';
+import { useAuth } from "@clerk/nextjs";
 
 interface SyncContextType {
+    // ... existing interface ...
     isSyncing: boolean;
     lastSyncTime: string | null;
     sync: () => Promise<void>;
@@ -16,7 +17,7 @@ const SyncContext = createContext<SyncContextType | undefined>(undefined);
 const SYNC_STORAGE_KEY = 'last_sync_timestamp';
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated } = useAuth();
+    const { isSignedIn, getToken } = useAuth();
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -30,9 +31,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const sync = async () => {
-        if (!isAuthenticated) return;
+        if (!isSignedIn) return;
 
         try {
+            const token = await getToken();
+            if (!token) return;
+
             setIsSyncing(true);
             setError(null);
 
@@ -45,7 +49,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
                 changes: [] // No local changes to push in this MVP
             };
 
-            const response = await syncService.sync(request);
+            const response = await syncService.sync(request, token);
 
             // In a real app, we would apply response.serverChanges to local DB here.
 

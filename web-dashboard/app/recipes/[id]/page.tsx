@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/lib/auth';
+import { useAuth, useUser } from "@clerk/nextjs";
 import {
     ArrowLeft,
     Clock,
@@ -31,7 +31,8 @@ import { DietaryBadges } from '@/lib/components/DietaryBadges';
 export default function RecipeDetailPage() {
     const { id } = useParams();
     const router = useRouter();
-    const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+    const { user } = useUser();
+    const { isSignedIn: isAuthenticated, isLoaded: authLoaded, getToken } = useAuth();
 
     // Recipe State
     const [recipe, setRecipe] = useState<Recipe | null>(null);
@@ -51,18 +52,12 @@ export default function RecipeDetailPage() {
     const [isSupervisedMode, setIsSupervisedMode] = useState(true);
 
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-            if (!token) {
-                router.push('/login');
-            }
-            return;
-        }
+        // Middleware handles protection.
 
         if (id && isAuthenticated) {
             fetchRecipe(id as string);
         }
-    }, [id, isAuthenticated, authLoading, router]);
+    }, [id, isAuthenticated, authLoaded, router]);
 
     // Fetch lists when modal opens
     useEffect(() => {
@@ -73,7 +68,9 @@ export default function RecipeDetailPage() {
 
     const fetchRecipe = async (recipeId: string) => {
         try {
-            const data = await recipeService.getOne(recipeId);
+            const token = await getToken();
+            if (!token) return;
+            const data = await recipeService.getOne(recipeId, token);
             setRecipe(data);
             setIsFavorite(data.isFavorite);
         } catch (err: any) {
@@ -85,7 +82,9 @@ export default function RecipeDetailPage() {
 
     const fetchLists = async () => {
         try {
-            const data = await shoppingService.getAll();
+            const token = await getToken();
+            if (!token) return;
+            const data = await shoppingService.getAll(token, false);
             setLists(data.lists || []);
         } catch (err) {
             console.error(err);
@@ -97,7 +96,8 @@ export default function RecipeDetailPage() {
         setFavoriteLoading(true);
         try {
             const newState = !isFavorite;
-            await recipeService.toggleFavorite(recipe.id, newState);
+            const token = await getToken();
+            if (token) await recipeService.toggleFavorite(recipe.id, newState, token);
             setIsFavorite(newState);
         } catch (err) {
             console.error('Failed to toggle favorite', err);
@@ -109,7 +109,8 @@ export default function RecipeDetailPage() {
     const handleDelete = async () => {
         if (!confirm('Are you sure you want to delete this recipe?')) return;
         try {
-            await recipeService.delete(id as string);
+            const token = await getToken();
+            if (token) await recipeService.delete(id as string, token);
             router.push('/recipes');
         } catch (err) {
             console.error('Failed to delete', err);
@@ -128,7 +129,8 @@ export default function RecipeDetailPage() {
 
         try {
             setAddingToList(true);
-            await shoppingService.addFromRecipe(listId, recipe.id);
+            const token = await getToken();
+            if (token) await shoppingService.addFromRecipe(listId, recipe.id, token, undefined); // Pass undefined for ingredients if not selecting specifics
             setIsShoppingModalOpen(false);
             alert('Added to shopping list!');
         } catch (err) {
@@ -143,13 +145,16 @@ export default function RecipeDetailPage() {
         if (!recipe) return;
         try {
             setAddingToList(true);
+            const token = await getToken();
+            if (!token) return;
+
             const newList = await shoppingService.create({
                 name: recipe.title,
                 icon: '🍳',
                 description: `Created from ${recipe.title}`
-            });
+            }, token);
 
-            await shoppingService.addFromRecipe(newList.id, recipe.id);
+            await shoppingService.addFromRecipe(newList.id, recipe.id, token, undefined);
 
             setIsShoppingModalOpen(false);
             alert(`Created list "${recipe.title}" and added ingredients!`);
@@ -162,7 +167,7 @@ export default function RecipeDetailPage() {
         }
     };
 
-    if (authLoading || loading) {
+    if (!authLoaded || loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-stone-50">
                 <Loader2 className="w-8 h-8 text-honey-400 animate-spin" />

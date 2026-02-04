@@ -46,6 +46,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/clerk/clerk-sdk-go/v2"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -106,6 +107,9 @@ func main() {
 	}
 	defer redisClient.Close()
 	logger.Info("Connected to Redis")
+
+	// Initialize Clerk with secret key
+	clerk.SetKey(cfg.ClerkSecretKey)
 
 	// Create router
 	r := router.New(cfg, logger, db, redisClient)

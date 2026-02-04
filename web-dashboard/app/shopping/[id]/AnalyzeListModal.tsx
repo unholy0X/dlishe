@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, X, Check, ArrowRight, AlertTriangle } from 'lucide-react';
 import { ListAnalysisResult } from '../../../lib/types';
 import { shoppingService } from '../../../lib/services/shopping';
+import { useAuth } from "@clerk/nextjs";
 
 interface AnalyzeListModalProps {
     listId: string;
@@ -10,6 +11,7 @@ interface AnalyzeListModalProps {
 }
 
 export default function AnalyzeListModal({ listId, onClose, onApplyChanges }: AnalyzeListModalProps) {
+    const { getToken } = useAuth();
     const [loading, setLoading] = useState(true);
     const [analysis, setAnalysis] = useState<ListAnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,9 @@ export default function AnalyzeListModal({ listId, onClose, onApplyChanges }: An
     const analyzeList = async () => {
         try {
             setLoading(true);
-            const result = await shoppingService.analyze(listId);
+            const token = await getToken();
+            if (!token) return;
+            const result = await shoppingService.analyze(listId, token);
             setAnalysis(result);
         } catch (err: any) {
             console.error('Analysis failed:', err);

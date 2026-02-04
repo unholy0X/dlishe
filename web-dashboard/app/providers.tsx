@@ -1,14 +1,12 @@
-"use client";
-
-import { AuthProvider } from "@/lib/auth";
+import { ClerkProvider } from "@clerk/nextjs";
 import { SyncProvider } from "@/lib/sync";
 
 export function Providers({ children }: { children: React.ReactNode }) {
     return (
-        <AuthProvider>
+        <ClerkProvider>
             <SyncProvider>
                 {children}
             </SyncProvider>
-        </AuthProvider>
+        </ClerkProvider>
     );
 }

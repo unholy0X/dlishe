@@ -47,8 +47,8 @@ func NewPantryHandler(repo PantryRepository, scanner ai.PantryScanner) *PantryHa
 // @Router /pantry [get]
 func (h *PantryHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -78,7 +78,7 @@ func (h *PantryHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// SQL-based pagination - efficient for large datasets
-	items, total, err := h.repo.List(ctx, claims.UserID, categoryPtr, limit, offset)
+	items, total, err := h.repo.List(ctx, user.ID, categoryPtr, limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -107,8 +107,8 @@ func (h *PantryHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Router /pantry/{id} [get]
 func (h *PantryHandler) Get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -120,7 +120,7 @@ func (h *PantryHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := h.repo.Get(ctx, id, claims.UserID)
+	item, err := h.repo.Get(ctx, id, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Pantry item")
 		return
@@ -148,8 +148,8 @@ func (h *PantryHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Router /pantry [post]
 func (h *PantryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -172,7 +172,7 @@ func (h *PantryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Normalize category before saving (maps aliases to canonical categories)
 	input.NormalizeInput()
 
-	item, err := h.repo.Create(ctx, claims.UserID, &input)
+	item, err := h.repo.Create(ctx, user.ID, &input)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -197,8 +197,8 @@ func (h *PantryHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Router /pantry/{id} [put]
 func (h *PantryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -228,7 +228,7 @@ func (h *PantryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Normalize category before saving (maps aliases to canonical categories)
 	input.NormalizeInput()
 
-	item, err := h.repo.Update(ctx, id, claims.UserID, &input)
+	item, err := h.repo.Update(ctx, id, user.ID, &input)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Pantry item")
 		return
@@ -254,8 +254,8 @@ func (h *PantryHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Router /pantry/{id} [delete]
 func (h *PantryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -267,7 +267,7 @@ func (h *PantryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.repo.Delete(ctx, id, claims.UserID)
+	err = h.repo.Delete(ctx, id, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Pantry item")
 		return
@@ -293,8 +293,8 @@ func (h *PantryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Router /pantry/expiring [get]
 func (h *PantryHandler) GetExpiring(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -307,7 +307,7 @@ func (h *PantryHandler) GetExpiring(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	items, err := h.repo.GetExpiring(ctx, claims.UserID, days)
+	items, err := h.repo.GetExpiring(ctx, user.ID, days)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -367,8 +367,8 @@ type ScannedItemResponse struct {
 // @Router /pantry/scan [post]
 func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -518,7 +518,7 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 				ExpirationDate: expTime,
 			}
 
-			added, err := h.repo.Create(ctx, claims.UserID, input)
+			added, err := h.repo.Create(ctx, user.ID, input)
 			if err == nil {
 				scannedItem.Added = true
 				idStr := added.ID.String()

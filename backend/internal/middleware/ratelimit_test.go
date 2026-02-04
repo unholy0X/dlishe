@@ -160,11 +160,11 @@ func TestGetIPIdentifier(t *testing.T) {
 			expectedPrefix: "198.51.100.178",
 		},
 		{
-			name:           "X-Forwarded-For takes precedence over X-Real-IP",
+			name:           "X-Real-IP takes precedence over X-Forwarded-For",
 			remoteAddr:     "10.0.0.1:8080",
 			xForwardedFor:  "203.0.113.50",
 			xRealIP:        "198.51.100.178",
-			expectedPrefix: "203.0.113.50",
+			expectedPrefix: "198.51.100.178",
 		},
 		{
 			name:           "IPv6 with port",

@@ -3,14 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Edit2, Trash2, AlertTriangle, Calendar, Package } from 'lucide-react';
-import { useAuth } from '../../lib/auth';
+import { useAuth } from "@clerk/nextjs";
 import { pantryService } from '../../lib/services/pantry';
 import { PantryItem, PantryItemInput, PantryCategory } from '../../lib/types';
 import { VALID_CATEGORIES } from '../../lib/categories';
 import { NavHeader } from '@/lib/components/NavHeader';
 
 export default function PantryPage() {
-    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const { isSignedIn: isAuthenticated, isLoaded: authLoaded, getToken } = useAuth();
     // ... (rest of function)
 
     const categories = [...VALID_CATEGORIES] as PantryCategory[];
@@ -31,20 +31,17 @@ export default function PantryPage() {
     });
 
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-
         if (isAuthenticated) {
             fetchItems();
         }
-    }, [isAuthenticated, authLoading, router]);
+    }, [isAuthenticated]);
 
     const fetchItems = async () => {
         try {
             setLoading(true);
-            const data = await pantryService.getAll();
+            const token = await getToken();
+            if (!token) return;
+            const data = await pantryService.getAll(token);
             setItems(data.items || []);
             setError(null);
         } catch (err) {
@@ -66,10 +63,13 @@ export default function PantryPage() {
                 delete payload.expirationDate;
             }
 
+            const token = await getToken();
+            if (!token) return;
+
             if (editingItem) {
-                await pantryService.update(editingItem.id, payload);
+                await pantryService.update(editingItem.id, payload, token);
             } else {
-                await pantryService.create(payload);
+                await pantryService.create(payload, token);
             }
             setIsModalOpen(false);
             setEditingItem(null);
@@ -84,7 +84,8 @@ export default function PantryPage() {
     const handleDelete = async (id: string) => {
         if (!window.confirm('Are you sure you want to delete this item?')) return;
         try {
-            await pantryService.delete(id);
+            const token = await getToken();
+            if (token) await pantryService.delete(id, token);
             fetchItems();
         } catch (err) {
             console.error('Failed to delete item:', err);
@@ -131,7 +132,7 @@ export default function PantryPage() {
 
 
 
-    if (authLoading || (!isAuthenticated && loading)) {
+    if (!authLoaded || (!isAuthenticated && loading)) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>;
     }
 

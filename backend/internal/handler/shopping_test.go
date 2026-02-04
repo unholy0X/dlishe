@@ -9,7 +9,6 @@ import (
 
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/model"
-	"github.com/dishflow/backend/internal/service/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -30,7 +29,7 @@ func TestShoppingHandler_ListLists(t *testing.T) {
 		}
 
 		req := httptest.NewRequest("GET", "/shopping-lists", nil)
-		ctx := context.WithValue(req.Context(), middleware.ClaimsKey, &auth.Claims{UserID: userID})
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
 		rr := httptest.NewRecorder()
 
 		handler.ListLists(rr, req.WithContext(ctx))
@@ -104,7 +103,7 @@ func TestShoppingHandler_SmartMergeList(t *testing.T) {
 
 		// Create request with params
 		req := httptest.NewRequest("POST", "/shopping-lists/"+listID.String()+"/smart-merge", nil)
-		ctx := context.WithValue(req.Context(), middleware.ClaimsKey, &auth.Claims{UserID: userID})
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
 
 		// Inject Chi URL param
 		rctx := chi.NewRouteContext()

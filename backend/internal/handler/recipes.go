@@ -39,8 +39,8 @@ func NewRecipeHandler(repo RecipeRepository) *RecipeHandler {
 // @Failure 500 {object} SwaggerErrorResponse "Internal server error"
 // @Router /recipes [post]
 func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -83,8 +83,8 @@ func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Set user ID from claims
-	req.UserID = claims.UserID
+	// Set user ID from context
+	req.UserID = user.ID
 
 	// Ensure ID is generated if not provided
 	if req.ID == uuid.Nil {
@@ -159,8 +159,8 @@ func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} SwaggerErrorResponse "Internal server error"
 // @Router /recipes [get]
 func (h *RecipeHandler) List(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -181,7 +181,7 @@ func (h *RecipeHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recipes, total, err := h.repo.ListByUser(r.Context(), claims.UserID, limit, offset)
+	recipes, total, err := h.repo.ListByUser(r.Context(), user.ID, limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -214,8 +214,8 @@ func (h *RecipeHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} SwaggerErrorResponse "Recipe not found"
 // @Router /recipes/{recipeID} [get]
 func (h *RecipeHandler) Get(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -238,7 +238,7 @@ func (h *RecipeHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check ownership
-	if recipe.UserID != claims.UserID {
+	if recipe.UserID != user.ID {
 		response.Forbidden(w, "Access denied")
 		return
 	}
@@ -262,8 +262,8 @@ func (h *RecipeHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} SwaggerErrorResponse "Recipe not found"
 // @Router /recipes/{recipeID} [put]
 func (h *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -286,7 +286,7 @@ func (h *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if existing.UserID != claims.UserID {
+	if existing.UserID != user.ID {
 		response.Forbidden(w, "Access denied")
 		return
 	}
@@ -325,7 +325,7 @@ func (h *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure IDs match
 	req.ID = id
-	req.UserID = claims.UserID
+	req.UserID = user.ID
 
 	if err := h.repo.Update(r.Context(), &req); err != nil {
 		response.InternalError(w)
@@ -355,8 +355,8 @@ func (h *RecipeHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} SwaggerErrorResponse "Recipe not found"
 // @Router /recipes/{recipeID} [delete]
 func (h *RecipeHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -379,7 +379,7 @@ func (h *RecipeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if existing.UserID != claims.UserID {
+	if existing.UserID != user.ID {
 		response.Forbidden(w, "Access denied")
 		return
 	}
@@ -408,8 +408,8 @@ func (h *RecipeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} SwaggerErrorResponse "Recipe not found"
 // @Router /recipes/{recipeID}/favorite [post]
 func (h *RecipeHandler) ToggleFavorite(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -439,7 +439,7 @@ func (h *RecipeHandler) ToggleFavorite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if existing.UserID != claims.UserID {
+	if existing.UserID != user.ID {
 		response.Forbidden(w, "Access denied")
 		return
 	}
@@ -470,8 +470,8 @@ func (h *RecipeHandler) ToggleFavorite(w http.ResponseWriter, r *http.Request) {
 // @Failure 409 {object} SwaggerErrorResponse "Recipe already cloned"
 // @Router /recipes/{recipeID}/save [post]
 func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.GetClaims(r.Context())
-	if claims == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -498,7 +498,7 @@ func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
 	// - User can clone their own recipes (useful for creating variants)
 	// - User can clone public/suggested recipes
 	// - Future: User can clone recipes shared with them
-	if source.UserID != claims.UserID && !source.IsPublic {
+	if source.UserID != user.ID && !source.IsPublic {
 		// Recipe is not owned by user and not public
 		response.Forbidden(w, "Access denied - recipe not accessible")
 		return
@@ -506,7 +506,7 @@ func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
 
 	// Check if user already has a clone of this recipe
 	// This prevents duplicate clones
-	existingClone, _ := h.repo.GetBySourceRecipeID(r.Context(), claims.UserID, sourceID)
+	existingClone, _ := h.repo.GetBySourceRecipeID(r.Context(), user.ID, sourceID)
 	if existingClone != nil {
 		response.ErrorJSON(w, http.StatusConflict, "ALREADY_CLONED",
 			"You already have a copy of this recipe", map[string]interface{}{
@@ -519,7 +519,7 @@ func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	clone := &model.Recipe{
 		ID:             uuid.New(),
-		UserID:         claims.UserID,
+		UserID:         user.ID,
 		Title:          source.Title,
 		Description:    source.Description,
 		Servings:       source.Servings,

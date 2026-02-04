@@ -150,26 +150,29 @@ func (rl *RateLimiter) limit(config RateLimitConfig, identifierFunc func(*http.R
 // SECURITY: Properly parses X-Forwarded-For to extract the first (client) IP
 // X-Forwarded-For format: "client, proxy1, proxy2, ..."
 func getIPIdentifier(r *http.Request) string {
-	// Check X-Forwarded-For header first (for proxies)
+	// Check X-Real-IP header first (set by nginx/Cloudflare/etc)
+	// This is generally more secure as it's often overwritten by the proxy
+	ip := r.Header.Get("X-Real-IP")
+	if ip == "" {
+		ip = r.Header.Get("CF-Connecting-IP") // Cloudflare specific
+	}
+	if ip != "" {
+		return stripPort(strings.TrimSpace(ip))
+	}
+
+	// Check X-Forwarded-For header
+	// X-Forwarded-For: client, proxy1, proxy2
+	// WARNING: The left-most IP can be spoofed if the proxy doesn't strip/validate it.
+	// Only rely on this if X-Real-IP is missing.
 	xff := r.Header.Get("X-Forwarded-For")
 	if xff != "" {
-		// X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
-		// The first IP is the original client IP
-		// Split and take the first one, trimming whitespace
 		ips := strings.Split(xff, ",")
 		if len(ips) > 0 {
 			ip := strings.TrimSpace(ips[0])
 			if ip != "" {
-				// Also strip port if present (e.g., "[::1]:8080" or "1.2.3.4:8080")
 				return stripPort(ip)
 			}
 		}
-	}
-
-	// Check X-Real-IP header (set by nginx/other proxies)
-	ip := r.Header.Get("X-Real-IP")
-	if ip != "" {
-		return stripPort(strings.TrimSpace(ip))
 	}
 
 	// Fall back to RemoteAddr
@@ -205,9 +208,8 @@ func stripPort(addr string) string {
 // getUserIdentifier extracts user ID from request context
 func getUserIdentifier(r *http.Request) string {
 	// Try to get user ID from context (set by auth middleware)
-	// FIX: Use GetClaims helper to access strongly-typed context value
-	if claims := GetClaims(r.Context()); claims != nil {
-		return fmt.Sprintf("user:%v", claims.UserID)
+	if user := GetUserFromContext(r.Context()); user != nil {
+		return fmt.Sprintf("user:%v", user.ID)
 	}
 
 	// Fall back to IP if no user ID

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChefHat, Search, Plus, Loader2 } from 'lucide-react';
-import { useAuth } from '../../lib/auth';
+import { useAuth } from "@clerk/nextjs";
 import { recipeService } from '../../lib/services/recipe';
 import { Recipe } from '../../lib/types';
 import Link from 'next/link';
@@ -11,7 +11,7 @@ import { NavHeader } from '@/lib/components/NavHeader';
 import { RecipeCard } from '@/lib/components/RecipeCard';
 
 export default function RecipesPage() {
-    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const { isSignedIn: isAuthenticated, isLoaded: authLoaded, getToken } = useAuth();
     const router = useRouter();
     const [recipes, setRecipes] = useState<Recipe[]>([]);
     const [loading, setLoading] = useState(true);
@@ -19,20 +19,17 @@ export default function RecipesPage() {
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-
         if (isAuthenticated) {
             fetchRecipes();
         }
-    }, [isAuthenticated, authLoading, router]);
+    }, [isAuthenticated]);
 
     const fetchRecipes = async () => {
         try {
             setLoading(true);
-            const data = await recipeService.getAll();
+            const token = await getToken();
+            if (!token) return;
+            const data = await recipeService.getAll(token);
             setRecipes(data.items || []); // Backend returns 'items', not 'recipes'
             setError(null);
         } catch (err) {
@@ -46,7 +43,8 @@ export default function RecipesPage() {
     const handleDelete = async (id: string) => {
         if (!window.confirm('Are you sure you want to delete this recipe?')) return;
         try {
-            await recipeService.delete(id);
+            const token = await getToken();
+            if (token) await recipeService.delete(id, token);
             setRecipes(recipes.filter(r => r.id !== id));
         } catch (err) {
             console.error('Failed to delete recipe:', err);
@@ -61,7 +59,8 @@ export default function RecipesPage() {
         ));
 
         try {
-            await recipeService.toggleFavorite(id, isFavorite);
+            const token = await getToken();
+            if (token) await recipeService.toggleFavorite(id, isFavorite, token);
         } catch (err) {
             console.error('Failed to toggle favorite', err);
             // Revert on error
@@ -77,7 +76,7 @@ export default function RecipesPage() {
         recipe.cuisine?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    if (authLoading || (!isAuthenticated && loading)) {
+    if (!authLoaded || (!isAuthenticated && loading)) {
         return (
             <div className="flex justify-center items-center h-screen bg-stone-50">
                 <Loader2 className="w-8 h-8 text-honey-400 animate-spin" />

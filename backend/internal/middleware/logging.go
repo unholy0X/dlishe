@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
+type contextKey string
+
 const LoggerKey contextKey = "logger"
 
 // responseWriter wraps http.ResponseWriter to capture status code and body

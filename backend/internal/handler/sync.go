@@ -35,8 +35,8 @@ func NewSyncHandler(syncService *sync.Service) *SyncHandler {
 // @Router /sync [post]
 func (h *SyncHandler) Sync(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -48,7 +48,7 @@ func (h *SyncHandler) Sync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process sync
-	resp, err := h.syncService.Sync(ctx, claims.UserID, &req)
+	resp, err := h.syncService.Sync(ctx, user.ID, &req)
 	if err != nil {
 		response.InternalError(w)
 		return

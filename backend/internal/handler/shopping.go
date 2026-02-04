@@ -48,15 +48,15 @@ func NewShoppingHandler(shoppingRepo ShoppingRepository, recipeRepo RecipeReposi
 // @Router /shopping-lists [get]
 func (h *ShoppingHandler) ListLists(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
 
 	includeArchived := r.URL.Query().Get("includeArchived") == "true"
 
-	lists, err := h.shoppingRepo.ListLists(ctx, claims.UserID, includeArchived)
+	lists, err := h.shoppingRepo.ListLists(ctx, user.ID, includeArchived)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -83,8 +83,8 @@ func (h *ShoppingHandler) ListLists(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists/{id} [get]
 func (h *ShoppingHandler) GetList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -100,7 +100,7 @@ func (h *ShoppingHandler) GetList(w http.ResponseWriter, r *http.Request) {
 	includeItems := r.URL.Query().Get("includeItems") == "true"
 
 	if includeItems {
-		listWithItems, err := h.shoppingRepo.GetListWithItems(ctx, id, claims.UserID)
+		listWithItems, err := h.shoppingRepo.GetListWithItems(ctx, id, user.ID)
 		if err == model.ErrNotFound {
 			response.NotFound(w, "Shopping list")
 			return
@@ -111,7 +111,7 @@ func (h *ShoppingHandler) GetList(w http.ResponseWriter, r *http.Request) {
 		}
 		response.OK(w, listWithItems)
 	} else {
-		list, err := h.shoppingRepo.GetList(ctx, id, claims.UserID)
+		list, err := h.shoppingRepo.GetList(ctx, id, user.ID)
 		if err == model.ErrNotFound {
 			response.NotFound(w, "Shopping list")
 			return
@@ -139,8 +139,8 @@ func (h *ShoppingHandler) GetList(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists [post]
 func (h *ShoppingHandler) CreateList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -160,7 +160,7 @@ func (h *ShoppingHandler) CreateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	list, err := h.shoppingRepo.CreateList(ctx, claims.UserID, &input)
+	list, err := h.shoppingRepo.CreateList(ctx, user.ID, &input)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -185,8 +185,8 @@ func (h *ShoppingHandler) CreateList(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists/{id} [put]
 func (h *ShoppingHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -213,7 +213,7 @@ func (h *ShoppingHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	list, err := h.shoppingRepo.UpdateList(ctx, id, claims.UserID, &input)
+	list, err := h.shoppingRepo.UpdateList(ctx, id, user.ID, &input)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -239,8 +239,8 @@ func (h *ShoppingHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists/{id} [delete]
 func (h *ShoppingHandler) DeleteList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -252,7 +252,7 @@ func (h *ShoppingHandler) DeleteList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.shoppingRepo.DeleteList(ctx, id, claims.UserID)
+	err = h.shoppingRepo.DeleteList(ctx, id, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -278,8 +278,8 @@ func (h *ShoppingHandler) DeleteList(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists/{id}/archive [post]
 func (h *ShoppingHandler) ArchiveList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -291,7 +291,7 @@ func (h *ShoppingHandler) ArchiveList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.shoppingRepo.ArchiveList(ctx, id, claims.UserID, true)
+	err = h.shoppingRepo.ArchiveList(ctx, id, user.ID, true)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -320,8 +320,8 @@ func (h *ShoppingHandler) ArchiveList(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists/{id}/items [get]
 func (h *ShoppingHandler) ListItems(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -334,7 +334,7 @@ func (h *ShoppingHandler) ListItems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user owns the list
-	_, err = h.shoppingRepo.GetList(ctx, listID, claims.UserID)
+	_, err = h.shoppingRepo.GetList(ctx, listID, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -372,8 +372,8 @@ func (h *ShoppingHandler) ListItems(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists/{id}/items [post]
 func (h *ShoppingHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -386,7 +386,7 @@ func (h *ShoppingHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user owns the list
-	_, err = h.shoppingRepo.GetList(ctx, listID, claims.UserID)
+	_, err = h.shoppingRepo.GetList(ctx, listID, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -437,8 +437,8 @@ func (h *ShoppingHandler) CreateItem(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists/{id}/items/{itemId} [put]
 func (h *ShoppingHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -458,7 +458,7 @@ func (h *ShoppingHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user owns the list
-	_, err = h.shoppingRepo.GetList(ctx, listID, claims.UserID)
+	_, err = h.shoppingRepo.GetList(ctx, listID, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -511,8 +511,8 @@ func (h *ShoppingHandler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists/{id}/items/{itemId}/check [post]
 func (h *ShoppingHandler) ToggleItemChecked(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -532,7 +532,7 @@ func (h *ShoppingHandler) ToggleItemChecked(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Verify user owns the list
-	_, err = h.shoppingRepo.GetList(ctx, listID, claims.UserID)
+	_, err = h.shoppingRepo.GetList(ctx, listID, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -569,8 +569,8 @@ func (h *ShoppingHandler) ToggleItemChecked(w http.ResponseWriter, r *http.Reque
 // @Router /shopping-lists/{id}/items/{itemId} [delete]
 func (h *ShoppingHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -590,7 +590,7 @@ func (h *ShoppingHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user owns the list
-	_, err = h.shoppingRepo.GetList(ctx, listID, claims.UserID)
+	_, err = h.shoppingRepo.GetList(ctx, listID, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -630,8 +630,8 @@ func (h *ShoppingHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 // @Router /shopping-lists/{id}/add-from-recipe [post]
 func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -644,7 +644,7 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Verify user owns the list
-	_, err = h.shoppingRepo.GetList(ctx, listID, claims.UserID)
+	_, err = h.shoppingRepo.GetList(ctx, listID, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -799,8 +799,8 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 // @Router /shopping-lists/smart-merge [post]
 func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -819,7 +819,7 @@ func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request)
 
 	// Verify ownership of all lists
 	// This prevents users from merging lists they don't own
-	owned, err := h.shoppingRepo.VerifyListsOwnership(ctx, claims.UserID, req.SourceListIDs)
+	owned, err := h.shoppingRepo.VerifyListsOwnership(ctx, user.ID, req.SourceListIDs)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -844,9 +844,9 @@ func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request)
 	// AI Processing: Merge items
 	// Fetch user to get preference, defaulting to metric if unavailable
 	var preferredSystem = "metric"
-	user, err := h.userRepo.GetByID(ctx, claims.UserID)
-	if err == nil && user.PreferredUnitSystem != "" {
-		preferredSystem = user.PreferredUnitSystem
+	dbUser, err := h.userRepo.GetByID(ctx, user.ID)
+	if err == nil && dbUser.PreferredUnitSystem != "" {
+		preferredSystem = dbUser.PreferredUnitSystem
 	}
 
 	// Call AI service with user's preferred unit system
@@ -883,7 +883,7 @@ func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Create list and items atomically
-	result, err := h.shoppingRepo.CreateListWithItems(ctx, claims.UserID, listInput, itemPtrs)
+	result, err := h.shoppingRepo.CreateListWithItems(ctx, user.ID, listInput, itemPtrs)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -918,8 +918,8 @@ func stringSlice(s string) []string {
 // @Router /shopping-lists/{id}/complete [post]
 func (h *ShoppingHandler) CompleteList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	claims := middleware.GetClaims(ctx)
-	if claims == nil {
+	user := middleware.GetUserFromContext(ctx)
+	if user == nil {
 		response.Unauthorized(w, "Authentication required")
 		return
 	}
@@ -932,7 +932,7 @@ func (h *ShoppingHandler) CompleteList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify user owns the list
-	_, err = h.shoppingRepo.GetList(ctx, id, claims.UserID)
+	_, err = h.shoppingRepo.GetList(ctx, id, user.ID)
 	if err == model.ErrNotFound {
 		response.NotFound(w, "Shopping list")
 		return
@@ -942,7 +942,7 @@ func (h *ShoppingHandler) CompleteList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.shoppingRepo.CompleteList(ctx, id, claims.UserID)
+	err = h.shoppingRepo.CompleteList(ctx, id, user.ID)
 	if err != nil {
 		response.InternalError(w)
 		return

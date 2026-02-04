@@ -3,10 +3,8 @@ package handler
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/dishflow/backend/internal/model"
-	"github.com/dishflow/backend/internal/service/auth"
 	"github.com/dishflow/backend/internal/service/video"
 	"github.com/google/uuid"
 )
@@ -89,20 +87,6 @@ type JobRepository interface {
 	MarkCancelled(ctx context.Context, id uuid.UUID) error
 	Delete(ctx context.Context, id, userID uuid.UUID) error
 	DeleteAllByUser(ctx context.Context, userID uuid.UUID) error
-}
-
-// JWTService defines the interface for JWT operations
-type JWTService interface {
-	GenerateTokenPair(userID uuid.UUID, email string, isAnonymous bool, deviceID string) (*auth.TokenPair, error)
-	ValidateAccessToken(tokenString string) (*auth.Claims, error)
-	ValidateRefreshToken(tokenString string) (*auth.Claims, error)
-}
-
-// TokenBlacklist defines the interface for token blacklisting
-type TokenBlacklist interface {
-	RevokeToken(ctx context.Context, tokenID string, expiresAt time.Time) error
-	RevokeAllUserTokens(ctx context.Context, userID string, duration time.Duration) error
-	IsRevoked(ctx context.Context, tokenID string) (bool, error)
 }
 
 // VideoDownloader defines the interface for video downloading

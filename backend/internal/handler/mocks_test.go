@@ -3,11 +3,9 @@ package handler
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/dishflow/backend/internal/model"
 	"github.com/dishflow/backend/internal/service/ai"
-	"github.com/dishflow/backend/internal/service/auth"
 	"github.com/dishflow/backend/internal/service/video"
 	"github.com/google/uuid"
 )
@@ -317,38 +315,6 @@ func (m *mockJobRepository) MarkCancelled(ctx context.Context, id uuid.UUID) err
 		return nil
 	}
 	return m.MarkCancelledFunc(ctx, id)
-}
-
-type mockJWTService struct {
-	GenerateTokenPairFunc    func(userID uuid.UUID, email string, isAnonymous bool, deviceID string) (*auth.TokenPair, error)
-	ValidateAccessTokenFunc  func(tokenString string) (*auth.Claims, error)
-	ValidateRefreshTokenFunc func(tokenString string) (*auth.Claims, error)
-}
-
-func (m *mockJWTService) GenerateTokenPair(userID uuid.UUID, email string, isAnonymous bool, deviceID string) (*auth.TokenPair, error) {
-	return m.GenerateTokenPairFunc(userID, email, isAnonymous, deviceID)
-}
-func (m *mockJWTService) ValidateAccessToken(tokenString string) (*auth.Claims, error) {
-	return m.ValidateAccessTokenFunc(tokenString)
-}
-func (m *mockJWTService) ValidateRefreshToken(tokenString string) (*auth.Claims, error) {
-	return m.ValidateRefreshTokenFunc(tokenString)
-}
-
-type mockTokenBlacklist struct {
-	RevokeTokenFunc         func(ctx context.Context, tokenID string, expiresAt time.Time) error
-	RevokeAllUserTokensFunc func(ctx context.Context, userID string, duration time.Duration) error
-	IsRevokedFunc           func(ctx context.Context, tokenID string) (bool, error)
-}
-
-func (m *mockTokenBlacklist) RevokeToken(ctx context.Context, tokenID string, expiresAt time.Time) error {
-	return m.RevokeTokenFunc(ctx, tokenID, expiresAt)
-}
-func (m *mockTokenBlacklist) RevokeAllUserTokens(ctx context.Context, userID string, duration time.Duration) error {
-	return m.RevokeAllUserTokensFunc(ctx, userID, duration)
-}
-func (m *mockTokenBlacklist) IsRevoked(ctx context.Context, tokenID string) (bool, error) {
-	return m.IsRevokedFunc(ctx, tokenID)
 }
 
 type mockVideoDownloader struct {

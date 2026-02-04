@@ -8,7 +8,6 @@ import (
 
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/model"
-	"github.com/dishflow/backend/internal/service/auth"
 	"github.com/google/uuid"
 )
 
@@ -28,7 +27,7 @@ func TestPantryHandler_List(t *testing.T) {
 		}
 
 		req := httptest.NewRequest("GET", "/pantry", nil)
-		ctx := context.WithValue(req.Context(), middleware.ClaimsKey, &auth.Claims{UserID: userID})
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
 		rr := httptest.NewRecorder()
 
 		handler.List(rr, req.WithContext(ctx))

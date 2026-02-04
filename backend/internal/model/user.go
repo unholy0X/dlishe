@@ -9,6 +9,7 @@ import (
 // User represents a DishFlow user
 type User struct {
 	ID                  uuid.UUID  `json:"id" db:"id"`
+	ClerkID             *string    `json:"clerkId,omitempty" db:"clerk_id"`
 	Email               *string    `json:"email,omitempty" db:"email"`
 	PasswordHash        *string    `json:"-" db:"password_hash"`
 	Name                *string    `json:"name,omitempty" db:"name"`

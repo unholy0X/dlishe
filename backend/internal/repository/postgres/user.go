@@ -30,12 +30,13 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // Create creates a new user
 func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 	query := `
-		INSERT INTO users (id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, preferred_unit_system)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO users (id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, preferred_unit_system)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		user.ID,
+		user.ClerkID,
 		user.Email,
 		user.PasswordHash,
 		user.Name,
@@ -62,7 +63,7 @@ func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 // GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	query := `
-		SELECT id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
+		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -70,6 +71,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 	user := &model.User{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID,
+		&user.ClerkID,
 		&user.Email,
 		&user.PasswordHash,
 		&user.Name,
@@ -134,6 +136,39 @@ func (r *UserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*m
 	user := &model.User{}
 	err := r.db.QueryRowContext(ctx, query, deviceID).Scan(
 		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.Name,
+		&user.IsAnonymous,
+		&user.DeviceID,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.DeletedAt,
+		&user.PreferredUnitSystem,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return user, nil
+}
+
+// GetByClerkID retrieves a user by Clerk ID
+func (r *UserRepository) GetByClerkID(ctx context.Context, clerkID string) (*model.User, error) {
+	query := `
+		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
+		FROM users
+		WHERE clerk_id = $1 AND deleted_at IS NULL
+	`
+
+	user := &model.User{}
+	err := r.db.QueryRowContext(ctx, query, clerkID).Scan(
+		&user.ID,
+		&user.ClerkID,
 		&user.Email,
 		&user.PasswordHash,
 		&user.Name,

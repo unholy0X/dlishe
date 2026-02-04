@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from "@clerk/nextjs";
 import { recipeService } from '@/lib/services/recipe';
 import { Recipe, RecommendationFilters, RecommendationResponse, RecipeRecommendation } from '@/lib/types';
 import { NavHeader } from '@/lib/components/NavHeader';
@@ -19,7 +19,7 @@ import {
 import Link from 'next/link';
 
 export default function RecommendationsPage() {
-    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const { isSignedIn: isAuthenticated, isLoaded: authLoaded, getToken } = useAuth();
     const router = useRouter();
     const [recommendations, setRecommendations] = useState<RecommendationResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -30,21 +30,18 @@ export default function RecommendationsPage() {
     });
 
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            router.push('/login');
-            return;
-        }
-
         if (isAuthenticated) {
             fetchRecommendations();
         }
-    }, [isAuthenticated, authLoading, router]);
+    }, [isAuthenticated]);
 
     const fetchRecommendations = async (newFilters?: RecommendationFilters) => {
         try {
             setLoading(true);
+            const token = await getToken();
+            if (!token) return;
             const appliedFilters = newFilters || filters;
-            const data = await recipeService.getRecommendations(appliedFilters);
+            const data = await recipeService.getRecommendations(token, appliedFilters);
             setRecommendations(data);
             setError(null);
         } catch (err) {
@@ -71,7 +68,7 @@ export default function RecommendationsPage() {
         fetchRecommendations(clearedFilters);
     };
 
-    if (authLoading) {
+    if (!authLoaded) {
         return (
             <div className="flex justify-center items-center h-screen bg-stone-50">
                 <Loader2 className="w-8 h-8 text-honey-400 animate-spin" />

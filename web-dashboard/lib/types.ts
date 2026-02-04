@@ -231,10 +231,7 @@ export interface Job {
     estimatedSeconds?: number;
 }
 
-export interface JobsResponse {
-    items: Job[];
-    total: number;
-}
+export type JobsResponse = Job[];
 
 // ============================================================================
 // Recipe Recommendations (NEW)

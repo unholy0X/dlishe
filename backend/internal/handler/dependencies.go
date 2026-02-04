@@ -87,6 +87,8 @@ type JobRepository interface {
 	MarkCompleted(ctx context.Context, id uuid.UUID, resultRecipeID uuid.UUID) error
 	MarkFailed(ctx context.Context, id uuid.UUID, errorCode, errorMessage string) error
 	MarkCancelled(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id, userID uuid.UUID) error
+	DeleteAllByUser(ctx context.Context, userID uuid.UUID) error
 }
 
 // JWTService defines the interface for JWT operations

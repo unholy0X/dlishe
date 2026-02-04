@@ -72,7 +72,7 @@ func (s *ExtractionService) ExtractFromURL(ctx context.Context, userID uuid.UUID
 	}
 
 	// Step 2: Extract recipe from URL
-	extracted, err := s.extractor.ExtractFromWebpage(ctx, url)
+	extracted, err := s.extractor.ExtractFromWebpage(ctx, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("extraction failed: %w", err)
 	}

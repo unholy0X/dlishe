@@ -616,11 +616,32 @@ func (g *GeminiClient) GetClient() *genai.Client {
 }
 
 // ExtractFromWebpage extracts a recipe from a webpage URL
-func (g *GeminiClient) ExtractFromWebpage(ctx context.Context, url string) (*ExtractionResult, error) {
+func (g *GeminiClient) ExtractFromWebpage(ctx context.Context, url string, onProgress ProgressCallback) (*ExtractionResult, error) {
+	// Report initial status
+	if onProgress != nil {
+		onProgress(model.JobStatusProcessing, 10, "Fetching webpage...")
+	}
+
 	// Fetch the webpage content
 	htmlContent, err := fetchWebpage(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch webpage: %w", err)
+	}
+
+	// Extract title from content for better feedback
+	var title string
+	if strings.HasPrefix(htmlContent, "Title: ") {
+		if idx := strings.Index(htmlContent, "\n"); idx != -1 {
+			title = strings.TrimPrefix(htmlContent[:idx], "Title: ")
+		}
+	}
+
+	if onProgress != nil {
+		if title != "" {
+			onProgress(model.JobStatusExtracting, 30, fmt.Sprintf("Analyzing webpage: %s...", title))
+		} else {
+			onProgress(model.JobStatusExtracting, 30, "Analyzing webpage content...")
+		}
 	}
 
 	genModel := g.client.GenerativeModel(g.model)

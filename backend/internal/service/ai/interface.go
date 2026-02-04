@@ -117,7 +117,7 @@ type RecipeExtractor interface {
 	ExtractRecipe(ctx context.Context, req ExtractionRequest, onProgress ProgressCallback) (*ExtractionResult, error)
 
 	// ExtractFromWebpage extracts a recipe from a webpage URL (recipe blog, cooking site)
-	ExtractFromWebpage(ctx context.Context, url string) (*ExtractionResult, error)
+	ExtractFromWebpage(ctx context.Context, url string, onProgress ProgressCallback) (*ExtractionResult, error)
 
 	// ExtractFromImage extracts a recipe from an image (cookbook photo, screenshot)
 	ExtractFromImage(ctx context.Context, imageData []byte, mimeType string) (*ExtractionResult, error)

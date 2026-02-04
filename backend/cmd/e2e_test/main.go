@@ -183,7 +183,7 @@ func runTest(ctx context.Context, extractor ai.RecipeExtractor, tc TestCase) *Te
 
 	switch tc.Type {
 	case "webpage":
-		recipe, err = extractor.ExtractFromWebpage(ctx, tc.URL)
+		recipe, err = extractor.ExtractFromWebpage(ctx, tc.URL, nil)
 	case "video":
 		// Note: Video extraction requires the video to be downloaded first
 		// For now, we'll skip video tests in this simple e2e

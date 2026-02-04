@@ -258,11 +258,25 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		req.DetailLevel = "detailed"
 	}
 
+	// For image jobs, we can use the source URL to store the filename for better UX
+	// This field is unused for image jobs anyway
+	sourceURL := req.URL
+	if jobType == model.JobTypeImage && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		// Try to find the file header again to get filename
+		// Since we already read the file, we need to be careful not to re-read body
+		// But here we just need the filename from the already parsed form
+		if r.MultipartForm != nil && r.MultipartForm.File != nil {
+			if files := r.MultipartForm.File["image"]; len(files) > 0 {
+				sourceURL = files[0].Filename
+			}
+		}
+	}
+
 	// Create job
 	job := model.NewExtractionJob(
 		claims.UserID,
 		jobType,
-		req.URL,
+		sourceURL,
 		req.Language,
 		req.DetailLevel,
 		req.SaveAuto,
@@ -506,7 +520,9 @@ func (h *UnifiedExtractionHandler) processURLExtraction(ctx context.Context, job
 
 	updateProgress(model.JobStatusProcessing, 10, "Fetching webpage...")
 
-	result, err := h.extractor.ExtractFromWebpage(ctx, job.SourceURL)
+	result, err := h.extractor.ExtractFromWebpage(ctx, job.SourceURL, func(status model.JobStatus, progress int, msg string) {
+		updateProgress(status, progress, msg)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract from URL: %w", err)
 	}
@@ -581,7 +597,13 @@ func (h *UnifiedExtractionHandler) processImageExtraction(ctx context.Context, j
 		mimeType = *job.MimeType
 	}
 
-	updateProgress(model.JobStatusExtracting, 30, "Extracting recipe from image...")
+	// Use filename from SourceURL if available for better feedback
+	msg := "Extracting recipe from image..."
+	if job.SourceURL != "" && job.SourceURL != "image" {
+		msg = fmt.Sprintf("Analyzing image: %s...", job.SourceURL)
+	}
+
+	updateProgress(model.JobStatusExtracting, 30, msg)
 
 	result, err := h.extractor.ExtractFromImage(ctx, imageData, mimeType)
 	if err != nil {
@@ -633,9 +655,14 @@ func (h *UnifiedExtractionHandler) processVideoExtraction(ctx context.Context, j
 		h.logger.Info("Video metadata fetched", "title", meta.Title, "description_len", len(meta.Description))
 		// Format metadata for AI
 		metadataStr = fmt.Sprintf("Video Title: %s\nVideo Description:\n%s", meta.Title, meta.Description)
+
+		// Update status with video title for better user feedback
+		updateProgress(model.JobStatusExtracting, 40, fmt.Sprintf("Analyzing video: %s...", meta.Title))
 	}
 
-	updateProgress(model.JobStatusExtracting, 40, "Extracting recipe from video...")
+	if metadataStr == "" {
+		updateProgress(model.JobStatusExtracting, 40, "Extracting recipe from video...")
+	}
 
 	extractReq := ai.ExtractionRequest{
 		VideoURL:    localPath,
@@ -853,20 +880,21 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 	}
 
 	recipe := &model.Recipe{
-		ID:          uuid.New(),
-		UserID:      job.UserID,
-		Title:       result.Title,
-		Description: stringPtr(result.Description),
-		Servings:    intPtr(result.Servings),
-		PrepTime:    intPtr(result.PrepTime),
-		CookTime:    intPtr(result.CookTime),
-		Difficulty:  stringPtr(result.Difficulty),
-		Cuisine:     stringPtr(result.Cuisine),
-		SourceType:  sourceType,
-		SourceURL:   stringPtr(job.SourceURL),
-		Tags:        result.Tags,
-		CreatedAt:   time.Now().UTC(),
-		UpdatedAt:   time.Now().UTC(),
+		ID:           uuid.New(),
+		UserID:       job.UserID,
+		Title:        result.Title,
+		Description:  stringPtr(result.Description),
+		Servings:     intPtr(result.Servings),
+		PrepTime:     intPtr(result.PrepTime),
+		CookTime:     intPtr(result.CookTime),
+		Difficulty:   stringPtr(result.Difficulty),
+		Cuisine:      stringPtr(result.Cuisine),
+		SourceType:   sourceType,
+		SourceURL:    stringPtr(job.SourceURL),
+		ThumbnailURL: stringPtr(result.Thumbnail),
+		Tags:         result.Tags,
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
 	}
 
 	// Apply enrichment data
@@ -1161,4 +1189,68 @@ func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request
 	resp := job.ToResponse("")
 	resp.Recipe = resultRecipe
 	response.OK(w, resp)
+}
+
+// DeleteJob deletes a single job
+func (h *UnifiedExtractionHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	jobIDStr := chi.URLParam(r, "jobID")
+	jobID, err := uuid.Parse(jobIDStr)
+	if err != nil {
+		response.BadRequest(w, "Invalid job ID")
+		return
+	}
+
+	// First verify ownership
+	job, err := h.jobRepo.GetByID(r.Context(), jobID)
+	if err != nil {
+		if errors.Is(err, postgres.ErrJobNotFound) {
+			response.NotFound(w, "Job not found")
+			return
+		}
+		response.InternalError(w)
+		return
+	}
+
+	if job.UserID != claims.UserID {
+		response.Forbidden(w, "Not authorized to access this job")
+		return
+	}
+
+	// Cancel if active (just in case, though usually users delete finished jobs)
+	if cancel, ok := h.activeJobs.Load(jobID); ok {
+		cancel.(context.CancelFunc)()
+		h.activeJobs.Delete(jobID)
+	}
+
+	// Delete from DB
+	if err := h.jobRepo.Delete(r.Context(), jobID, claims.UserID); err != nil {
+		h.logger.Error("Failed to delete job", "error", err)
+		response.InternalError(w)
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// ClearJobHistory deletes all finished jobs for the user
+func (h *UnifiedExtractionHandler) ClearJobHistory(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	if err := h.jobRepo.DeleteAllByUser(r.Context(), claims.UserID); err != nil {
+		h.logger.Error("Failed to clear job history", "error", err)
+		response.InternalError(w)
+		return
+	}
+
+	response.NoContent(w)
 }

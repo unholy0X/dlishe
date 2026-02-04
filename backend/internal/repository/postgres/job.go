@@ -410,3 +410,37 @@ func (r *JobRepository) MarkStuckJobsAsFailed(ctx context.Context, maxDuration t
 
 	return int(rows), nil
 }
+
+// Delete removes a job by ID and UserID
+func (r *JobRepository) Delete(ctx context.Context, id, userID uuid.UUID) error {
+	query := `DELETE FROM video_jobs WHERE id = $1 AND user_id = $2`
+	result, err := r.db.ExecContext(ctx, query, id, userID)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrJobNotFound
+	}
+
+	return nil
+}
+
+// DeleteAllByUser removes all finished jobs (completed, failed, cancelled) for a user
+func (r *JobRepository) DeleteAllByUser(ctx context.Context, userID uuid.UUID) error {
+	query := `
+		DELETE FROM video_jobs 
+		WHERE user_id = $1 
+		AND status IN ($2, $3, $4)
+	`
+	_, err := r.db.ExecContext(ctx, query, userID,
+		model.JobStatusCompleted,
+		model.JobStatusFailed,
+		model.JobStatusCancelled,
+	)
+	return err
+}

@@ -36,9 +36,7 @@ export const extractionService = {
             formData.append('saveAuto', String(options.saveAuto));
         }
 
-        const response = await api.post<Job>('/recipes/extract', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const response = await api.post<Job>('/recipes/extract', formData);
         return response.data;
     },
 
@@ -68,5 +66,19 @@ export const extractionService = {
      */
     async cancelJob(jobId: string): Promise<void> {
         await api.post(`/jobs/${jobId}/cancel`);
+    },
+
+    /**
+     * Delete a job history item
+     */
+    async deleteJob(jobId: string): Promise<void> {
+        await api.delete(`/jobs/${jobId}`);
+    },
+
+    /**
+     * Clear all finished jobs
+     */
+    async clearJobHistory(): Promise<void> {
+        await api.delete('/jobs');
     },
 };

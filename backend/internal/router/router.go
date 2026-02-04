@@ -174,6 +174,8 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 				r.Get("/{jobID}", unifiedExtractionHandler.GetJob)
 				r.Get("/{jobID}/stream", placeholderHandler("stream job")) // TODO: Implement SSE
 				r.Post("/{jobID}/cancel", unifiedExtractionHandler.CancelJob)
+				r.Delete("/{jobID}", unifiedExtractionHandler.DeleteJob)
+				r.Delete("/", unifiedExtractionHandler.ClearJobHistory)
 			})
 
 			// Pantry routes

@@ -8,6 +8,7 @@ import { NavHeader } from '@/lib/components/NavHeader';
 import { extractionService } from '@/lib/services/extraction';
 import { Job } from '@/lib/types';
 import {
+
   Plus,
   Video,
   Loader2,
@@ -19,7 +20,8 @@ import {
   RefreshCw,
   Image as ImageIcon,
   Link as LinkIcon,
-  Upload
+  Upload,
+  Trash2
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -36,6 +38,7 @@ export default function DashboardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState('');
   const [error, setError] = useState('');
+  const [isClearing, setIsClearing] = useState(false);
 
   // Derived state for job display
   const activeJobs = jobs.filter(j =>
@@ -62,7 +65,7 @@ export default function DashboardPage() {
   const fetchJobs = async () => {
     try {
       const data = await extractionService.listJobs();
-      setJobs(data.items || []);
+      setJobs(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch jobs', err);
     }
@@ -155,6 +158,41 @@ export default function DashboardPage() {
       setExtractionProgress('');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteJob = async (jobId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Optimistic update
+    setJobs(prev => prev.filter(j => j.jobId !== jobId));
+
+    try {
+      await extractionService.deleteJob(jobId);
+    } catch (err) {
+      console.error('Failed to delete job', err);
+      // Revert on failure (simple fetch)
+      fetchJobs();
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (!confirm('Are you sure you want to clear all finished jobs?')) return;
+
+    setIsClearing(true);
+    try {
+      // Optimistic update - keep only active jobs
+      setJobs(prev => prev.filter(j =>
+        ['pending', 'downloading', 'processing', 'extracting'].includes(j.status)
+      ));
+
+      await extractionService.clearJobHistory();
+    } catch (err) {
+      console.error('Failed to clear history', err);
+      fetchJobs();
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -321,7 +359,19 @@ export default function DashboardPage() {
 
         {/* Recent Jobs */}
         <section className="space-y-4">
-          <h2 className="text-2xl font-display font-medium text-text-primary px-2">Recent Extractions</h2>
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-2xl font-display font-medium text-text-primary">Recent Extractions</h2>
+            {jobs.length > 0 && (
+              <button
+                onClick={handleClearHistory}
+                disabled={isClearing}
+                className="text-sm text-stone-500 hover:text-red-500 transition-colors flex items-center gap-1"
+              >
+                {isClearing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                Clear History
+              </button>
+            )}
+          </div>
 
           <div className="grid gap-4">
             {jobs.length === 0 ? (
@@ -330,7 +380,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               sortedJobs.map((job) => (
-                <div key={job.jobId} className="bg-white rounded-xl shadow-soft border border-stone-200 p-4 flex items-center gap-4 transition hover:shadow-warm">
+                <div key={job.jobId} className="bg-white rounded-xl shadow-soft border border-stone-200 p-4 flex items-center gap-4 transition hover:shadow-warm group relative">
                   {/* Icon / Status */}
                   <div className={clsx(
                     "w-12 h-12 rounded-full flex items-center justify-center shrink-0",
@@ -383,14 +433,24 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Actions */}
-                  {job.status === 'completed' && job.recipe && (
+                  <div className="flex items-center gap-2">
+                    {job.status === 'completed' && job.recipe && (
+                      <button
+                        onClick={() => router.push(`/recipes/${job.recipe?.id}`)}
+                        className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-text-secondary rounded-lg text-sm font-medium transition"
+                      >
+                        View Recipe
+                      </button>
+                    )}
+
                     <button
-                      onClick={() => router.push(`/recipes/${job.recipe?.id}`)}
-                      className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-text-secondary rounded-lg text-sm font-medium transition"
+                      onClick={(e) => handleDeleteJob(job.jobId, e)}
+                      className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition opacity-0 group-hover:opacity-100"
+                      title="Remove from history"
                     >
-                      View Recipe
+                      <Trash2 className="w-4 h-4" />
                     </button>
-                  )}
+                  </div>
                 </div>
               ))
             )}

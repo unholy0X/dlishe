@@ -8,6 +8,7 @@ import (
 	"github.com/dishflow/backend/internal/model"
 	"github.com/dishflow/backend/internal/service/ai"
 	"github.com/dishflow/backend/internal/service/auth"
+	"github.com/dishflow/backend/internal/service/video"
 	"github.com/google/uuid"
 )
 
@@ -368,6 +369,16 @@ func (m *mockVideoDownloader) Cleanup(path string) error {
 	return m.CleanupFunc(path)
 }
 
+func (m *mockVideoDownloader) GetMetadata(ctx context.Context, url string) (*video.VideoMetadata, error) {
+	// Simple mock implementation
+	return &video.VideoMetadata{
+		Title:       "Mock Video",
+		Description: "Mock Description",
+		Duration:    120,
+		Uploader:    "Mock Uploader",
+	}, nil
+}
+
 // --- AI Service Mocks ---
 
 type mockRecipeExtractor struct {
@@ -391,7 +402,7 @@ func (m *mockRecipeExtractor) RefineRecipe(ctx context.Context, recipe *ai.Extra
 	}
 	return m.RefineRecipeFunc(ctx, recipe)
 }
-func (m *mockRecipeExtractor) ExtractFromWebpage(ctx context.Context, url string) (*ai.ExtractionResult, error) {
+func (m *mockRecipeExtractor) ExtractFromWebpage(ctx context.Context, url string, onProgress ai.ProgressCallback) (*ai.ExtractionResult, error) {
 	if m.ExtractFromWebpageFunc == nil {
 		return &ai.ExtractionResult{}, nil
 	}

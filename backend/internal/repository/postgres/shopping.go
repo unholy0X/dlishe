@@ -128,6 +128,55 @@ func (r *ShoppingRepository) CreateList(ctx context.Context, userID uuid.UUID, i
 	return list, nil
 }
 
+// CreateListWithItems creates a list and items atomically
+func (r *ShoppingRepository) CreateListWithItems(ctx context.Context, userID uuid.UUID, listInput *model.ShoppingListInput, itemsInput []*model.ShoppingItemInput) (*model.ShoppingListWithItems, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	// 1. Create List
+	query := `
+		INSERT INTO shopping_lists (user_id, name, description, icon, is_template)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, user_id, name, description, icon, is_template, is_archived,
+		          sync_version, created_at, updated_at, deleted_at
+	`
+	list := &model.ShoppingList{}
+	err = tx.QueryRowContext(ctx, query,
+		userID, listInput.Name, listInput.Description, listInput.Icon, listInput.IsTemplate,
+	).Scan(
+		&list.ID, &list.UserID, &list.Name, &list.Description, &list.Icon,
+		&list.IsTemplate, &list.IsArchived, &list.SyncVersion,
+		&list.CreatedAt, &list.UpdatedAt, &list.DeletedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Create Items
+	addedItems, err := r.CreateItemBatch(ctx, tx, list.ID, itemsInput)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// 3. Return combined result
+	items := make([]model.ShoppingItem, len(addedItems))
+	for i, item := range addedItems {
+		items[i] = *item
+	}
+
+	return &model.ShoppingListWithItems{
+		ShoppingList: *list,
+		Items:        items,
+	}, nil
+}
+
 // UpdateList updates an existing shopping list
 func (r *ShoppingRepository) UpdateList(ctx context.Context, id, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error) {
 	query := `

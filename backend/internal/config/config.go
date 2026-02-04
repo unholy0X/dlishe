@@ -13,7 +13,11 @@ type Config struct {
 	LogLevel string
 
 	// Database
-	DatabaseURL string
+	// Database
+	DatabaseURL             string
+	DatabaseMaxOpenConns    int
+	DatabaseMaxIdleConns    int
+	DatabaseConnMaxLifetime time.Duration
 
 	// Redis
 	RedisURL string
@@ -28,15 +32,18 @@ type Config struct {
 	GeminiMockMode bool
 
 	// CORS
-	CORSOrigins string
+	CorsAllowedOrigins string
 
 	// RevenueCat
 	RevenueCatSecretKey     string
 	RevenueCatWebhookSecret string
 
 	// Storage
-	StorageBucket   string
-	StorageEndpoint string
+	StorageBucket    string
+	StorageEndpoint  string
+	StorageAccessKey string
+	StorageSecretKey string
+
 	// Clerk configuration
 	ClerkPublishableKey string
 	ClerkSecretKey      string
@@ -46,8 +53,6 @@ type Config struct {
 	CleanupInterval  string // How often to run cleanup (e.g., "5m")
 	CleanupMaxJobAge string // Max age for stuck jobs (e.g., "35m")
 	CleanupTempDir   string // Directory for temp files
-	StorageAccessKey string
-	StorageSecretKey string
 
 	// Swagger documentation
 	EnableSwagger bool // Enable Swagger UI at /swagger/
@@ -61,7 +66,11 @@ func Load() *Config {
 		LogLevel: getEnv("LOG_LEVEL", "info"),
 
 		// Database
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://dishflow:dishflow@localhost:5432/dishflow?sslmode=disable"),
+		// Database
+		DatabaseURL:             getEnv("DATABASE_URL", "postgres://dishflow:dishflow@localhost:5432/dishflow?sslmode=disable"),
+		DatabaseMaxOpenConns:    getIntEnv("DATABASE_MAX_OPEN_CONNS", 100),
+		DatabaseMaxIdleConns:    getIntEnv("DATABASE_MAX_IDLE_CONNS", 25),
+		DatabaseConnMaxLifetime: getDurationEnv("DATABASE_CONN_MAX_LIFETIME", 15*time.Minute),
 
 		// Redis
 		RedisURL: getEnv("REDIS_URL", "redis://localhost:6379"),
@@ -76,7 +85,7 @@ func Load() *Config {
 		GeminiMockMode: getBoolEnv("GEMINI_MOCK_MODE", true),
 
 		// CORS
-		CORSOrigins: getEnv("CORS_ORIGINS", "*"),
+		CorsAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 
 		// RevenueCat
 		RevenueCatSecretKey:     getEnv("REVENUECAT_SECRET_KEY", ""),
@@ -134,4 +143,16 @@ func getDurationEnv(key string, defaultValue time.Duration) time.Duration {
 // IsMockMode returns true if Gemini should use mock responses
 func (c *Config) IsMockMode() bool {
 	return c.GeminiMockMode || c.GeminiAPIKey == "" || c.GeminiAPIKey == "mock"
+}
+
+// getIntEnv gets an integer environment variable with a default value
+func getIntEnv(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		i, err := strconv.Atoi(value)
+		if err != nil {
+			return defaultValue
+		}
+		return i
+	}
+	return defaultValue
 }

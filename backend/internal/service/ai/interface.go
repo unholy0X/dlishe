@@ -50,6 +50,8 @@ type ExtractionResult struct {
 	Steps       []ExtractedStep       `json:"steps"`
 	Tags        []string              `json:"tags"`
 	Thumbnail   string                `json:"thumbnail,omitempty"`
+	NonRecipe   bool                  `json:"non_recipe,omitempty"` // Internal use: indicates rejected content
+	Reason      string                `json:"reason,omitempty"`     // Internal use: reason for rejection
 }
 
 // UnmarshalJSON handles flexible type conversion for fields that might come as strings or ints

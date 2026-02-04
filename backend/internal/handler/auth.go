@@ -568,10 +568,3 @@ func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 
 	response.OK(w, resp)
 }
-
-func stringPtr(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}

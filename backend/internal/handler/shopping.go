@@ -767,8 +767,8 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 
 	addedItems, err := h.shoppingRepo.CreateItemBatch(ctx, tx, listID, itemInputs)
 	if err != nil {
-		response.ErrorJSON(w, http.StatusInternalServerError, "BULK_INSERT_FAILED",
-			"Failed to add recipe ingredients to shopping list", nil)
+		response.LogAndError(w, http.StatusInternalServerError, "BULK_INSERT_FAILED",
+			"Failed to add recipe ingredients to shopping list", err)
 		return
 	}
 
@@ -842,21 +842,17 @@ func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request)
 	}
 
 	// AI Processing: Merge items
-	// Fetch user to get preference
+	// Fetch user to get preference, defaulting to metric if unavailable
+	var preferredSystem = "metric"
 	user, err := h.userRepo.GetByID(ctx, claims.UserID)
-	if err != nil {
-		if err == model.ErrNotFound {
-			response.NotFound(w, "User")
-			return
-		}
-		response.InternalError(w)
-		return
+	if err == nil && user.PreferredUnitSystem != "" {
+		preferredSystem = user.PreferredUnitSystem
 	}
 
 	// Call AI service with user's preferred unit system
-	mergedItems, err := h.aiService.SmartMergeItems(ctx, items, user.PreferredUnitSystem)
+	mergedItems, err := h.aiService.SmartMergeItems(ctx, items, preferredSystem)
 	if err != nil {
-		response.ErrorJSON(w, http.StatusInternalServerError, "AI_PROCESSING_FAILED", "Failed to merge items", map[string]interface{}{"error": err.Error()})
+		response.LogAndError(w, http.StatusInternalServerError, "AI_PROCESSING_FAILED", "Failed to merge items", err)
 		return
 	}
 
@@ -874,50 +870,23 @@ func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request)
 	}
 	// Simplified description
 	count := len(req.SourceListIDs)
-	desc := "Merged from " + strings.Join(stringSlice(count, "list(s)"), "")
+	desc := "Merged from " + strings.Join(stringSlice("list(s)"), "")
 	if count == 1 {
 		desc = "Optimized copy of original list"
 	}
 	listInput.Description = &desc
 
-	newList, err := h.shoppingRepo.CreateList(ctx, claims.UserID, listInput)
-	if err != nil {
-		response.InternalError(w)
-		return
-	}
-
-	// Insert items into new list
-	tx, err := h.shoppingRepo.BeginTransaction(ctx)
-	if err != nil {
-		response.InternalError(w)
-		return
-	}
-	defer tx.Rollback()
-
-	// Convert structs to pointers for repository
+	// Convert structs to pointers
 	var itemPtrs []*model.ShoppingItemInput
 	for i := range mergedItems {
 		itemPtrs = append(itemPtrs, &mergedItems[i])
 	}
 
-	addedItems, err := h.shoppingRepo.CreateItemBatch(ctx, tx, newList.ID, itemPtrs)
+	// Create list and items atomically
+	result, err := h.shoppingRepo.CreateListWithItems(ctx, claims.UserID, listInput, itemPtrs)
 	if err != nil {
 		response.InternalError(w)
 		return
-	}
-
-	if err := tx.Commit(); err != nil {
-		response.InternalError(w)
-		return
-	}
-
-	// Return full list with items
-	result := model.ShoppingListWithItems{
-		ShoppingList: *newList,
-		Items:        make([]model.ShoppingItem, len(addedItems)),
-	}
-	for i, item := range addedItems {
-		result.Items[i] = *item
 	}
 
 	response.OK(w, result)
@@ -932,24 +901,8 @@ func uuidSliceToStrings(ids []uuid.UUID) []string {
 	return strs
 }
 
-func uuidSliceToStringsShort(ids []uuid.UUID) []string {
-	strs := make([]string, len(ids))
-	for i, id := range ids {
-		strs[i] = id.String()[:8] + "..."
-	}
-	return strs
-}
-
-func stringSlice(n int, s string) []string {
+func stringSlice(s string) []string {
 	return []string{s} // Just dummy for the closure logic above
-}
-
-func ptrSliceToPtrSlice(inputs []model.ShoppingItemInput) []*model.ShoppingItemInput {
-	ptrs := make([]*model.ShoppingItemInput, len(inputs))
-	for i := range inputs {
-		ptrs[i] = &inputs[i]
-	}
-	return ptrs
 }
 
 // CompleteList handles POST /api/v1/shopping-lists/{id}/complete

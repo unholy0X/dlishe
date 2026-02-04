@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 const (
@@ -34,7 +34,7 @@ func isValidCategory(category string) bool {
 }
 
 func main() {
-	db, err := sql.Open("postgres", DBURL)
+	db, err := sql.Open("pgx", DBURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to DB: %v", err)
 	}

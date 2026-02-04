@@ -10,7 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"regexp"
+
 	"github.com/PuerkitoBio/goquery"
+
 	"github.com/dishflow/backend/internal/model"
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
@@ -237,6 +240,25 @@ func NewGeminiClient(ctx context.Context, apiKey string) (*GeminiClient, error) 
 
 // ExtractRecipe extracts a recipe from a video file
 func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest, onProgress ProgressCallback) (*ExtractionResult, error) {
+	// Validate inputs to prevent prompt injection
+	// Only allow letters, spaces, hyphens, and parentheses for language
+	if req.Language != "" {
+		match, _ := regexp.MatchString(`^[a-zA-Z \-()]+$`, req.Language)
+		if !match || len(req.Language) > 50 {
+			return nil, fmt.Errorf("invalid language format")
+		}
+	} else {
+		req.Language = "English" // Default
+	}
+
+	// Validate detail level
+	if req.DetailLevel != "" {
+		match, _ := regexp.MatchString(`^[a-zA-Z]+$`, req.DetailLevel)
+		if !match || len(req.DetailLevel) > 20 {
+			return nil, fmt.Errorf("invalid detail level format")
+		}
+	}
+
 	// 1. Upload file
 	onProgress(model.JobStatusDownloading, 20, "Uploading video to Gemini...")
 
@@ -294,7 +316,12 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		Target Language: %s
 		Detail Level: %s (if 'detailed', provide very precise steps and timestamps).
 
-		Return a JSON object matching this structure:
+		**CRITICAL INSTRUCTION**: 
+		Analyze the content. If this is clearly **NOT a cooking recipe or food preparation video** (e.g. a dance video, news article, vlog without food, gaming, etc.),
+		return a JSON with: {"non_recipe": true, "reason": "Content appears to be [description of content]"}.
+		DO NOT try to invent a recipe if one does not exist.
+
+		If it IS a recipe, return a JSON object matching this structure:
 		{
 			"title": "Recipe Title",
 			"description": "Brief description",
@@ -311,8 +338,6 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 			],
 			"tags": ["pasta", "dinner"]
 		}
-
-		If the video is not a cooking video or no recipe can be found, return a JSON with error field or just empty fields.
 	`, req.Language, req.DetailLevel)
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
@@ -333,15 +358,17 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 	for _, part := range resp.Candidates[0].Content.Parts {
 		if txt, ok := part.(genai.Text); ok {
 			if err := json.Unmarshal([]byte(txt), &result); err != nil {
-				// Try to sanitize markdown code blocks if present (though ResponseMIMEType shouldn't have them)
-				// But just in case
+				// Try to sanitize markdown code blocks if present
 				s := string(txt)
-				// remove ```json ... ```
-				// ... (simple cleanup if needed, but 2.0 Flash is usually clean with application/json)
 				return nil, fmt.Errorf("failed to parse JSON: %w (content: %s)", err, s)
 			}
 			break
 		}
+	}
+
+	// Check for rejection
+	if result.NonRecipe {
+		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
 	}
 
 	return &result, nil
@@ -521,9 +548,10 @@ func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model
 
 	// Determine unit instructions based on preference
 	unitInstruction := `2. **Normalize Units**: Combine quantities of same items (e.g., "100g Cheese" + "4oz Cheese" -> "220g Cheese"). Use the most common standard unit.`
-	if preferredUnitSystem == "metric" {
+	switch preferredUnitSystem {
+	case "metric":
 		unitInstruction = `2. **Normalize Units**: Combine quantities and **STRICTLY CONVERT TO METRIC** (grams, kg, ml, liters, celsius). Convert ounces/lbs to grams/kg. Example: "4oz" -> "113g".`
-	} else if preferredUnitSystem == "imperial" {
+	case "imperial":
 		unitInstruction = `2. **Normalize Units**: Combine quantities and **STRICTLY CONVERT TO IMPERIAL** (ounces, lbs, cups, tsp, tbsp, fahrenheit). Convert grams/kg to oz/lbs. Example: "100g" -> "3.5oz".`
 	}
 
@@ -603,12 +631,15 @@ Extract the recipe from this webpage content.
 %s
 
 **Instructions**:
-1. Find the recipe on this page (title, ingredients, instructions)
-2. Extract ALL ingredients with quantities and units
-3. Extract ALL steps in order
-4. Determine prep time, cook time, servings, difficulty, and cuisine
-5. If there are multiple recipes, extract the MAIN recipe (usually the first or most prominent)
-6. If no recipe is found, return empty fields
+1. Analyze the content. If this is clearly **NOT a cooking recipe** (e.g. a news article, blog post without recipe, product page, etc.),
+   return a JSON with: {"non_recipe": true, "reason": "Content appears to be [description]"}.
+   DO NOT invent a recipe.
+
+2. If it IS a recipe:
+   - Extract ALL ingredients with quantities and units
+   - Extract ALL steps in order
+   - Determine prep time, cook time, servings, difficulty, and cuisine
+   - If there are multiple recipes, extract the MAIN recipe (usually the first or most prominent)
 
 **Return JSON matching this structure**:
 {
@@ -651,6 +682,11 @@ Return ONLY the JSON, no markdown or explanations.`, url, htmlContent)
 			}
 			break
 		}
+	}
+
+	// Check for rejection
+	if result.NonRecipe {
+		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
 	}
 
 	return &result, nil

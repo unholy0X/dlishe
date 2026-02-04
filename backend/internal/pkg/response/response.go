@@ -104,7 +104,10 @@ func PaymentRequired(w http.ResponseWriter, message string) {
 	ErrorJSON(w, http.StatusPaymentRequired, "UPGRADE_REQUIRED", message, nil)
 }
 
-func InternalError(w http.ResponseWriter) {
+func InternalError(w http.ResponseWriter, errs ...error) {
+	if len(errs) > 0 && errs[0] != nil {
+		log.Printf("[ERROR] Internal error: %v", errs[0])
+	}
 	ErrorJSON(w, http.StatusInternalServerError, "INTERNAL_ERROR", "An internal error occurred", nil)
 }
 

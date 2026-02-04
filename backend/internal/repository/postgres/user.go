@@ -6,10 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/lib/pq"
-
 	"github.com/dishflow/backend/internal/model"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var (
@@ -48,8 +47,9 @@ func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 	)
 
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok {
-			if pqErr.Code == "23505" { // unique_violation
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" { // unique_violation
 				return ErrUserAlreadyExists
 			}
 		}

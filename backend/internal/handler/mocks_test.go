@@ -168,6 +168,7 @@ type mockShoppingRepository struct {
 	GetListFunc              func(ctx context.Context, id, userID uuid.UUID) (*model.ShoppingList, error)
 	GetListWithItemsFunc     func(ctx context.Context, id, userID uuid.UUID) (*model.ShoppingListWithItems, error)
 	CreateListFunc           func(ctx context.Context, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error)
+	CreateListWithItemsFunc  func(ctx context.Context, userID uuid.UUID, listInput *model.ShoppingListInput, itemsInput []*model.ShoppingItemInput) (*model.ShoppingListWithItems, error)
 	UpdateListFunc           func(ctx context.Context, id, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error)
 	DeleteListFunc           func(ctx context.Context, id, userID uuid.UUID) error
 	ArchiveListFunc          func(ctx context.Context, id, userID uuid.UUID, archive bool) error
@@ -196,6 +197,9 @@ func (m *mockShoppingRepository) GetListWithItems(ctx context.Context, id, userI
 }
 func (m *mockShoppingRepository) CreateList(ctx context.Context, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error) {
 	return m.CreateListFunc(ctx, userID, input)
+}
+func (m *mockShoppingRepository) CreateListWithItems(ctx context.Context, userID uuid.UUID, listInput *model.ShoppingListInput, itemsInput []*model.ShoppingItemInput) (*model.ShoppingListWithItems, error) {
+	return m.CreateListWithItemsFunc(ctx, userID, listInput, itemsInput)
 }
 func (m *mockShoppingRepository) UpdateList(ctx context.Context, id, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error) {
 	return m.UpdateListFunc(ctx, id, userID, input)

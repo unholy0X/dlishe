@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 
 	"github.com/dishflow/backend/internal/model"
 )
@@ -93,7 +92,7 @@ func (r *RecipeRepository) Create(ctx context.Context, recipe *model.Recipe) err
 		recipe.SourceURL,
 		recipe.SourceRecipeID,
 		sourceMetadata,
-		pq.Array(recipe.Tags),
+		recipe.Tags,
 		recipe.IsPublic,
 		recipe.IsFavorite,
 		nutritionJSON,
@@ -199,7 +198,7 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 
 	recipe := &model.Recipe{}
 	var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
-	var tags pq.StringArray
+	var tags TextArray
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&recipe.ID,
@@ -233,7 +232,7 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 		return nil, err
 	}
 
-	recipe.Tags = tags
+	recipe.Tags = []string(tags)
 
 	if sourceMetadata != nil {
 		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
@@ -277,7 +276,7 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 
 	recipe := &model.Recipe{}
 	var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
-	var tags pq.StringArray
+	var tags TextArray
 
 	err := r.db.QueryRowContext(ctx, query, userID, sourceURL).Scan(
 		&recipe.ID,
@@ -311,7 +310,7 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 		return nil, err
 	}
 
-	recipe.Tags = tags
+	recipe.Tags = []string(tags)
 
 	if sourceMetadata != nil {
 		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
@@ -355,7 +354,7 @@ func (r *RecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sour
 
 	recipe := &model.Recipe{}
 	var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
-	var tags pq.StringArray
+	var tags TextArray
 
 	err := r.db.QueryRowContext(ctx, query, userID, sourceRecipeID).Scan(
 		&recipe.ID,
@@ -389,7 +388,7 @@ func (r *RecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sour
 		return nil, err
 	}
 
-	recipe.Tags = tags
+	recipe.Tags = []string(tags)
 
 	if sourceMetadata != nil {
 		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
@@ -519,7 +518,7 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 	for rows.Next() {
 		recipe := &model.Recipe{}
 		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
-		var tags pq.StringArray
+		var tags TextArray
 
 		err := rows.Scan(
 			&recipe.ID,
@@ -551,7 +550,7 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 			return nil, 0, err
 		}
 
-		recipe.Tags = tags
+		recipe.Tags = []string(tags)
 		if sourceMetadata != nil {
 			json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
 		}
@@ -604,7 +603,7 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 	for rows.Next() {
 		recipe := &model.Recipe{}
 		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
-		var tags pq.StringArray
+		var tags TextArray
 
 		err := rows.Scan(
 			&recipe.ID,
@@ -636,7 +635,7 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 			return nil, 0, err
 		}
 
-		recipe.Tags = tags
+		recipe.Tags = []string(tags)
 		if sourceMetadata != nil {
 			json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
 		}
@@ -718,7 +717,7 @@ func (r *RecipeRepository) Update(ctx context.Context, recipe *model.Recipe) err
 		recipe.SourceURL,
 		recipe.SourceRecipeID,
 		sourceMetadata,
-		pq.Array(recipe.Tags),
+		recipe.Tags,
 		recipe.IsPublic,
 		recipe.IsFavorite,
 		nutritionJSON,
@@ -862,19 +861,21 @@ func (r *RecipeRepository) GetChangesSince(ctx context.Context, userID uuid.UUID
 	for rows.Next() {
 		var recipe model.Recipe
 		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
+		var tags TextArray
 
 		err := rows.Scan(
 			&recipe.ID, &recipe.UserID, &recipe.Title, &recipe.Description,
 			&recipe.Servings, &recipe.PrepTime, &recipe.CookTime,
 			&recipe.Difficulty, &recipe.Cuisine, &recipe.ThumbnailURL,
 			&recipe.SourceType, &recipe.SourceURL, &recipe.SourceRecipeID, &sourceMetadata,
-			pq.Array(&recipe.Tags), &recipe.IsPublic, &recipe.IsFavorite,
+			&tags, &recipe.IsPublic, &recipe.IsFavorite,
 			&nutritionJSON, &dietaryInfoJSON, &recipe.SyncVersion,
 			&recipe.CreatedAt, &recipe.UpdatedAt, &recipe.DeletedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+		recipe.Tags = []string(tags)
 
 		// Unmarshal source metadata
 		if len(sourceMetadata) > 0 {
@@ -976,7 +977,7 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 			servings, prepTime, cookTime  *int
 			sourceMetadata, nutritionJSON []byte
 			dietaryInfoJSON               []byte
-			tags                          pq.StringArray
+			tags                          TextArray
 			isPublic, isFavorite          bool
 			syncVersion                   int
 			createdAt, updatedAt          time.Time
@@ -1016,7 +1017,7 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 				Cuisine:      cuisine,
 				ThumbnailURL: thumbnailURL,
 				SourceType:   sourceType,
-				Tags:         tags,
+				Tags:         []string(tags),
 				IsPublic:     isPublic,
 				IsFavorite:   isFavorite,
 				SyncVersion:  syncVersion,

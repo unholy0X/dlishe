@@ -4,7 +4,8 @@ import "fmt"
 
 // Common errors
 var (
-	ErrNotFound = fmt.Errorf("resource not found")
+	ErrNotFound          = fmt.Errorf("resource not found")
+	ErrIrrelevantContent = fmt.Errorf("content is not recipe-related")
 )
 
 // ErrValidation represents a validation error

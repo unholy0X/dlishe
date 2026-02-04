@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/model"
@@ -34,6 +36,7 @@ type UnifiedExtractionHandler struct {
 	enricher   ai.RecipeEnricher
 	cacheRepo  *postgres.ExtractionCacheRepository
 	downloader VideoDownloader
+	redis      *redis.Client
 	logger     *slog.Logger
 
 	// activeJobs stores cancel functions for running jobs
@@ -54,19 +57,28 @@ func NewUnifiedExtractionHandler(
 	enricher ai.RecipeEnricher,
 	cacheRepo *postgres.ExtractionCacheRepository,
 	downloader VideoDownloader,
+	redisClient *redis.Client,
 	logger *slog.Logger,
 ) *UnifiedExtractionHandler {
-	return &UnifiedExtractionHandler{
+	h := &UnifiedExtractionHandler{
 		jobRepo:      jobRepo,
 		recipeRepo:   recipeRepo,
 		extractor:    extractor,
 		enricher:     enricher,
 		cacheRepo:    cacheRepo,
 		downloader:   downloader,
+		redis:        redisClient,
 		logger:       logger,
 		jobSemaphore: make(chan struct{}, 10), // Allow 10 concurrent jobs
 		tempDir:      os.TempDir(),
 	}
+
+	// Start distributed cancellation listener
+	if redisClient != nil {
+		go h.subscribeToCancellation()
+	}
+
+	return h
 }
 
 // UnifiedExtractRequest represents a unified extraction request
@@ -394,6 +406,8 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 	if err != nil {
 		if isCancelled() {
 			failJob("CANCELLED", "Job was cancelled")
+		} else if errors.Is(err, model.ErrIrrelevantContent) {
+			failJob("CONTENT_IRRELEVANT", err.Error())
 		} else {
 			failJob("EXTRACTION_FAILED", err.Error())
 		}
@@ -955,14 +969,45 @@ func (h *UnifiedExtractionHandler) CancelJobInternal(jobID uuid.UUID) {
 // @Tags Jobs
 // @Produce json
 // @Security BearerAuth
-// @Param jobID path string true "Job UUID"
-// @Success 200 {object} SwaggerJobResponse "Job status"
-// @Failure 400 {object} SwaggerErrorResponse "Invalid job ID"
+
+// subscribeToCancellation listens for cancellation messages from other instances
+func (h *UnifiedExtractionHandler) subscribeToCancellation() {
+	ctx := context.Background()
+	pubsub := h.redis.Subscribe(ctx, "jobs:cancellation")
+	defer pubsub.Close()
+
+	ch := pubsub.Channel()
+
+	h.logger.Info("Started distributed cancellation listener")
+
+	for msg := range ch {
+		jobIDStr := msg.Payload
+		jobID, err := uuid.Parse(jobIDStr)
+		if err != nil {
+			continue
+		}
+
+		// Check if we have this job running locally
+		if cancelFn, ok := h.activeJobs.Load(jobID); ok {
+			if cancel, ok := cancelFn.(context.CancelFunc); ok {
+				h.logger.Info("Received distributed cancellation signal", "jobID", jobID)
+				cancel()
+			}
+		}
+	}
+}
+
+// CancelJob handles POST /api/v1/jobs/{jobID}/cancel
+// @Summary Cancel a running job
+// @Description Cancel a job by ID. Works across distributed instances via Redis Pub/Sub.
+// @Tags Jobs
+// @Security BearerAuth
+// @Param jobID path string true "Job ID"
+// @Success 204 "Job cancelled"
 // @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
-// @Failure 403 {object} SwaggerErrorResponse "Access denied"
 // @Failure 404 {object} SwaggerErrorResponse "Job not found"
-// @Router /jobs/{jobID} [get]
-func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request) {
+// @Router /jobs/{jobID}/cancel [post]
+func (h *UnifiedExtractionHandler) CancelJob(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
 		response.Unauthorized(w, "Authentication required")
@@ -976,52 +1021,46 @@ func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Verify ownership
 	job, err := h.jobRepo.GetByID(r.Context(), id)
 	if err != nil {
-		if err.Error() == "job not found" {
+		if err == postgres.ErrJobNotFound {
 			response.NotFound(w, "Job not found")
 			return
 		}
-		h.logger.Error("Failed to get job", "error", err)
 		response.InternalError(w)
 		return
 	}
-
 	if job.UserID != claims.UserID {
 		response.Forbidden(w, "Access denied")
 		return
 	}
 
-	// Include Recipe if completed
-	var resultRecipe *model.Recipe
-	if job.Status == model.JobStatusCompleted && job.ResultRecipeID != nil {
-		recipe, err := h.recipeRepo.GetByID(r.Context(), *job.ResultRecipeID)
-		if err != nil {
-			// Log but don't fail - job status is still valid even if recipe fetch fails
-			h.logger.Warn("Failed to fetch result recipe for job", "jobID", job.ID, "recipeID", *job.ResultRecipeID, "error", err)
-		} else {
-			resultRecipe = recipe
+	// 1. Cancel locally if present (fast path)
+	if cancelFn, ok := h.activeJobs.Load(id); ok {
+		if cancel, ok := cancelFn.(context.CancelFunc); ok {
+			cancel()
+			h.logger.Info("Cancelled job locally", "jobID", id)
 		}
 	}
 
-	resp := job.ToResponse("")
-	resp.Recipe = resultRecipe
-	response.OK(w, resp)
+	// 2. Publish cancellation signal to other instances
+	if h.redis != nil {
+		if err := h.redis.Publish(r.Context(), "jobs:cancellation", id.String()).Err(); err != nil {
+			h.logger.Error("Failed to publish cancellation signal", "error", err, "jobID", id)
+		}
+	}
+
+	// 3. Mark in DB as cancelled
+	if err := h.jobRepo.MarkCancelled(r.Context(), id); err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	response.NoContent(w)
 }
 
-// ListJobs handles GET /api/v1/jobs
-// @Summary List user's jobs
-// @Description Get list of extraction jobs for the current user (includes url, image, and video extractions)
-// @Tags Jobs
-// @Produce json
-// @Security BearerAuth
-// @Param type query string false "Filter by job type" Enums(url, image, video)
-// @Param limit query int false "Items per page" default(20)
-// @Param offset query int false "Pagination offset" default(0)
-// @Success 200 {array} SwaggerJobResponse "List of jobs"
-// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
-// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
-// @Router /jobs [get]
+// ListJobs returns a list of jobs for the user
 func (h *UnifiedExtractionHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -1029,41 +1068,28 @@ func (h *UnifiedExtractionHandler) ListJobs(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Parse query params
 	limit := 20
 	offset := 0
+
 	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
-			limit = parsed
+		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 100 {
+			limit = val
 		}
 	}
 	if o := r.URL.Query().Get("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
-			offset = parsed
+		if val, err := strconv.Atoi(o); err == nil && val >= 0 {
+			offset = val
 		}
 	}
 
 	jobs, err := h.jobRepo.ListByUser(r.Context(), claims.UserID, limit, offset)
 	if err != nil {
-		h.logger.Error("Failed to list jobs", "error", err)
 		response.InternalError(w)
 		return
 	}
 
 	if jobs == nil {
-		jobs = []*model.ExtractionJob{}
-	}
-
-	// Filter by type if specified
-	jobType := r.URL.Query().Get("type")
-	if jobType != "" {
-		filtered := make([]*model.ExtractionJob, 0)
-		for _, job := range jobs {
-			if string(job.JobType) == jobType {
-				filtered = append(filtered, job)
-			}
-		}
-		jobs = filtered
+		jobs = []*model.VideoJob{}
 	}
 
 	// Convert to response
@@ -1084,19 +1110,8 @@ func (h *UnifiedExtractionHandler) ListJobs(w http.ResponseWriter, r *http.Reque
 	response.OK(w, resp)
 }
 
-// CancelJob handles POST /api/v1/jobs/{jobID}/cancel
-// @Summary Cancel a job
-// @Description Cancel a running extraction job
-// @Tags Jobs
-// @Security BearerAuth
-// @Param jobID path string true "Job UUID"
-// @Success 204 "Job cancelled"
-// @Failure 400 {object} SwaggerErrorResponse "Invalid job ID"
-// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
-// @Failure 403 {object} SwaggerErrorResponse "Access denied"
-// @Failure 404 {object} SwaggerErrorResponse "Job not found"
-// @Router /jobs/{jobID}/cancel [post]
-func (h *UnifiedExtractionHandler) CancelJob(w http.ResponseWriter, r *http.Request) {
+// GetJob returns a single job
+func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
 		response.Unauthorized(w, "Authentication required")
@@ -1110,14 +1125,12 @@ func (h *UnifiedExtractionHandler) CancelJob(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Verify ownership
 	job, err := h.jobRepo.GetByID(r.Context(), id)
 	if err != nil {
-		if err.Error() == "job not found" {
+		if err == postgres.ErrJobNotFound {
 			response.NotFound(w, "Job not found")
 			return
 		}
-		h.logger.Error("Failed to get job", "error", err)
 		response.InternalError(w)
 		return
 	}
@@ -1127,20 +1140,13 @@ func (h *UnifiedExtractionHandler) CancelJob(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Cancel the running job if it's active
-	h.CancelJobInternal(id)
-
-	if err := h.jobRepo.MarkCancelled(r.Context(), id); err != nil {
-		if err.Error() == "job not found" {
-			// Job was already in a terminal state
-			response.NoContent(w)
-			return
-		}
-		h.logger.Error("Failed to mark job cancelled", "error", err)
-		response.InternalError(w)
-		return
+	// Include Recipe if completed
+	var resultRecipe *model.Recipe
+	if job.Status == model.JobStatusCompleted && job.ResultRecipeID != nil {
+		resultRecipe, _ = h.recipeRepo.GetByID(r.Context(), *job.ResultRecipeID)
 	}
 
-	h.logger.Info("Job cancelled", "jobID", id)
-	response.NoContent(w)
+	resp := job.ToResponse("")
+	resp.Recipe = resultRecipe
+	response.OK(w, resp)
 }

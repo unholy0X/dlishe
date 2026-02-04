@@ -32,7 +32,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Recover(logger))
-	r.Use(middleware.CORS(cfg.CORSOrigins))
+	r.Use(middleware.CORS(cfg.CorsAllowedOrigins))
 
 	// Swagger UI (only if enabled via config)
 	if cfg.EnableSwagger {
@@ -101,7 +101,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	// Unified extraction handler (handles url, image, video extraction with async jobs)
 	// Also handles job listing, status, and cancellation
 	// Now includes enrichment and caching support
-	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, extractor, enricher, extractionCacheRepo, downloader, logger)
+	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, extractor, enricher, extractionCacheRepo, downloader, redis, logger)
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(redis)

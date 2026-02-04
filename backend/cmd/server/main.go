@@ -46,7 +46,7 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -89,7 +89,8 @@ func main() {
 	)
 
 	// Connect to PostgreSQL
-	db, err := connectPostgres(cfg.DatabaseURL)
+	// Connect to PostgreSQL
+	db, err := connectPostgres(cfg)
 	if err != nil {
 		logger.Error("Failed to connect to PostgreSQL", slog.Any("error", err))
 		os.Exit(1)
@@ -192,23 +193,20 @@ func main() {
 	logger.Info("Server stopped")
 }
 
-func connectPostgres(databaseURL string) (*sql.DB, error) {
-	db, err := sql.Open("postgres", databaseURL)
+func connectPostgres(cfg *config.Config) (*sql.DB, error) {
+	db, err := sql.Open("pgx", cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open connection: %w", err)
 	}
 
 	// Configure connection pool for production load
 	// CRITICAL: With video extraction (30s+), SSE polling (500ms), and concurrent users,
-	// 25 connections is insufficient. At 50 concurrent users:
-	// - 5 video extractions = 5 conns
-	// - 25 SSE polls = 25 conns
-	// - 20 API requests = 20 conns
-	// Total: 50 conns needed vs old limit of 25 → connection exhaustion!
-	db.SetMaxOpenConns(100)                 // Scale with expected concurrent users
-	db.SetMaxIdleConns(25)                  // Keep pool warm for burst traffic
-	db.SetConnMaxLifetime(15 * time.Minute) // Longer for persistent connections
-	db.SetConnMaxIdleTime(5 * time.Minute)  // Close truly idle connections
+	// connection limits must be tuned to the environment.
+	db.SetMaxOpenConns(cfg.DatabaseMaxOpenConns)
+	db.SetMaxIdleConns(cfg.DatabaseMaxIdleConns)
+	db.SetConnMaxLifetime(cfg.DatabaseConnMaxLifetime)
+	db.SetConnMaxIdleTime(5 * time.Minute) // Close truly idle connections
+	db.SetConnMaxIdleTime(5 * time.Minute) // Close truly idle connections
 
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

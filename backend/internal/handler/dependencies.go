@@ -52,6 +52,7 @@ type ShoppingRepository interface {
 	GetList(ctx context.Context, id, userID uuid.UUID) (*model.ShoppingList, error)
 	GetListWithItems(ctx context.Context, id, userID uuid.UUID) (*model.ShoppingListWithItems, error)
 	CreateList(ctx context.Context, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error)
+	CreateListWithItems(ctx context.Context, userID uuid.UUID, listInput *model.ShoppingListInput, itemsInput []*model.ShoppingItemInput) (*model.ShoppingListWithItems, error)
 	UpdateList(ctx context.Context, id, userID uuid.UUID, input *model.ShoppingListInput) (*model.ShoppingList, error)
 	DeleteList(ctx context.Context, id, userID uuid.UUID) error
 	ArchiveList(ctx context.Context, id, userID uuid.UUID, archive bool) error

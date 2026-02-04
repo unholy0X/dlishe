@@ -836,3 +836,66 @@
 {"time":"2026-02-04T13:34:59.720817384Z","level":"INFO","msg":"HTTP request","request_id":"bba5d4c7-81d8-4268-9181-840945704fdf","method":"GET","path":"/api/v1/recipes","status":200,"size":1012,"duration":3868833,"remote_addr":"172.20.0.1:64858","request_body":"","response_body":"{\"items\":[{\"id\":\"92d096a3-e446-4147-ba91-efdba5a129b1\",\"userId\":\"71cb9eca-cf5a-44b1-ad58-42b8b662ab9d\",\"title\":\"Fried Honeynut Squash Rings with Harissa Labneh\",\"description\":\"A recipe for fried honeynut squash rings with a spicy harissa labneh dipping sauce.\",\"servings\":4,\"prepTime\":20,\"cookTime\":20,\"difficulty\":\"Medium\",\"cuisine\":\"Mediterranean\",\"sourceType\":\"video\",\"sourceUrl\":\"https://www.tiktok.com/@eitan/video/7579370239616388383\",\"tags\":[\"squash\",\"fried\",\"vegetarian\",\"appetizer\",\"fall\",\"honeynut squash\",\"harissa\",\"labneh\",\"rings\"],\"isPublic\":false,\"isFavorite\":false,\"nutrition\":{\"calories\":650,\"protein\":12,\"carbs\":50,\"fat\":45,\"fiber\":5,\"sugar\":15,\"sodium\":400,\"tags\":[\"moderate-carb\"],\"confidence\":0.75},\"dietaryInfo\":{\"isVegetarian\":true,\"isNutFree\":true,\"allergens\":[\"eggs\",\"gluten\",\"dairy\"],\"mealTypes\":[\"snack\",\"dinner\"]},\"syncVersion\":0,\"createdAt\":\"2026-02-04T13:34:46.358265Z\",\"updatedAt\":\"2026-02-04T13:34:46.358265Z\",\"ingredientCount\":11,\"stepCount\":11}],\"limit\":20,\"offset\":0,\"total\":1}\n"}
 {"time":"2026-02-04T13:35:03.625331969Z","level":"INFO","msg":"HTTP request","request_id":"5b71afba-60bf-43f6-b662-bb2ed078063f","method":"OPTIONS","path":"/api/v1/recipes/92d096a3-e446-4147-ba91-efdba5a129b1","status":204,"size":0,"duration":76916,"remote_addr":"172.20.0.1:64858","request_body":"","response_body":""}
 {"time":"2026-02-04T13:35:03.633571594Z","level":"INFO","msg":"HTTP request","request_id":"0dc48e4b-2518-42b0-bd4f-e082aae49725","method":"GET","path":"/api/v1/recipes/92d096a3-e446-4147-ba91-efdba5a129b1","status":200,"size":7773,"duration":3324625,"remote_addr":"172.20.0.1:64858","request_body":"","response_body":"{\"id\":\"92d096a3-e446-4147-ba91-efdba5a129b1\",\"userId\":\"71cb9eca-cf5a-44b1-ad58-42b8b662ab9d\",\"title\":\"Fried Honeynut Squash Rings with Harissa Labneh\",\"description\":\"A recipe for fried honeynut squash rings with a spicy harissa labneh dipping sauce.\",\"servings\":4,\"prepTime\":20,\"cookTime\":20,\"difficulty\":\"Medium\",\"cuisine\":\"Mediterranean\",\"sourceType\":\"video\",\"sourceUrl\":\"https://www.tiktok.com/@eitan/video/7579370239616388383\",\"tags\":[\"squash\",\"fried\",\"vegetarian\",\"appetizer\",\"fall\",\"honeynut squash\",\"harissa\",\"labneh\",\"rings\"],\"isPublic\":false,\"isFavorite\":false,\"nutrition\":{\"calories\":650,\"protein\":12,\"carbs\":50,\"fat\":45,\"fiber\":5,\"sugar\":15,\"sodium\":400,\"tags\":[\"moderate-carb\"],\"confidence\":0.75},\"dietaryInfo\":{\"isVegetarian\":true,\"isNutFree\":true,\"allergens\":[\"eggs\",\"gluten\",\"dairy\"],\"mealTypes\":[\"snack\",\"dinner\"]},\"syncVersion\":0,\"createdAt\":\"2026-02-04T13:34:46.358265Z\",\"updatedAt\":\"2026-02-04T13:34:46.358265Z\",\"ingredients\":[{\"id\":\"851225e7-bcd4-4854-85b5-3a9fb184c09a\",\"recipeId\":\"92d096a3-e446-4147-ba91-efdba5a129b1\",\"name\":\"Honeynut Squash\",\"quantity\":2,\"unit\":\"medium\",\"category\":\"produce\",\"isOptional\":false,\"sortOrder\":0,\"createdAt\":\"2026-02-04T13:34:46.366277Z\"},{\"id\":\"9e26090a-b586-4a0b-84d9-2c7034ca6bf1\",\"recipeId\":\"92d096a3-e446-4147-ba91-efdba5a129b1\",\"name\":\"All-purpose flour\",\"quantity\":1,\"unit\":\"cup\",\"category\":\"bakery\",\"isOptional\":false,\"notes\":\"for dredging\",\"sortOrder\":1,\"createdAt\":\"2026-02-04T13:34:46.36759Z\"},{\"id\":\"d299f352-fdaa-4316-9569-efb93739dba5\",\"recipeId\":\"92d096a3-e446-4147-ba91-efdba5a129b1\",\"name\":\"Egg\",\"quantity\":3,\"category\":\"dairy\",\"isOptional\":false,\"notes\":\"beaten\",\"sortOrder\":2,\"createdAt\":\"2026-02-04T13:34:46.367927Z\"},{\"id\":\"c1c91f37-92dc-46f4-ab8f-3a32cdb12368\",\"recipeId\":\"92d096a3-e446-4147-ba91-efdba5a129b1\",\"name\":\"Panko breadcrumbs\",\"quantity\":1,\"unit\":\"cup\",\"category\":\"bakery\",\"isOptional\":false,\"notes\":\"for coating\",\"sortOrder\":3,\"createdAt\":\"2026-02-04T13:34:46.368488Z\"},{\"id\":\"8ec44078-3fab-40e9-a77e-b432f117985c\",\"recipeId\":\"92d096a3-e446-4147-ba91-efdba5a129...(truncated)"}
+{"time":"2026-02-04T13:51:09.11072068Z","level":"INFO","msg":"Starting DishFlow API server","port":"8080","mock_mode":false}
+{"time":"2026-02-04T13:51:09.120046846Z","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-04T13:51:09.122204846Z","level":"INFO","msg":"Connected to Redis"}
+{"time":"2026-02-04T13:51:09.123649846Z","level":"INFO","msg":"Cleanup worker started","interval":300000000000,"max_job_age":2100000000000}
+{"time":"2026-02-04T13:51:09.123845013Z","level":"INFO","msg":"Starting cleanup service","temp_dir":"/tmp","max_job_age":2100000000000,"cleanup_interval":300000000000}
+{"time":"2026-02-04T13:51:09.124077846Z","level":"INFO","msg":"Server listening","addr":":8080"}
+{"time":"2026-02-04T13:51:09.124865013Z","level":"INFO","msg":"Started distributed cancellation listener"}
+{"time":"2026-02-04T13:51:20.575234963Z","level":"INFO","msg":"Starting DishFlow API server","port":"8080","mock_mode":false}
+{"time":"2026-02-04T13:51:20.581087046Z","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-04T13:51:20.582645213Z","level":"INFO","msg":"Connected to Redis"}
+{"time":"2026-02-04T13:51:20.583940421Z","level":"INFO","msg":"Cleanup worker started","interval":300000000000,"max_job_age":2100000000000}
+{"time":"2026-02-04T13:51:20.584555796Z","level":"INFO","msg":"Starting cleanup service","temp_dir":"/tmp","max_job_age":2100000000000,"cleanup_interval":300000000000}
+{"time":"2026-02-04T13:51:20.584693213Z","level":"INFO","msg":"Server listening","addr":":8080"}
+{"time":"2026-02-04T13:51:20.585319671Z","level":"INFO","msg":"Started distributed cancellation listener"}
+{"time":"2026-02-04T13:51:50.618756088Z","level":"INFO","msg":"Starting DishFlow API server","port":"8080","mock_mode":false}
+{"time":"2026-02-04T13:51:50.629204963Z","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-04T13:51:50.633052504Z","level":"INFO","msg":"Connected to Redis"}
+{"time":"2026-02-04T13:51:50.634520879Z","level":"INFO","msg":"Cleanup worker started","interval":300000000000,"max_job_age":2100000000000}
+{"time":"2026-02-04T13:51:50.634827921Z","level":"INFO","msg":"Starting cleanup service","temp_dir":"/tmp","max_job_age":2100000000000,"cleanup_interval":300000000000}
+{"time":"2026-02-04T13:51:50.634899629Z","level":"INFO","msg":"Server listening","addr":":8080"}
+{"time":"2026-02-04T13:51:50.636059338Z","level":"INFO","msg":"Started distributed cancellation listener"}
+{"time":"2026-02-04T13:51:57.777811174Z","level":"INFO","msg":"Starting DishFlow API server","port":"8080","mock_mode":false}
+{"time":"2026-02-04T13:51:57.785351299Z","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-04T13:51:57.787770716Z","level":"INFO","msg":"Connected to Redis"}
+{"time":"2026-02-04T13:51:57.791821466Z","level":"INFO","msg":"Cleanup worker started","interval":300000000000,"max_job_age":2100000000000}
+{"time":"2026-02-04T13:51:57.791912174Z","level":"INFO","msg":"Starting cleanup service","temp_dir":"/tmp","max_job_age":2100000000000,"cleanup_interval":300000000000}
+{"time":"2026-02-04T13:51:57.792068633Z","level":"INFO","msg":"Server listening","addr":":8080"}
+{"time":"2026-02-04T13:51:57.793846841Z","level":"INFO","msg":"Started distributed cancellation listener"}
+{"time":"2026-02-04T13:52:10.96274975Z","level":"INFO","msg":"Starting DishFlow API server","port":"8080","mock_mode":false}
+{"time":"2026-02-04T13:52:10.970691625Z","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-04T13:52:10.972791875Z","level":"INFO","msg":"Connected to Redis"}
+{"time":"2026-02-04T13:52:10.974348416Z","level":"INFO","msg":"Cleanup worker started","interval":300000000000,"max_job_age":2100000000000}
+{"time":"2026-02-04T13:52:10.974642708Z","level":"INFO","msg":"Starting cleanup service","temp_dir":"/tmp","max_job_age":2100000000000,"cleanup_interval":300000000000}
+{"time":"2026-02-04T13:52:10.974831666Z","level":"INFO","msg":"Server listening","addr":":8080"}
+{"time":"2026-02-04T13:52:10.976606541Z","level":"INFO","msg":"Started distributed cancellation listener"}
+{"time":"2026-02-04T13:52:55.976712132Z","level":"INFO","msg":"Starting DishFlow API server","port":"8080","mock_mode":false}
+{"time":"2026-02-04T13:52:56.003913632Z","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-04T13:52:56.019464007Z","level":"INFO","msg":"Connected to Redis"}
+{"time":"2026-02-04T13:52:56.023777048Z","level":"INFO","msg":"Cleanup worker started","interval":300000000000,"max_job_age":2100000000000}
+{"time":"2026-02-04T13:52:56.025523007Z","level":"INFO","msg":"Starting cleanup service","temp_dir":"/tmp","max_job_age":2100000000000,"cleanup_interval":300000000000}
+{"time":"2026-02-04T13:52:56.025563132Z","level":"INFO","msg":"Server listening","addr":":8080"}
+{"time":"2026-02-04T13:52:56.034814423Z","level":"INFO","msg":"Started distributed cancellation listener"}
+{"time":"2026-02-04T13:53:17.046996919Z","level":"INFO","msg":"Starting DishFlow API server","port":"8080","mock_mode":false}
+{"time":"2026-02-04T13:53:17.059908086Z","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-04T13:53:17.063056086Z","level":"INFO","msg":"Connected to Redis"}
+{"time":"2026-02-04T13:53:17.068627836Z","level":"INFO","msg":"Cleanup worker started","interval":300000000000,"max_job_age":2100000000000}
+{"time":"2026-02-04T13:53:17.068685586Z","level":"INFO","msg":"Starting cleanup service","temp_dir":"/tmp","max_job_age":2100000000000,"cleanup_interval":300000000000}
+{"time":"2026-02-04T13:53:17.068951419Z","level":"INFO","msg":"Server listening","addr":":8080"}
+{"time":"2026-02-04T13:53:17.072561086Z","level":"INFO","msg":"Started distributed cancellation listener"}
+{"time":"2026-02-04T13:53:47.500176794Z","level":"INFO","msg":"Starting DishFlow API server","port":"8080","mock_mode":false}
+{"time":"2026-02-04T13:53:47.515566253Z","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-04T13:53:47.521061169Z","level":"INFO","msg":"Connected to Redis"}
+{"time":"2026-02-04T13:53:47.524918544Z","level":"INFO","msg":"Cleanup worker started","interval":300000000000,"max_job_age":2100000000000}
+{"time":"2026-02-04T13:53:47.525322336Z","level":"INFO","msg":"Starting cleanup service","temp_dir":"/tmp","max_job_age":2100000000000,"cleanup_interval":300000000000}
+{"time":"2026-02-04T13:53:47.525474878Z","level":"INFO","msg":"Server listening","addr":":8080"}
+{"time":"2026-02-04T13:53:47.528963211Z","level":"INFO","msg":"Started distributed cancellation listener"}
+{"time":"2026-02-04T13:54:56.245641007Z","level":"INFO","msg":"Starting DishFlow API server","port":"8080","mock_mode":false}
+{"time":"2026-02-04T13:54:56.252927799Z","level":"INFO","msg":"Connected to PostgreSQL"}
+{"time":"2026-02-04T13:54:56.255298007Z","level":"INFO","msg":"Connected to Redis"}
+{"time":"2026-02-04T13:54:56.256702007Z","level":"INFO","msg":"Cleanup worker started","interval":300000000000,"max_job_age":2100000000000}
+{"time":"2026-02-04T13:54:56.257021674Z","level":"INFO","msg":"Starting cleanup service","temp_dir":"/tmp","max_job_age":2100000000000,"cleanup_interval":300000000000}
+{"time":"2026-02-04T13:54:56.257332924Z","level":"INFO","msg":"Server listening","addr":":8080"}
+{"time":"2026-02-04T13:54:56.258069049Z","level":"INFO","msg":"Started distributed cancellation listener"}

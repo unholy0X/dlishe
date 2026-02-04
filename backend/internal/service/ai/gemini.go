@@ -316,6 +316,10 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		Target Language: %s
 		Detail Level: %s (if 'detailed', provide very precise steps and timestamps).
 
+		**Video Context (Title & Description)**:
+		%s
+		Use this context to accurately identify ingredients and steps that might be spoken quickly or listed in the caption.
+
 		**CRITICAL INSTRUCTION**: 
 		Analyze the content. If this is clearly **NOT a cooking recipe or food preparation video** (e.g. a dance video, news article, vlog without food, gaming, etc.),
 		return a JSON with: {"non_recipe": true, "reason": "Content appears to be [description of content]"}.
@@ -338,7 +342,7 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 			],
 			"tags": ["pasta", "dinner"]
 		}
-	`, req.Language, req.DetailLevel)
+	`, req.Language, req.DetailLevel, req.Metadata)
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
 		return genModel.GenerateContent(ctx, genai.FileData{URI: f.URI}, genai.Text(prompt))

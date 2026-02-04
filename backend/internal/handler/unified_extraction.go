@@ -624,12 +624,24 @@ func (h *UnifiedExtractionHandler) processVideoExtraction(ctx context.Context, j
 		h.logger.Info("Thumbnail CDN URL extracted", "url", thumbnailURL)
 	}
 
+	// Fetch metadata (title, description)
+	var metadataStr string
+	meta, err := h.downloader.GetMetadata(ctx, job.SourceURL)
+	if err != nil {
+		h.logger.Warn("Failed to fetch video metadata", "error", err, "url", job.SourceURL)
+	} else {
+		h.logger.Info("Video metadata fetched", "title", meta.Title, "description_len", len(meta.Description))
+		// Format metadata for AI
+		metadataStr = fmt.Sprintf("Video Title: %s\nVideo Description:\n%s", meta.Title, meta.Description)
+	}
+
 	updateProgress(model.JobStatusExtracting, 40, "Extracting recipe from video...")
 
 	extractReq := ai.ExtractionRequest{
 		VideoURL:    localPath,
 		Language:    job.Language,
 		DetailLevel: job.DetailLevel,
+		Metadata:    metadataStr,
 	}
 
 	result, err := h.extractor.ExtractRecipe(ctx, extractReq, func(status model.JobStatus, progress int, msg string) {

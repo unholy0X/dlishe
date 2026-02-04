@@ -11,8 +11,9 @@ import (
 // ExtractionRequest contains the parameters for recipe extraction
 type ExtractionRequest struct {
 	VideoURL    string `json:"videoUrl"`
-	Language    string `json:"language"`    // "en", "fr", "es", "auto"
-	DetailLevel string `json:"detailLevel"` // "quick", "detailed"
+	Language    string `json:"language"`           // "en", "fr", "es", "auto"
+	DetailLevel string `json:"detailLevel"`        // "quick", "detailed"
+	Metadata    string `json:"metadata,omitempty"` // Extra context (e.g., video description, caption)
 }
 
 // ExtractedIngredient represents an ingredient extracted from a video

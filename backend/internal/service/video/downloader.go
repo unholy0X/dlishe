@@ -2,6 +2,7 @@ package video
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -12,6 +13,14 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// VideoMetadata contains basic information about the video
+type VideoMetadata struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Duration    int    `json:"duration"` // seconds
+	Uploader    string `json:"uploader"`
+}
 
 // Downloader handles downloading videos from URLs
 type Downloader struct {
@@ -48,8 +57,10 @@ var allowedHosts = map[string]bool{
 	"v.redd.it":         true,
 }
 
-// dangerousCharsRegex matches shell metacharacters and control chars
-var dangerousCharsRegex = regexp.MustCompile(`[;&|$` + "`" + `\\!(){}\[\]<>*?#~]`)
+// dangerousCharsRegex matches shell metacharacters that should definitely NOT be in a URL provided to exec
+// We allow ? & = # which are standard URL characters
+// We block ; | $ ` ( ) { } < > which are shell control operators
+var dangerousCharsRegex = regexp.MustCompile(`[;|$` + "`" + `(){}<>]`)
 
 // validateURL performs strict URL validation to prevent command injection
 func validateURL(rawURL string) error {
@@ -207,4 +218,50 @@ func (d *Downloader) getThumbnailURL(ctx context.Context, rawURL string) (string
 // Cleanup removes the temporary file
 func (d *Downloader) Cleanup(path string) error {
 	return os.Remove(path)
+}
+
+// GetMetadata fetches video metadata without downloading the video
+func (d *Downloader) GetMetadata(ctx context.Context, rawURL string) (*VideoMetadata, error) {
+	// SECURITY: Strict URL validation
+	if err := validateURL(rawURL); err != nil {
+		return nil, fmt.Errorf("invalid URL: %w", err)
+	}
+
+	// Use yt-dlp --dump-json to get metadata
+	cmd := exec.CommandContext(ctx, "yt-dlp",
+		"--dump-json",
+		"--no-playlist",
+		rawURL,
+	)
+
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to fetch metadata: %v, stderr: %s", err, stderr.String())
+	}
+
+	// Parse JSON output
+	// yt-dlp returns a single JSON object for the video
+	output := stdout.String()
+
+	// Create a temp struct to match yt-dlp output fields
+	var ytdlpData struct {
+		Title       string  `json:"title"`
+		Description string  `json:"description"`
+		Duration    float64 `json:"duration"` // yt-dlp can return float
+		Uploader    string  `json:"uploader"`
+	}
+
+	if err := json.Unmarshal([]byte(output), &ytdlpData); err != nil {
+		return nil, fmt.Errorf("failed to parse metadata JSON: %w", err)
+	}
+
+	return &VideoMetadata{
+		Title:       ytdlpData.Title,
+		Description: ytdlpData.Description,
+		Duration:    int(ytdlpData.Duration),
+		Uploader:    ytdlpData.Uploader,
+	}, nil
 }

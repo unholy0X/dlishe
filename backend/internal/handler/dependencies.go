@@ -7,6 +7,7 @@ import (
 
 	"github.com/dishflow/backend/internal/model"
 	"github.com/dishflow/backend/internal/service/auth"
+	"github.com/dishflow/backend/internal/service/video"
 	"github.com/google/uuid"
 )
 
@@ -108,5 +109,6 @@ type VideoDownloader interface {
 	// The thumbnailURL is the CDN link from YouTube/TikTok, not a local file
 	// Context allows cancellation of download operations
 	Download(ctx context.Context, url string) (string, string, error)
+	GetMetadata(ctx context.Context, url string) (*video.VideoMetadata, error)
 	Cleanup(path string) error
 }

@@ -276,6 +276,41 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Double-Click Prevention (Hackathon Safety)
+	// Check if this user already has a pending/processing job for this URL
+	if jobType == model.JobTypeVideo || jobType == model.JobTypeURL {
+		// Ideally we check DB, but we can also check our usage of idempotency key if we had one.
+		// Let's do a simple DB check for PENDING/PROCESSING/DOWNLOADING jobs
+		// For a hackathon, this query is fast enough
+		// We can't access "h.activeJobs" easily for matching URL values (it stores cancel funcs by ID)
+		// So we query the repo.
+
+		// Note from audit: We don't have a specialized "GetActiveJob" method yet,
+		// but we can assume one exists or generic list.
+		// Actually, `JobRepository` has `GetByIdempotencyKey`, let's try to use that concept
+		// OR just create a hash of the URL and use it as IdempotencyKey.
+
+		// Use a simple composite key as the idempotency key for this runtime check
+		// In a real implementation this might need a hash or specific format logic
+		idempotencyKey := fmt.Sprintf("%s|%s", user.ID.String(), sourceURL)
+
+		if existingJob, err := h.jobRepo.GetByIdempotencyKey(r.Context(), user.ID, idempotencyKey); err == nil {
+			// Check if it's still active
+			if existingJob.Status == model.JobStatusPending ||
+				existingJob.Status == model.JobStatusDownloading ||
+				existingJob.Status == model.JobStatusProcessing ||
+				existingJob.Status == model.JobStatusExtracting {
+
+				h.logger.Info("Returning existing active job for double-click", "jobID", existingJob.ID)
+				response.Created(w, map[string]string{
+					"jobId":  existingJob.ID.String(),
+					"status": string(existingJob.Status),
+				})
+				return
+			}
+		}
+	}
+
 	// Create job
 	job := model.NewExtractionJob(
 		user.ID,
@@ -286,6 +321,14 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		req.SaveAuto,
 		req.ForceRefresh,
 	)
+
+	// Set idempotency key (overwrite the random one from NewExtractionJob)
+	// This matches the format we check above: "userID|sourceURL"
+	// For image jobs we don't have a stable sourceURL so we skip (or use image hash if we had it)
+	if jobType == model.JobTypeVideo || jobType == model.JobTypeURL {
+		key := fmt.Sprintf("%s|%s", user.ID.String(), sourceURL)
+		job.IdempotencyKey = &key
+	}
 
 	// For image jobs, save image to temp file
 	if jobType == model.JobTypeImage && len(imageData) > 0 {

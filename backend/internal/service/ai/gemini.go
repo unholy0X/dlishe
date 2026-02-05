@@ -218,9 +218,9 @@ type retryConfig struct {
 
 // defaultRetryConfig is used for Gemini API calls
 var defaultRetryConfig = retryConfig{
-	maxAttempts: 3,
+	maxAttempts: 5,
 	baseDelay:   1 * time.Second,
-	maxDelay:    10 * time.Second,
+	maxDelay:    15 * time.Second,
 }
 
 // isRetryableError checks if an error should trigger a retry
@@ -266,6 +266,13 @@ func withRetry[T any](ctx context.Context, cfg retryConfig, fn func() (T, error)
 		if attempt < cfg.maxAttempts-1 {
 			// Calculate delay with exponential backoff
 			delay := cfg.baseDelay * time.Duration(1<<uint(attempt))
+
+			// If it's a rate limit error, be more aggressive with delay
+			if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "RESOURCE_EXHAUSTED") {
+				// Start with 2s, 4s, 8s, 16s...
+				delay = 2 * time.Second * time.Duration(1<<uint(attempt))
+			}
+
 			if delay > cfg.maxDelay {
 				delay = cfg.maxDelay
 			}

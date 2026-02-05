@@ -3,9 +3,11 @@ package middleware
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -107,20 +109,49 @@ func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// sanitizeBody truncates large bodies and masks sensitive fields (simple impl)
+// sanitizeBody truncates large bodies and masks sensitive fields
 func sanitizeBody(b []byte) string {
 	if len(b) == 0 {
 		return ""
 	}
-	const maxLogSize = 2048 // 2KB limit for log readability
-	if len(b) > maxLogSize {
-		return string(b[:maxLogSize]) + "...(truncated)"
-	}
+
 	// Simple sanity check for binary data
 	if bytes.IndexByte(b, 0) != -1 {
 		return "(binary data)"
 	}
-	return string(b)
+
+	// Mask sensitive JSON fields
+	// We do a simple string replacement for common sensitive keys to avoid full JSON parsing overhead
+	// This captures "key": "value" patterns for standard JSON
+	s := string(b)
+	sensitiveKeys := []string{"password", "token", "secret", "access_token", "refresh_token"}
+
+	for _, key := range sensitiveKeys {
+		// Replace "key": "value" with "key": "***"
+		// This regex handles various spacing: "password" : "val"
+		// specific implementation: look for the key, a colon, and a wire string
+		// For a simple hackathon fix, simple replacement is safer than complex regex that might hang
+		if strings.Contains(s, key) {
+			// Find "key"
+			// Check if it's likely a JSON key (quoted)
+			keyPattern := fmt.Sprintf(`"%s"`, key)
+			if idx := strings.Index(s, keyPattern); idx != -1 {
+				// We won't try to perfectly parse values, we'll just indicate it contains sensitive data
+				// A simpler approach for the log is: if body has sensitive keys, just redact the whole thing or be careful
+				// But let's try to be helpful.
+				// Actually, for a hackathon, let's just use a simpler heuristic:
+				// If the body contains "password", just return "(sensitive content masked)"
+				return "(sensitive content masked)"
+			}
+		}
+	}
+
+	const maxLogSize = 2048 // 2KB limit for log readability
+	if len(b) > maxLogSize {
+		return s[:maxLogSize] + "...(truncated)"
+	}
+
+	return s
 }
 
 // RequestID extracts or generates a request ID and adds it to context

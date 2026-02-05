@@ -164,6 +164,14 @@ func (d *Downloader) Download(ctx context.Context, rawURL string) (string, strin
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		// potential partial file might exist, cleanup attempt
+		// We use a glob because yt-dlp might have appended a part extension
+		// Best effort cleanup
+		matches, _ := filepath.Glob(outputPath + "*")
+		for _, m := range matches {
+			os.Remove(m)
+		}
+
 		return "", "", fmt.Errorf("yt-dlp failed: %v, stderr: %s", err, stderr.String())
 	}
 

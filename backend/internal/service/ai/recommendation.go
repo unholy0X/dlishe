@@ -2,13 +2,14 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/dishflow/backend/internal/model"
 	"github.com/google/generative-ai-go/genai"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // RecommendationService implements RecipeRecommender using Gemini AI
@@ -34,6 +35,21 @@ func (s *RecommendationService) GetRecommendations(ctx context.Context, req *Rec
 			ReadyToCook:   []model.RecipeRecommendation{},
 			AlmostReady:   []model.RecipeRecommendation{},
 			NeedsShopping: []model.RecipeRecommendation{},
+			Summary: model.RecommendationSummary{
+				Message: "Save some recipes to get personalized recommendations",
+			},
+		}, nil
+	}
+
+	if len(req.PantryItems) == 0 {
+		return &RecommendationOutput{
+			ReadyToCook:   []model.RecipeRecommendation{},
+			AlmostReady:   []model.RecipeRecommendation{},
+			NeedsShopping: []model.RecipeRecommendation{},
+			Summary: model.RecommendationSummary{
+				TotalRecipes: len(req.Recipes),
+				Message:      "Add items to your pantry to get personalized recommendations based on what you have",
+			},
 		}, nil
 	}
 
@@ -377,21 +393,7 @@ Return ONLY the JSON.`, strings.Join(ingList, "\n"))
 		return nil, fmt.Errorf("nutrition estimation failed: %w", err)
 	}
 
-	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, fmt.Errorf("no nutrition content generated")
-	}
-
-	var result model.RecipeNutrition
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if txt, ok := part.(genai.Text); ok {
-			if err := json.Unmarshal([]byte(txt), &result); err != nil {
-				return nil, fmt.Errorf("failed to parse nutrition JSON: %w", err)
-			}
-			break
-		}
-	}
-
-	return &result, nil
+	return parseGeminiJSON[model.RecipeNutrition](resp)
 }
 
 // SuggestSubstitutes suggests ingredient substitutes from pantry or common alternatives
@@ -441,21 +443,14 @@ Return ONLY the JSON array. Empty array if no good substitutes exist.`, ingredie
 		return nil, fmt.Errorf("substitute suggestion failed: %w", err)
 	}
 
-	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
+	result, err := parseGeminiJSON[[]model.SubstituteSuggestion](resp)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
 		return []model.SubstituteSuggestion{}, nil
 	}
-
-	var result []model.SubstituteSuggestion
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if txt, ok := part.(genai.Text); ok {
-			if err := json.Unmarshal([]byte(txt), &result); err != nil {
-				return nil, fmt.Errorf("failed to parse substitutes JSON: %w", err)
-			}
-			break
-		}
-	}
-
-	return result, nil
+	return *result, nil
 }
 
 // Helper types and functions
@@ -473,11 +468,29 @@ func buildPantryIndex(items []model.PantryItem) pantryIndex {
 }
 
 func normalizeIngredientName(name string) string {
-	// Lowercase and remove common words
 	name = strings.ToLower(strings.TrimSpace(name))
-	// Remove plurals (simple version)
-	name = strings.TrimSuffix(name, "es")
-	name = strings.TrimSuffix(name, "s")
+
+	// Safe plural stripping: only handle clear cases to avoid mangling
+	// words like "cheese", "rice", "sauce", "grapes", "olives"
+	switch {
+	case strings.HasSuffix(name, "ies"):
+		// berries→berry, cherries→cherry
+		name = name[:len(name)-3] + "y"
+	case strings.HasSuffix(name, "oes"):
+		// tomatoes→tomato, potatoes→potato
+		name = name[:len(name)-2]
+	case strings.HasSuffix(name, "ves"):
+		// halves→half (but not "olives" — too risky, skip)
+	case strings.HasSuffix(name, "ses") || strings.HasSuffix(name, "zes") ||
+		strings.HasSuffix(name, "xes") || strings.HasSuffix(name, "ches") ||
+		strings.HasSuffix(name, "shes"):
+		// sauces→sauce, peaches→peach — don't strip, these are fine as-is
+	case strings.HasSuffix(name, "s") && !strings.HasSuffix(name, "ss") &&
+		!strings.HasSuffix(name, "us") && !strings.HasSuffix(name, "is"):
+		// carrots→carrot, onions→onion, but not "hummus", "couscous", "lentils" edge case is ok
+		name = name[:len(name)-1]
+	}
+
 	return name
 }
 
@@ -591,30 +604,53 @@ var commonSubstitutes = map[string][]string{
 	"basil":        {"oregano", "parsley"},
 }
 
+// reverseSubstitutes is the reverse index: substitute → original ingredient
+var reverseSubstitutes map[string]string
+
+func init() {
+	reverseSubstitutes = make(map[string]string)
+	for original, subs := range commonSubstitutes {
+		for _, sub := range subs {
+			reverseSubstitutes[sub] = original
+		}
+	}
+}
+
 func findCommonSubstitute(ingredient string, pantry pantryIndex) *model.IngredientMatch {
-	subs, hasSubs := commonSubstitutes[ingredient]
-	if !hasSubs {
-		return nil
+	// Forward lookup: recipe needs "butter", pantry has "margarine"
+	if subs, ok := commonSubstitutes[ingredient]; ok {
+		for _, sub := range subs {
+			subNorm := normalizeIngredientName(sub)
+			if pantryItem, found := pantry[subNorm]; found {
+				return &model.IngredientMatch{
+					RecipeIngredient: ingredient,
+					PantryItem:       pantryItem.Name,
+					IsSubstitute:     true,
+					SubstituteRatio:  "1:1",
+				}
+			}
+		}
 	}
 
-	for _, sub := range subs {
-		subNorm := normalizeIngredientName(sub)
-		if pantryItem, found := pantry[subNorm]; found {
+	// Reverse lookup: recipe needs "margarine", pantry has "butter"
+	if original, ok := reverseSubstitutes[ingredient]; ok {
+		origNorm := normalizeIngredientName(original)
+		if pantryItem, found := pantry[origNorm]; found {
 			return &model.IngredientMatch{
 				RecipeIngredient: ingredient,
 				PantryItem:       pantryItem.Name,
 				IsSubstitute:     true,
-				SubstituteRatio:  "1:1", // Default ratio
+				SubstituteRatio:  "1:1",
 			}
 		}
 	}
+
 	return nil
 }
 
 func matchesMealType(recipe *model.Recipe, mealType string) bool {
 	if recipe.DietaryInfo == nil || len(recipe.DietaryInfo.MealTypes) == 0 {
-		// If no meal type info, include it (can't filter accurately)
-		return true
+		return false
 	}
 
 	mealType = strings.ToLower(mealType)
@@ -627,8 +663,8 @@ func matchesMealType(recipe *model.Recipe, mealType string) bool {
 }
 
 func matchesCuisine(recipe *model.Recipe, cuisine string) bool {
-	if recipe.Cuisine == nil {
-		return true
+	if recipe.Cuisine == nil || *recipe.Cuisine == "" {
+		return false
 	}
 	return strings.EqualFold(*recipe.Cuisine, cuisine)
 }
@@ -660,7 +696,7 @@ func generateReason(rec model.RecipeRecommendation, filters *model.Recommendatio
 				reasons = append(reasons, fmt.Sprintf("%dg protein", rec.Recipe.Nutrition.Protein))
 			}
 		case "diet":
-			reasons = append(reasons, strings.Title(filters.Diet))
+			reasons = append(reasons, cases.Title(language.English).String(filters.Diet))
 		case "cuisine":
 			if rec.Recipe.Cuisine != nil {
 				reasons = append(reasons, *rec.Recipe.Cuisine)
@@ -704,7 +740,10 @@ func buildSummary(output *RecommendationOutput) model.RecommendationSummary {
 	var highestProtein *model.RecipeRecommendation
 	var bestMatch *model.RecipeRecommendation
 
-	allRecs := append(append(output.ReadyToCook, output.AlmostReady...), output.NeedsShopping...)
+	allRecs := make([]model.RecipeRecommendation, 0, len(output.ReadyToCook)+len(output.AlmostReady)+len(output.NeedsShopping))
+	allRecs = append(allRecs, output.ReadyToCook...)
+	allRecs = append(allRecs, output.AlmostReady...)
+	allRecs = append(allRecs, output.NeedsShopping...)
 
 	var totalCals int
 	calsCount := 0

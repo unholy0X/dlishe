@@ -124,6 +124,13 @@ func (h *RecommendationsHandler) GetRecommendations(w http.ResponseWriter, r *ht
 		}
 	}
 
+	// Check recommender availability
+	if h.recommender == nil {
+		response.ErrorJSON(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE",
+			"Recommendations service is temporarily unavailable", nil)
+		return
+	}
+
 	// Fetch user's recipes with ingredients
 	recipes, err := h.recipeRepo.ListForRecommendations(ctx, user.ID)
 	if err != nil {

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/dishflow/backend/internal/model"
 	"github.com/dishflow/backend/internal/service/ai"
@@ -249,13 +250,17 @@ func (m *mockShoppingRepository) VerifyListsOwnership(ctx context.Context, userI
 }
 
 type mockJobRepository struct {
-	CreateFunc         func(ctx context.Context, job *model.VideoJob) error
-	GetByIDFunc        func(ctx context.Context, id uuid.UUID) (*model.VideoJob, error)
-	ListByUserFunc     func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.VideoJob, error)
-	UpdateProgressFunc func(ctx context.Context, id uuid.UUID, status model.JobStatus, progress int, message string) error
-	MarkCompletedFunc  func(ctx context.Context, id uuid.UUID, resultRecipeID uuid.UUID) error
-	MarkFailedFunc     func(ctx context.Context, id uuid.UUID, errorCode, errorMessage string) error
-	MarkCancelledFunc  func(ctx context.Context, id uuid.UUID) error
+	CreateFunc                  func(ctx context.Context, job *model.VideoJob) error
+	GetByIDFunc                 func(ctx context.Context, id uuid.UUID) (*model.VideoJob, error)
+	ListByUserFunc              func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.VideoJob, error)
+	UpdateProgressFunc          func(ctx context.Context, id uuid.UUID, status model.JobStatus, progress int, message string) error
+	MarkCompletedFunc           func(ctx context.Context, id uuid.UUID, resultRecipeID uuid.UUID) error
+	MarkFailedFunc              func(ctx context.Context, id uuid.UUID, errorCode, errorMessage string) error
+	MarkCancelledFunc           func(ctx context.Context, id uuid.UUID) error
+	DeleteFunc                  func(ctx context.Context, id, userID uuid.UUID) error
+	DeleteAllByUserFunc         func(ctx context.Context, userID uuid.UUID) error
+	GetByIdempotencyKeyFunc     func(ctx context.Context, userID uuid.UUID, key string) (*model.ExtractionJob, error)
+	CountCompletedThisMonthFunc func(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
 func (m *mockJobRepository) Create(ctx context.Context, job *model.VideoJob) error {
@@ -299,6 +304,30 @@ func (m *mockJobRepository) MarkCancelled(ctx context.Context, id uuid.UUID) err
 		return nil
 	}
 	return m.MarkCancelledFunc(ctx, id)
+}
+func (m *mockJobRepository) Delete(ctx context.Context, id, userID uuid.UUID) error {
+	if m.DeleteFunc == nil {
+		return nil
+	}
+	return m.DeleteFunc(ctx, id, userID)
+}
+func (m *mockJobRepository) DeleteAllByUser(ctx context.Context, userID uuid.UUID) error {
+	if m.DeleteAllByUserFunc == nil {
+		return nil
+	}
+	return m.DeleteAllByUserFunc(ctx, userID)
+}
+func (m *mockJobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid.UUID, key string) (*model.ExtractionJob, error) {
+	if m.GetByIdempotencyKeyFunc == nil {
+		return nil, fmt.Errorf("not found")
+	}
+	return m.GetByIdempotencyKeyFunc(ctx, userID, key)
+}
+func (m *mockJobRepository) CountCompletedThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
+	if m.CountCompletedThisMonthFunc == nil {
+		return 0, nil
+	}
+	return m.CountCompletedThisMonthFunc(ctx, userID)
 }
 
 type mockVideoDownloader struct {

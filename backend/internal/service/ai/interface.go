@@ -154,13 +154,12 @@ type PantryScanResult struct {
 
 // ScannedPantryItem represents a single item detected in the pantry scan
 type ScannedPantryItem struct {
-	Name           string   `json:"name"`
-	Category       string   `json:"category"`
-	Quantity       *float64 `json:"quantity,omitempty"`
-	Unit           *string  `json:"unit,omitempty"`
-	ExpirationDays *int     `json:"expirationDays,omitempty"` // Estimated days until expiration
-	Confidence     float64  `json:"confidence"`               // Item-level confidence 0-1
-	BoundingBox    *BBox    `json:"boundingBox,omitempty"`    // Location in image (optional)
+	Name        string   `json:"name"`
+	Category    string   `json:"category"`
+	Quantity    *float64 `json:"quantity,omitempty"`
+	Unit        *string  `json:"unit,omitempty"`
+	Confidence  float64  `json:"confidence"`            // Item-level confidence 0-1
+	BoundingBox *BBox    `json:"boundingBox,omitempty"` // Location in image (optional)
 }
 
 // BBox represents a bounding box for item location

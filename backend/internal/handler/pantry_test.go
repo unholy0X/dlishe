@@ -13,7 +13,7 @@ import (
 
 func TestPantryHandler_List(t *testing.T) {
 	mockRepo := &mockPantryRepository{}
-	handler := NewPantryHandler(mockRepo, nil) // nil scanner since we're not testing scanning
+	handler := NewPantryHandler(mockRepo, nil, nil, nil) // nil scanner since we're not testing scanning
 	userID := uuid.New()
 
 	t.Run("success", func(t *testing.T) {

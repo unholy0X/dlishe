@@ -3,7 +3,9 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,17 +19,24 @@ import (
 	"github.com/dishflow/backend/internal/service/ai"
 )
 
+// MinScanConfidence is the minimum AI confidence to auto-add a scanned item to pantry
+const MinScanConfidence = 0.7
+
 // PantryHandler handles pantry-related HTTP requests
 type PantryHandler struct {
-	repo    PantryRepository
-	scanner ai.PantryScanner
+	repo        PantryRepository
+	scanner     ai.PantryScanner
+	userRepo    UserRepository
+	adminEmails []string
 }
 
 // NewPantryHandler creates a new pantry handler
-func NewPantryHandler(repo PantryRepository, scanner ai.PantryScanner) *PantryHandler {
+func NewPantryHandler(repo PantryRepository, scanner ai.PantryScanner, userRepo UserRepository, adminEmails []string) *PantryHandler {
 	return &PantryHandler{
-		repo:    repo,
-		scanner: scanner,
+		repo:        repo,
+		scanner:     scanner,
+		userRepo:    userRepo,
+		adminEmails: adminEmails,
 	}
 }
 
@@ -332,8 +341,9 @@ type ScannedItemResponse struct {
 	Quantity   *float64 `json:"quantity,omitempty"`
 	Unit       *string  `json:"unit,omitempty"`
 	Confidence float64  `json:"confidence"`
-	Added      bool     `json:"added,omitempty"` // Whether it was added to pantry
-	AddedID    *string  `json:"addedId,omitempty"`
+	Added      bool     `json:"added,omitempty"`    // Whether it was added to pantry
+	AddedID    *string  `json:"addedId,omitempty"`   // ID of added pantry item
+	AddError   *string  `json:"addError,omitempty"`  // Error if auto-add failed
 }
 
 // Scan handles POST /api/v1/pantry/scan
@@ -355,6 +365,7 @@ type ScannedItemResponse struct {
 // @Router /pantry/scan [post]
 func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	logger := middleware.GetLogger(ctx)
 	user := middleware.GetUserFromContext(ctx)
 	if user == nil {
 		response.Unauthorized(w, "Authentication required")
@@ -366,6 +377,31 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 		response.ErrorJSON(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE",
 			"Pantry scanning service is not available", nil)
 		return
+	}
+
+	// Enforce subscription scan quota (admins bypass)
+	isAdmin := model.IsAdminEmail(user.Email, h.adminEmails)
+	if !isAdmin && h.userRepo != nil {
+		sub, err := h.userRepo.GetSubscription(ctx, user.ID)
+		if err != nil {
+			logger.Warn("Failed to get subscription for scan limit check", "error", err, "user_id", user.ID)
+		}
+		entitlement := "free"
+		if sub != nil {
+			entitlement = sub.Entitlement
+		}
+		limits := model.TierLimits[entitlement]
+		if limits.PantryScans >= 0 {
+			count, err := h.userRepo.CountUserScansThisMonth(ctx, user.ID)
+			if err != nil {
+				logger.Warn("Failed to count monthly scans", "error", err)
+			} else if count >= limits.PantryScans {
+				response.ErrorJSON(w, http.StatusTooManyRequests, "QUOTA_EXCEEDED",
+					fmt.Sprintf("Monthly scan limit reached (%d/%d). Upgrade to Pro for unlimited scans.",
+						count, limits.PantryScans), nil)
+				return
+			}
+		}
 	}
 
 	var imageData []byte
@@ -416,12 +452,21 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var err error
-		imageData, err = base64.StdEncoding.DecodeString(req.ImageBase64)
+		// Accept both standard and URL-safe base64 (mobile clients often send URL-safe)
+		decoded, err := base64.StdEncoding.DecodeString(req.ImageBase64)
+		if err != nil {
+			// Retry with URL-safe encoding
+			decoded, err = base64.URLEncoding.DecodeString(req.ImageBase64)
+		}
+		if err != nil {
+			// Retry with raw (no padding) variants
+			decoded, err = base64.RawStdEncoding.DecodeString(req.ImageBase64)
+		}
 		if err != nil {
 			response.ValidationFailed(w, "imageBase64", "Invalid base64 encoding")
 			return
 		}
+		imageData = decoded
 
 		mimeType = req.MimeType
 		if mimeType == "" {
@@ -463,6 +508,13 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Track scan usage for quota enforcement
+	if h.userRepo != nil {
+		if trackErr := h.userRepo.TrackScanUsage(ctx, user.ID); trackErr != nil {
+			logger.Warn("Failed to track scan usage", "error", trackErr, "user_id", user.ID)
+		}
+	}
+
 	// Build response
 	resp := ScanResponse{
 		Items:      make([]ScannedItemResponse, 0, len(result.Items)),
@@ -473,28 +525,37 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	var addedIDs []string
 
 	for _, item := range result.Items {
+		// Normalize category and trim name
+		normalizedCategory := model.NormalizeCategory(item.Category)
+		trimmedName := strings.TrimSpace(item.Name)
+
 		scannedItem := ScannedItemResponse{
-			Name:       item.Name,
-			Category:   item.Category,
+			Name:       trimmedName,
+			Category:   normalizedCategory,
 			Quantity:   item.Quantity,
 			Unit:       item.Unit,
 			Confidence: item.Confidence,
 		}
 
 		// Auto-add to pantry if requested and confidence is high enough
-		if autoAdd && item.Confidence >= 0.7 {
-			// Validate and normalize category
-			item.Category = model.NormalizeCategory(item.Category)
-
+		if autoAdd && item.Confidence >= MinScanConfidence {
 			input := &model.PantryItemInput{
-				Name:     item.Name,
-				Category: item.Category,
+				Name:     trimmedName,
+				Category: normalizedCategory,
 				Quantity: item.Quantity,
 				Unit:     item.Unit,
 			}
 
-			added, err := h.repo.Create(ctx, user.ID, input)
-			if err == nil {
+			added, addErr := h.repo.Create(ctx, user.ID, input)
+			if addErr != nil {
+				logger.Error("Failed to auto-add scanned item to pantry",
+					slog.String("item", trimmedName),
+					slog.Any("error", addErr),
+					slog.Any("user_id", user.ID),
+				)
+				errMsg := "Failed to save to pantry"
+				scannedItem.AddError = &errMsg
+			} else {
 				scannedItem.Added = true
 				idStr := added.ID.String()
 				scannedItem.AddedID = &idStr

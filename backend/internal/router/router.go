@@ -77,7 +77,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	extractionCacheRepo := postgres.NewExtractionCacheRepository(db)
 
 	pantryRepo := postgres.NewPantryRepository(db)
-	pantryHandler := handler.NewPantryHandler(pantryRepo, geminiClient)
+	pantryHandler := handler.NewPantryHandler(pantryRepo, geminiClient, userRepo, cfg.AdminEmails)
 
 	shoppingRepo := postgres.NewShoppingRepository(db)
 	shoppingHandler := handler.NewShoppingHandler(shoppingRepo, recipeRepo, userRepo, geminiClient)
@@ -186,7 +186,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 				r.Get("/{id}", pantryHandler.Get)
 				r.Put("/{id}", pantryHandler.Update)
 				r.Delete("/{id}", pantryHandler.Delete)
-				r.With(rateLimiter.VideoExtraction()).Post("/scan", pantryHandler.Scan) // AI-powered, stricter rate limit
+				r.With(rateLimiter.PantryScan()).Post("/scan", pantryHandler.Scan) // AI-powered, dedicated rate limit
 			})
 
 			// Shopping list routes

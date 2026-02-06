@@ -14,6 +14,8 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.User, error)
 	Update(ctx context.Context, user *model.User) error
 	GetSubscription(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
+	CountUserScansThisMonth(ctx context.Context, userID uuid.UUID) (int, error)
+	TrackScanUsage(ctx context.Context, userID uuid.UUID) error
 }
 
 // RecipeRepository defines the interface for recipe persistence

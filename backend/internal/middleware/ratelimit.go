@@ -61,6 +61,16 @@ func (rl *RateLimiter) VideoExtraction() func(http.Handler) http.Handler {
 	return rl.limit(config, getUserIdentifier)
 }
 
+// PantryScan rate limiter for AI-powered scan endpoint
+func (rl *RateLimiter) PantryScan() func(http.Handler) http.Handler {
+	config := RateLimitConfig{
+		MaxRequests: 10,
+		Window:      time.Hour,
+		KeyPrefix:   "ratelimit:scan",
+	}
+	return rl.limit(config, getUserIdentifier)
+}
+
 // rateLimitScript is an atomic Lua script that:
 // 1. Increments the counter
 // 2. Sets expiry on first request

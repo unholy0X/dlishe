@@ -881,15 +881,14 @@ func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeTyp
 1. Identify ALL visible food items, ingredients, and pantry staples
 2. For each item, determine:
    - Name (be specific: "Roma tomatoes" not just "tomatoes")
-   - Category (from the list below)
+   - Category (MUST be one of the exact values below)
    - Estimated quantity and unit if visible
-   - Estimated days until expiration (based on typical shelf life and visual condition)
    - Your confidence level (0-1)
 3. Include items even if partially visible
 4. If you see containers/packages, identify the contents
 5. Note the general condition of items (fresh, wilting, etc.)
 
-**Categories**: produce, proteins, dairy, grains, pantry, spices, condiments, beverages, frozen, canned, baking, other
+**Categories** (use ONLY these exact values): dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
 
 **Return JSON matching this structure**:
 {
@@ -899,15 +898,13 @@ func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeTyp
             "category": "produce",
             "quantity": 4,
             "unit": "pieces",
-            "expirationDays": 5,
             "confidence": 0.95
         },
         {
             "name": "Whole milk",
             "category": "dairy",
             "quantity": 1,
-            "unit": "gallon",
-            "expirationDays": 7,
+            "unit": "bottle",
             "confidence": 0.85
         }
     ],
@@ -915,11 +912,12 @@ func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeTyp
     "notes": "Image shows a well-stocked refrigerator. Some produce appears fresh, milk carton visible."
 }
 
-**Unit guidelines**:
-- Countable items: "pieces", "units"
-- Liquids: "ml", "liters", "oz", "cups", "gallons"
+**Unit guidelines** (use purchase-scale units, NOT cooking units):
+- Countable items: "pieces"
+- Packages: "bags", "boxes", "cans", "bottles", "jars", "packs", "cartons"
+- Produce: "bunches", "heads"
 - Weight: "g", "kg", "oz", "lbs"
-- Packages: "packages", "bags", "boxes", "cans", "bottles", "jars"
+- Volume: "ml", "liters"
 
 Return ONLY the JSON, no markdown or explanations. If no food items are detected, return empty items array.`
 

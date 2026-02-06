@@ -20,6 +20,7 @@ services:
       - CORS_ORIGINS=*
       - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-naoufalbrahmi@gmail.com}
     volumes:
       - .:/app
       - go-mod-cache:/go/pkg/mod
@@ -43,7 +44,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dishflow"]
+      test: [ "CMD-SHELL", "pg_isready -U dishflow" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -58,7 +59,7 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -70,8 +71,8 @@ services:
     image: migrate/migrate:v4.17.0
     volumes:
       - ./migrations:/migrations
-    entrypoint: ["migrate", "-path=/migrations", "-database=postgres://dishflow:dishflow@postgres:5432/dishflow?sslmode=disable"]
-    command: ["up"]
+    entrypoint: [ "migrate", "-path=/migrations", "-database=postgres://dishflow:dishflow@postgres:5432/dishflow?sslmode=disable" ]
+    command: [ "up" ]
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,6 +100,7 @@ volumes:
   postgres-data:
   redis-data:
   go-mod-cache:
+
 
 networks:
   dishflow:

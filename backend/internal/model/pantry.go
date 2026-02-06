@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -8,26 +9,24 @@ import (
 
 // PantryItem represents an item in the user's pantry
 type PantryItem struct {
-	ID             uuid.UUID  `json:"id"`
-	UserID         uuid.UUID  `json:"userId"`
-	Name           string     `json:"name"`
-	Category       string     `json:"category"`
-	Quantity       *float64   `json:"quantity,omitempty"`
-	Unit           *string    `json:"unit,omitempty"`
-	ExpirationDate *time.Time `json:"expirationDate,omitempty"`
-	SyncVersion    int        `json:"syncVersion"`
-	CreatedAt      time.Time  `json:"createdAt"`
-	UpdatedAt      time.Time  `json:"updatedAt"`
-	DeletedAt      *time.Time `json:"deletedAt,omitempty"`
+	ID          uuid.UUID  `json:"id"`
+	UserID      uuid.UUID  `json:"userId"`
+	Name        string     `json:"name"`
+	Category    string     `json:"category"`
+	Quantity    *float64   `json:"quantity,omitempty"`
+	Unit        *string    `json:"unit,omitempty"`
+	SyncVersion int        `json:"syncVersion"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+	DeletedAt   *time.Time `json:"deletedAt,omitempty"`
 }
 
 // PantryItemInput represents input for creating/updating pantry items
 type PantryItemInput struct {
-	Name           string     `json:"name"`
-	Category       string     `json:"category"`
-	Quantity       *float64   `json:"quantity,omitempty"`
-	Unit           *string    `json:"unit,omitempty"`
-	ExpirationDate *time.Time `json:"expirationDate,omitempty"`
+	Name     string   `json:"name"`
+	Category string   `json:"category"`
+	Quantity *float64 `json:"quantity,omitempty"`
+	Unit     *string  `json:"unit,omitempty"`
 }
 
 // Validate validates the pantry item input
@@ -65,5 +64,6 @@ func (p *PantryItemInput) Validate() error {
 // NormalizeInput normalizes the input fields before saving
 // This should be called by handlers before passing to repository
 func (p *PantryItemInput) NormalizeInput() {
+	p.Name = strings.TrimSpace(p.Name)
 	p.Category = NormalizeCategory(p.Category)
 }

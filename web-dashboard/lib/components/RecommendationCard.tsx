@@ -13,7 +13,9 @@ export function RecommendationCard({
     recommendation,
     className
 }: RecommendationCardProps) {
-    const { recipe, matchScore, matchedIngredients, missingIngredients, reason } = recommendation;
+    const { recipe, matchScore, reason } = recommendation;
+    const matchedIngredients = recommendation.matchedIngredients || [];
+    const missingIngredients = recommendation.missingIngredients || [];
 
     return (
         <Link

@@ -332,19 +332,47 @@ export default function RecipeDetailPage() {
                             <span>Ingredients</span>
                         </h2>
                         {(recipe.ingredients || []).length > 0 ? (
-                            <ul className="space-y-3">
-                                {(recipe.ingredients || []).map((ing) => (
-                                    <li key={ing.id} className="flex items-baseline justify-between py-3 border-b border-stone-100 last:border-0 group hover:bg-stone-50 px-2 -mx-2 rounded transition">
-                                        <div className="pr-4 flex-1">
-                                            <span className="font-semibold text-text-primary text-lg">{ing.name}</span>
-                                            {ing.notes && <span className="block text-sm text-text-muted italic mt-1">{ing.notes}</span>}
-                                        </div>
-                                        <div className="text-honey-500 font-display font-bold whitespace-nowrap text-lg">
-                                            {ing.quantity} {ing.unit}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
+                            (() => {
+                                // Group ingredients by section
+                                const ingredients = recipe.ingredients || [];
+                                const grouped = ingredients.reduce((acc, ing) => {
+                                    const section = ing.section || 'Main';
+                                    if (!acc[section]) acc[section] = [];
+                                    acc[section].push(ing);
+                                    return acc;
+                                }, {} as Record<string, typeof ingredients>);
+
+                                const sections = Object.keys(grouped);
+                                // If only "Main" section, render flat list
+                                const showHeaders = sections.length > 1 || (sections.length === 1 && sections[0] !== 'Main');
+
+                                return (
+                                    <div className="space-y-6">
+                                        {sections.map((section) => (
+                                            <div key={section}>
+                                                {showHeaders && (
+                                                    <h3 className="font-display font-bold text-lg text-honey-600 mb-3 border-b border-honey-100 pb-1">
+                                                        {section}
+                                                    </h3>
+                                                )}
+                                                <ul className="space-y-3">
+                                                    {grouped[section].map((ing) => (
+                                                        <li key={ing.id} className="flex items-baseline justify-between py-3 border-b border-stone-100 last:border-0 group hover:bg-stone-50 px-2 -mx-2 rounded transition">
+                                                            <div className="pr-4 flex-1">
+                                                                <span className="font-semibold text-text-primary text-lg">{ing.name}</span>
+                                                                {ing.notes && <span className="block text-sm text-text-muted italic mt-1">{ing.notes}</span>}
+                                                            </div>
+                                                            <div className="text-honey-500 font-display font-bold whitespace-nowrap text-lg">
+                                                                {ing.quantity} {ing.unit}
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()
                         ) : (
                             <p className="text-text-muted italic">No ingredients listed.</p>
                         )}

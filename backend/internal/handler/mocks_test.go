@@ -113,13 +113,12 @@ func (m *mockRecipeRepository) SetFavorite(ctx context.Context, id uuid.UUID, is
 }
 
 type mockPantryRepository struct {
-	ListFunc        func(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error)
-	ListAllFunc     func(ctx context.Context, userID uuid.UUID) ([]model.PantryItem, error)
-	GetFunc         func(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.PantryItem, error)
-	CreateFunc      func(ctx context.Context, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
-	UpdateFunc      func(ctx context.Context, id uuid.UUID, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
-	DeleteFunc      func(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
-	GetExpiringFunc func(ctx context.Context, userID uuid.UUID, days int) ([]*model.PantryItem, error)
+	ListFunc    func(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error)
+	ListAllFunc func(ctx context.Context, userID uuid.UUID) ([]model.PantryItem, error)
+	GetFunc     func(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.PantryItem, error)
+	CreateFunc  func(ctx context.Context, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
+	UpdateFunc  func(ctx context.Context, id uuid.UUID, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
+	DeleteFunc  func(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 }
 
 func (m *mockPantryRepository) List(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error) {
@@ -142,9 +141,6 @@ func (m *mockPantryRepository) Update(ctx context.Context, id uuid.UUID, userID 
 }
 func (m *mockPantryRepository) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	return m.DeleteFunc(ctx, id, userID)
-}
-func (m *mockPantryRepository) GetExpiring(ctx context.Context, userID uuid.UUID, days int) ([]*model.PantryItem, error) {
-	return m.GetExpiringFunc(ctx, userID, days)
 }
 
 type mockShoppingRepository struct {

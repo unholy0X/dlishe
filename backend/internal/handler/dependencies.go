@@ -38,7 +38,6 @@ type PantryRepository interface {
 	Create(ctx context.Context, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
 	Update(ctx context.Context, id uuid.UUID, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error)
 	Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
-	GetExpiring(ctx context.Context, userID uuid.UUID, days int) ([]*model.PantryItem, error)
 }
 
 // ShoppingRepository defines the interface for shopping list persistence

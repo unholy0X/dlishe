@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -492,7 +493,8 @@ func (r *ShoppingRepository) GetChangesSince(ctx context.Context, userID uuid.UU
 	return lists, items, nil
 }
 
-// CompleteList moves checked items to pantry
+// CompleteList moves ALL items to pantry and archives the list
+// "Complete" means the user is done shopping — everything gets added to pantry
 func (r *ShoppingRepository) CompleteList(ctx context.Context, listID, userID uuid.UUID) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -501,21 +503,19 @@ func (r *ShoppingRepository) CompleteList(ctx context.Context, listID, userID uu
 	defer tx.Rollback()
 
 	// Acquire advisory lock to prevent concurrent completions of the same list
-	// Use list ID hash as lock key (transaction-scoped lock, auto-released on commit/rollback)
 	lockID := hashUUIDToInt64(listID)
 	_, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", lockID)
 	if err != nil {
 		return err
 	}
 
-	// 1. Get checked items with row locks to prevent concurrent modification
-	queryChecked := `
+	// 1. Get ALL active items (complete = bought everything)
+	rows, err := tx.QueryContext(ctx, `
 		SELECT name, quantity, unit, category
 		FROM shopping_items
-		WHERE list_id = $1 AND is_checked = true AND deleted_at IS NULL
+		WHERE list_id = $1 AND deleted_at IS NULL
 		FOR UPDATE
-	`
-	rows, err := tx.QueryContext(ctx, queryChecked, listID)
+	`, listID)
 	if err != nil {
 		return err
 	}
@@ -527,43 +527,52 @@ func (r *ShoppingRepository) CompleteList(ctx context.Context, listID, userID uu
 		if err := rows.Scan(&item.Name, &item.Quantity, &item.Unit, &item.Category); err != nil {
 			return err
 		}
-		// Normalize category to ensure consistency
+		item.Name = strings.TrimSpace(item.Name)
 		item.Category = model.NormalizeCategory(item.Category)
 		itemsToMove = append(itemsToMove, item)
 	}
-	rows.Close() // Close specifically before next query
+	rows.Close()
 
-	// 2. Insert into Pantry with UPSERT (merge quantities for duplicates)
-	queryInsertPantry := `
-		INSERT INTO pantry_items (user_id, name, quantity, unit, category)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (user_id, name, category)
-		DO UPDATE SET
-			quantity = COALESCE(pantry_items.quantity, 0) + COALESCE(EXCLUDED.quantity, 0),
-			unit = COALESCE(EXCLUDED.unit, pantry_items.unit),
-			updated_at = NOW(),
-			sync_version = pantry_items.sync_version + 1
-	`
-	for _, item := range itemsToMove {
-		_, err := tx.ExecContext(ctx, queryInsertPantry, userID, item.Name, item.Quantity, item.Unit, item.Category)
-		if err != nil {
-			return err
+	// 2. Move items to pantry with UPSERT (merge quantities, resurrect soft-deleted)
+	if len(itemsToMove) > 0 {
+		queryInsertPantry := `
+			INSERT INTO pantry_items (user_id, name, quantity, unit, category)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (user_id, name, category)
+			DO UPDATE SET
+				quantity = CASE
+					WHEN pantry_items.deleted_at IS NOT NULL THEN EXCLUDED.quantity
+					ELSE COALESCE(pantry_items.quantity, 0) + COALESCE(EXCLUDED.quantity, 0)
+				END,
+				unit = COALESCE(EXCLUDED.unit, pantry_items.unit),
+				deleted_at = NULL,
+				updated_at = NOW(),
+				sync_version = pantry_items.sync_version + 1
+		`
+		for _, item := range itemsToMove {
+			_, err := tx.ExecContext(ctx, queryInsertPantry, userID, item.Name, item.Quantity, item.Unit, item.Category)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	// 3. Delete checked items from shopping list
-	queryDeleteItems := `
+	// 3. Soft-delete ALL items from shopping list
+	_, err = tx.ExecContext(ctx, `
 		UPDATE shopping_items
 		SET deleted_at = NOW(), sync_version = sync_version + 1
-		WHERE list_id = $1 AND is_checked = true
-	`
-	_, err = tx.ExecContext(ctx, queryDeleteItems, listID)
+		WHERE list_id = $1 AND deleted_at IS NULL
+	`, listID)
 	if err != nil {
 		return err
 	}
 
-	// 4. Update List sync version
-	_, err = tx.ExecContext(ctx, `UPDATE shopping_lists SET sync_version = sync_version + 1 WHERE id = $1`, listID)
+	// 4. Archive the list
+	_, err = tx.ExecContext(ctx, `
+		UPDATE shopping_lists
+		SET is_archived = true, sync_version = sync_version + 1
+		WHERE id = $1
+	`, listID)
 	if err != nil {
 		return err
 	}

@@ -237,8 +237,8 @@ func (h *RecipeHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check ownership
-	if recipe.UserID != user.ID {
+	// Check ownership or public access
+	if recipe.UserID != user.ID && !recipe.IsPublic {
 		response.Forbidden(w, "Access denied")
 		return
 	}

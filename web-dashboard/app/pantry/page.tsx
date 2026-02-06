@@ -81,6 +81,32 @@ export default function PantryPage() {
         }
     };
 
+    const handlePrefill = async () => {
+        if (!window.confirm('Add essential items (Eggs, Flour, Sugar, Salt, Yeast) to your pantry?')) return;
+        try {
+            setLoading(true);
+            const token = await getToken();
+            if (!token) return;
+
+            const essentials: PantryItemInput[] = [
+                { name: 'Eggs', category: 'proteins', quantity: 12, unit: 'pcs' },
+                { name: 'Flour', category: 'pantry', quantity: 1, unit: 'kg' },
+                { name: 'Sugar', category: 'pantry', quantity: 1, unit: 'kg' },
+                { name: 'Salt', category: 'spices', quantity: 1, unit: 'box' },
+                { name: 'Yeast', category: 'pantry', quantity: 5, unit: 'packets' },
+            ];
+
+            await Promise.all(essentials.map(item => pantryService.create(item, token)));
+
+            fetchItems();
+        } catch (err) {
+            console.error('Failed to prefill items:', err);
+            setError('Failed to prefill items');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDelete = async (id: string) => {
         if (!window.confirm('Are you sure you want to delete this item?')) return;
         try {
@@ -142,13 +168,23 @@ export default function PantryPage() {
             <div className="container mx-auto px-4 py-8">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-800">My Pantry</h1>
-                    <button
-                        onClick={openAddModal}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-                    >
-                        <Plus size={20} />
-                        Add Item
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handlePrefill}
+                            disabled={loading}
+                            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                        >
+                            <Package size={20} />
+                            Prefill Essentials
+                        </button>
+                        <button
+                            onClick={openAddModal}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                        >
+                            <Plus size={20} />
+                            Add Item
+                        </button>
+                    </div>
                 </div>
 
                 {error && (

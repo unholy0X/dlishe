@@ -13,44 +13,28 @@ import (
 // --- Mock Repositories ---
 
 type mockUserRepository struct {
-	CreateFunc               func(ctx context.Context, user *model.User) error
-	GetByIDFunc              func(ctx context.Context, id uuid.UUID) (*model.User, error)
-	GetByEmailFunc           func(ctx context.Context, email string) (*model.User, error)
-	GetOrCreateAnonymousFunc func(ctx context.Context, deviceID string) (*model.User, bool, error)
-	CreateSubscriptionFunc   func(ctx context.Context, userID uuid.UUID) error
-	GetSubscriptionFunc      func(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
-	UpdateFunc               func(ctx context.Context, user *model.User) error
+	GetByIDFunc         func(ctx context.Context, id uuid.UUID) (*model.User, error)
+	UpdateFunc          func(ctx context.Context, user *model.User) error
+	GetSubscriptionFunc func(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
 }
 
-func (m *mockUserRepository) Create(ctx context.Context, user *model.User) error {
-	return m.CreateFunc(ctx, user)
-}
 func (m *mockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
+	if m.GetByIDFunc == nil {
+		return &model.User{}, nil
+	}
 	return m.GetByIDFunc(ctx, id)
-}
-func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
-	return m.GetByEmailFunc(ctx, email)
-}
-func (m *mockUserRepository) GetOrCreateAnonymous(ctx context.Context, deviceID string) (*model.User, bool, error) {
-	return m.GetOrCreateAnonymousFunc(ctx, deviceID)
-}
-func (m *mockUserRepository) CreateSubscription(ctx context.Context, userID uuid.UUID) error {
-	if m.CreateSubscriptionFunc == nil {
-		return nil
-	}
-	return m.CreateSubscriptionFunc(ctx, userID)
-}
-func (m *mockUserRepository) GetSubscription(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error) {
-	if m.GetSubscriptionFunc == nil {
-		return &model.UserSubscription{Entitlement: "free", IsActive: true}, nil
-	}
-	return m.GetSubscriptionFunc(ctx, userID)
 }
 func (m *mockUserRepository) Update(ctx context.Context, user *model.User) error {
 	if m.UpdateFunc == nil {
 		return nil
 	}
 	return m.UpdateFunc(ctx, user)
+}
+func (m *mockUserRepository) GetSubscription(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error) {
+	if m.GetSubscriptionFunc == nil {
+		return &model.UserSubscription{Entitlement: "free", IsActive: true}, nil
+	}
+	return m.GetSubscriptionFunc(ctx, userID)
 }
 
 type mockRecipeRepository struct {

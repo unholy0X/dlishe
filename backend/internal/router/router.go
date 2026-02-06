@@ -16,6 +16,7 @@ import (
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/service/ai"
+	"github.com/dishflow/backend/internal/service/revenuecat"
 	"github.com/dishflow/backend/internal/service/sync"
 	"github.com/dishflow/backend/internal/service/video"
 
@@ -98,6 +99,19 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(redis)
+
+	// Initialize RevenueCat client (optional, only if secret key is configured)
+	var rcClient *revenuecat.Client
+	if cfg.RevenueCatSecretKey != "" {
+		rcClient = revenuecat.NewClient(cfg.RevenueCatSecretKey)
+		logger.Info("RevenueCat API client initialized")
+	}
+
+	// Initialize webhook handler
+	webhookHandler := handler.NewWebhookHandler(cfg, logger, userRepo, rcClient)
+
+	// Initialize subscription handler
+	subscriptionHandler := handler.NewSubscriptionHandler(userRepo, rcClient, logger)
 
 	// Public endpoints with rate limiting
 	r.With(rateLimiter.Public()).Get("/health", healthHandler.Health)
@@ -207,8 +221,8 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 			// Subscription routes
 			r.Route("/subscription", func(r chi.Router) {
-				r.Get("/", placeholderHandler("get subscription"))
-				r.Post("/refresh", placeholderHandler("refresh subscription"))
+				r.Get("/", subscriptionHandler.GetSubscription)
+				r.Post("/refresh", subscriptionHandler.RefreshSubscription)
 			})
 
 			// Upload routes
@@ -220,7 +234,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 		// Webhook routes (server-to-server, different auth)
 		r.Route("/webhooks", func(r chi.Router) {
-			r.Post("/revenuecat", placeholderHandler("revenuecat webhook"))
+			r.Post("/revenuecat", webhookHandler.HandleRevenueCat)
 		})
 	})
 

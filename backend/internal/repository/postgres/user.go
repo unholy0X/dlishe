@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -96,7 +97,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 // GetByEmail retrieves a user by email
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	query := `
-		SELECT id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
+		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
 		FROM users
 		WHERE email = $1 AND deleted_at IS NULL
 	`
@@ -104,8 +105,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 	user := &model.User{}
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
+		&user.ClerkID,
 		&user.Email,
-		&user.PasswordHash,
+		&user.PasswordHash, // legacy: unused with Clerk auth, kept for schema compatibility
 		&user.Name,
 		&user.IsAnonymous,
 		&user.DeviceID,
@@ -128,7 +130,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 // GetByDeviceID retrieves an anonymous user by device ID
 func (r *UserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*model.User, error) {
 	query := `
-		SELECT id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
+		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
 		FROM users
 		WHERE device_id = $1 AND is_anonymous = TRUE AND deleted_at IS NULL
 	`
@@ -136,8 +138,9 @@ func (r *UserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*m
 	user := &model.User{}
 	err := r.db.QueryRowContext(ctx, query, deviceID).Scan(
 		&user.ID,
+		&user.ClerkID,
 		&user.Email,
-		&user.PasswordHash,
+		&user.PasswordHash, // legacy: unused with Clerk auth, kept for schema compatibility
 		&user.Name,
 		&user.IsAnonymous,
 		&user.DeviceID,
@@ -345,4 +348,69 @@ func (r *UserRepository) CountUserRecipes(ctx context.Context, userID uuid.UUID)
 	var count int
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(&count)
 	return count, err
+}
+
+// IsEventProcessed checks if a RevenueCat webhook event has already been processed (idempotency).
+func (r *UserRepository) IsEventProcessed(ctx context.Context, eventID string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM revenuecat_events WHERE event_id = $1)`
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, eventID).Scan(&exists)
+	return exists, err
+}
+
+// LogEvent records a processed RevenueCat webhook event for idempotency.
+func (r *UserRepository) LogEvent(ctx context.Context, eventID, eventType, appUserID string, payload json.RawMessage) error {
+	query := `
+		INSERT INTO revenuecat_events (event_id, event_type, app_user_id, payload, processed_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (event_id) DO NOTHING
+	`
+	_, err := r.db.ExecContext(ctx, query, eventID, eventType, appUserID, payload)
+	return err
+}
+
+// UpsertSubscription updates or inserts a user subscription
+func (r *UserRepository) UpsertSubscription(ctx context.Context, sub *model.UserSubscription) error {
+	query := `
+		INSERT INTO user_subscriptions (
+			user_id, entitlement, is_active, product_id, period_type, store,
+			purchased_at, expires_at, cancelled_at, will_renew, has_billing_issue,
+			is_sandbox, last_synced_at, revenuecat_updated_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			entitlement = EXCLUDED.entitlement,
+			is_active = EXCLUDED.is_active,
+			product_id = EXCLUDED.product_id,
+			period_type = EXCLUDED.period_type,
+			store = EXCLUDED.store,
+			purchased_at = EXCLUDED.purchased_at,
+			expires_at = EXCLUDED.expires_at,
+			cancelled_at = EXCLUDED.cancelled_at,
+			will_renew = EXCLUDED.will_renew,
+			has_billing_issue = EXCLUDED.has_billing_issue,
+			is_sandbox = EXCLUDED.is_sandbox,
+			last_synced_at = EXCLUDED.last_synced_at,
+			revenuecat_updated_at = EXCLUDED.revenuecat_updated_at,
+			updated_at = NOW()
+	`
+
+	_, err := r.db.ExecContext(ctx, query,
+		sub.UserID,
+		sub.Entitlement,
+		sub.IsActive,
+		sub.ProductID,
+		sub.PeriodType,
+		sub.Store,
+		sub.PurchasedAt,
+		sub.ExpiresAt,
+		sub.CancelledAt,
+		sub.WillRenew,
+		sub.HasBillingIssue,
+		sub.IsSandbox,
+		sub.LastSyncedAt,
+		sub.RevenueCatUpdatedAt,
+	)
+
+	return err
 }

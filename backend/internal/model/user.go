@@ -86,12 +86,16 @@ type QuotaLimits struct {
 	RecipeSharing    bool
 }
 
-// TierLimits maps entitlement tiers to their limits
+// TierLimits maps entitlement tiers to their limits.
+//
+// Pricing: Free / Pro ($2.99/mo or $19.99/yr)
+// Products: com.dishflow.pro.monthly, com.dishflow.pro.yearly
+// RevenueCat entitlement ID: "pro"
 var TierLimits = map[string]QuotaLimits{
 	"free": {
-		VideoExtractions: 5,
-		PantryScans:      5,
-		MaxRecipes:       5,
+		VideoExtractions: 3,
+		PantryScans:      3,
+		MaxRecipes:       10,
 		MaxShoppingLists: -1, // Unlimited
 		MultiDeviceSync:  false,
 		RecipeSharing:    false,

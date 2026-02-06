@@ -18,11 +18,12 @@ import (
 )
 
 type RecipeHandler struct {
-	repo RecipeRepository
+	repo        RecipeRepository
+	adminEmails []string
 }
 
-func NewRecipeHandler(repo RecipeRepository) *RecipeHandler {
-	return &RecipeHandler{repo: repo}
+func NewRecipeHandler(repo RecipeRepository, adminEmails []string) *RecipeHandler {
+	return &RecipeHandler{repo: repo, adminEmails: adminEmails}
 }
 
 // Create handles POST /api/v1/recipes
@@ -89,6 +90,11 @@ func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Ensure ID is generated if not provided
 	if req.ID == uuid.Nil {
 		req.ID = uuid.New()
+	}
+
+	// Auto-public for admin users
+	if model.IsAdminEmail(user.Email, h.adminEmails) {
+		req.IsPublic = true
 	}
 
 	if err := h.repo.Create(r.Context(), &req); err != nil {

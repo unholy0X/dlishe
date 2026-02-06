@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -56,6 +57,9 @@ type Config struct {
 
 	// Swagger documentation
 	EnableSwagger bool // Enable Swagger UI at /swagger/
+
+	// Admin configuration — comma-separated list of admin emails
+	AdminEmails []string
 }
 
 // Load creates a Config from environment variables
@@ -109,6 +113,9 @@ func Load() *Config {
 
 		// Swagger
 		EnableSwagger: getBoolEnv("ENABLE_SWAGGER", false),
+
+		// Admin — comma-separated emails, e.g. "alice@example.com,bob@example.com"
+		AdminEmails: parseEmailList(getEnv("ADMIN_EMAILS", "")),
 	}
 }
 
@@ -147,6 +154,23 @@ func getDurationEnv(key string, defaultValue time.Duration) time.Duration {
 // IsMockMode returns true if Gemini should use mock responses
 func (c *Config) IsMockMode() bool {
 	return c.GeminiMockMode || c.GeminiAPIKey == "" || c.GeminiAPIKey == "mock"
+}
+
+// parseEmailList splits a comma-separated string into trimmed, lowercased emails.
+// Empty entries are skipped.
+func parseEmailList(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	emails := make([]string, 0, len(parts))
+	for _, p := range parts {
+		e := strings.TrimSpace(strings.ToLower(p))
+		if e != "" {
+			emails = append(emails, e)
+		}
+	}
+	return emails
 }
 
 // getIntEnv gets an integer environment variable with a default value

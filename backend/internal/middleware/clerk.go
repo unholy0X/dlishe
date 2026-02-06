@@ -86,6 +86,20 @@ func (m *ClerkMiddleware) syncUser(ctx context.Context, claims *clerk.SessionCla
 	// Check DB for existing user
 	user, err := m.userRepo.GetByClerkID(ctx, clerkID)
 	if err == nil {
+		// Only call Clerk API if email or name are missing (first-time backfill).
+		// This avoids an HTTP roundtrip to Clerk on every single request.
+		if user.Email == nil || user.Name == nil {
+			m.populateFromClerk(ctx, user, clerkID)
+
+			if user.Email != nil || user.Name != nil {
+				if updateErr := m.userRepo.Update(ctx, user); updateErr != nil {
+					m.logger.Error("Failed to backfill user profile from Clerk", "error", updateErr, "user_id", user.ID)
+				} else {
+					m.logger.Info("Backfilled user profile from Clerk", "user_id", user.ID, "email", user.Email)
+				}
+			}
+		}
+
 		return user, nil
 	}
 

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -116,4 +117,22 @@ func (u *UserSubscription) GetLimits() QuotaLimits {
 		return limits
 	}
 	return TierLimits["free"]
+}
+
+// IsAdminEmail checks if the given email is in the admin whitelist.
+// Comparison is case-insensitive and trimmed. Safe for nil email pointers.
+func IsAdminEmail(email *string, adminEmails []string) bool {
+	if email == nil || len(adminEmails) == 0 {
+		return false
+	}
+	normalized := strings.TrimSpace(strings.ToLower(*email))
+	if normalized == "" {
+		return false
+	}
+	for _, admin := range adminEmails {
+		if admin == normalized {
+			return true
+		}
+	}
+	return false
 }

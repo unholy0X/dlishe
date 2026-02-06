@@ -51,6 +51,9 @@ type UnifiedExtractionHandler struct {
 
 	// tempDir for storing temporary files
 	tempDir string
+
+	// adminEmails whitelist for auto-public + unlimited extractions
+	adminEmails []string
 }
 
 // NewUnifiedExtractionHandler creates a new unified extraction handler
@@ -64,6 +67,7 @@ func NewUnifiedExtractionHandler(
 	downloader VideoDownloader,
 	redisClient *redis.Client,
 	logger *slog.Logger,
+	adminEmails []string,
 ) *UnifiedExtractionHandler {
 	h := &UnifiedExtractionHandler{
 		jobRepo:        jobRepo,
@@ -77,7 +81,8 @@ func NewUnifiedExtractionHandler(
 		logger:         logger,
 		videoSemaphore: make(chan struct{}, 2),  // Max 2 concurrent video jobs
 		lightSemaphore: make(chan struct{}, 20), // Max 20 concurrent URL/image jobs
-		tempDir:        os.TempDir(),
+		tempDir:     os.TempDir(),
+		adminEmails: adminEmails,
 	}
 
 	// Cleanup orphaned temp files from previous crashes
@@ -165,8 +170,11 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Enforce subscription tier limits on extractions
-	if h.userRepo != nil {
+	// Check admin status once — used for quota bypass and auto-public
+	isAdmin := model.IsAdminEmail(user.Email, h.adminEmails)
+
+	// Enforce subscription tier limits on extractions (admins bypass)
+	if !isAdmin && h.userRepo != nil {
 		sub, err := h.userRepo.GetSubscription(r.Context(), user.ID)
 		if err != nil {
 			h.logger.Warn("Failed to get subscription for limit check", "error", err, "user_id", user.ID)
@@ -438,7 +446,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		h.processJob(ctx, job)
+		h.processJob(ctx, job, isAdmin)
 	}()
 
 	// Return job ID immediately
@@ -449,7 +457,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 }
 
 // processJob handles the background processing for all extraction types
-func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.ExtractionJob) {
+func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.ExtractionJob, isAdmin bool) {
 	logger := middleware.GetLogger(ctx)
 	logger.Info("JobStarted",
 		"job_id", job.ID,
@@ -587,7 +595,7 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 	// Always save the extracted recipe to prevent data loss after burning AI tokens.
 	// Previously saveAuto=false would discard the result with no retrieval path.
 	updateProgress(model.JobStatusExtracting, 95, "Saving recipe...")
-	recipeID, saveErr := h.saveExtractedRecipe(ctx, job, result, enrichment)
+	recipeID, saveErr := h.saveExtractedRecipe(ctx, job, result, enrichment, isAdmin)
 	if saveErr != nil {
 		h.logger.Error("Failed to save recipe", "error", saveErr)
 		failJob("SAVE_FAILED", "Failed to save recipe: "+saveErr.Error())
@@ -952,7 +960,7 @@ func (h *UnifiedExtractionHandler) cacheExtractionResult(url string, result *ai.
 }
 
 // saveExtractedRecipe saves the extracted recipe to the database
-func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job *model.ExtractionJob, result *ai.ExtractionResult, enrichment *ai.EnrichmentResult) (uuid.UUID, error) {
+func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job *model.ExtractionJob, result *ai.ExtractionResult, enrichment *ai.EnrichmentResult, isAdmin bool) (uuid.UUID, error) {
 	sourceType := "extraction"
 	switch job.JobType {
 	case model.JobTypeURL:
@@ -996,6 +1004,7 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 		Tags:         result.Tags,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
+		IsPublic:     isAdmin,
 	}
 
 	// Apply enrichment data

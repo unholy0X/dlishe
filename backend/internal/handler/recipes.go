@@ -547,6 +547,7 @@ func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
 			Quantity:       ing.Quantity,
 			Unit:           ing.Unit,
 			Category:       ing.Category,
+			Section:        ing.Section,
 			IsOptional:     ing.IsOptional,
 			Notes:          ing.Notes,
 			VideoTimestamp: ing.VideoTimestamp,

@@ -652,6 +652,7 @@ func (h *UnifiedExtractionHandler) cachedDataToExtractionResult(cached *model.Ca
 			Quantity:       ing.Quantity,
 			Unit:           ing.Unit,
 			Category:       ing.Category,
+			Section:        ing.Section,
 			IsOptional:     ing.IsOptional,
 			Notes:          ing.Notes,
 			VideoTimestamp: ing.VideoTimestamp,
@@ -873,6 +874,7 @@ func (h *UnifiedExtractionHandler) cacheExtractionResult(url string, result *ai.
 			Quantity:       ing.Quantity,
 			Unit:           ing.Unit,
 			Category:       ing.Category,
+			Section:        ing.Section,
 			IsOptional:     ing.IsOptional,
 			Notes:          ing.Notes,
 			VideoTimestamp: ing.VideoTimestamp,
@@ -1060,6 +1062,11 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 		qty := parseQuantity(ing.Quantity)
 		category := model.NormalizeCategory(ing.Category)
 
+		section := ing.Section
+		if section == "" {
+			section = "Main"
+		}
+
 		recipe.Ingredients = append(recipe.Ingredients, model.RecipeIngredient{
 			ID:         uuid.New(),
 			RecipeID:   recipe.ID,
@@ -1067,6 +1074,7 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 			Quantity:   qty,
 			Unit:       stringPtr(ing.Unit),
 			Category:   category,
+			Section:    section,
 			IsOptional: ing.IsOptional,
 			Notes:      stringPtr(ing.Notes),
 			SortOrder:  i,

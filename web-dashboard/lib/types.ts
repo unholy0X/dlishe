@@ -361,6 +361,7 @@ export interface RecipeIngredient {
     quantity?: number;
     unit?: string;
     category?: string;
+    section?: string; // e.g. "Dough", "Sauce"
     notes?: string;
     isOptional?: boolean;
     sortOrder?: number;

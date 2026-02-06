@@ -959,8 +959,8 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 			i.is_optional, i.sort_order
 		FROM recipes r
 		LEFT JOIN recipe_ingredients i ON i.recipe_id = r.id
-		WHERE r.user_id = $1 AND r.deleted_at IS NULL
-		  AND r.id IN (SELECT id FROM recipes WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 200)
+		WHERE (r.user_id = $1 OR r.is_public = TRUE) AND r.deleted_at IS NULL
+		  AND r.id IN (SELECT id FROM recipes WHERE (user_id = $1 OR is_public = TRUE) AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 200)
 		ORDER BY r.created_at DESC, i.sort_order ASC
 	`
 

@@ -168,11 +168,28 @@ export default function ShoppingListDetailPage() {
     return (
         <div className="container mx-auto px-4 py-8 max-w-3xl">
             {/* Header */}
-            <div className="mb-8">
-                <Link href="/shopping" className="inline-flex items-center text-gray-500 hover:text-emerald-600 mb-4 transition-colors">
+            <div className="mb-8 flex justify-between items-center">
+                <Link href="/shopping" className="inline-flex items-center text-gray-500 hover:text-emerald-600 transition-colors">
                     <ArrowLeft size={16} className="mr-1" /> Back to Lists
                 </Link>
-
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleCompleteShopping}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
+                        title="Move checked items to Pantry"
+                    >
+                        <CheckSquare size={20} />
+                        Complete & Move to Pantry
+                    </button>
+                    <button
+                        onClick={() => setIsAnalyzeModalOpen(true)}
+                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
+                        title="Get suggestions"
+                    >
+                        <MoreVertical size={20} />
+                        Analyze
+                    </button>
+                </div>
             </div>
 
             <div className="flex justify-between items-start">
@@ -185,22 +202,6 @@ export default function ShoppingListDetailPage() {
                 </div>
 
                 <div className="flex gap-2">
-
-                    <button
-                        onClick={() => setIsAnalyzeModalOpen(true)}
-                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors py-2"
-                        title="Get suggestions"
-                    >
-                        <MoreVertical size={20} />
-                    </button>
-                    <button
-                        onClick={handleCompleteShopping}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
-                        title="Move checked items to Put in Pantry"
-                    >
-                        <CheckSquare size={20} />
-                        Complete
-                    </button>
                     <button
                         onClick={() => setIsAddModalOpen(true)}
                         className="bg-stone-200 hover:bg-stone-300 text-stone-700 px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors"

@@ -117,11 +117,10 @@ func (s *Service) syncPantryItems(ctx context.Context, userID uuid.UUID, clientI
 		if err == model.ErrNotFound {
 			// Create via repository (it will handle the insert)
 			input := &model.PantryItemInput{
-				Name:           clientItem.Name,
-				Category:       clientItem.Category,
-				Quantity:       clientItem.Quantity,
-				Unit:           clientItem.Unit,
-				ExpirationDate: clientItem.ExpirationDate,
+				Name:     clientItem.Name,
+				Category: clientItem.Category,
+				Quantity: clientItem.Quantity,
+				Unit:     clientItem.Unit,
 			}
 			if _, err := s.pantryRepo.Create(ctx, userID, input); err != nil {
 				return err
@@ -137,11 +136,10 @@ func (s *Service) syncPantryItems(ctx context.Context, userID uuid.UUID, clientI
 			// If client wins, update server
 			if conflict.Resolution == string(model.ClientWins) {
 				input := &model.PantryItemInput{
-					Name:           winner.Name,
-					Category:       winner.Category,
-					Quantity:       winner.Quantity,
-					Unit:           winner.Unit,
-					ExpirationDate: winner.ExpirationDate,
+					Name:     winner.Name,
+					Category: winner.Category,
+					Quantity: winner.Quantity,
+					Unit:     winner.Unit,
 				}
 				if _, err := s.pantryRepo.Update(ctx, winner.ID, userID, input); err != nil {
 					return err

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -280,46 +279,6 @@ func (h *PantryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
-// GetExpiring handles GET /api/v1/pantry/expiring
-// @Summary Get expiring pantry items
-// @Description Get list of pantry items expiring within specified days
-// @Tags Pantry
-// @Produce json
-// @Security BearerAuth
-// @Param days query int false "Days until expiration (max 365)" default(7)
-// @Success 200 {object} SwaggerPantryExpiringResponse "List of expiring items"
-// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
-// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
-// @Router /pantry/expiring [get]
-func (h *PantryHandler) GetExpiring(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	user := middleware.GetUserFromContext(ctx)
-	if user == nil {
-		response.Unauthorized(w, "Authentication required")
-		return
-	}
-
-	// Default to 7 days
-	days := 7
-	if daysStr := r.URL.Query().Get("days"); daysStr != "" {
-		if d, err := strconv.Atoi(daysStr); err == nil && d > 0 && d <= 365 {
-			days = d
-		}
-	}
-
-	items, err := h.repo.GetExpiring(ctx, user.ID, days)
-	if err != nil {
-		response.InternalError(w)
-		return
-	}
-
-	response.OK(w, map[string]interface{}{
-		"items": items,
-		"count": len(items),
-		"days":  days,
-	})
-}
-
 // ScanRequest represents the request body for JSON-based scan
 type ScanRequest struct {
 	ImageBase64 string `json:"imageBase64"`
@@ -338,14 +297,13 @@ type ScanResponse struct {
 
 // ScannedItemResponse represents a detected item
 type ScannedItemResponse struct {
-	Name           string   `json:"name"`
-	Category       string   `json:"category"`
-	Quantity       *float64 `json:"quantity,omitempty"`
-	Unit           *string  `json:"unit,omitempty"`
-	ExpirationDate *string  `json:"expirationDate,omitempty"` // ISO date if calculated
-	Confidence     float64  `json:"confidence"`
-	Added          bool     `json:"added,omitempty"` // Whether it was added to pantry
-	AddedID        *string  `json:"addedId,omitempty"`
+	Name       string   `json:"name"`
+	Category   string   `json:"category"`
+	Quantity   *float64 `json:"quantity,omitempty"`
+	Unit       *string  `json:"unit,omitempty"`
+	Confidence float64  `json:"confidence"`
+	Added      bool     `json:"added,omitempty"` // Whether it was added to pantry
+	AddedID    *string  `json:"addedId,omitempty"`
 }
 
 // Scan handles POST /api/v1/pantry/scan
@@ -493,29 +451,16 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 			Confidence: item.Confidence,
 		}
 
-		// Calculate expiration date if provided
-		if item.ExpirationDays != nil && *item.ExpirationDays > 0 {
-			expDate := time.Now().AddDate(0, 0, *item.ExpirationDays).Format("2006-01-02")
-			scannedItem.ExpirationDate = &expDate
-		}
-
 		// Auto-add to pantry if requested and confidence is high enough
 		if autoAdd && item.Confidence >= 0.7 {
 			// Validate and normalize category
 			item.Category = model.NormalizeCategory(item.Category)
 
-			var expTime *time.Time
-			if item.ExpirationDays != nil && *item.ExpirationDays > 0 {
-				t := time.Now().AddDate(0, 0, *item.ExpirationDays)
-				expTime = &t
-			}
-
 			input := &model.PantryItemInput{
-				Name:           item.Name,
-				Category:       item.Category,
-				Quantity:       item.Quantity,
-				Unit:           item.Unit,
-				ExpirationDate: expTime,
+				Name:     item.Name,
+				Category: item.Category,
+				Quantity: item.Quantity,
+				Unit:     item.Unit,
 			}
 
 			added, err := h.repo.Create(ctx, user.ID, input)

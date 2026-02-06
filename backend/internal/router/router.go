@@ -183,12 +183,10 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 			r.Route("/pantry", func(r chi.Router) {
 				r.Get("/", pantryHandler.List)
 				r.Post("/", pantryHandler.Create)
-				r.Get("/expiring", pantryHandler.GetExpiring)
 				r.Get("/{id}", pantryHandler.Get)
 				r.Put("/{id}", pantryHandler.Update)
 				r.Delete("/{id}", pantryHandler.Delete)
 				r.With(rateLimiter.VideoExtraction()).Post("/scan", pantryHandler.Scan) // AI-powered, stricter rate limit
-				r.Get("/restock-suggestions", placeholderHandler("restock suggestions"))
 			})
 
 			// Shopping list routes

@@ -63,7 +63,7 @@ func (s *RecommendationService) GetRecommendations(ctx context.Context, req *Rec
 	}
 	minMatch := filters.MinMatch
 	if minMatch == 0 {
-		minMatch = 50
+		minMatch = 10
 	}
 	limit := filters.Limit
 	if limit == 0 {
@@ -589,19 +589,19 @@ func matchIngredients(recipeIngredients []model.RecipeIngredient, pantry pantryI
 
 // Common ingredient substitutes for fast matching
 var commonSubstitutes = map[string][]string{
-	"butter":       {"margarine", "oil", "coconut oil"},
-	"milk":         {"almond milk", "oat milk", "soy milk", "coconut milk"},
-	"egg":          {"flax egg", "chia egg", "applesauce"},
-	"flour":        {"almond flour", "coconut flour", "whole wheat flour"},
-	"sugar":        {"honey", "maple syrup", "stevia"},
-	"sour cream":   {"greek yogurt", "yogurt"},
-	"heavy cream":  {"coconut cream", "evaporated milk"},
-	"lemon juice":  {"lime juice", "vinegar"},
-	"onion":        {"shallot", "leek", "green onion"},
-	"garlic":       {"garlic powder", "garlic paste"},
+	"butter":        {"margarine", "oil", "coconut oil"},
+	"milk":          {"almond milk", "oat milk", "soy milk", "coconut milk"},
+	"egg":           {"flax egg", "chia egg", "applesauce"},
+	"flour":         {"almond flour", "coconut flour", "whole wheat flour"},
+	"sugar":         {"honey", "maple syrup", "stevia"},
+	"sour cream":    {"greek yogurt", "yogurt"},
+	"heavy cream":   {"coconut cream", "evaporated milk"},
+	"lemon juice":   {"lime juice", "vinegar"},
+	"onion":         {"shallot", "leek", "green onion"},
+	"garlic":        {"garlic powder", "garlic paste"},
 	"chicken broth": {"vegetable broth", "beef broth", "water"},
-	"parsley":      {"cilantro", "basil"},
-	"basil":        {"oregano", "parsley"},
+	"parsley":       {"cilantro", "basil"},
+	"basil":         {"oregano", "parsley"},
 }
 
 // reverseSubstitutes is the reverse index: substitute → original ingredient

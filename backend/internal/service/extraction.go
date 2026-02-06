@@ -392,6 +392,7 @@ func (s *ExtractionService) cacheExtractionResult(url string, result *ai.Extract
 			Quantity:       ing.Quantity,
 			Unit:           ing.Unit,
 			Category:       ing.Category,
+			Section:        ing.Section,
 			IsOptional:     ing.IsOptional,
 			Notes:          ing.Notes,
 			VideoTimestamp: ing.VideoTimestamp,

@@ -53,6 +53,7 @@ type CachedIngredient struct {
 	Quantity       string  `json:"quantity,omitempty"`
 	Unit           string  `json:"unit,omitempty"`
 	Category       string  `json:"category"`
+	Section        string  `json:"section,omitempty"`
 	IsOptional     bool    `json:"isOptional,omitempty"`
 	Notes          string  `json:"notes,omitempty"`
 	VideoTimestamp float64 `json:"videoTimestamp,omitempty"`

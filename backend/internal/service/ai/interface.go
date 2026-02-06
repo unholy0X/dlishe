@@ -22,6 +22,7 @@ type ExtractedIngredient struct {
 	Quantity       string  `json:"quantity"` // Keep as string to handle "1/2", "1-2", etc.
 	Unit           string  `json:"unit"`
 	Category       string  `json:"category"`
+	Section        string  `json:"section"` // e.g. "Dough", "Sauce", "Main"
 	IsOptional     bool    `json:"isOptional"`
 	Notes          string  `json:"notes"`
 	VideoTimestamp float64 `json:"videoTimestamp"` // minutes (float) from LLM

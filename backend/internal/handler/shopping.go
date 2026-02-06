@@ -950,8 +950,3 @@ func (h *ShoppingHandler) CompleteList(w http.ResponseWriter, r *http.Request) {
 
 	response.NoContent(w)
 }
-
-// ptr returns a pointer to the given value
-func ptr[T any](v T) *T {
-	return &v
-}

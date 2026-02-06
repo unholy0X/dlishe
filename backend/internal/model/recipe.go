@@ -21,43 +21,43 @@ type RecipeNutrition struct {
 
 // DietaryInfo contains dietary flags for filtering
 type DietaryInfo struct {
-	IsVegetarian   bool     `json:"isVegetarian,omitempty"`
-	IsVegan        bool     `json:"isVegan,omitempty"`
-	IsGlutenFree   bool     `json:"isGlutenFree,omitempty"`
-	IsDairyFree    bool     `json:"isDairyFree,omitempty"`
-	IsNutFree      bool     `json:"isNutFree,omitempty"`
-	IsKeto         bool     `json:"isKeto,omitempty"`
-	IsHalal        bool     `json:"isHalal,omitempty"`
-	IsKosher       bool     `json:"isKosher,omitempty"`
-	Allergens      []string `json:"allergens,omitempty"`      // e.g., ["gluten", "dairy", "nuts"]
-	MealTypes      []string `json:"mealTypes,omitempty"`      // e.g., ["breakfast", "lunch", "dinner"]
+	IsVegetarian bool     `json:"isVegetarian,omitempty"`
+	IsVegan      bool     `json:"isVegan,omitempty"`
+	IsGlutenFree bool     `json:"isGlutenFree,omitempty"`
+	IsDairyFree  bool     `json:"isDairyFree,omitempty"`
+	IsNutFree    bool     `json:"isNutFree,omitempty"`
+	IsKeto       bool     `json:"isKeto,omitempty"`
+	IsHalal      bool     `json:"isHalal,omitempty"`
+	IsKosher     bool     `json:"isKosher,omitempty"`
+	Allergens    []string `json:"allergens,omitempty"` // e.g., ["gluten", "dairy", "nuts"]
+	MealTypes    []string `json:"mealTypes,omitempty"` // e.g., ["breakfast", "lunch", "dinner"]
 }
 
 // Recipe represents a recipe in DishFlow
 type Recipe struct {
-	ID             uuid.UUID          `json:"id" db:"id"`
-	UserID         uuid.UUID          `json:"userId" db:"user_id"`
-	Title          string             `json:"title" db:"title"`
-	Description    *string            `json:"description,omitempty" db:"description"`
-	Servings       *int               `json:"servings,omitempty" db:"servings"`
-	PrepTime       *int               `json:"prepTime,omitempty" db:"prep_time"`       // minutes
-	CookTime       *int               `json:"cookTime,omitempty" db:"cook_time"`       // minutes
-	Difficulty     *string            `json:"difficulty,omitempty" db:"difficulty"`    // easy, medium, hard
-	Cuisine        *string            `json:"cuisine,omitempty" db:"cuisine"`
-	ThumbnailURL   *string            `json:"thumbnailUrl,omitempty" db:"thumbnail_url"`
-	SourceType     string             `json:"sourceType" db:"source_type"` // manual, video, ai, photo, cloned
-	SourceURL      *string            `json:"sourceUrl,omitempty" db:"source_url"`
-	SourceRecipeID *uuid.UUID         `json:"sourceRecipeId,omitempty" db:"source_recipe_id"` // ID of original recipe if cloned
-	SourceMetadata map[string]any     `json:"sourceMetadata,omitempty" db:"source_metadata"`
-	Tags           []string           `json:"tags,omitempty" db:"tags"`
-	IsPublic       bool               `json:"isPublic" db:"is_public"`     // Public/suggested recipes visible to all users
-	IsFavorite     bool               `json:"isFavorite" db:"is_favorite"`
-	Nutrition      *RecipeNutrition   `json:"nutrition,omitempty" db:"nutrition"`      // Nutritional info per serving
-	DietaryInfo    *DietaryInfo       `json:"dietaryInfo,omitempty" db:"dietary_info"` // Dietary flags for filtering
-	SyncVersion    int                `json:"syncVersion" db:"sync_version"`
-	CreatedAt      time.Time          `json:"createdAt" db:"created_at"`
-	UpdatedAt      time.Time          `json:"updatedAt" db:"updated_at"`
-	DeletedAt      *time.Time         `json:"-" db:"deleted_at"`
+	ID             uuid.UUID        `json:"id" db:"id"`
+	UserID         uuid.UUID        `json:"userId" db:"user_id"`
+	Title          string           `json:"title" db:"title"`
+	Description    *string          `json:"description,omitempty" db:"description"`
+	Servings       *int             `json:"servings,omitempty" db:"servings"`
+	PrepTime       *int             `json:"prepTime,omitempty" db:"prep_time"`    // minutes
+	CookTime       *int             `json:"cookTime,omitempty" db:"cook_time"`    // minutes
+	Difficulty     *string          `json:"difficulty,omitempty" db:"difficulty"` // easy, medium, hard
+	Cuisine        *string          `json:"cuisine,omitempty" db:"cuisine"`
+	ThumbnailURL   *string          `json:"thumbnailUrl,omitempty" db:"thumbnail_url"`
+	SourceType     string           `json:"sourceType" db:"source_type"` // manual, video, ai, photo, cloned
+	SourceURL      *string          `json:"sourceUrl,omitempty" db:"source_url"`
+	SourceRecipeID *uuid.UUID       `json:"sourceRecipeId,omitempty" db:"source_recipe_id"` // ID of original recipe if cloned
+	SourceMetadata map[string]any   `json:"sourceMetadata,omitempty" db:"source_metadata"`
+	Tags           []string         `json:"tags,omitempty" db:"tags"`
+	IsPublic       bool             `json:"isPublic" db:"is_public"` // Public/suggested recipes visible to all users
+	IsFavorite     bool             `json:"isFavorite" db:"is_favorite"`
+	Nutrition      *RecipeNutrition `json:"nutrition,omitempty" db:"nutrition"`      // Nutritional info per serving
+	DietaryInfo    *DietaryInfo     `json:"dietaryInfo,omitempty" db:"dietary_info"` // Dietary flags for filtering
+	SyncVersion    int              `json:"syncVersion" db:"sync_version"`
+	CreatedAt      time.Time        `json:"createdAt" db:"created_at"`
+	UpdatedAt      time.Time        `json:"updatedAt" db:"updated_at"`
+	DeletedAt      *time.Time       `json:"-" db:"deleted_at"`
 
 	// Computed fields (for list views without loading full relations)
 	IngredientCount int `json:"ingredientCount,omitempty"`
@@ -70,31 +70,32 @@ type Recipe struct {
 
 // RecipeIngredient represents an ingredient in a recipe
 type RecipeIngredient struct {
-	ID             uuid.UUID  `json:"id" db:"id"`
-	RecipeID       uuid.UUID  `json:"recipeId" db:"recipe_id"`
-	Name           string     `json:"name" db:"name"`
-	Quantity       *float64   `json:"quantity,omitempty" db:"quantity"`
-	Unit           *string    `json:"unit,omitempty" db:"unit"`
-	Category       string     `json:"category" db:"category"` // dairy, produce, proteins, etc.
-	IsOptional     bool       `json:"isOptional" db:"is_optional"`
-	Notes          *string    `json:"notes,omitempty" db:"notes"`
-	VideoTimestamp *int       `json:"videoTimestamp,omitempty" db:"video_timestamp"` // seconds
-	SortOrder      int        `json:"sortOrder" db:"sort_order"`
-	CreatedAt      time.Time  `json:"createdAt" db:"created_at"`
+	ID             uuid.UUID `json:"id" db:"id"`
+	RecipeID       uuid.UUID `json:"recipeId" db:"recipe_id"`
+	Name           string    `json:"name" db:"name"`
+	Quantity       *float64  `json:"quantity,omitempty" db:"quantity"`
+	Unit           *string   `json:"unit,omitempty" db:"unit"`
+	Category       string    `json:"category" db:"category"`         // dairy, produce, proteins, etc.
+	Section        string    `json:"section,omitempty" db:"section"` // e.g. "Dough", "Sauce", "Main"
+	IsOptional     bool      `json:"isOptional" db:"is_optional"`
+	Notes          *string   `json:"notes,omitempty" db:"notes"`
+	VideoTimestamp *int      `json:"videoTimestamp,omitempty" db:"video_timestamp"` // seconds
+	SortOrder      int       `json:"sortOrder" db:"sort_order"`
+	CreatedAt      time.Time `json:"createdAt" db:"created_at"`
 }
 
 // RecipeStep represents a step in a recipe
 type RecipeStep struct {
-	ID                  uuid.UUID  `json:"id" db:"id"`
-	RecipeID            uuid.UUID  `json:"recipeId" db:"recipe_id"`
-	StepNumber          int        `json:"stepNumber" db:"step_number"`
-	Instruction         string     `json:"instruction" db:"instruction"`
-	DurationSeconds     *int       `json:"durationSeconds,omitempty" db:"duration_seconds"`
-	Technique           *string    `json:"technique,omitempty" db:"technique"`
-	Temperature         *string    `json:"temperature,omitempty" db:"temperature"`
-	VideoTimestampStart *int       `json:"videoTimestampStart,omitempty" db:"video_timestamp_start"`
-	VideoTimestampEnd   *int       `json:"videoTimestampEnd,omitempty" db:"video_timestamp_end"`
-	CreatedAt           time.Time  `json:"createdAt" db:"created_at"`
+	ID                  uuid.UUID `json:"id" db:"id"`
+	RecipeID            uuid.UUID `json:"recipeId" db:"recipe_id"`
+	StepNumber          int       `json:"stepNumber" db:"step_number"`
+	Instruction         string    `json:"instruction" db:"instruction"`
+	DurationSeconds     *int      `json:"durationSeconds,omitempty" db:"duration_seconds"`
+	Technique           *string   `json:"technique,omitempty" db:"technique"`
+	Temperature         *string   `json:"temperature,omitempty" db:"temperature"`
+	VideoTimestampStart *int      `json:"videoTimestampStart,omitempty" db:"video_timestamp_start"`
+	VideoTimestampEnd   *int      `json:"videoTimestampEnd,omitempty" db:"video_timestamp_end"`
+	CreatedAt           time.Time `json:"createdAt" db:"created_at"`
 }
 
 // RecipeShare represents a shared recipe between users

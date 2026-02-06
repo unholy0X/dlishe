@@ -686,11 +686,12 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Prepare batch of items to add with aggregation
-	// This ensures duplicate ingredients (same name, unit, category) are merged
+	// Prepare batch of items to add with aggregation.
+	// Cooking units (tbsp, pinch, clove) are stripped — shoppers buy items, not tablespoons.
+	// Aggregation key is (name, category) — not unit — so "2 cups flour" and "300g flour"
+	// merge into a single shopping item instead of showing as duplicates.
 	type ingredientKey struct {
 		name     string
-		unit     string
 		category string
 	}
 
@@ -702,7 +703,6 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 		if len(req.Ingredients) > 0 {
 			found := false
 			for _, name := range req.Ingredients {
-				// Robust matching: trim and case-insensitive
 				if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(ingredient.Name)) {
 					found = true
 					break
@@ -716,34 +716,29 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 		// Normalize category using centralized validation
 		category := model.NormalizeCategory(ingredient.Category)
 
-		// Get unit for aggregation key
-		unit := ""
-		if ingredient.Unit != nil {
-			unit = *ingredient.Unit
-		}
+		// Convert cooking units to shopping units (strips tbsp, pinch, etc.)
+		qty, unit := model.ToShoppingUnit(ingredient.Quantity, ingredient.Unit)
 
-		// Create aggregation key
+		// Aggregate by (name, category) — unit-agnostic
 		key := ingredientKey{
-			name:     strings.TrimSpace(ingredient.Name),
-			unit:     unit,
+			name:     strings.TrimSpace(strings.ToLower(ingredient.Name)),
 			category: category,
 		}
 
-		// Aggregate or create new entry
 		if existing, found := aggregated[key]; found {
-			// Merge quantities if both exist
-			if existing.Quantity != nil && ingredient.Quantity != nil {
-				total := *existing.Quantity + *ingredient.Quantity
+			// Only merge quantities when both have purchasable units that match
+			if existing.Quantity != nil && qty != nil && existing.Unit != nil && unit != nil &&
+				strings.EqualFold(*existing.Unit, *unit) {
+				total := *existing.Quantity + *qty
 				existing.Quantity = &total
-			} else if ingredient.Quantity != nil {
-				existing.Quantity = ingredient.Quantity
 			}
+			// If units differ or one is nil, keep the first entry as-is
+			// (the shopper just needs to know they need this ingredient)
 		} else {
-			// Create new entry
 			aggregated[key] = &model.ShoppingItemInput{
 				Name:       strings.TrimSpace(ingredient.Name),
-				Quantity:   ingredient.Quantity,
-				Unit:       ingredient.Unit,
+				Quantity:   qty,
+				Unit:       unit,
 				Category:   &category,
 				RecipeName: &recipeName,
 			}

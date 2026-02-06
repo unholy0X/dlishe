@@ -24,10 +24,18 @@ export interface PantryItemInput {
     expirationDate?: string;
 }
 
-export interface PantryResponse {
+export interface PantryGroup {
+    category: string;
     items: PantryItem[];
-
     count: number;
+}
+
+export interface PantryResponse {
+    groups: PantryGroup[];
+    total: number;
+    count: number;
+    limit: number;
+    offset: number;
 }
 
 export interface ShoppingList {

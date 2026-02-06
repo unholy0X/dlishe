@@ -14,9 +14,11 @@ import (
 // --- Mock Repositories ---
 
 type mockUserRepository struct {
-	GetByIDFunc         func(ctx context.Context, id uuid.UUID) (*model.User, error)
-	UpdateFunc          func(ctx context.Context, user *model.User) error
-	GetSubscriptionFunc func(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
+	GetByIDFunc                  func(ctx context.Context, id uuid.UUID) (*model.User, error)
+	UpdateFunc                   func(ctx context.Context, user *model.User) error
+	GetSubscriptionFunc          func(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
+	CountUserScansThisMonthFunc  func(ctx context.Context, userID uuid.UUID) (int, error)
+	TrackScanUsageFunc           func(ctx context.Context, userID uuid.UUID) error
 }
 
 func (m *mockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
@@ -36,6 +38,18 @@ func (m *mockUserRepository) GetSubscription(ctx context.Context, userID uuid.UU
 		return &model.UserSubscription{Entitlement: "free", IsActive: true}, nil
 	}
 	return m.GetSubscriptionFunc(ctx, userID)
+}
+func (m *mockUserRepository) CountUserScansThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
+	if m.CountUserScansThisMonthFunc == nil {
+		return 0, nil
+	}
+	return m.CountUserScansThisMonthFunc(ctx, userID)
+}
+func (m *mockUserRepository) TrackScanUsage(ctx context.Context, userID uuid.UUID) error {
+	if m.TrackScanUsageFunc == nil {
+		return nil
+	}
+	return m.TrackScanUsageFunc(ctx, userID)
 }
 
 type mockRecipeRepository struct {

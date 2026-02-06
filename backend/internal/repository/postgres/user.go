@@ -414,3 +414,35 @@ func (r *UserRepository) UpsertSubscription(ctx context.Context, sub *model.User
 
 	return err
 }
+
+// CountUserScansThisMonth counts the number of pantry scans this month for a user
+func (r *UserRepository) CountUserScansThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
+	query := `
+		SELECT COALESCE(used, 0)
+		FROM usage_quotas
+		WHERE user_id = $1 AND quota_type = 'pantry_scans'
+		  AND period_start = date_trunc('month', CURRENT_DATE)::date
+	`
+	var count int
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&count)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return count, nil
+}
+
+// TrackScanUsage increments the scan usage counter for the current month
+func (r *UserRepository) TrackScanUsage(ctx context.Context, userID uuid.UUID) error {
+	query := `
+		INSERT INTO usage_quotas (user_id, quota_type, period_start, period_end, used, limit_value)
+		VALUES ($1, 'pantry_scans', date_trunc('month', CURRENT_DATE)::date,
+		        (date_trunc('month', CURRENT_DATE) + interval '1 month' - interval '1 day')::date, 1, 0)
+		ON CONFLICT (user_id, quota_type, period_start)
+		DO UPDATE SET used = usage_quotas.used + 1
+	`
+	_, err := r.db.ExecContext(ctx, query, userID)
+	return err
+}

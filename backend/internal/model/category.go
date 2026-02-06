@@ -281,3 +281,58 @@ func GetAllCategories() []string {
 	}
 	return categories
 }
+
+// cookingUnits are recipe-scale measurements that don't translate to shopping.
+// Nobody buys "2 tablespoons of olive oil" — they buy a bottle.
+var cookingUnits = map[string]bool{
+	// Volume (small)
+	"tsp": true, "teaspoon": true, "teaspoons": true,
+	"tbsp": true, "tablespoon": true, "tablespoons": true,
+	"cup": true, "cups": true,
+	"fl oz": true, "fluid ounce": true, "fluid ounces": true,
+	// Imprecise
+	"pinch": true, "pinches": true,
+	"dash": true, "dashes": true,
+	"splash": true, "splashes": true,
+	"drizzle": true, "drizzles": true,
+	"handful": true, "handfuls": true,
+	"drop": true, "drops": true,
+	// Produce parts
+	"clove": true, "cloves": true,
+	"slice": true, "slices": true,
+	"sprig": true, "sprigs": true,
+	"stalk": true, "stalks": true,
+	"leaf": true, "leaves": true,
+	"wedge": true, "wedges": true,
+	"zest": true,
+	// Vague portions
+	"piece": true, "pieces": true,
+	"to taste": true,
+	"some": true,
+	"as needed": true,
+}
+
+// IsCookingUnit returns true if the unit is a recipe-scale measurement
+// that should be stripped when adding to a shopping list.
+// Returns false for nil/empty (no unit = keep as-is) and for purchasable
+// units like g, kg, ml, oz, lb, bunch, can, bottle, etc.
+func IsCookingUnit(unit *string) bool {
+	if unit == nil {
+		return false
+	}
+	normalized := strings.ToLower(strings.TrimSpace(*unit))
+	if normalized == "" {
+		return false
+	}
+	return cookingUnits[normalized]
+}
+
+// ToShoppingUnit converts a recipe ingredient's quantity/unit for shopping.
+// Cooking units (tbsp, pinch, clove) are stripped — the shopper just needs the item name.
+// Purchasable units (g, kg, ml, oz, bunch, can) are kept as-is.
+func ToShoppingUnit(quantity *float64, unit *string) (*float64, *string) {
+	if IsCookingUnit(unit) {
+		return nil, nil
+	}
+	return quantity, unit
+}

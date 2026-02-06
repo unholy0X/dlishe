@@ -135,7 +135,8 @@ func (r *PantryRepository) Get(ctx context.Context, id, userID uuid.UUID) (*mode
 }
 
 // Create creates or upserts a pantry item
-// On duplicate (same user_id, name, category), merges quantities and resurrects soft-deleted items
+// On duplicate (same user_id, name, category), merges quantities and resurrects soft-deleted items.
+// Smart unit handling: only adds quantities when units match, prevents nonsense like 300g + 2cups = 302.
 func (r *PantryRepository) Create(ctx context.Context, userID uuid.UUID, input *model.PantryItemInput) (*model.PantryItem, error) {
 	query := `
 		INSERT INTO pantry_items (user_id, name, category, quantity, unit)
@@ -144,9 +145,18 @@ func (r *PantryRepository) Create(ctx context.Context, userID uuid.UUID, input *
 		DO UPDATE SET
 			quantity = CASE
 				WHEN pantry_items.deleted_at IS NOT NULL THEN EXCLUDED.quantity
-				ELSE COALESCE(pantry_items.quantity, 0) + COALESCE(EXCLUDED.quantity, 0)
+				WHEN EXCLUDED.quantity IS NULL THEN pantry_items.quantity
+				WHEN pantry_items.quantity IS NULL THEN EXCLUDED.quantity
+				WHEN LOWER(COALESCE(pantry_items.unit, '')) = LOWER(COALESCE(EXCLUDED.unit, ''))
+					THEN pantry_items.quantity + EXCLUDED.quantity
+				ELSE pantry_items.quantity
 			END,
-			unit = COALESCE(EXCLUDED.unit, pantry_items.unit),
+			unit = CASE
+				WHEN pantry_items.deleted_at IS NOT NULL THEN COALESCE(EXCLUDED.unit, pantry_items.unit)
+				WHEN EXCLUDED.unit IS NULL THEN pantry_items.unit
+				WHEN pantry_items.unit IS NULL THEN EXCLUDED.unit
+				ELSE pantry_items.unit
+			END,
 			deleted_at = NULL,
 			updated_at = NOW(),
 			sync_version = pantry_items.sync_version + 1

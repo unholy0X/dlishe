@@ -533,7 +533,12 @@ func (r *ShoppingRepository) CompleteList(ctx context.Context, listID, userID uu
 	}
 	rows.Close()
 
-	// 2. Move items to pantry with UPSERT (merge quantities, resurrect soft-deleted)
+	// 2. Move items to pantry with UPSERT
+	// Smart quantity handling:
+	//   - Soft-deleted (restocking): replace with incoming values
+	//   - Same unit: add quantities (2kg + 1kg = 3kg)
+	//   - Different units or no quantity: keep existing, just touch updated_at
+	//     (avoids 300g + 0.5cups = 300.5 nonsense)
 	if len(itemsToMove) > 0 {
 		queryInsertPantry := `
 			INSERT INTO pantry_items (user_id, name, quantity, unit, category)
@@ -542,9 +547,18 @@ func (r *ShoppingRepository) CompleteList(ctx context.Context, listID, userID uu
 			DO UPDATE SET
 				quantity = CASE
 					WHEN pantry_items.deleted_at IS NOT NULL THEN EXCLUDED.quantity
-					ELSE COALESCE(pantry_items.quantity, 0) + COALESCE(EXCLUDED.quantity, 0)
+					WHEN EXCLUDED.quantity IS NULL THEN pantry_items.quantity
+					WHEN pantry_items.quantity IS NULL THEN EXCLUDED.quantity
+					WHEN LOWER(COALESCE(pantry_items.unit, '')) = LOWER(COALESCE(EXCLUDED.unit, ''))
+						THEN pantry_items.quantity + EXCLUDED.quantity
+					ELSE pantry_items.quantity
 				END,
-				unit = COALESCE(EXCLUDED.unit, pantry_items.unit),
+				unit = CASE
+					WHEN pantry_items.deleted_at IS NOT NULL THEN COALESCE(EXCLUDED.unit, pantry_items.unit)
+					WHEN EXCLUDED.unit IS NULL THEN pantry_items.unit
+					WHEN pantry_items.unit IS NULL THEN EXCLUDED.unit
+					ELSE pantry_items.unit
+				END,
 				deleted_at = NULL,
 				updated_at = NOW(),
 				sync_version = pantry_items.sync_version + 1

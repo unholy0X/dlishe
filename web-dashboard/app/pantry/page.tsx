@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, Search, Edit2, Trash2, AlertTriangle, Calendar, Package } from 'lucide-react';
 import { useAuth } from "@clerk/nextjs";
 import { pantryService } from '../../lib/services/pantry';
-import { PantryItem, PantryItemInput, PantryCategory } from '../../lib/types';
+import { PantryItem, PantryItemInput, PantryCategory, PantryGroup } from '../../lib/types';
 import { VALID_CATEGORIES } from '../../lib/categories';
 import { NavHeader } from '@/lib/components/NavHeader';
 
@@ -15,7 +15,7 @@ export default function PantryPage() {
 
     const categories = [...VALID_CATEGORIES] as PantryCategory[];
     const router = useRouter();
-    const [items, setItems] = useState<PantryItem[]>([]);
+    const [groups, setGroups] = useState<PantryGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,7 +42,7 @@ export default function PantryPage() {
             const token = await getToken();
             if (!token) return;
             const data = await pantryService.getAll(token);
-            setItems(data.items || []);
+            setGroups(data.groups || []);
             setError(null);
         } catch (err) {
             console.error('Failed to fetch pantry items:', err);
@@ -156,11 +156,11 @@ export default function PantryPage() {
         return diffDays;
     };
 
-
-
     if (!authLoaded || (!isAuthenticated && loading)) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>;
     }
+
+    const totalItems = groups.reduce((acc, group) => acc + (group.items?.length || 0), 0);
 
     return (
         <>
@@ -194,7 +194,7 @@ export default function PantryPage() {
                 )}
 
                 {/* Empty State */}
-                {!loading && items.length === 0 && (
+                {!loading && totalItems === 0 && (
                     <div className="text-center py-12 bg-gray-50 rounded-xl border border-gray-200">
                         <Package size={48} className="mx-auto text-gray-400 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900">Your pantry is empty</h3>
@@ -208,58 +208,65 @@ export default function PantryPage() {
                     </div>
                 )}
 
-                {/* Grid View */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {items.map((item) => {
-                        const daysUntilExp = getDaysUntilExpiration(item.expirationDate);
-                        const isExpiringSoon = daysUntilExp !== null && daysUntilExp <= 7;
-                        const isExpired = daysUntilExp !== null && daysUntilExp < 0;
+                {/* Grouped View */}
+                {groups.map(group => (
+                    <div key={group.category} className="mb-8">
+                        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2 capitalize">
+                            {group.category}
+                            <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full font-normal">
+                                {group.items.length}
+                            </span>
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {group.items.map((item) => {
+                                const daysUntilExp = getDaysUntilExpiration(item.expirationDate);
+                                const isExpiringSoon = daysUntilExp !== null && daysUntilExp <= 7;
+                                const isExpired = daysUntilExp !== null && daysUntilExp < 0;
 
-                        return (
-                            <div key={item.id} className={`bg-white rounded-xl shadow-sm border p-4 transition-shadow hover:shadow-md ${isExpired ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <h3 className="font-semibold text-lg text-gray-900">{item.name}</h3>
-                                        <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full capitalize">
-                                            {item.category}
-                                        </span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => openEditModal(item)}
-                                            className="text-gray-400 hover:text-emerald-600 p-1"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(item.id)}
-                                            className="text-gray-400 hover:text-red-600 p-1"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-4 text-sm text-gray-600 mt-4">
-                                    <div className="flex items-center gap-1">
-                                        <Package size={14} />
-                                        <span>{item.quantity} {item.unit}</span>
-                                    </div>
-                                    {item.expirationDate && (
-                                        <div className={`flex items-center gap-1 ${isExpiringSoon ? 'text-orange-600 font-medium' : ''} ${isExpired ? 'text-red-600 font-bold' : ''}`}>
-                                            <Calendar size={14} />
-                                            <span>
-                                                {isExpired ? `Expired ${Math.abs(daysUntilExp!)} days ago` :
-                                                    daysUntilExp === 0 ? 'Expires today' :
-                                                        `Expires in ${daysUntilExp} days`}
-                                            </span>
+                                return (
+                                    <div key={item.id} className={`bg-white rounded-xl shadow-sm border p-4 transition-shadow hover:shadow-md ${isExpired ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <h3 className="font-semibold text-lg text-gray-900">{item.name}</h3>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => openEditModal(item)}
+                                                    className="text-gray-400 hover:text-emerald-600 p-1"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(item.id)}
+                                                    className="text-gray-400 hover:text-red-600 p-1"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+
+                                        <div className="flex items-center gap-4 text-sm text-gray-600 mt-4">
+                                            <div className="flex items-center gap-1">
+                                                <Package size={14} />
+                                                <span>{item.quantity} {item.unit}</span>
+                                            </div>
+                                            {item.expirationDate && (
+                                                <div className={`flex items-center gap-1 ${isExpiringSoon ? 'text-orange-600 font-medium' : ''} ${isExpired ? 'text-red-600 font-bold' : ''}`}>
+                                                    <Calendar size={14} />
+                                                    <span>
+                                                        {isExpired ? `Expired ${Math.abs(daysUntilExp!)} days ago` :
+                                                            daysUntilExp === 0 ? 'Expires today' :
+                                                                `Expires in ${daysUntilExp} days`}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
 
                 {/* Modal */}
                 {isModalOpen && (

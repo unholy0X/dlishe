@@ -83,8 +83,38 @@ func (h *PantryHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Group items by category (DB already orders by category ASC, name ASC)
+	type categoryGroup struct {
+		Category string              `json:"category"`
+		Items    []*model.PantryItem `json:"items"`
+		Count    int                 `json:"count"`
+	}
+
+	groupMap := make(map[string]*categoryGroup)
+	var groupOrder []string
+
+	for _, item := range items {
+		cat := item.Category
+		if g, ok := groupMap[cat]; ok {
+			g.Items = append(g.Items, item)
+			g.Count++
+		} else {
+			groupMap[cat] = &categoryGroup{
+				Category: cat,
+				Items:    []*model.PantryItem{item},
+				Count:    1,
+			}
+			groupOrder = append(groupOrder, cat)
+		}
+	}
+
+	groups := make([]categoryGroup, 0, len(groupOrder))
+	for _, cat := range groupOrder {
+		groups = append(groups, *groupMap[cat])
+	}
+
 	response.OK(w, map[string]interface{}{
-		"items":  items,
+		"groups": groups,
 		"total":  total,
 		"count":  len(items),
 		"limit":  limit,

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
-
-	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
 
@@ -19,31 +19,122 @@ import (
 	"google.golang.org/api/option"
 )
 
-// fetchWebpage fetches the content of a webpage and returns it as text along with a main image URL
-// It uses goquery for proper HTML parsing and extracts readable text content
-func fetchWebpage(ctx context.Context, url string) (string, string, error) {
-	// Create HTTP client with timeout and redirect handling
-	client := &http.Client{
-		Timeout: 45 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 10 {
-				return fmt.Errorf("too many redirects")
-			}
-			return nil
-		},
-	}
+// --- Package-level compiled regexes (avoid recompilation per request) ---
+var (
+	reLangValidation   = regexp.MustCompile(`^[a-zA-Z \-()]+$`)
+	reDetailValidation = regexp.MustCompile(`^[a-zA-Z]+$`)
+	reThumbURL         = regexp.MustCompile(`"thumbnailUrl"\s*:\s*"([^"]+)"`)
+	reImageStr         = regexp.MustCompile(`"image"\s*:\s*"([^"]+)"`)
+	reImageObj         = regexp.MustCompile(`"image"\s*:\s*\{\s*"@type"\s*:\s*"ImageObject"[^}]*"url"\s*:\s*"([^"]+)"`)
+	reJSONBlock        = regexp.MustCompile("(?s)```(?:json)?\\s*(.*?)```")
+)
 
+// isPrivateIP checks if an IP address is private/internal (SSRF protection)
+func isPrivateIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+}
+
+// safeWebClient is an HTTP client that blocks connections to private/internal IPs.
+// This prevents SSRF attacks where user-supplied URLs resolve to internal services.
+var safeWebClient = &http.Client{
+	Timeout: 45 * time.Second,
+	Transport: &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid address: %w", err)
+			}
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+			for _, ip := range ips {
+				if isPrivateIP(ip.IP) {
+					return nil, fmt.Errorf("blocked: request to private/internal IP %s", ip.IP)
+				}
+			}
+			dialer := &net.Dialer{Timeout: 10 * time.Second}
+			return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
+		},
+	},
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return fmt.Errorf("too many redirects")
+		}
+		return nil
+	},
+}
+
+// validateGeminiResponse checks the response for safety blocks, truncation, and empty content.
+// This prevents silent failures where partial/blocked responses are parsed as valid recipes.
+func validateGeminiResponse(resp *genai.GenerateContentResponse) error {
+	if resp == nil || len(resp.Candidates) == 0 {
+		return fmt.Errorf("empty response from Gemini")
+	}
+	candidate := resp.Candidates[0]
+	switch candidate.FinishReason {
+	case genai.FinishReasonSafety:
+		return fmt.Errorf("content blocked by Gemini safety filters")
+	case genai.FinishReasonRecitation:
+		return fmt.Errorf("content blocked: recitation policy violation")
+	case genai.FinishReasonMaxTokens:
+		return fmt.Errorf("response truncated: output exceeded max tokens (recipe may be incomplete)")
+	case genai.FinishReasonOther:
+		return fmt.Errorf("Gemini returned an unexpected finish reason")
+	}
+	if candidate.Content == nil {
+		return fmt.Errorf("no content in Gemini response (finish reason: %v)", candidate.FinishReason)
+	}
+	return nil
+}
+
+// parseGeminiJSON validates the response, extracts text, and unmarshals into the target type.
+// This replaces the repeated pattern of checking candidates + parsing JSON across all methods.
+func parseGeminiJSON[T any](resp *genai.GenerateContentResponse) (*T, error) {
+	if err := validateGeminiResponse(resp); err != nil {
+		return nil, err
+	}
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if txt, ok := part.(genai.Text); ok {
+			clean := cleanJSON(string(txt))
+			var result T
+			if err := json.Unmarshal([]byte(clean), &result); err != nil {
+				return nil, fmt.Errorf("failed to parse response JSON: %w (raw: %.500s)", err, clean)
+			}
+			return &result, nil
+		}
+	}
+	return nil, fmt.Errorf("no text content in Gemini response")
+}
+
+// sanitizePromptString removes newlines and control characters from user input
+// before interpolating into LLM prompts to prevent prompt injection.
+func sanitizePromptString(s string) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	var b strings.Builder
+	for _, r := range s {
+		if r >= 32 || r == '\t' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// fetchWebpage fetches the content of a webpage and returns it as text along with a main image URL.
+// Uses safeWebClient to prevent SSRF attacks against internal IPs.
+func fetchWebpage(ctx context.Context, url string) (string, string, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", "", err
 	}
 
-	// Set user agent to avoid being blocked
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 
-	resp, err := client.Do(req)
+	resp, err := safeWebClient.Do(req)
 	if err != nil {
 		return "", "", fmt.Errorf("fetch failed: %w", err)
 	}
@@ -53,10 +144,15 @@ func fetchWebpage(ctx context.Context, url string) (string, string, error) {
 		return "", "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
+	// Verify Content-Type is HTML before parsing (prevents wasting memory on PDFs/binaries)
+	ct := resp.Header.Get("Content-Type")
+	if ct != "" && !strings.Contains(ct, "text/html") && !strings.Contains(ct, "application/xhtml") {
+		return "", "", fmt.Errorf("unsupported content type: %s (expected HTML)", ct)
+	}
+
 	// Read body with size limit (5MB max to avoid memory issues)
 	limitedReader := io.LimitReader(resp.Body, 5*1024*1024)
 
-	// Parse HTML with goquery
 	doc, err := goquery.NewDocumentFromReader(limitedReader)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to parse HTML: %w", err)
@@ -94,23 +190,17 @@ func parseWebpageContent(doc *goquery.Document) (string, string) {
 				// Let's try to extract image field via regex for robustness vs unmarshalling large unknown structs
 				// Regex to find "image": "url" or "image": ["url"] or "thumbnailUrl": "url"
 
-				// Look for thumbnailUrl
-				reThumb := regexp.MustCompile(`"thumbnailUrl"\s*:\s*"([^"]+)"`)
-				if match := reThumb.FindStringSubmatch(jsonText); len(match) > 1 {
+				if match := reThumbURL.FindStringSubmatch(jsonText); len(match) > 1 {
 					imageURL = match[1]
-					return false // Break
+					return false
 				}
 
-				// Look for image as string
-				reImg := regexp.MustCompile(`"image"\s*:\s*"([^"]+)"`)
-				if match := reImg.FindStringSubmatch(jsonText); len(match) > 1 {
+				if match := reImageStr.FindStringSubmatch(jsonText); len(match) > 1 {
 					imageURL = match[1]
-					return false // Break
+					return false
 				}
 
-				// Look for image object url
-				reImgObj := regexp.MustCompile(`"image"\s*:\s*\{\s*"@type"\s*:\s*"ImageObject"[^}]*"url"\s*:\s*"([^"]+)"`)
-				if match := reImgObj.FindStringSubmatch(jsonText); len(match) > 1 {
+				if match := reImageObj.FindStringSubmatch(jsonText); len(match) > 1 {
 					imageURL = match[1]
 					return false
 				}
@@ -200,9 +290,17 @@ func cleanText(text string) string {
 	return strings.Join(cleanLines, "\n")
 }
 
-// cleanJSON removes markdown code blocks and whitespace from JSON strings
+// cleanJSON removes markdown code blocks and whitespace from JSON strings.
+// Handles nested backticks and double-wrapped code blocks.
 func cleanJSON(text string) string {
 	text = strings.TrimSpace(text)
+
+	// First try regex extraction for ```json ... ``` blocks (handles nesting)
+	if matches := reJSONBlock.FindStringSubmatch(text); len(matches) > 1 {
+		return strings.TrimSpace(matches[1])
+	}
+
+	// Fallback: strip leading/trailing backtick fences
 	text = strings.TrimPrefix(text, "```json")
 	text = strings.TrimPrefix(text, "```")
 	text = strings.TrimSuffix(text, "```")
@@ -303,78 +401,70 @@ func NewGeminiClient(ctx context.Context, apiKey string) (*GeminiClient, error) 
 		return nil, err
 	}
 
-	// Use the latest flash model
-	// verified: gemini-2.0-flash (or gemini-2.0-flash when stable)
+	// Use the pro model for advanced analysis
+	// verified: gemini-2.5-pro (sweet spot for reasoning/cost)
 	return &GeminiClient{
 		client: client,
-		model:  "gemini-2.0-flash",
+		model:  "gemini-2.5-pro",
 	}, nil
 }
 
 // ExtractRecipe extracts a recipe from a video file
 func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest, onProgress ProgressCallback) (*ExtractionResult, error) {
 	// Validate inputs to prevent prompt injection
-	// Only allow letters, spaces, hyphens, and parentheses for language
 	if req.Language != "" {
-		match, _ := regexp.MatchString(`^[a-zA-Z \-()]+$`, req.Language)
-		if !match || len(req.Language) > 50 {
+		if !reLangValidation.MatchString(req.Language) || len(req.Language) > 50 {
 			return nil, fmt.Errorf("invalid language format")
 		}
 	} else {
-		req.Language = "English" // Default
+		req.Language = "English"
 	}
 
-	// Validate detail level
 	if req.DetailLevel != "" {
-		match, _ := regexp.MatchString(`^[a-zA-Z]+$`, req.DetailLevel)
-		if !match || len(req.DetailLevel) > 20 {
+		if !reDetailValidation.MatchString(req.DetailLevel) || len(req.DetailLevel) > 20 {
 			return nil, fmt.Errorf("invalid detail level format")
 		}
 	}
 
-	// 1. Upload file
+	// 1. Upload file (req.VideoURL holds the local path from the downloader)
 	onProgress(model.JobStatusDownloading, 20, "Uploading video to Gemini...")
 
-	f, err := g.uploadFile(ctx, req.VideoURL) // Note: req.VideoURL here is expected to be a local path in this internal method, or we handle it in service layer.
-	// Wait! The interface says ExtractionRequest contains VideoURL (string).
-	// The caller (handler) downloads it first?
-	// The interface doesn't specify if VideoURL is local or remote.
-	// But usually the Service encapsulates the complexity.
-	// Let's assume the caller (Handler or a specialized Service) handles the download and passes the local path.
-	// OR we change the interface to accept a Reader or Path.
-	// But sticking to the interface:
-	// If the implementation expects a local path, it limits us.
-	// However, `VideoHandler` will use `Downloader` then call this.
-	// So `req.VideoURL` passed here *should* be the local path?
-	// No, that's confusing.
-	// Let's assume for this implementation (GeminiClient) that we modify it to accept a path separately
-	// OR we treat req.VideoURL as the path if it exists locally.
-
-	// Actually, the interface `ExtractRecipe(ctx context.Context, req ExtractionRequest, ...)` is defined.
-	// `ExtractionRequest` has `VideoURL`.
-	// I will assume for this step that the `VideoURL` field holds the LOCAL PATH to the file
-	// because the VideoHandler will have downloaded it.
-	// This is a bit hacky on the naming, but practical for now.
-
+	f, err := g.uploadFile(ctx, req.VideoURL)
 	if err != nil {
 		return nil, fmt.Errorf("upload failed: %w", err)
 	}
 	defer g.client.DeleteFile(ctx, f.Name)
 
-	// 2. Wait for processing
+	// 2. Wait for processing with timeout (max 10 minutes to prevent infinite loop)
 	onProgress(model.JobStatusProcessing, 40, "Waiting for Gemini processing...")
+	pollDeadline := time.Now().Add(10 * time.Minute)
 	for {
+		if time.Now().After(pollDeadline) {
+			return nil, fmt.Errorf("video processing timed out after 10 minutes")
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		file, err := g.client.GetFile(ctx, f.Name)
 		if err != nil {
-			return nil, fmt.Errorf("get file failed: %w", err)
+			return nil, fmt.Errorf("get file status failed: %w", err)
 		}
 		if file.State == genai.FileStateActive {
 			break
 		}
 		if file.State == genai.FileStateFailed {
-			return nil, fmt.Errorf("video processing failed")
+			return nil, fmt.Errorf("Gemini video processing failed")
 		}
-		time.Sleep(2 * time.Second)
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
 	}
 
 	// 3. Generate content with retry
@@ -394,6 +484,10 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		</video_context>
 
 		Use the context above to accurately identify ingredients and steps that might be spoken quickly or listed in the caption.
+		
+		**GROUPING INSTRUCTION**:
+		If the recipe has distinct parts (e.g. "For the Dough", "For the Sauce", "Toppings", "Assembly"), use the "section" field in the ingredients list to group them.
+		If there are no distinct sections, use "Main" as the section name.
 
 		**CRITICAL INSTRUCTION**: 
 		Analyze the content provided in <video_context>. If this is clearly **NOT a cooking recipe or food preparation video** (e.g. a dance video, news article, vlog without food, gaming, etc.),
@@ -410,7 +504,7 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 			"difficulty": "Easy", // Easy, Medium, Hard
 			"cuisine": "Italian",
 			"ingredients": [
-				{ "name": "Ingredient 1", "quantity": "2", "unit": "cups", "category": "produce", "isOptional": false, "notes": "", "videoTimestamp": 0 }
+				{ "name": "Ingredient 1", "quantity": "2", "unit": "cups", "category": "produce", "section": "Dough", "isOptional": false, "notes": "", "videoTimestamp": 0 }
 			],
 			"steps": [
 				{ "stepNumber": 1, "instruction": "Do this", "durationSeconds": 60, "technique": "Chopping", "temperature": "", "videoTimestampStart": 0, "videoTimestampEnd": 60 }
@@ -427,31 +521,19 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		return nil, fmt.Errorf("generation failed: %w", err)
 	}
 
-	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, fmt.Errorf("no content generated")
-	}
-
-	// 4. Parse response
+	// 4. Parse response (validates FinishReason for safety/truncation)
 	onProgress(model.JobStatusExtracting, 90, "Finalizing recipe...")
 
-	var result ExtractionResult
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if txt, ok := part.(genai.Text); ok {
-			clean := cleanJSON(string(txt))
-			if err := json.Unmarshal([]byte(clean), &result); err != nil {
-				// Try to sanitize markdown code blocks if present
-				return nil, fmt.Errorf("failed to parse JSON: %w (content: %s)", err, clean)
-			}
-			break
-		}
+	result, err := parseGeminiJSON[ExtractionResult](resp)
+	if err != nil {
+		return nil, fmt.Errorf("extract recipe: %w", err)
 	}
 
-	// Check for rejection
 	if result.NonRecipe {
 		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // RefineRecipe reviews and improves an extracted recipe
@@ -515,21 +597,11 @@ Return ONLY the JSON, no explanations.`, string(rawJSON), len(rawRecipe.Ingredie
 		return nil, fmt.Errorf("refinement generation failed: %w", err)
 	}
 
-	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, fmt.Errorf("no refinement content generated")
+	refinedPtr, err := parseGeminiJSON[ExtractionResult](resp)
+	if err != nil {
+		return nil, fmt.Errorf("refine recipe: %w", err)
 	}
-
-	// Parse refined response
-	var refined ExtractionResult
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if txt, ok := part.(genai.Text); ok {
-			clean := cleanJSON(string(txt))
-			if err := json.Unmarshal([]byte(clean), &refined); err != nil {
-				return nil, fmt.Errorf("failed to parse refined JSON: %w", err)
-			}
-			break
-		}
-	}
+	refined := *refinedPtr
 
 	// SAFETY CHECK: Ensure refinement didn't drop ingredients
 	originalCount := len(rawRecipe.Ingredients)
@@ -667,22 +739,12 @@ func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model
 		return nil, fmt.Errorf("smart merge generation failed: %w", err)
 	}
 
-	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, fmt.Errorf("no content generated")
+	result, err := parseGeminiJSON[[]model.ShoppingItemInput](resp)
+	if err != nil {
+		return nil, fmt.Errorf("smart merge: %w", err)
 	}
 
-	var result []model.ShoppingItemInput
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if txt, ok := part.(genai.Text); ok {
-			clean := cleanJSON(string(txt))
-			if err := json.Unmarshal([]byte(clean), &result); err != nil {
-				return nil, fmt.Errorf("failed to parse JSON: %w", err)
-			}
-			break
-		}
-	}
-
-	return result, nil
+	return *result, nil
 }
 
 // IsAvailable checks if the service is configured
@@ -767,7 +829,7 @@ Extract the recipe from this webpage content.
 
 Categories for ingredients: dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
 
-Return ONLY the JSON, no markdown or explanations.`, url, htmlContent)
+Return ONLY the JSON, no markdown or explanations.`, sanitizePromptString(url), htmlContent)
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
 		return genModel.GenerateContent(ctx, genai.Text(prompt))
@@ -776,33 +838,21 @@ Return ONLY the JSON, no markdown or explanations.`, url, htmlContent)
 		return nil, fmt.Errorf("generation failed: %w", err)
 	}
 
-	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, fmt.Errorf("no content generated")
+	result, err := parseGeminiJSON[ExtractionResult](resp)
+	if err != nil {
+		return nil, fmt.Errorf("extract from webpage: %w", err)
 	}
 
-	var result ExtractionResult
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if txt, ok := part.(genai.Text); ok {
-			clean := cleanJSON(string(txt))
-			if err := json.Unmarshal([]byte(clean), &result); err != nil {
-				return nil, fmt.Errorf("failed to parse JSON: %w", err)
-			}
-			break
-		}
-	}
-
-	// Check for rejection
 	if result.NonRecipe {
 		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
 	}
 
 	// Use extracted image URL if AI didn't find one or if we prefer metadata
-	// Metadata is usually higher quality/resolution than what AI surmises from body text
 	if imageURL != "" {
 		result.Thumbnail = imageURL
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // ScanPantry detects pantry items from an image
@@ -873,7 +923,6 @@ func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeTyp
 
 Return ONLY the JSON, no markdown or explanations. If no food items are detected, return empty items array.`
 
-	// Create image part
 	imagePart := genai.Blob{
 		MIMEType: mimeType,
 		Data:     imageData,
@@ -886,22 +935,12 @@ Return ONLY the JSON, no markdown or explanations. If no food items are detected
 		return nil, fmt.Errorf("generation failed: %w", err)
 	}
 
-	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, fmt.Errorf("no content generated")
+	result, err := parseGeminiJSON[PantryScanResult](resp)
+	if err != nil {
+		return nil, fmt.Errorf("scan pantry: %w", err)
 	}
 
-	var result PantryScanResult
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if txt, ok := part.(genai.Text); ok {
-			clean := cleanJSON(string(txt))
-			if err := json.Unmarshal([]byte(clean), &result); err != nil {
-				return nil, fmt.Errorf("failed to parse JSON: %w", err)
-			}
-			break
-		}
-	}
-
-	return &result, nil
+	return result, nil
 }
 
 // EnrichRecipe adds nutrition, dietary info, and meal types to a recipe
@@ -992,10 +1031,9 @@ Guidelines:
 %s- Set confidence based on how certain you are of your estimates`, recipeText.String(), getServingsEstimateSchema(needServingsEstimate), getServingsEstimateGuideline(needServingsEstimate))
 
 	// Retry the entire generation + parsing to handle transient JSON issues
-	var result EnrichmentResult
 	var lastErr error
 
-	for attempt := 0; attempt < 2; attempt++ { // Try up to 2 times
+	for attempt := 0; attempt < 2; attempt++ {
 		resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
 			return genModel.GenerateContent(ctx, genai.Text(prompt))
 		})
@@ -1004,33 +1042,15 @@ Guidelines:
 			continue
 		}
 
-		if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-			lastErr = fmt.Errorf("no enrichment content generated")
+		result, err := parseGeminiJSON[EnrichmentResult](resp)
+		if err != nil {
+			lastErr = fmt.Errorf("enrich recipe: %w", err)
 			continue
 		}
 
-		// Try to parse the response
-		parsed := false
-		for _, part := range resp.Candidates[0].Content.Parts {
-			if txt, ok := part.(genai.Text); ok {
-				// Try to clean up the response if it has markdown code blocks
-				clean := cleanJSON(string(txt))
-
-				if err := json.Unmarshal([]byte(clean), &result); err != nil {
-					lastErr = fmt.Errorf("failed to parse enrichment JSON: %w (content: %.200s)", err, clean)
-					break // Try again
-				}
-				parsed = true
-				break
-			}
-		}
-
-		if parsed {
-			return &result, nil
-		}
+		return result, nil
 	}
 
-	// Return error but don't crash - caller should handle gracefully
 	if lastErr != nil {
 		return nil, lastErr
 	}
@@ -1112,7 +1132,6 @@ Categories for ingredients: dairy, produce, proteins, bakery, pantry, spices, co
 
 Return ONLY the JSON, no markdown or explanations.`
 
-	// Create image part
 	imagePart := genai.Blob{
 		MIMEType: mimeType,
 		Data:     imageData,
@@ -1125,20 +1144,10 @@ Return ONLY the JSON, no markdown or explanations.`
 		return nil, fmt.Errorf("generation failed: %w", err)
 	}
 
-	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-		return nil, fmt.Errorf("no content generated")
+	result, err := parseGeminiJSON[ExtractionResult](resp)
+	if err != nil {
+		return nil, fmt.Errorf("extract from image: %w", err)
 	}
 
-	var result ExtractionResult
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if txt, ok := part.(genai.Text); ok {
-			clean := cleanJSON(string(txt))
-			if err := json.Unmarshal([]byte(clean), &result); err != nil {
-				return nil, fmt.Errorf("failed to parse JSON: %w", err)
-			}
-			break
-		}
-	}
-
-	return &result, nil
+	return result, nil
 }

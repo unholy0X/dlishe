@@ -15,6 +15,7 @@ require (
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
+	golang.org/x/text v0.33.0
 	google.golang.org/api v0.264.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
@@ -65,7 +66,6 @@ require (
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/tools v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect

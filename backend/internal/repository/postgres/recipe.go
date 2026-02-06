@@ -143,9 +143,9 @@ func (r *RecipeRepository) Create(ctx context.Context, recipe *model.Recipe) err
 func (r *RecipeRepository) insertIngredient(ctx context.Context, tx *sql.Tx, ing *model.RecipeIngredient) error {
 	query := `
 		INSERT INTO recipe_ingredients (
-			id, recipe_id, name, quantity, unit, category, is_optional,
+			id, recipe_id, name, quantity, unit, category, section, is_optional,
 			notes, video_timestamp, sort_order, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 	_, err := tx.ExecContext(ctx, query,
 		ing.ID,
@@ -154,6 +154,7 @@ func (r *RecipeRepository) insertIngredient(ctx context.Context, tx *sql.Tx, ing
 		ing.Quantity,
 		ing.Unit,
 		ing.Category,
+		ing.Section,
 		ing.IsOptional,
 		ing.Notes,
 		ing.VideoTimestamp,
@@ -407,7 +408,7 @@ func (r *RecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sour
 
 func (r *RecipeRepository) getIngredients(ctx context.Context, recipeID uuid.UUID) ([]model.RecipeIngredient, error) {
 	query := `
-		SELECT id, recipe_id, name, quantity, unit, category, is_optional,
+		SELECT id, recipe_id, name, quantity, unit, category, section, is_optional,
 			   notes, video_timestamp, sort_order, created_at
 		FROM recipe_ingredients
 		WHERE recipe_id = $1
@@ -423,6 +424,8 @@ func (r *RecipeRepository) getIngredients(ctx context.Context, recipeID uuid.UUI
 	var ingredients []model.RecipeIngredient
 	for rows.Next() {
 		var ing model.RecipeIngredient
+		var section sql.NullString // Handle possible NULLs for existing rows
+
 		err := rows.Scan(
 			&ing.ID,
 			&ing.RecipeID,
@@ -430,6 +433,7 @@ func (r *RecipeRepository) getIngredients(ctx context.Context, recipeID uuid.UUI
 			&ing.Quantity,
 			&ing.Unit,
 			&ing.Category,
+			&section,
 			&ing.IsOptional,
 			&ing.Notes,
 			&ing.VideoTimestamp,
@@ -438,6 +442,11 @@ func (r *RecipeRepository) getIngredients(ctx context.Context, recipeID uuid.UUI
 		)
 		if err != nil {
 			return nil, err
+		}
+		if section.Valid {
+			ing.Section = section.String
+		} else {
+			ing.Section = "Main" // Default for older records
 		}
 		ingredients = append(ingredients, ing)
 	}
@@ -579,7 +588,7 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 		return nil, 0, err
 	}
 
-	// Get public recipes with ingredient and step counts
+	// Get public recipes in random order so users see different suggestions each time
 	query := `
 		SELECT r.id, r.user_id, r.title, r.description, r.servings, r.prep_time, r.cook_time,
 			   r.difficulty, r.cuisine, r.thumbnail_url, r.source_type, r.source_url,
@@ -589,11 +598,11 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
 		FROM recipes r
 		WHERE r.is_public = TRUE AND r.deleted_at IS NULL
-		ORDER BY r.created_at DESC
-		LIMIT $1 OFFSET $2
+		ORDER BY RANDOM()
+		LIMIT $1
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -951,6 +960,7 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 		FROM recipes r
 		LEFT JOIN recipe_ingredients i ON i.recipe_id = r.id
 		WHERE r.user_id = $1 AND r.deleted_at IS NULL
+		  AND r.id IN (SELECT id FROM recipes WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 200)
 		ORDER BY r.created_at DESC, i.sort_order ASC
 	`
 

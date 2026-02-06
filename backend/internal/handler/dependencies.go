@@ -84,6 +84,7 @@ type JobRepository interface {
 	Delete(ctx context.Context, id, userID uuid.UUID) error
 	DeleteAllByUser(ctx context.Context, userID uuid.UUID) error
 	GetByIdempotencyKey(ctx context.Context, userID uuid.UUID, key string) (*model.ExtractionJob, error)
+	CountCompletedThisMonth(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
 // VideoDownloader defines the interface for video downloading

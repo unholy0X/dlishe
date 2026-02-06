@@ -81,11 +81,12 @@ type RecommendationResponse struct {
 
 // RecommendationSummary contains summary statistics
 type RecommendationSummary struct {
-	TotalRecipes         int                   `json:"totalRecipes"`
-	AvgCaloriesPerServing int                   `json:"avgCaloriesPerServing,omitempty"`
-	QuickestRecipe       *RecipeQuickInfo      `json:"quickestRecipe,omitempty"`
-	HighestProtein       *RecipeQuickInfo      `json:"highestProtein,omitempty"`
-	BestMatch            *RecipeQuickInfo      `json:"bestMatch,omitempty"`
+	TotalRecipes          int              `json:"totalRecipes"`
+	AvgCaloriesPerServing int              `json:"avgCaloriesPerServing,omitempty"`
+	QuickestRecipe        *RecipeQuickInfo `json:"quickestRecipe,omitempty"`
+	HighestProtein        *RecipeQuickInfo `json:"highestProtein,omitempty"`
+	BestMatch             *RecipeQuickInfo `json:"bestMatch,omitempty"`
+	Message               string           `json:"message,omitempty"`
 }
 
 // RecipeQuickInfo is a minimal recipe reference for summary

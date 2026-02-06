@@ -32,6 +32,7 @@ import (
 type UnifiedExtractionHandler struct {
 	jobRepo    JobRepository
 	recipeRepo RecipeRepository
+	userRepo   UserRepository
 	extractor  ai.RecipeExtractor
 	enricher   ai.RecipeEnricher
 	cacheRepo  *postgres.ExtractionCacheRepository
@@ -56,6 +57,7 @@ type UnifiedExtractionHandler struct {
 func NewUnifiedExtractionHandler(
 	jobRepo JobRepository,
 	recipeRepo RecipeRepository,
+	userRepo UserRepository,
 	extractor ai.RecipeExtractor,
 	enricher ai.RecipeEnricher,
 	cacheRepo *postgres.ExtractionCacheRepository,
@@ -66,6 +68,7 @@ func NewUnifiedExtractionHandler(
 	h := &UnifiedExtractionHandler{
 		jobRepo:        jobRepo,
 		recipeRepo:     recipeRepo,
+		userRepo:       userRepo,
 		extractor:      extractor,
 		enricher:       enricher,
 		cacheRepo:      cacheRepo,
@@ -77,12 +80,43 @@ func NewUnifiedExtractionHandler(
 		tempDir:        os.TempDir(),
 	}
 
+	// Cleanup orphaned temp files from previous crashes
+	go h.cleanupOrphanedTempFiles()
+
 	// Start distributed cancellation listener
 	if redisClient != nil {
 		go h.subscribeToCancellation()
 	}
 
 	return h
+}
+
+// cleanupOrphanedTempFiles removes extract_*.tmp files left behind by crashed/restarted processes.
+func (h *UnifiedExtractionHandler) cleanupOrphanedTempFiles() {
+	pattern := filepath.Join(h.tempDir, "extract_*.tmp")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		h.logger.Warn("Failed to glob orphaned temp files", "error", err)
+		return
+	}
+
+	cutoff := time.Now().Add(-1 * time.Hour)
+	cleaned := 0
+	for _, path := range matches {
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		// Only remove files older than 1 hour to avoid deleting active uploads
+		if info.ModTime().Before(cutoff) {
+			if err := os.Remove(path); err == nil {
+				cleaned++
+			}
+		}
+	}
+	if cleaned > 0 {
+		h.logger.Info("Cleaned up orphaned temp files", "count", cleaned)
+	}
 }
 
 // UnifiedExtractRequest represents a unified extraction request
@@ -129,6 +163,33 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		response.ErrorJSON(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE",
 			"Recipe extraction service is not available", nil)
 		return
+	}
+
+	// Enforce subscription tier limits on extractions
+	if h.userRepo != nil {
+		sub, err := h.userRepo.GetSubscription(r.Context(), user.ID)
+		if err != nil {
+			h.logger.Warn("Failed to get subscription for limit check", "error", err, "user_id", user.ID)
+			// Non-fatal: default to free limits below
+		}
+		entitlement := "free"
+		if sub != nil {
+			entitlement = sub.Entitlement
+		}
+		limits := model.TierLimits[entitlement]
+		if limits.VideoExtractions < 0 {
+			// Unlimited — skip check
+		} else {
+			count, err := h.jobRepo.CountCompletedThisMonth(r.Context(), user.ID)
+			if err != nil {
+				h.logger.Warn("Failed to count monthly extractions", "error", err)
+			} else if count >= limits.VideoExtractions {
+				response.ErrorJSON(w, http.StatusTooManyRequests, "QUOTA_EXCEEDED",
+					fmt.Sprintf("Monthly extraction limit reached (%d/%d). Upgrade to Pro for unlimited extractions.",
+						count, limits.VideoExtractions), nil)
+				return
+			}
+		}
 	}
 
 	// Parse request based on content type
@@ -276,32 +337,19 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Double-Click Prevention (Hackathon Safety)
-	// Check if this user already has a pending/processing job for this URL
+	// Double-Click Prevention: check if this user already has an active job for this URL.
+	// Uses a deterministic idempotency key so concurrent requests match.
+	var idempotencyKey string
 	if jobType == model.JobTypeVideo || jobType == model.JobTypeURL {
-		// Ideally we check DB, but we can also check our usage of idempotency key if we had one.
-		// Let's do a simple DB check for PENDING/PROCESSING/DOWNLOADING jobs
-		// For a hackathon, this query is fast enough
-		// We can't access "h.activeJobs" easily for matching URL values (it stores cancel funcs by ID)
-		// So we query the repo.
-
-		// Note from audit: We don't have a specialized "GetActiveJob" method yet,
-		// but we can assume one exists or generic list.
-		// Actually, `JobRepository` has `GetByIdempotencyKey`, let's try to use that concept
-		// OR just create a hash of the URL and use it as IdempotencyKey.
-
-		// Use a simple composite key as the idempotency key for this runtime check
-		// In a real implementation this might need a hash or specific format logic
-		idempotencyKey := fmt.Sprintf("%s|%s", user.ID.String(), sourceURL)
+		idempotencyKey = fmt.Sprintf("%s|%s", user.ID.String(), sourceURL)
 
 		if existingJob, err := h.jobRepo.GetByIdempotencyKey(r.Context(), user.ID, idempotencyKey); err == nil {
-			// Check if it's still active
 			if existingJob.Status == model.JobStatusPending ||
 				existingJob.Status == model.JobStatusDownloading ||
 				existingJob.Status == model.JobStatusProcessing ||
 				existingJob.Status == model.JobStatusExtracting {
 
-				h.logger.Info("Returning existing active job for double-click", "jobID", existingJob.ID)
+				h.logger.Info("Returning existing active job (idempotency hit)", "jobID", existingJob.ID)
 				response.Created(w, map[string]string{
 					"jobId":  existingJob.ID.String(),
 					"status": string(existingJob.Status),
@@ -322,12 +370,10 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		req.ForceRefresh,
 	)
 
-	// Set idempotency key (overwrite the random one from NewExtractionJob)
-	// This matches the format we check above: "userID|sourceURL"
-	// For image jobs we don't have a stable sourceURL so we skip (or use image hash if we had it)
-	if jobType == model.JobTypeVideo || jobType == model.JobTypeURL {
-		key := fmt.Sprintf("%s|%s", user.ID.String(), sourceURL)
-		job.IdempotencyKey = &key
+	// Set deterministic idempotency key (matches the check above).
+	// For image jobs we keep the random key since there's no stable sourceURL.
+	if idempotencyKey != "" {
+		job.IdempotencyKey = &idempotencyKey
 	}
 
 	// For image jobs, save image to temp file
@@ -362,12 +408,13 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 	// Store cancel function
 	h.activeJobs.Store(job.ID, cancel)
 
-	// Start processing in background
+	// Start processing in background.
+	// This goroutine owns: context lifetime, activeJobs cleanup, semaphore, panic recovery.
+	// processJob must NOT duplicate any of these responsibilities.
 	go func() {
 		defer cancel()
 		defer h.activeJobs.Delete(job.ID)
 
-		// Recover from any panics to prevent server crash
 		defer func() {
 			if r := recover(); r != nil {
 				reqLogger.Error("Panic in job processing", "error", r, "jobID", job.ID)
@@ -425,12 +472,9 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 		logger.Error("Failed to update job status", "error", err, "job_id", job.ID)
 		return
 	}
-	// CRITICAL: Clean up activeJobs map when job completes (success, failure, or cancellation)
-	// This prevents unbounded memory growth as jobs accumulate
-	defer func() {
-		h.activeJobs.Delete(job.ID)
-		h.logger.Debug("Cleaned up job from activeJobs map", "jobID", job.ID)
-	}()
+
+	// NOTE: Cleanup (activeJobs.Delete, cancel, panic recovery) is owned by the
+	// calling goroutine in Extract(). Do not duplicate here.
 
 	// Helper functions
 	isCancelled := func() bool {
@@ -444,7 +488,10 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 
 	updateProgress := func(status model.JobStatus, progress int, msg string) {
 		if !isCancelled() {
-			h.jobRepo.UpdateProgress(ctx, job.ID, status, progress, msg)
+			if err := h.jobRepo.UpdateProgress(ctx, job.ID, status, progress, msg); err != nil {
+				logger.Warn("Failed to update job progress",
+					"error", err, "job_id", job.ID, "status", status, "progress", progress)
+			}
 		}
 	}
 
@@ -537,20 +584,18 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 		go h.cacheExtractionResult(job.SourceURL, result, enrichment)
 	}
 
-	// Save recipe if saveAuto is enabled
-	if job.SaveAuto {
-		updateProgress(model.JobStatusExtracting, 95, "Saving recipe...")
-		recipeID, saveErr := h.saveExtractedRecipe(ctx, job, result, enrichment)
-		if saveErr != nil {
-			h.logger.Error("Failed to save recipe", "error", saveErr)
-			failJob("SAVE_FAILED", "Failed to save recipe: "+saveErr.Error())
-			return
-		}
-		h.jobRepo.MarkCompleted(ctx, job.ID, recipeID)
-	} else {
-		// Mark as completed without saving
-		// Store result in status message for retrieval
-		h.jobRepo.MarkCompleted(ctx, job.ID, uuid.Nil)
+	// Always save the extracted recipe to prevent data loss after burning AI tokens.
+	// Previously saveAuto=false would discard the result with no retrieval path.
+	updateProgress(model.JobStatusExtracting, 95, "Saving recipe...")
+	recipeID, saveErr := h.saveExtractedRecipe(ctx, job, result, enrichment)
+	if saveErr != nil {
+		h.logger.Error("Failed to save recipe", "error", saveErr)
+		failJob("SAVE_FAILED", "Failed to save recipe: "+saveErr.Error())
+		return
+	}
+	if err := h.jobRepo.MarkCompleted(ctx, job.ID, recipeID); err != nil {
+		h.logger.Error("Failed to mark job completed — recipe was saved but job status is stale",
+			"error", err, "job_id", job.ID, "recipe_id", recipeID)
 	}
 }
 
@@ -1064,24 +1109,45 @@ func (h *UnifiedExtractionHandler) CancelJobInternal(jobID uuid.UUID) {
 // @Produce json
 // @Security BearerAuth
 
-// subscribeToCancellation listens for cancellation messages from other instances
+// subscribeToCancellation listens for cancellation messages from other instances.
+// Automatically reconnects on Redis disconnection with exponential backoff.
 func (h *UnifiedExtractionHandler) subscribeToCancellation() {
+	backoff := 1 * time.Second
+	maxBackoff := 30 * time.Second
+
+	for {
+		err := h.runCancellationSubscriber()
+		if err != nil {
+			h.logger.Error("Cancellation subscriber disconnected, reconnecting...", "error", err, "backoff", backoff)
+		}
+
+		time.Sleep(backoff)
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
+}
+
+func (h *UnifiedExtractionHandler) runCancellationSubscriber() error {
 	ctx := context.Background()
 	pubsub := h.redis.Subscribe(ctx, "jobs:cancellation")
 	defer pubsub.Close()
 
-	ch := pubsub.Channel()
+	// Verify subscription is working
+	if _, err := pubsub.Receive(ctx); err != nil {
+		return fmt.Errorf("subscribe failed: %w", err)
+	}
 
 	h.logger.Info("Started distributed cancellation listener")
+	ch := pubsub.Channel()
 
 	for msg := range ch {
-		jobIDStr := msg.Payload
-		jobID, err := uuid.Parse(jobIDStr)
+		jobID, err := uuid.Parse(msg.Payload)
 		if err != nil {
 			continue
 		}
 
-		// Check if we have this job running locally
 		if cancelFn, ok := h.activeJobs.Load(jobID); ok {
 			if cancel, ok := cancelFn.(context.CancelFunc); ok {
 				h.logger.Info("Received distributed cancellation signal", "jobID", jobID)
@@ -1089,6 +1155,8 @@ func (h *UnifiedExtractionHandler) subscribeToCancellation() {
 			}
 		}
 	}
+
+	return fmt.Errorf("subscription channel closed")
 }
 
 // CancelJob handles POST /api/v1/jobs/{jobID}/cancel
@@ -1118,7 +1186,7 @@ func (h *UnifiedExtractionHandler) CancelJob(w http.ResponseWriter, r *http.Requ
 	// Verify ownership
 	job, err := h.jobRepo.GetByID(r.Context(), id)
 	if err != nil {
-		if err == postgres.ErrJobNotFound {
+		if errors.Is(err, postgres.ErrJobNotFound) {
 			response.NotFound(w, "Job not found")
 			return
 		}
@@ -1221,7 +1289,7 @@ func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request
 
 	job, err := h.jobRepo.GetByID(r.Context(), id)
 	if err != nil {
-		if err == postgres.ErrJobNotFound {
+		if errors.Is(err, postgres.ErrJobNotFound) {
 			response.NotFound(w, "Job not found")
 			return
 		}

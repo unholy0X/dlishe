@@ -121,3 +121,144 @@ func TestRecipeHandler_Get(t *testing.T) {
 		}
 	})
 }
+
+func TestRecipeHandler_Search(t *testing.T) {
+	mockRepo := &mockRecipeRepository{}
+	handler := NewRecipeHandler(mockRepo, nil)
+	userID := uuid.New()
+
+	t.Run("auth required", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/recipes/search?q=chicken", nil)
+		rr := httptest.NewRecorder()
+		handler.Search(rr, req)
+		if rr.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401, got %d", rr.Code)
+		}
+	})
+
+	t.Run("missing query parameter", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/recipes/search", nil)
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
+		rr := httptest.NewRecorder()
+
+		handler.Search(rr, req.WithContext(ctx))
+
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", rr.Code)
+		}
+	})
+
+	t.Run("empty query parameter", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/recipes/search?q=", nil)
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
+		rr := httptest.NewRecorder()
+
+		handler.Search(rr, req.WithContext(ctx))
+
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", rr.Code)
+		}
+	})
+
+	t.Run("successful search", func(t *testing.T) {
+		cuisine := "Italian"
+		mockRepo.SearchFunc = func(ctx context.Context, uid uuid.UUID, query string, limit int) ([]*model.Recipe, error) {
+			if uid != userID {
+				t.Errorf("expected userID %s, got %s", userID, uid)
+			}
+			if query != "chicken" {
+				t.Errorf("expected query 'chicken', got '%s'", query)
+			}
+			return []*model.Recipe{
+				{
+					ID:         uuid.New(),
+					Title:      "Chicken Parmesan",
+					Cuisine:    &cuisine,
+					IsFavorite: true,
+				},
+			}, nil
+		}
+
+		req := httptest.NewRequest("GET", "/recipes/search?q=chicken", nil)
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
+		rr := httptest.NewRecorder()
+
+		handler.Search(rr, req.WithContext(ctx))
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		var resp map[string]interface{}
+		json.NewDecoder(rr.Body).Decode(&resp)
+
+		if resp["query"] != "chicken" {
+			t.Errorf("expected query 'chicken', got %v", resp["query"])
+		}
+		if resp["count"].(float64) != 1 {
+			t.Errorf("expected count 1, got %v", resp["count"])
+		}
+		results := resp["results"].([]interface{})
+		if len(results) != 1 {
+			t.Errorf("expected 1 result, got %d", len(results))
+		}
+	})
+
+	t.Run("empty results", func(t *testing.T) {
+		mockRepo.SearchFunc = func(ctx context.Context, uid uuid.UUID, query string, limit int) ([]*model.Recipe, error) {
+			return []*model.Recipe{}, nil
+		}
+
+		req := httptest.NewRequest("GET", "/recipes/search?q=nonexistent", nil)
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
+		rr := httptest.NewRecorder()
+
+		handler.Search(rr, req.WithContext(ctx))
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", rr.Code)
+		}
+
+		var resp map[string]interface{}
+		json.NewDecoder(rr.Body).Decode(&resp)
+
+		if resp["count"].(float64) != 0 {
+			t.Errorf("expected count 0, got %v", resp["count"])
+		}
+	})
+
+	t.Run("respects limit parameter", func(t *testing.T) {
+		mockRepo.SearchFunc = func(ctx context.Context, uid uuid.UUID, query string, limit int) ([]*model.Recipe, error) {
+			if limit != 5 {
+				t.Errorf("expected limit 5, got %d", limit)
+			}
+			return []*model.Recipe{}, nil
+		}
+
+		req := httptest.NewRequest("GET", "/recipes/search?q=test&limit=5", nil)
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
+		rr := httptest.NewRecorder()
+
+		handler.Search(rr, req.WithContext(ctx))
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", rr.Code)
+		}
+	})
+
+	t.Run("repo error returns 500", func(t *testing.T) {
+		mockRepo.SearchFunc = func(ctx context.Context, uid uuid.UUID, query string, limit int) ([]*model.Recipe, error) {
+			return nil, errors.New("db error")
+		}
+
+		req := httptest.NewRequest("GET", "/recipes/search?q=test", nil)
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &model.User{ID: userID})
+		rr := httptest.NewRecorder()
+
+		handler.Search(rr, req.WithContext(ctx))
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500, got %d", rr.Code)
+		}
+	})
+}

@@ -159,6 +159,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 			// Recipe routes
 			r.Route("/recipes", func(r chi.Router) {
 				r.Get("/", recipeHandler.List)
+				r.Get("/search", recipeHandler.Search) // Search by title, cuisine, tags
 				r.Post("/", recipeHandler.Create)
 				r.Post("/generate", placeholderHandler("generate recipe"))
 				r.Post("/generate-from-ingredients", placeholderHandler("generate from ingredients"))

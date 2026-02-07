@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -1101,4 +1102,133 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 	}
 
 	return recipes, rows.Err()
+}
+
+// Search searches user's recipes by query string.
+// Matches against title, cuisine, description, and tags using case-insensitive matching.
+// Returns lightweight recipe summaries (no ingredients/steps) for fast suggestion display.
+//
+// Security: Query is parameterized to prevent SQL injection.
+// Performance: Uses ILIKE with indexed columns. Suitable for <10k recipes per user.
+// Fault tolerance: Returns empty slice (not nil) on no results. Timeouts prevent runaway queries.
+func (r *RecipeRepository) Search(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*model.Recipe, error) {
+	// DEFENSIVE: Enforce query timeout to prevent slow queries from blocking
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	// DEFENSIVE: Sanitize limit to prevent abuse
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	// DEFENSIVE: Empty query returns empty results (not an error)
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []*model.Recipe{}, nil
+	}
+
+	// Build search pattern for ILIKE
+	searchPattern := "%" + query + "%"
+
+	// Query searches title, cuisine, description, and tags with ranking:
+	// - Exact title prefix matches rank highest (0)
+	// - Other title matches rank second (1)
+	// - Cuisine/description/tag matches rank third (2)
+	sqlQuery := `
+		SELECT r.id, r.user_id, r.title, r.description, r.servings, r.prep_time, r.cook_time,
+		       r.difficulty, r.cuisine, r.thumbnail_url, r.source_type, r.source_url,
+		       r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
+		       r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
+		       COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
+		       COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
+		FROM recipes r
+		WHERE r.user_id = $1 
+		  AND r.deleted_at IS NULL
+		  AND (
+		      r.title ILIKE $2
+		      OR r.cuisine ILIKE $2
+		      OR r.description ILIKE $2
+		      OR EXISTS (SELECT 1 FROM unnest(r.tags) AS tag WHERE tag ILIKE $2)
+		  )
+		ORDER BY 
+		    CASE 
+		        WHEN r.title ILIKE $3 || '%' THEN 0  -- Prefix match ranks highest
+		        WHEN r.title ILIKE $2 THEN 1         -- Any title match
+		        ELSE 2                                -- Other matches
+		    END,
+		    r.is_favorite DESC,  -- Favorites bubble up within same rank
+		    r.title
+		LIMIT $4
+	`
+
+	rows, err := r.db.QueryContext(ctx, sqlQuery, userID, searchPattern, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Pre-allocate with reasonable capacity
+	recipes := make([]*model.Recipe, 0, limit)
+
+	for rows.Next() {
+		recipe := &model.Recipe{}
+		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
+		var tags TextArray
+
+		err := rows.Scan(
+			&recipe.ID,
+			&recipe.UserID,
+			&recipe.Title,
+			&recipe.Description,
+			&recipe.Servings,
+			&recipe.PrepTime,
+			&recipe.CookTime,
+			&recipe.Difficulty,
+			&recipe.Cuisine,
+			&recipe.ThumbnailURL,
+			&recipe.SourceType,
+			&recipe.SourceURL,
+			&recipe.SourceRecipeID,
+			&sourceMetadata,
+			&tags,
+			&recipe.IsPublic,
+			&recipe.IsFavorite,
+			&nutritionJSON,
+			&dietaryInfoJSON,
+			&recipe.SyncVersion,
+			&recipe.CreatedAt,
+			&recipe.UpdatedAt,
+			&recipe.IngredientCount,
+			&recipe.StepCount,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		recipe.Tags = []string(tags)
+
+		// Unmarshal JSONB fields gracefully (log warning, don't fail)
+		if sourceMetadata != nil {
+			unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
+		}
+		if nutritionJSON != nil {
+			recipe.Nutrition = &model.RecipeNutrition{}
+			unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
+		}
+		if dietaryInfoJSON != nil {
+			recipe.DietaryInfo = &model.DietaryInfo{}
+			unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
+		}
+
+		recipes = append(recipes, recipe)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return recipes, nil
 }

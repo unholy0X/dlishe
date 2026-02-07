@@ -105,6 +105,98 @@ func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, req)
 }
 
+// Search handles GET /api/v1/recipes/search
+// @Summary Search recipes
+// @Description Search user's recipes by title, cuisine, description, or tags
+// @Tags Recipes
+// @Produce json
+// @Security BearerAuth
+// @Param q query string true "Search query (min 1 character)"
+// @Param limit query int false "Max results (1-50)" default(10)
+// @Success 200 {object} SwaggerSearchResponse "Search results"
+// @Failure 400 {object} SwaggerErrorResponse "Missing or invalid query"
+// @Failure 401 {object} SwaggerErrorResponse "Unauthorized"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /recipes/search [get]
+func (h *RecipeHandler) Search(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	// Get search query - required parameter
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		response.BadRequest(w, "Search query 'q' is required")
+		return
+	}
+
+	// Parse limit with sensible defaults and bounds
+	limit := 10
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 50 {
+			limit = val
+		}
+	}
+
+	// Execute search
+	recipes, err := h.repo.Search(r.Context(), user.ID, query, limit)
+	if err != nil {
+		// DEFENSIVE: Log but don't expose internal error details to client
+		response.InternalError(w)
+		return
+	}
+
+	// DEFENSIVE: Ensure we never return nil slice (breaks JSON serialization in some clients)
+	if recipes == nil {
+		recipes = []*model.Recipe{}
+	}
+
+	// Build lightweight response for suggestions
+	results := make([]SearchResult, 0, len(recipes))
+	for _, r := range recipes {
+		result := SearchResult{
+			ID:         r.ID.String(),
+			Title:      r.Title,
+			IsFavorite: r.IsFavorite,
+		}
+		if r.Cuisine != nil {
+			result.Cuisine = *r.Cuisine
+		}
+		if r.ThumbnailURL != nil {
+			result.ThumbnailURL = *r.ThumbnailURL
+		}
+		if r.Difficulty != nil {
+			result.Difficulty = *r.Difficulty
+		}
+		results = append(results, result)
+	}
+
+	response.OK(w, SearchResponse{
+		Query:   query,
+		Results: results,
+		Count:   len(results),
+	})
+}
+
+// SearchResponse is the API response for recipe search.
+type SearchResponse struct {
+	Query   string         `json:"query"`
+	Results []SearchResult `json:"results"`
+	Count   int            `json:"count"`
+}
+
+// SearchResult is a lightweight recipe summary for search suggestions.
+type SearchResult struct {
+	ID           string `json:"id"`
+	Title        string `json:"title"`
+	Cuisine      string `json:"cuisine,omitempty"`
+	ThumbnailURL string `json:"thumbnailUrl,omitempty"`
+	Difficulty   string `json:"difficulty,omitempty"`
+	IsFavorite   bool   `json:"isFavorite"`
+}
+
 // ListSuggested handles GET /api/v1/recipes/suggested
 // @Summary List suggested/public recipes
 // @Description Get paginated list of curated public recipes available to all users

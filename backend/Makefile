@@ -1,4 +1,4 @@
-.PHONY: dev dev-live test build clean migrate migrate-down migrate-create seed lint fmt help down logs swagger swagger-fmt
+.PHONY: dev dev-live test build clean migrate migrate-down migrate-create seed lint fmt help down logs swagger swagger-fmt deploy prod-up prod-down prod-logs prod-migrate
 
 # Default target
 help:
@@ -26,6 +26,13 @@ help:
 	@echo "  make test-cover   - Run tests with coverage"
 	@echo "  make test-api     - Run API smoke tests"
 	@echo "  make e2e-test     - Run E2E recipe extraction tests"
+	@echo ""
+	@echo "Production:"
+	@echo "  make deploy       - Deploy (build + migrate + restart)"
+	@echo "  make prod-up      - Start production stack"
+	@echo "  make prod-down    - Stop production stack"
+	@echo "  make prod-logs    - Tail production logs"
+	@echo "  make prod-migrate - Run migrations in production"
 	@echo ""
 	@echo "Build:"
 	@echo "  make build        - Build production binary"
@@ -161,3 +168,30 @@ swagger-fmt:
 swagger-ui:
 	docker compose --profile docs up -d swagger
 	@echo "Swagger UI available at http://localhost:8081"
+
+# === Production ===
+
+PROD_COMPOSE = docker compose -f docker-compose.prod.yml
+
+deploy:
+	@test -f .env.prod || (echo "Error: .env.prod not found. Copy .env.prod.example and fill in values." && exit 1)
+	$(PROD_COMPOSE) build api
+	$(PROD_COMPOSE) up -d postgres redis
+	@echo "Waiting for postgres..."
+	@sleep 3
+	$(PROD_COMPOSE) run --rm migrate up
+	$(PROD_COMPOSE) up -d api
+	@echo "Deployment complete. Run 'make prod-logs' to check."
+
+prod-up:
+	@test -f .env.prod || (echo "Error: .env.prod not found. Copy .env.prod.example and fill in values." && exit 1)
+	$(PROD_COMPOSE) up -d
+
+prod-down:
+	$(PROD_COMPOSE) down
+
+prod-logs:
+	$(PROD_COMPOSE) logs -f api
+
+prod-migrate:
+	$(PROD_COMPOSE) run --rm migrate up

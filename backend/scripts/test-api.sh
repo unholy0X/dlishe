@@ -8,7 +8,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 BASE_URL=${BASE_URL:-http://localhost:8080}
-echo -e "${YELLOW}Testing DishFlow API at $BASE_URL${NC}"
+echo -e "${YELLOW}Testing DLISHE API at $BASE_URL${NC}"
 echo ""
 
 # Helper function

@@ -10,7 +10,7 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
-      - DATABASE_URL=postgres://dishflow:dishflow@postgres:5432/dishflow?sslmode=disable
+      - DATABASE_URL=postgres://dlishe:dlishe@postgres:5432/dlishe?sslmode=disable
       - REDIS_URL=redis://redis:6379
       - GEMINI_API_KEY=${GEMINI_API_KEY:-mock}
       - GEMINI_MOCK_MODE=${GEMINI_MOCK_MODE:-true}
@@ -20,7 +20,7 @@ services:
       - CORS_ORIGINS=*
       - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
-      - ADMIN_EMAILS=${ADMIN_EMAILS:-naoufalbrahmi@gmail.com}
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
       - ADMIN_API_KEY=${ADMIN_API_KEY}
       - REVENUECAT_SECRET_KEY=${REVENUECAT_SECRET_KEY}
       - REVENUECAT_WEBHOOK_SECRET=${REVENUECAT_WEBHOOK_SECRET}
@@ -33,7 +33,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - dishflow
+      - dlishe
 
   # PostgreSQL Database
   postgres:
@@ -41,18 +41,18 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: dishflow
-      POSTGRES_PASSWORD: dishflow
-      POSTGRES_DB: dishflow
+      POSTGRES_USER: dlishe
+      POSTGRES_PASSWORD: dlishe
+      POSTGRES_DB: dlishe
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U dishflow" ]
+      test: [ "CMD-SHELL", "pg_isready -U dlishe" ]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - dishflow
+      - dlishe
 
   # Redis Cache
   redis:
@@ -67,20 +67,20 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - dishflow
+      - dlishe
 
   # Database migrations
   migrate:
     image: migrate/migrate:v4.17.0
     volumes:
       - ./migrations:/migrations
-    entrypoint: [ "migrate", "-path=/migrations", "-database=postgres://dishflow:dishflow@postgres:5432/dishflow?sslmode=disable" ]
+    entrypoint: [ "migrate", "-path=/migrations", "-database=postgres://dlishe:dlishe@postgres:5432/dlishe?sslmode=disable" ]
     command: [ "up" ]
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - dishflow
+      - dlishe
     profiles:
       - tools
 
@@ -95,7 +95,7 @@ services:
     volumes:
       - ./api:/api:ro
     networks:
-      - dishflow
+      - dlishe
     profiles:
       - docs
 
@@ -106,5 +106,5 @@ volumes:
 
 
 networks:
-  dishflow:
+  dlishe:
     driver: bridge

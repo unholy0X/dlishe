@@ -1,6 +1,6 @@
 # E2E Recipe Extraction Test
 
-This directory contains end-to-end tests for the DishFlow recipe extraction service.
+This directory contains end-to-end tests for the DLISHE recipe extraction service.
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ The test suite provides:
 ## Example Output
 
 ```
-🧪 DishFlow E2E Recipe Extraction Test Suite
+🧪 DLISHE E2E Recipe Extraction Test Suite
 ============================================================
 
 ✅ Gemini API connected

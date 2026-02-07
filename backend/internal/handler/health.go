@@ -127,7 +127,7 @@ type InfoResponse struct {
 // @Router /info [get]
 func (h *HealthHandler) Info(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, InfoResponse{
-		Name:        "DishFlow API",
+		Name:        "DLISHE API",
 		Version:     "1.0.0",
 		Environment: "development", // TODO: from config
 		Features: map[string]bool{

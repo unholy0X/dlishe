@@ -2,7 +2,7 @@
 
 ## Overview
 
-DishFlow uses a **two-step AI workflow** for recipe processing:
+DLISHE uses a **two-step AI workflow** for recipe processing:
 
 1. **Extraction** - Parse recipe structure from URL/image/video
 2. **Enrichment** - Analyze recipe text to add nutrition and dietary metadata

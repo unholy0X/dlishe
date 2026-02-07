@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// User represents a DishFlow user
+// User represents a DLISHE user
 type User struct {
 	ID                  uuid.UUID  `json:"id" db:"id"`
 	ClerkID             *string    `json:"clerkId,omitempty" db:"clerk_id"`
@@ -90,7 +90,7 @@ type QuotaLimits struct {
 // TierLimits maps entitlement tiers to their limits.
 //
 // Pricing: Free / Pro ($2.99/mo or $19.99/yr)
-// Products: com.dishflow.pro.monthly, com.dishflow.pro.yearly
+// Products: com.dlishe.pro.monthly, com.dlishe.pro.yearly
 // RevenueCat entitlement ID: "pro"
 var TierLimits = map[string]QuotaLimits{
 	"free": {

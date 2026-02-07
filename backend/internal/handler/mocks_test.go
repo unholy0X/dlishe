@@ -14,11 +14,11 @@ import (
 // --- Mock Repositories ---
 
 type mockUserRepository struct {
-	GetByIDFunc                  func(ctx context.Context, id uuid.UUID) (*model.User, error)
-	UpdateFunc                   func(ctx context.Context, user *model.User) error
-	GetSubscriptionFunc          func(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
-	CountUserScansThisMonthFunc  func(ctx context.Context, userID uuid.UUID) (int, error)
-	TrackScanUsageFunc           func(ctx context.Context, userID uuid.UUID) error
+	GetByIDFunc                 func(ctx context.Context, id uuid.UUID) (*model.User, error)
+	UpdateFunc                  func(ctx context.Context, user *model.User) error
+	GetSubscriptionFunc         func(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
+	CountUserScansThisMonthFunc func(ctx context.Context, userID uuid.UUID) (int, error)
+	TrackScanUsageFunc          func(ctx context.Context, userID uuid.UUID) error
 }
 
 func (m *mockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
@@ -60,6 +60,7 @@ type mockRecipeRepository struct {
 	ListByUserFunc             func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error)
 	ListPublicFunc             func(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
 	ListForRecommendationsFunc func(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error)
+	SearchFunc                 func(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*model.Recipe, error)
 	UpdateFunc                 func(ctx context.Context, recipe *model.Recipe) error
 	SoftDeleteFunc             func(ctx context.Context, id uuid.UUID) error
 	SetFavoriteFunc            func(ctx context.Context, id uuid.UUID, isFavorite bool) error
@@ -106,6 +107,12 @@ func (m *mockRecipeRepository) ListForRecommendations(ctx context.Context, userI
 		return nil, nil
 	}
 	return m.ListForRecommendationsFunc(ctx, userID)
+}
+func (m *mockRecipeRepository) Search(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*model.Recipe, error) {
+	if m.SearchFunc == nil {
+		return []*model.Recipe{}, nil
+	}
+	return m.SearchFunc(ctx, userID, query, limit)
 }
 func (m *mockRecipeRepository) Update(ctx context.Context, recipe *model.Recipe) error {
 	if m.UpdateFunc == nil {
@@ -260,17 +267,17 @@ func (m *mockShoppingRepository) VerifyListsOwnership(ctx context.Context, userI
 }
 
 type mockJobRepository struct {
-	CreateFunc                  func(ctx context.Context, job *model.VideoJob) error
-	GetByIDFunc                 func(ctx context.Context, id uuid.UUID) (*model.VideoJob, error)
-	ListByUserFunc              func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.VideoJob, error)
-	UpdateProgressFunc          func(ctx context.Context, id uuid.UUID, status model.JobStatus, progress int, message string) error
-	MarkCompletedFunc           func(ctx context.Context, id uuid.UUID, resultRecipeID uuid.UUID) error
-	MarkFailedFunc              func(ctx context.Context, id uuid.UUID, errorCode, errorMessage string) error
-	MarkCancelledFunc           func(ctx context.Context, id uuid.UUID) error
-	DeleteFunc                  func(ctx context.Context, id, userID uuid.UUID) error
-	DeleteAllByUserFunc         func(ctx context.Context, userID uuid.UUID) error
-	GetByIdempotencyKeyFunc     func(ctx context.Context, userID uuid.UUID, key string) (*model.ExtractionJob, error)
-	CountUsedThisMonthFunc func(ctx context.Context, userID uuid.UUID) (int, error)
+	CreateFunc              func(ctx context.Context, job *model.VideoJob) error
+	GetByIDFunc             func(ctx context.Context, id uuid.UUID) (*model.VideoJob, error)
+	ListByUserFunc          func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.VideoJob, error)
+	UpdateProgressFunc      func(ctx context.Context, id uuid.UUID, status model.JobStatus, progress int, message string) error
+	MarkCompletedFunc       func(ctx context.Context, id uuid.UUID, resultRecipeID uuid.UUID) error
+	MarkFailedFunc          func(ctx context.Context, id uuid.UUID, errorCode, errorMessage string) error
+	MarkCancelledFunc       func(ctx context.Context, id uuid.UUID) error
+	DeleteFunc              func(ctx context.Context, id, userID uuid.UUID) error
+	DeleteAllByUserFunc     func(ctx context.Context, userID uuid.UUID) error
+	GetByIdempotencyKeyFunc func(ctx context.Context, userID uuid.UUID, key string) (*model.ExtractionJob, error)
+	CountUsedThisMonthFunc  func(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
 func (m *mockJobRepository) Create(ctx context.Context, job *model.VideoJob) error {

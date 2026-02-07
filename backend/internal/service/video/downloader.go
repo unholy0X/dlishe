@@ -116,7 +116,7 @@ func validateURL(rawURL string) error {
 // NOTE: thumbnailURL is the CDN link, not a local file path
 // Context is used to cancel download if job is cancelled or times out
 func (d *Downloader) Download(ctx context.Context, rawURL string) (string, string, error) {
-	// SECURITY: Strict URL validation to prevent command injection
+	// Validate URL to prevent command injection
 	if err := validateURL(rawURL); err != nil {
 		return "", "", fmt.Errorf("invalid URL: %w", err)
 	}
@@ -139,7 +139,7 @@ func (d *Downloader) Download(ctx context.Context, rawURL string) (string, strin
 	}
 
 	// Prepare yt-dlp command with context for cancellation
-	// SECURITY: exec.CommandContext does NOT use shell, so each arg is passed directly
+	// exec.CommandContext safely passes args without shell
 	// This means shell metacharacters in rawURL won't be interpreted
 	// But we still validate above for defense in depth
 	//
@@ -230,7 +230,7 @@ func (d *Downloader) Cleanup(path string) error {
 
 // GetMetadata fetches video metadata without downloading the video
 func (d *Downloader) GetMetadata(ctx context.Context, rawURL string) (*VideoMetadata, error) {
-	// SECURITY: Strict URL validation
+	// Validate URL
 	if err := validateURL(rawURL); err != nil {
 		return nil, fmt.Errorf("invalid URL: %w", err)
 	}

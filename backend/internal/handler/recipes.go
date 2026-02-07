@@ -143,12 +143,12 @@ func (h *RecipeHandler) Search(w http.ResponseWriter, r *http.Request) {
 	// Execute search
 	recipes, err := h.repo.Search(r.Context(), user.ID, query, limit)
 	if err != nil {
-		// DEFENSIVE: Log but don't expose internal error details to client
+		// Log error, don't expose details
 		response.InternalError(w)
 		return
 	}
 
-	// DEFENSIVE: Ensure we never return nil slice (breaks JSON serialization in some clients)
+	// Never return nil slice
 	if recipes == nil {
 		recipes = []*model.Recipe{}
 	}

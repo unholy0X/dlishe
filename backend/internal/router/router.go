@@ -152,24 +152,14 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/me", authHandler.Me)
 				r.Patch("/me/preferences", authHandler.UpdatePreferences)
-				r.Patch("/me", placeholderHandler("update user"))
-				r.Delete("/me", placeholderHandler("delete user"))
 			})
 
 			// Recipe routes
 			r.Route("/recipes", func(r chi.Router) {
 				r.Get("/", recipeHandler.List)
-				r.Get("/search", recipeHandler.Search) // Search by title, cuisine, tags
+				r.Get("/search", recipeHandler.Search)
 				r.Post("/", recipeHandler.Create)
-				r.Post("/generate", placeholderHandler("generate recipe"))
-				r.Post("/generate-from-ingredients", placeholderHandler("generate from ingredients"))
-
-				// Recipe recommendations based on pantry items
 				r.Get("/recommendations", recommendationsHandler.GetRecommendations)
-
-				// Unified extraction endpoint (AI-powered, async job pattern)
-				// Supports: url, image, video extraction with consistent job-based response
-				// Monthly quota enforced in handler via DB (no Redis rate limit needed at this scale)
 				r.Post("/extract", unifiedExtractionHandler.Extract)
 
 				r.Route("/{recipeID}", func(r chi.Router) {
@@ -177,19 +167,14 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 					r.Put("/", recipeHandler.Update)
 					r.Delete("/", recipeHandler.Delete)
 					r.Post("/favorite", recipeHandler.ToggleFavorite)
-					r.Post("/save", recipeHandler.Clone) // Clone/save recipe to user's collection
-
-					// Sharing - TODO: Implement later
-					r.Post("/share", placeholderHandler("share recipe"))
-					r.Delete("/shares/{shareID}", placeholderHandler("revoke share"))
+					r.Post("/save", recipeHandler.Clone)
 				})
 			})
 
-			// Job routes (extraction job tracking)
+			// Job routes
 			r.Route("/jobs", func(r chi.Router) {
 				r.Get("/", unifiedExtractionHandler.ListJobs)
 				r.Get("/{jobID}", unifiedExtractionHandler.GetJob)
-				r.Get("/{jobID}/stream", placeholderHandler("stream job")) // TODO: Implement SSE
 				r.Post("/{jobID}/cancel", unifiedExtractionHandler.CancelJob)
 				r.Delete("/{jobID}", unifiedExtractionHandler.DeleteJob)
 				r.Delete("/", unifiedExtractionHandler.ClearJobHistory)
@@ -236,32 +221,16 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 				r.Get("/", subscriptionHandler.GetSubscription)
 				r.Post("/refresh", subscriptionHandler.RefreshSubscription)
 			})
-
-			// Upload routes
-			r.Route("/uploads", func(r chi.Router) {
-				r.Post("/image", placeholderHandler("upload image"))
-				r.Post("/presign", placeholderHandler("presign upload"))
-			})
-
 		})
 
-		// Admin routes (API key auth, no Clerk needed)
+		// Admin routes (API key auth)
 		r.Get("/admin/stats", adminHandler.Stats)
 
-		// Webhook routes (server-to-server, different auth)
+		// Webhook routes
 		r.Route("/webhooks", func(r chi.Router) {
 			r.Post("/revenuecat", webhookHandler.HandleRevenueCat)
 		})
 	})
 
 	return r
-}
-
-// placeholderHandler returns a handler that responds with "not implemented"
-func placeholderHandler(name string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotImplemented)
-		w.Write([]byte(`{"error":{"code":"NOT_IMPLEMENTED","message":"` + name + ` endpoint not implemented yet"}}`))
-	}
 }

@@ -311,7 +311,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			response.ValidationFailed(w, "url", "URL is required for URL extraction")
 			return
 		}
-		// SECURITY: Max URL length per RFC 2616 and browser limits
+		// Max URL length
 		// Prevents database bloat and DoS via huge URLs
 		if len(req.URL) > 2083 {
 			response.ValidationFailed(w, "url", "URL too long (max 2083 characters)")
@@ -345,7 +345,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			response.ValidationFailed(w, "url", "Video URL is required for video extraction")
 			return
 		}
-		// SECURITY: Same URLlength limit applies to video URLs
+		// Max URL length
 		if len(req.URL) > 2083 {
 			response.ValidationFailed(w, "url", "URL too long (max 2083 characters)")
 			return

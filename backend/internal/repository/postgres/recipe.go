@@ -37,7 +37,7 @@ func NewRecipeRepository(db *sql.DB) *RecipeRepository {
 
 // Create creates a new recipe with its ingredients and steps
 func (r *RecipeRepository) Create(ctx context.Context, recipe *model.Recipe) error {
-	// PERFORMANCE: Enforce timeout to prevent long-running transactions holding locks
+	// Timeout to prevent long transactions
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -674,7 +674,7 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 
 // Update updates a recipe
 func (r *RecipeRepository) Update(ctx context.Context, recipe *model.Recipe) error {
-	// PERFORMANCE: Enforce timeout for updates which are deeper transactions
+	// Timeout for updates
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -946,14 +946,14 @@ func (r *RecipeRepository) Upsert(ctx context.Context, recipe *model.Recipe) err
 	}
 
 	// Update existing recipe
-	// We need to preserve the ID and user_id
+	// Preserve ID and user_id
 	recipe.UserID = existing.UserID
 	return r.Update(ctx, recipe)
 }
 
 // ListForRecommendations retrieves all recipes for a user with full ingredients loaded
 // This is optimized for the recommendation engine which needs ingredient data for matching
-// PERFORMANCE: Uses single JOIN query to load all ingredients (was N+1 queries before)
+// Uses single JOIN query to load ingredients
 func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error) {
 	// CRITICAL: Single query with LEFT JOIN to avoid N+1 problem
 	// Before: 100 recipes = 1 recipe query + 100 ingredient queries = 101 queries (~5 seconds)
@@ -1112,11 +1112,11 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 // Performance: Uses ILIKE with indexed columns. Suitable for <10k recipes per user.
 // Fault tolerance: Returns empty slice (not nil) on no results. Timeouts prevent runaway queries.
 func (r *RecipeRepository) Search(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*model.Recipe, error) {
-	// DEFENSIVE: Enforce query timeout to prevent slow queries from blocking
+	// Timeout for search
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// DEFENSIVE: Sanitize limit to prevent abuse
+	// Sanitize limit
 	if limit <= 0 {
 		limit = 10
 	}
@@ -1124,7 +1124,7 @@ func (r *RecipeRepository) Search(ctx context.Context, userID uuid.UUID, query s
 		limit = 50
 	}
 
-	// DEFENSIVE: Empty query returns empty results (not an error)
+	// Empty query returns empty results
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return []*model.Recipe{}, nil

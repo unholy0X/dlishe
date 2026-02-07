@@ -54,7 +54,7 @@ func (rl *RateLimiter) General() func(http.Handler) http.Handler {
 // VideoExtraction rate limiter for video extraction endpoints
 func (rl *RateLimiter) VideoExtraction() func(http.Handler) http.Handler {
 	config := RateLimitConfig{
-		MaxRequests: 5,
+		MaxRequests: 10,
 		Window:      time.Hour,
 		KeyPrefix:   "ratelimit:video",
 	}

@@ -60,6 +60,7 @@ type Config struct {
 
 	// Admin configuration — comma-separated list of admin emails
 	AdminEmails []string
+	AdminAPIKey string // Simple API key for admin endpoints (curl-friendly)
 }
 
 // Load creates a Config from environment variables
@@ -116,6 +117,7 @@ func Load() *Config {
 
 		// Admin — comma-separated emails, e.g. "alice@example.com,bob@example.com"
 		AdminEmails: parseEmailList(getEnv("ADMIN_EMAILS", "")),
+		AdminAPIKey: getEnv("ADMIN_API_KEY", ""),
 	}
 }
 

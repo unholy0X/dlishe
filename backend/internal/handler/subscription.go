@@ -14,17 +14,19 @@ import (
 
 // SubscriptionHandler handles subscription-related endpoints
 type SubscriptionHandler struct {
-	userRepo *postgres.UserRepository
-	rcClient *revenuecat.Client // optional
-	logger   *slog.Logger
+	userRepo    *postgres.UserRepository
+	rcClient    *revenuecat.Client // optional
+	logger      *slog.Logger
+	adminEmails []string
 }
 
 // NewSubscriptionHandler creates a new subscription handler
-func NewSubscriptionHandler(userRepo *postgres.UserRepository, rcClient *revenuecat.Client, logger *slog.Logger) *SubscriptionHandler {
+func NewSubscriptionHandler(userRepo *postgres.UserRepository, rcClient *revenuecat.Client, logger *slog.Logger, adminEmails []string) *SubscriptionHandler {
 	return &SubscriptionHandler{
-		userRepo: userRepo,
-		rcClient: rcClient,
-		logger:   logger,
+		userRepo:    userRepo,
+		rcClient:    rcClient,
+		logger:      logger,
+		adminEmails: adminEmails,
 	}
 }
 
@@ -47,7 +49,7 @@ type SubscriptionResponse struct {
 
 // Limits represents the feature limits for the user's current tier.
 type Limits struct {
-	VideoExtractions int  `json:"videoExtractions"`
+	Extractions      int  `json:"extractions"`
 	PantryScans      int  `json:"pantryScans"`
 	MaxRecipes       int  `json:"maxRecipes"`
 	MaxShoppingLists int  `json:"maxShoppingLists"`
@@ -76,6 +78,11 @@ func (h *SubscriptionHandler) GetSubscription(w http.ResponseWriter, r *http.Req
 		h.logger.Error("Failed to get subscription", "error", err, "user_id", user.ID)
 		response.InternalError(w)
 		return
+	}
+
+	// Admin emails get admin tier regardless of subscription state
+	if model.IsAdminEmail(user.Email, h.adminEmails) {
+		sub.Entitlement = "admin"
 	}
 
 	response.OK(w, toSubscriptionResponse(sub))
@@ -185,7 +192,7 @@ func toSubscriptionResponse(sub *model.UserSubscription) SubscriptionResponse {
 		IsSandbox:       sub.IsSandbox,
 		LastSyncedAt:    sub.LastSyncedAt.Format(time.RFC3339),
 		Limits: Limits{
-			VideoExtractions: limits.VideoExtractions,
+			Extractions:      limits.Extractions,
 			PantryScans:      limits.PantryScans,
 			MaxRecipes:       limits.MaxRecipes,
 			MaxShoppingLists: limits.MaxShoppingLists,

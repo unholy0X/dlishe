@@ -707,32 +707,8 @@ func (r *ShoppingRepository) VerifyListsOwnership(ctx context.Context, userID uu
 		return true, nil
 	}
 
-	// Count how many of the provided lists belong to the user
+	// Check that every requested list ID belongs to this user
 	query := `
-		SELECT COUNT(*)
-		FROM shopping_lists
-		WHERE id = ANY($1) AND user_id = $2 AND deleted_at IS NULL
-	`
-
-	var count int
-	err := r.db.QueryRowContext(ctx, query, listIDs, userID).Scan(&count)
-	if err != nil {
-		return false, err
-	}
-
-	// If count matches the number of unique IDs requested, then user owns all of them
-	// We should de-duplicate listIDs first to be strictly accurate, but for now assuming unique inputs or
-	// that the query counts unique matches. Actually, `id = ANY(...)` matches each row once.
-	// So if listIDs has duplicates, typical distinct count logic might be needed if we care.
-	// But usually `id IN (...)` logic implies we want to find if the set of found lists covers the set of requested checks.
-	// Let's assume unique IDs for simplicity or handle it.
-	// Better: Use array length comparison in SQL?
-	// Simpler: Just compare count. If listIDs has duplicates, we might want to ensure we don't under-count.
-	// Safe approach: "Do all these IDs exist for this user?"
-
-	// A robust query returns true/false directly:
-	// "Are all elements in input array present in the set of user's list IDs?"
-	queryChk := `
 		SELECT NOT EXISTS (
 			SELECT unnest($1::uuid[])
 			EXCEPT
@@ -740,7 +716,7 @@ func (r *ShoppingRepository) VerifyListsOwnership(ctx context.Context, userID uu
 		)
 	`
 	var allExist bool
-	err = r.db.QueryRowContext(ctx, queryChk, listIDs, userID).Scan(&allExist)
+	err := r.db.QueryRowContext(ctx, query, listIDs, userID).Scan(&allExist)
 	if err != nil {
 		return false, err
 	}

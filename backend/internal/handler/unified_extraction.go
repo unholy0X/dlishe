@@ -81,8 +81,8 @@ func NewUnifiedExtractionHandler(
 		downloader:     downloader,
 		redis:          redisClient,
 		logger:         logger,
-		videoSemaphore: make(chan struct{}, 2),  // Max 2 concurrent video jobs
-		lightSemaphore: make(chan struct{}, 20), // Max 20 concurrent URL/image jobs
+		videoSemaphore: make(chan struct{}, 4),  // Max 4 concurrent video jobs (I/O-bound, safe for 8 vCPU/24GB)
+		lightSemaphore: make(chan struct{}, 30), // Max 30 concurrent URL/image jobs
 		tempDir:        os.TempDir(),
 		adminEmails:    adminEmails,
 	}
@@ -187,16 +187,16 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			entitlement = sub.Entitlement
 		}
 		limits := model.TierLimits[entitlement]
-		if limits.VideoExtractions < 0 {
+		if limits.Extractions < 0 {
 			// Unlimited — skip check
 		} else {
-			count, err := h.jobRepo.CountCompletedThisMonth(r.Context(), user.ID)
+			count, err := h.jobRepo.CountUsedThisMonth(r.Context(), user.ID)
 			if err != nil {
 				h.logger.Warn("Failed to count monthly extractions", "error", err)
-			} else if count >= limits.VideoExtractions {
+			} else if count >= limits.Extractions {
 				response.ErrorJSON(w, http.StatusTooManyRequests, "QUOTA_EXCEEDED",
 					fmt.Sprintf("Monthly extraction limit reached (%d/%d). Upgrade to Pro for unlimited extractions.",
-						count, limits.VideoExtractions), nil)
+						count, limits.Extractions), nil)
 				return
 			}
 		}
@@ -279,7 +279,18 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 	saveAuto := parseBool(req.SaveAuto)
 	forceRefresh := parseBool(req.ForceRefresh)
 
-	// Validate type
+	// Resolve type: explicit or auto-detect from inputs
+	if req.Type == "" {
+		switch {
+		case len(imageData) > 0:
+			req.Type = "image"
+		case req.URL != "" && ai.IsSupportedPlatform(req.URL):
+			req.Type = "video"
+		case req.URL != "":
+			req.Type = "url"
+		}
+	}
+
 	var jobType model.JobType
 	switch strings.ToLower(req.Type) {
 	case "url":
@@ -289,7 +300,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 	case "video":
 		jobType = model.JobTypeVideo
 	default:
-		response.ValidationFailed(w, "type", "Must be 'url', 'image', or 'video'")
+		response.ValidationFailed(w, "type", "Must be 'url', 'image', or 'video', or provide a URL/image to auto-detect")
 		return
 	}
 

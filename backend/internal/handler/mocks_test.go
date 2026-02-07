@@ -270,7 +270,7 @@ type mockJobRepository struct {
 	DeleteFunc                  func(ctx context.Context, id, userID uuid.UUID) error
 	DeleteAllByUserFunc         func(ctx context.Context, userID uuid.UUID) error
 	GetByIdempotencyKeyFunc     func(ctx context.Context, userID uuid.UUID, key string) (*model.ExtractionJob, error)
-	CountCompletedThisMonthFunc func(ctx context.Context, userID uuid.UUID) (int, error)
+	CountUsedThisMonthFunc func(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
 func (m *mockJobRepository) Create(ctx context.Context, job *model.VideoJob) error {
@@ -333,11 +333,11 @@ func (m *mockJobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid
 	}
 	return m.GetByIdempotencyKeyFunc(ctx, userID, key)
 }
-func (m *mockJobRepository) CountCompletedThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
-	if m.CountCompletedThisMonthFunc == nil {
+func (m *mockJobRepository) CountUsedThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
+	if m.CountUsedThisMonthFunc == nil {
 		return 0, nil
 	}
-	return m.CountCompletedThisMonthFunc(ctx, userID)
+	return m.CountUsedThisMonthFunc(ctx, userID)
 }
 
 type mockVideoDownloader struct {

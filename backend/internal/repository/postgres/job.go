@@ -151,7 +151,7 @@ func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit,
 			   progress, status_message, result_recipe_id, error_code,
 			   error_message, idempotency_key, started_at, completed_at, created_at
 		FROM video_jobs
-		WHERE user_id = $1
+		WHERE user_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
 	`
@@ -356,16 +356,17 @@ func (r *JobRepository) CountPendingByUser(ctx context.Context, userID uuid.UUID
 	return count, err
 }
 
-// CountCompletedThisMonth counts completed extractions this month for a user
-func (r *JobRepository) CountCompletedThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
+// CountUsedThisMonth counts all non-failed extractions this month for a user.
+// Includes completed AND in-progress jobs to prevent parallel request race conditions.
+func (r *JobRepository) CountUsedThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
 	query := `
 		SELECT COUNT(*) FROM video_jobs
 		WHERE user_id = $1
-		AND status = $2
-		AND completed_at >= date_trunc('month', CURRENT_DATE)
+		AND status NOT IN ($2, $3)
+		AND created_at >= date_trunc('month', CURRENT_DATE)
 	`
 	var count int
-	err := r.db.QueryRowContext(ctx, query, userID, model.JobStatusCompleted).Scan(&count)
+	err := r.db.QueryRowContext(ctx, query, userID, model.JobStatusFailed, model.JobStatusCancelled).Scan(&count)
 	return count, err
 }
 
@@ -411,10 +412,10 @@ func (r *JobRepository) MarkStuckJobsAsFailed(ctx context.Context, maxDuration t
 	return int(rows), nil
 }
 
-// Delete removes a job by ID and UserID
+// Delete soft-deletes a job by ID and UserID (preserves quota counting)
 func (r *JobRepository) Delete(ctx context.Context, id, userID uuid.UUID) error {
-	query := `DELETE FROM video_jobs WHERE id = $1 AND user_id = $2`
-	result, err := r.db.ExecContext(ctx, query, id, userID)
+	query := `UPDATE video_jobs SET deleted_at = $3 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`
+	result, err := r.db.ExecContext(ctx, query, id, userID, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -430,17 +431,19 @@ func (r *JobRepository) Delete(ctx context.Context, id, userID uuid.UUID) error 
 	return nil
 }
 
-// DeleteAllByUser removes all finished jobs (completed, failed, cancelled) for a user
+// DeleteAllByUser soft-deletes all finished jobs (completed, failed, cancelled) for a user
 func (r *JobRepository) DeleteAllByUser(ctx context.Context, userID uuid.UUID) error {
 	query := `
-		DELETE FROM video_jobs 
-		WHERE user_id = $1 
+		UPDATE video_jobs SET deleted_at = $5
+		WHERE user_id = $1
 		AND status IN ($2, $3, $4)
+		AND deleted_at IS NULL
 	`
 	_, err := r.db.ExecContext(ctx, query, userID,
 		model.JobStatusCompleted,
 		model.JobStatusFailed,
 		model.JobStatusCancelled,
+		time.Now().UTC(),
 	)
 	return err
 }

@@ -171,7 +171,7 @@ swagger-ui:
 
 # === Production ===
 
-PROD_COMPOSE = docker compose -f docker-compose.prod.yml
+PROD_COMPOSE = docker compose --env-file .env.prod -f docker-compose.prod.yml
 
 deploy:
 	@test -f .env.prod || (echo "Error: .env.prod not found. Copy .env.prod.example and fill in values." && exit 1)

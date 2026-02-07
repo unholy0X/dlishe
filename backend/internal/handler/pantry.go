@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -342,8 +343,8 @@ type ScannedItemResponse struct {
 	Unit       *string  `json:"unit,omitempty"`
 	Confidence float64  `json:"confidence"`
 	Added      bool     `json:"added,omitempty"`    // Whether it was added to pantry
-	AddedID    *string  `json:"addedId,omitempty"`   // ID of added pantry item
-	AddError   *string  `json:"addError,omitempty"`  // Error if auto-add failed
+	AddedID    *string  `json:"addedId,omitempty"`  // ID of added pantry item
+	AddError   *string  `json:"addError,omitempty"` // Error if auto-add failed
 }
 
 // Scan handles POST /api/v1/pantry/scan
@@ -504,6 +505,10 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	// Call AI to scan the image
 	result, err := h.scanner.ScanPantry(ctx, imageData, mimeType)
 	if err != nil {
+		if errors.Is(err, model.ErrIrrelevantContent) {
+			response.ErrorJSON(w, http.StatusUnprocessableEntity, "CONTENT_IRRELEVANT", err.Error(), nil)
+			return
+		}
 		response.LogAndServiceError(w, "SCAN_FAILED", "Failed to scan pantry image", err)
 		return
 	}

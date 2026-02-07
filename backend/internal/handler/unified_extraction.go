@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -81,8 +83,8 @@ func NewUnifiedExtractionHandler(
 		logger:         logger,
 		videoSemaphore: make(chan struct{}, 2),  // Max 2 concurrent video jobs
 		lightSemaphore: make(chan struct{}, 20), // Max 20 concurrent URL/image jobs
-		tempDir:     os.TempDir(),
-		adminEmails: adminEmails,
+		tempDir:        os.TempDir(),
+		adminEmails:    adminEmails,
 	}
 
 	// Cleanup orphaned temp files from previous crashes
@@ -126,14 +128,14 @@ func (h *UnifiedExtractionHandler) cleanupOrphanedTempFiles() {
 
 // UnifiedExtractRequest represents a unified extraction request
 type UnifiedExtractRequest struct {
-	Type         string `json:"type"`                   // "url", "image", "video"
-	URL          string `json:"url,omitempty"`          // For url and video types
-	ImageBase64  string `json:"imageBase64,omitempty"`  // For image type (JSON)
-	MimeType     string `json:"mimeType,omitempty"`     // For image type
-	Language     string `json:"language,omitempty"`     // "en", "fr", "es", "auto"
-	DetailLevel  string `json:"detailLevel,omitempty"`  // "quick", "detailed"
-	SaveAuto     bool   `json:"saveAuto,omitempty"`     // Auto-save extracted recipe
-	ForceRefresh bool   `json:"forceRefresh,omitempty"` // Bypass cache and re-extract
+	Type         string      `json:"type"`                   // "url", "image", "video"
+	URL          string      `json:"url,omitempty"`          // For url and video types
+	ImageBase64  string      `json:"imageBase64,omitempty"`  // For image type (JSON)
+	MimeType     string      `json:"mimeType,omitempty"`     // For image type
+	Language     string      `json:"language,omitempty"`     // "en", "fr", "es", "auto"
+	DetailLevel  string      `json:"detailLevel,omitempty"`  // "quick", "detailed"
+	SaveAuto     interface{} `json:"saveAuto,omitempty"`     // Auto-save extracted recipe (bool or string)
+	ForceRefresh interface{} `json:"forceRefresh,omitempty"` // Bypass cache and re-extract (bool or string)
 }
 
 // Extract handles POST /api/v1/recipes/extract
@@ -257,9 +259,25 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		}
 
 		// Default saveAuto to true for JSON requests if not explicitly set
-		// Note: JSON unmarshalling sets false as default, so we check if the field was present
-		// For simplicity, we'll default to true unless explicitly false in the request
+		if req.SaveAuto == nil {
+			req.SaveAuto = true
+		}
 	}
+
+	// Helper to parse loose booleans (handle string "true"/true)
+	parseBool := func(v interface{}) bool {
+		switch val := v.(type) {
+		case bool:
+			return val
+		case string:
+			return strings.ToLower(val) == "true"
+		default:
+			return false
+		}
+	}
+
+	saveAuto := parseBool(req.SaveAuto)
+	forceRefresh := parseBool(req.ForceRefresh)
 
 	// Validate type
 	var jobType model.JobType
@@ -374,14 +392,35 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		sourceURL,
 		req.Language,
 		req.DetailLevel,
-		req.SaveAuto,
-		req.ForceRefresh,
+		saveAuto,
+		forceRefresh,
 	)
 
 	// Set deterministic idempotency key (matches the check above).
-	// For image jobs we keep the random key since there's no stable sourceURL.
+	// For image jobs, we hash the image content to detect duplicates.
 	if idempotencyKey != "" {
 		job.IdempotencyKey = &idempotencyKey
+	} else if jobType == model.JobTypeImage && len(imageData) > 0 {
+		hash := sha256.Sum256(imageData)
+		hashStr := hex.EncodeToString(hash[:])
+		// Check for existing job with this hash
+		imgIdempotencyKey := fmt.Sprintf("%s|image|%s", user.ID.String(), hashStr)
+
+		if existingJob, err := h.jobRepo.GetByIdempotencyKey(r.Context(), user.ID, imgIdempotencyKey); err == nil {
+			if existingJob.Status == model.JobStatusPending ||
+				existingJob.Status == model.JobStatusProcessing ||
+				existingJob.Status == model.JobStatusExtracting {
+
+				h.logger.Info("Returning existing active job (image idempotency hit)", "jobID", existingJob.ID)
+				response.Created(w, map[string]string{
+					"jobId":  existingJob.ID.String(),
+					"status": string(existingJob.Status),
+				})
+				return
+			}
+		}
+
+		job.IdempotencyKey = &imgIdempotencyKey
 	}
 
 	// For image jobs, save image to temp file

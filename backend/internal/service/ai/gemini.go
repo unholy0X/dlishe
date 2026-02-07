@@ -878,15 +878,18 @@ func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeTyp
 	prompt := `You are an expert at identifying food and pantry items. Analyze this image and detect all visible food/pantry items.
 
 **Instructions**:
-1. Identify ALL visible food items, ingredients, and pantry staples
-2. For each item, determine:
+1. **CRITICAL**: If this image is clearly **NOT a pantry, fridge, food storage, or grocery receipt/haul** (e.g. a selfie, landscape, car, pet, random object),
+   return a JSON with: {"non_pantry": true, "reason": "Image appears to be [description]"}.
+   DO NOT invent food items from random text/shapes.
+2. Identify ALL visible food items, ingredients, and pantry staples
+3. For each item, determine:
    - Name (be specific: "Roma tomatoes" not just "tomatoes")
    - Category (MUST be one of the exact values below)
    - Estimated quantity and unit if visible
    - Your confidence level (0-1)
-3. Include items even if partially visible
-4. If you see containers/packages, identify the contents
-5. Note the general condition of items (fresh, wilting, etc.)
+4. Include items even if partially visible
+5. If you see containers/packages, identify the contents
+6. Note the general condition of items (fresh, wilting, etc.)
 
 **Categories** (use ONLY these exact values): dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
 
@@ -899,17 +902,10 @@ func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeTyp
             "quantity": 4,
             "unit": "pieces",
             "confidence": 0.95
-        },
-        {
-            "name": "Whole milk",
-            "category": "dairy",
-            "quantity": 1,
-            "unit": "bottle",
-            "confidence": 0.85
         }
     ],
     "confidence": 0.9,
-    "notes": "Image shows a well-stocked refrigerator. Some produce appears fresh, milk carton visible."
+    "notes": "Image shows a well-stocked refrigerator."
 }
 
 **Unit guidelines** (use purchase-scale units, NOT cooking units):
@@ -936,6 +932,10 @@ Return ONLY the JSON, no markdown or explanations. If no food items are detected
 	result, err := parseGeminiJSON[PantryScanResult](resp)
 	if err != nil {
 		return nil, fmt.Errorf("scan pantry: %w", err)
+	}
+
+	if result.NonPantry {
+		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
 	}
 
 	return result, nil
@@ -1101,12 +1101,14 @@ func (g *GeminiClient) ExtractFromImage(ctx context.Context, imageData []byte, m
 
 **Instructions**:
 1. Read all text visible in the image (cookbook page, recipe card, screenshot)
-2. Identify the recipe title
-3. Extract ALL ingredients with quantities and units
-4. Extract ALL cooking steps/instructions in order
-5. Determine prep time, cook time, servings, difficulty, and cuisine if visible
-6. If text is partially obscured or unclear, make reasonable inferences
-7. If no recipe is found, return empty fields
+2. **CRITICAL**: If this image is clearly **NOT a cooking recipe or food preparation** (e.g. a selfie, landscape, random object, non-food text),
+   return a JSON with: {"non_recipe": true, "reason": "Image appears to be [description]"}.
+   DO NOT invent a recipe from random text.
+3. Identify the recipe title
+4. Extract ALL ingredients with quantities and units
+5. Extract ALL cooking steps/instructions in order
+6. Determine prep time, cook time, servings, difficulty, and cuisine if visible
+7. If text is partially obscured or unclear, make reasonable inferences
 
 **Return JSON matching this structure**:
 {
@@ -1145,6 +1147,10 @@ Return ONLY the JSON, no markdown or explanations.`
 	result, err := parseGeminiJSON[ExtractionResult](resp)
 	if err != nil {
 		return nil, fmt.Errorf("extract from image: %w", err)
+	}
+
+	if result.NonRecipe {
+		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
 	}
 
 	return result, nil

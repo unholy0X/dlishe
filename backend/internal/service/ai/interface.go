@@ -148,8 +148,10 @@ type PantryScanner interface {
 // PantryScanResult contains the detected pantry items from an image
 type PantryScanResult struct {
 	Items      []ScannedPantryItem `json:"items"`
-	Confidence float64             `json:"confidence"` // Overall confidence 0-1
-	Notes      string              `json:"notes"`      // Any observations about the image
+	Confidence float64             `json:"confidence"`           // Overall confidence 0-1
+	Notes      string              `json:"notes"`                // Any observations about the image
+	NonPantry  bool                `json:"non_pantry,omitempty"` // Internal use: indicates rejected content
+	Reason     string              `json:"reason,omitempty"`     // Internal use: reason for rejection
 }
 
 // ScannedPantryItem represents a single item detected in the pantry scan

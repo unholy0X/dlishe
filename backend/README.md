@@ -1,6 +1,6 @@
-# DishFlow Backend
+# DLISHE Backend
 
-Production-ready Go backend for DishFlow — an AI-powered recipe management platform.
+Production-ready Go backend for DLISHE — an AI-powered recipe management platform.
 
 ## Features
 
@@ -85,7 +85,7 @@ Key environment variables (see `.env.example` for complete list):
 
 ```bash
 # Required
-DATABASE_URL=postgres://dishflow:dishflow@localhost:5432/dishflow?sslmode=disable
+DATABASE_URL=postgres://dlishe:dlishe@localhost:5432/dlishe?sslmode=disable
 REDIS_URL=redis://localhost:6379
 
 # Authentication (Clerk)

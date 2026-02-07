@@ -1,17 +1,17 @@
 package main
 
-// @title DishFlow API
+// @title DLISHE API
 // @version 1.0
 // @description Recipe management API with AI-powered extraction, pantry tracking, and shopping lists
-// @termsOfService https://dishflow.app/terms
+// @termsOfService https://dlishe.com/terms
 
-// @contact.name DishFlow Support
-// @contact.email support@dishflow.app
+// @contact.name DLISHE Support
+// @contact.email contact@dlishe.com
 
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
 
-// @host api.dishflow.app
+// @host api.dlishe.com
 // @BasePath /api/v1
 
 // @securityDefinitions.apikey BearerAuth
@@ -69,7 +69,7 @@ func main() {
 
 	// Configure file rotation logging
 	fileLogger := &lumberjack.Logger{
-		Filename:   "logs/dishflow-backend.jsonl",
+		Filename:   "logs/dlishe-backend.jsonl",
 		MaxSize:    500, // megabytes
 		MaxBackups: 3,
 		MaxAge:     7, // days
@@ -84,7 +84,7 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	logger.Info("Starting DishFlow API server",
+	logger.Info("Starting DLISHE API server",
 		slog.String("port", cfg.Port),
 		slog.Bool("mock_mode", cfg.IsMockMode()),
 	)

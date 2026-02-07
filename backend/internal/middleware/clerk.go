@@ -179,7 +179,7 @@ func (m *ClerkMiddleware) populateFromClerk(ctx context.Context, user *model.Use
 
 // userContextKey is the context key for the authenticated user.
 // Uses the contextKey type declared in logging.go to avoid collisions. [P1 fix]
-const userContextKey contextKey = "dishflow_user"
+const userContextKey contextKey = "dlishe_user"
 
 // UserContextKey is kept as a public alias for use in tests and other packages.
 // Use GetUserFromContext() in production code instead.

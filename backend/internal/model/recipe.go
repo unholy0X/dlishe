@@ -33,7 +33,7 @@ type DietaryInfo struct {
 	MealTypes    []string `json:"mealTypes,omitempty"` // e.g., ["breakfast", "lunch", "dinner"]
 }
 
-// Recipe represents a recipe in DishFlow
+// Recipe represents a recipe in DLISHE
 type Recipe struct {
 	ID             uuid.UUID        `json:"id" db:"id"`
 	UserID         uuid.UUID        `json:"userId" db:"user_id"`
@@ -109,7 +109,7 @@ type RecipeShare struct {
 	AcceptedAt     *time.Time `json:"acceptedAt,omitempty" db:"accepted_at"`
 }
 
-// Ingredient categories (matching DishFlow mobile app)
+// Ingredient categories (matching DLISHE mobile app)
 var IngredientCategories = []string{
 	"dairy",
 	"produce",

@@ -109,8 +109,8 @@ func (s *Service) cleanupTempFiles(ctx context.Context) (int, error) {
 	var deletedCount int
 
 	// Look for video and thumbnail files in temp directory
-	// Pattern: dishflow-video-*, dishflow-thumb-*
-	patterns := []string{"dishflow-video-*", "dishflow-thumb-*"}
+	// Pattern: dlishe-video-*, dlishe-thumb-*
+	patterns := []string{"dlishe-video-*", "dlishe-thumb-*"}
 
 	for _, pattern := range patterns {
 		matches, err := filepath.Glob(filepath.Join(s.tempDir, pattern))

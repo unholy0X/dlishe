@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  github_com_dishflow_backend_internal_model.AppliedFilters:
+  github_com_dlishe_backend_internal_model.AppliedFilters:
     properties:
       appliedCuisine:
         type: string
@@ -17,9 +17,9 @@ definitions:
       appliedMood:
         type: string
       nutritionFilters:
-        $ref: '#/definitions/github_com_dishflow_backend_internal_model.NutritionFilters'
+        $ref: '#/definitions/github_com_dlishe_backend_internal_model.NutritionFilters'
     type: object
-  github_com_dishflow_backend_internal_model.DietaryInfo:
+  github_com_dlishe_backend_internal_model.DietaryInfo:
     properties:
       allergens:
         description: e.g., ["gluten", "dairy", "nuts"]
@@ -48,7 +48,7 @@ definitions:
           type: string
         type: array
     type: object
-  github_com_dishflow_backend_internal_model.IngredientMatch:
+  github_com_dlishe_backend_internal_model.IngredientMatch:
     properties:
       isSubstitute:
         description: true if pantry item is a substitute
@@ -63,7 +63,7 @@ definitions:
         description: e.g., "1 tsp dried = 1 tbsp fresh"
         type: string
     type: object
-  github_com_dishflow_backend_internal_model.MissingIngredient:
+  github_com_dlishe_backend_internal_model.MissingIngredient:
     properties:
       canSkip:
         description: true if optional
@@ -77,10 +77,10 @@ definitions:
       substitutes:
         description: possible substitutes
         items:
-          $ref: '#/definitions/github_com_dishflow_backend_internal_model.SubstituteSuggestion'
+          $ref: '#/definitions/github_com_dlishe_backend_internal_model.SubstituteSuggestion'
         type: array
     type: object
-  github_com_dishflow_backend_internal_model.NutritionFilters:
+  github_com_dlishe_backend_internal_model.NutritionFilters:
     properties:
       maxCalories:
         type: integer
@@ -91,7 +91,7 @@ definitions:
       minProtein:
         type: integer
     type: object
-  github_com_dishflow_backend_internal_model.Recipe:
+  github_com_dlishe_backend_internal_model.Recipe:
     properties:
       cookTime:
         description: minutes
@@ -104,7 +104,7 @@ definitions:
         type: string
       dietaryInfo:
         allOf:
-        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.DietaryInfo'
+        - $ref: '#/definitions/github_com_dlishe_backend_internal_model.DietaryInfo'
         description: Dietary flags for filtering
       difficulty:
         description: easy, medium, hard
@@ -117,7 +117,7 @@ definitions:
       ingredients:
         description: Related data (not stored in recipes table, loaded on GetByID)
         items:
-          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeIngredient'
+          $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeIngredient'
         type: array
       isFavorite:
         type: boolean
@@ -126,7 +126,7 @@ definitions:
         type: boolean
       nutrition:
         allOf:
-        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeNutrition'
+        - $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeNutrition'
         description: Nutritional info per serving
       prepTime:
         description: minutes
@@ -148,7 +148,7 @@ definitions:
         type: integer
       steps:
         items:
-          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeStep'
+          $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeStep'
         type: array
       syncVersion:
         type: integer
@@ -165,7 +165,7 @@ definitions:
       userId:
         type: string
     type: object
-  github_com_dishflow_backend_internal_model.RecipeIngredient:
+  github_com_dlishe_backend_internal_model.RecipeIngredient:
     properties:
       category:
         description: dairy, produce, proteins, etc.
@@ -195,7 +195,7 @@ definitions:
         description: seconds
         type: integer
     type: object
-  github_com_dishflow_backend_internal_model.RecipeNutrition:
+  github_com_dlishe_backend_internal_model.RecipeNutrition:
     properties:
       calories:
         description: kcal per serving
@@ -227,7 +227,7 @@ definitions:
           type: string
         type: array
     type: object
-  github_com_dishflow_backend_internal_model.RecipeQuickInfo:
+  github_com_dlishe_backend_internal_model.RecipeQuickInfo:
     properties:
       id:
         type: string
@@ -240,7 +240,7 @@ definitions:
         description: e.g., "min", "g", "%"
         type: string
     type: object
-  github_com_dishflow_backend_internal_model.RecipeRecommendation:
+  github_com_dlishe_backend_internal_model.RecipeRecommendation:
     properties:
       filtersMatched:
         description: Filter match metadata - helps frontend display/sort recommendations
@@ -262,28 +262,28 @@ definitions:
         type: integer
       matchedIngredients:
         items:
-          $ref: '#/definitions/github_com_dishflow_backend_internal_model.IngredientMatch'
+          $ref: '#/definitions/github_com_dlishe_backend_internal_model.IngredientMatch'
         type: array
       missingIngredients:
         items:
-          $ref: '#/definitions/github_com_dishflow_backend_internal_model.MissingIngredient'
+          $ref: '#/definitions/github_com_dlishe_backend_internal_model.MissingIngredient'
         type: array
       nutritionPerServing:
         allOf:
-        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeNutrition'
+        - $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeNutrition'
         description: estimated nutrition
       reason:
         description: why this was recommended
         type: string
       recipe:
-        $ref: '#/definitions/github_com_dishflow_backend_internal_model.Recipe'
+        $ref: '#/definitions/github_com_dlishe_backend_internal_model.Recipe'
       shoppingListItems:
         description: items to buy
         items:
           type: string
         type: array
     type: object
-  github_com_dishflow_backend_internal_model.RecipeStep:
+  github_com_dlishe_backend_internal_model.RecipeStep:
     properties:
       createdAt:
         type: string
@@ -306,55 +306,55 @@ definitions:
       videoTimestampStart:
         type: integer
     type: object
-  github_com_dishflow_backend_internal_model.RecommendationResponse:
+  github_com_dlishe_backend_internal_model.RecommendationResponse:
     properties:
       almostReady:
         description: 70-89% match
         items:
-          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation'
+          $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeRecommendation'
         type: array
       filters:
         allOf:
-        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.AppliedFilters'
+        - $ref: '#/definitions/github_com_dlishe_backend_internal_model.AppliedFilters'
         description: Applied filters info
       needsShopping:
         description: 50-69% match
         items:
-          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation'
+          $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeRecommendation'
         type: array
       readyToCook:
         description: Categorized recommendations
         items:
-          $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation'
+          $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeRecommendation'
         type: array
       summary:
         allOf:
-        - $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecommendationSummary'
+        - $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecommendationSummary'
         description: Summary statistics
     type: object
-  github_com_dishflow_backend_internal_model.RecommendationSummary:
+  github_com_dlishe_backend_internal_model.RecommendationSummary:
     properties:
       avgCaloriesPerServing:
         type: integer
       bestMatch:
-        $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo'
+        $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeQuickInfo'
       highestProtein:
-        $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo'
+        $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeQuickInfo'
       message:
         type: string
       quickestRecipe:
-        $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo'
+        $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecipeQuickInfo'
       totalRecipes:
         type: integer
     type: object
-  github_com_dishflow_backend_internal_model.SmartMergeRequest:
+  github_com_dlishe_backend_internal_model.SmartMergeRequest:
     properties:
       sourceListIds:
         items:
           type: string
         type: array
     type: object
-  github_com_dishflow_backend_internal_model.SubstituteSuggestion:
+  github_com_dlishe_backend_internal_model.SubstituteSuggestion:
     properties:
       item:
         description: substitute item name
@@ -532,7 +532,7 @@ definitions:
           video_extraction: true
         type: object
       name:
-        example: DishFlow API
+        example: DLISHE API
         type: string
       version:
         example: 1.0.0
@@ -1374,18 +1374,18 @@ definitions:
         example: John Doe
         type: string
     type: object
-host: api.dishflow.app
+host: api.dlishe.app
 info:
   contact:
-    email: support@dishflow.app
-    name: DishFlow Support
+    email: support@dlishe.app
+    name: DLISHE Support
   description: Recipe management API with AI-powered extraction, pantry tracking,
     and shopping lists
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  termsOfService: https://dishflow.app/terms
-  title: DishFlow API
+  termsOfService: https://dlishe.app/terms
+  title: DLISHE API
   version: "1.0"
 paths:
   /health:
@@ -2129,7 +2129,7 @@ paths:
         "200":
           description: Recipe recommendations
           schema:
-            $ref: '#/definitions/github_com_dishflow_backend_internal_model.RecommendationResponse'
+            $ref: '#/definitions/github_com_dlishe_backend_internal_model.RecommendationResponse'
         "401":
           description: Unauthorized
           schema:
@@ -2646,7 +2646,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/github_com_dishflow_backend_internal_model.SmartMergeRequest'
+          $ref: '#/definitions/github_com_dlishe_backend_internal_model.SmartMergeRequest'
       produces:
       - application/json
       responses:

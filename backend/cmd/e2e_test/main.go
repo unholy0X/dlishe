@@ -64,7 +64,7 @@ func main() {
 		log.Fatal("❌ GEMINI_API_KEY environment variable is required and cannot be 'mock'")
 	}
 
-	fmt.Println("🧪 DishFlow E2E Recipe Extraction Test Suite")
+	fmt.Println("🧪 DLISHE E2E Recipe Extraction Test Suite")
 	fmt.Println("=" + strings.Repeat("=", 60))
 	fmt.Println()
 
@@ -425,7 +425,7 @@ func saveRecipeMarkdown(outputDir, testName, url string, result *TestResult) err
 
 	// Footer
 	md.WriteString("---\n\n")
-	md.WriteString("_Recipe extracted by DishFlow E2E Test Suite_\n")
+	md.WriteString("_Recipe extracted by DLISHE E2E Test Suite_\n")
 
 	return os.WriteFile(filename, []byte(md.String()), 0644)
 }

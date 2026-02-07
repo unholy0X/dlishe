@@ -72,7 +72,7 @@ func Load() *Config {
 
 		// Database
 		// Database
-		DatabaseURL:             getEnv("DATABASE_URL", "postgres://dishflow:dishflow@localhost:5432/dishflow?sslmode=disable"),
+		DatabaseURL:             getEnv("DATABASE_URL", "postgres://dlishe:dlishe@localhost:5432/dlishe?sslmode=disable"),
 		DatabaseMaxOpenConns:    getIntEnv("DATABASE_MAX_OPEN_CONNS", 100),
 		DatabaseMaxIdleConns:    getIntEnv("DATABASE_MAX_IDLE_CONNS", 25),
 		DatabaseConnMaxLifetime: getDurationEnv("DATABASE_CONN_MAX_LIFETIME", 15*time.Minute),
@@ -97,7 +97,7 @@ func Load() *Config {
 		RevenueCatWebhookSecret: getEnv("REVENUECAT_WEBHOOK_SECRET", ""),
 
 		// Storage
-		StorageBucket:    getEnv("STORAGE_BUCKET", "dishflow-assets"),
+		StorageBucket:    getEnv("STORAGE_BUCKET", "dlishe-assets"),
 		StorageEndpoint:  getEnv("STORAGE_ENDPOINT", ""),
 		StorageAccessKey: getEnv("STORAGE_ACCESS_KEY", ""),
 		StorageSecretKey: getEnv("STORAGE_SECRET_KEY", ""),

@@ -155,8 +155,8 @@ func TestInfo(t *testing.T) {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	if resp.Name != "DishFlow API" {
-		t.Errorf("Expected name 'DishFlow API', got %q", resp.Name)
+	if resp.Name != "DLISHE API" {
+		t.Errorf("Expected name 'DLISHE API', got %q", resp.Name)
 	}
 	if resp.Version != "1.0.0" {
 		t.Errorf("Expected version '1.0.0', got %q", resp.Version)

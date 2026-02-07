@@ -2,7 +2,7 @@
 
 ## Overview
 
-DishFlow uses RevenueCat to manage in-app subscriptions across iOS and Android.
+DLISHE uses RevenueCat to manage in-app subscriptions across iOS and Android.
 The backend receives webhook events from RevenueCat and maintains a cached
 subscription state in the `user_subscriptions` table.
 
@@ -18,7 +18,7 @@ subscription state in the `user_subscriptions` table.
 | Recipe sharing | No | Yes |
 
 **RevenueCat entitlement ID:** `pro`
-**Product IDs:** `com.dishflow.pro.monthly`, `com.dishflow.pro.yearly`
+**Product IDs:** `com.dlishe.pro.monthly`, `com.dlishe.pro.yearly`
 
 ## Architecture
 
@@ -51,7 +51,7 @@ Backend: GET /api/v1/subscription
 
 ### 1. Create Project
 - Go to https://app.revenuecat.com
-- Create a new project called "DishFlow"
+- Create a new project called "DLISHE"
 
 ### 2. Add Your App
 - Add iOS app (Bundle ID from Xcode)
@@ -61,8 +61,8 @@ Backend: GET /api/v1/subscription
 
 ### 3. Create Products
 In App Store Connect / Google Play Console:
-- `com.dishflow.pro.monthly` — $2.99/month auto-renewable subscription
-- `com.dishflow.pro.yearly` — $19.99/year auto-renewable subscription
+- `com.dlishe.pro.monthly` — $2.99/month auto-renewable subscription
+- `com.dlishe.pro.yearly` — $19.99/year auto-renewable subscription
 
 Then import these products into RevenueCat.
 
@@ -109,7 +109,7 @@ Response:
 {
   "entitlement": "pro",
   "isActive": true,
-  "productId": "com.dishflow.pro.monthly",
+  "productId": "com.dlishe.pro.monthly",
   "periodType": "NORMAL",
   "store": "APP_STORE",
   "purchasedAt": "2025-01-15T10:00:00Z",
@@ -213,7 +213,7 @@ curl -X POST http://localhost:8080/api/v1/webhooks/revenuecat \
       "type": "INITIAL_PURCHASE",
       "app_user_id": "YOUR-USER-UUID-HERE",
       "original_app_user_id": "YOUR-USER-UUID-HERE",
-      "product_id": "com.dishflow.pro.monthly",
+      "product_id": "com.dlishe.pro.monthly",
       "entitlement_ids": ["pro"],
       "period_type": "NORMAL",
       "purchased_at_ms": 1706000000000,
@@ -241,7 +241,7 @@ curl -X POST http://localhost:8080/api/v1/webhooks/revenuecat \
       "type": "EXPIRATION",
       "app_user_id": "YOUR-USER-UUID-HERE",
       "original_app_user_id": "YOUR-USER-UUID-HERE",
-      "product_id": "com.dishflow.pro.monthly",
+      "product_id": "com.dlishe.pro.monthly",
       "entitlement_ids": ["pro"],
       "period_type": "NORMAL",
       "purchased_at_ms": 1706000000000,
@@ -277,7 +277,7 @@ Cached subscription state, updated by webhooks and API sync.
 user_id UUID PRIMARY KEY
 entitlement VARCHAR(50)     -- "free" or "pro"
 is_active BOOLEAN
-product_id VARCHAR(100)     -- e.g. "com.dishflow.pro.monthly"
+product_id VARCHAR(100)     -- e.g. "com.dlishe.pro.monthly"
 period_type VARCHAR(20)     -- "TRIAL", "INTRO", "NORMAL"
 store VARCHAR(20)           -- "APP_STORE", "PLAY_STORE"
 purchased_at TIMESTAMPTZ

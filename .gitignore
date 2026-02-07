@@ -42,7 +42,7 @@ yarn-error.*
 /android
 backend/tmp/main
 backend/tmp/build-errors.log
-backend/logs/dishflow-backend.jsonl
+backend/logs/dlishe-backend.jsonl
 
 # Backend test artifacts
 backend/e2e_output/

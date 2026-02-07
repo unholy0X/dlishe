@@ -746,7 +746,7 @@ type SwaggerReadyResponse struct {
 // SwaggerInfoResponse represents API info response
 // @Description API information response
 type SwaggerInfoResponse struct {
-	Name        string          `json:"name" example:"DishFlow API"`
+	Name        string          `json:"name" example:"DLISHE API"`
 	Version     string          `json:"version" example:"1.0.0"`
 	Environment string          `json:"environment" example:"development"`
 	Features    map[string]bool `json:"features" example:"video_extraction:true,ai_generation:true,sync:true"`

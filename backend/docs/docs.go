@@ -9,10 +9,10 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "https://dishflow.app/terms",
+        "termsOfService": "https://dlishe.com/terms",
         "contact": {
-            "name": "DishFlow Support",
-            "email": "support@dishflow.app"
+            "name": "DLISHE Support",
+            "email": "support@dlishe.com"
         },
         "license": {
             "name": "MIT",
@@ -843,7 +843,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Recipe recommendations",
                         "schema": {
-                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecommendationResponse"
+                            "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecommendationResponse"
                         }
                     },
                     "401": {
@@ -1339,7 +1339,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.SmartMergeRequest"
+                            "$ref": "#/definitions/github_com_dlishe_backend_internal_model.SmartMergeRequest"
                         }
                     }
                 ],
@@ -2174,7 +2174,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_dishflow_backend_internal_model.AppliedFilters": {
+        "github_com_dlishe_backend_internal_model.AppliedFilters": {
             "type": "object",
             "properties": {
                 "appliedCuisine": {
@@ -2199,11 +2199,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "nutritionFilters": {
-                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.NutritionFilters"
+                    "$ref": "#/definitions/github_com_dlishe_backend_internal_model.NutritionFilters"
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.DietaryInfo": {
+        "github_com_dlishe_backend_internal_model.DietaryInfo": {
             "type": "object",
             "properties": {
                 "allergens": {
@@ -2246,7 +2246,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.IngredientMatch": {
+        "github_com_dlishe_backend_internal_model.IngredientMatch": {
             "type": "object",
             "properties": {
                 "isSubstitute": {
@@ -2267,7 +2267,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.MissingIngredient": {
+        "github_com_dlishe_backend_internal_model.MissingIngredient": {
             "type": "object",
             "properties": {
                 "canSkip": {
@@ -2286,12 +2286,12 @@ const docTemplate = `{
                     "description": "possible substitutes",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.SubstituteSuggestion"
+                        "$ref": "#/definitions/github_com_dlishe_backend_internal_model.SubstituteSuggestion"
                     }
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.NutritionFilters": {
+        "github_com_dlishe_backend_internal_model.NutritionFilters": {
             "type": "object",
             "properties": {
                 "maxCalories": {
@@ -2308,7 +2308,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.Recipe": {
+        "github_com_dlishe_backend_internal_model.Recipe": {
             "type": "object",
             "properties": {
                 "cookTime": {
@@ -2328,7 +2328,7 @@ const docTemplate = `{
                     "description": "Dietary flags for filtering",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.DietaryInfo"
+                            "$ref": "#/definitions/github_com_dlishe_backend_internal_model.DietaryInfo"
                         }
                     ]
                 },
@@ -2347,7 +2347,7 @@ const docTemplate = `{
                     "description": "Related data (not stored in recipes table, loaded on GetByID)",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeIngredient"
+                        "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeIngredient"
                     }
                 },
                 "isFavorite": {
@@ -2361,7 +2361,7 @@ const docTemplate = `{
                     "description": "Nutritional info per serving",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeNutrition"
+                            "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeNutrition"
                         }
                     ]
                 },
@@ -2393,7 +2393,7 @@ const docTemplate = `{
                 "steps": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeStep"
+                        "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeStep"
                     }
                 },
                 "syncVersion": {
@@ -2419,7 +2419,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.RecipeIngredient": {
+        "github_com_dlishe_backend_internal_model.RecipeIngredient": {
             "type": "object",
             "properties": {
                 "category": {
@@ -2463,7 +2463,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.RecipeNutrition": {
+        "github_com_dlishe_backend_internal_model.RecipeNutrition": {
             "type": "object",
             "properties": {
                 "calories": {
@@ -2507,7 +2507,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.RecipeQuickInfo": {
+        "github_com_dlishe_backend_internal_model.RecipeQuickInfo": {
             "type": "object",
             "properties": {
                 "id": {
@@ -2526,7 +2526,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.RecipeRecommendation": {
+        "github_com_dlishe_backend_internal_model.RecipeRecommendation": {
             "type": "object",
             "properties": {
                 "filtersMatched": {
@@ -2557,20 +2557,20 @@ const docTemplate = `{
                 "matchedIngredients": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.IngredientMatch"
+                        "$ref": "#/definitions/github_com_dlishe_backend_internal_model.IngredientMatch"
                     }
                 },
                 "missingIngredients": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.MissingIngredient"
+                        "$ref": "#/definitions/github_com_dlishe_backend_internal_model.MissingIngredient"
                     }
                 },
                 "nutritionPerServing": {
                     "description": "estimated nutrition",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeNutrition"
+                            "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeNutrition"
                         }
                     ]
                 },
@@ -2579,7 +2579,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "recipe": {
-                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.Recipe"
+                    "$ref": "#/definitions/github_com_dlishe_backend_internal_model.Recipe"
                 },
                 "shoppingListItems": {
                     "description": "items to buy",
@@ -2590,7 +2590,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.RecipeStep": {
+        "github_com_dlishe_backend_internal_model.RecipeStep": {
             "type": "object",
             "properties": {
                 "createdAt": {
@@ -2625,21 +2625,21 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.RecommendationResponse": {
+        "github_com_dlishe_backend_internal_model.RecommendationResponse": {
             "type": "object",
             "properties": {
                 "almostReady": {
                     "description": "70-89% match",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation"
+                        "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeRecommendation"
                     }
                 },
                 "filters": {
                     "description": "Applied filters info",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.AppliedFilters"
+                            "$ref": "#/definitions/github_com_dlishe_backend_internal_model.AppliedFilters"
                         }
                     ]
                 },
@@ -2647,50 +2647,50 @@ const docTemplate = `{
                     "description": "50-69% match",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation"
+                        "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeRecommendation"
                     }
                 },
                 "readyToCook": {
                     "description": "Categorized recommendations",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeRecommendation"
+                        "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeRecommendation"
                     }
                 },
                 "summary": {
                     "description": "Summary statistics",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecommendationSummary"
+                            "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecommendationSummary"
                         }
                     ]
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.RecommendationSummary": {
+        "github_com_dlishe_backend_internal_model.RecommendationSummary": {
             "type": "object",
             "properties": {
                 "avgCaloriesPerServing": {
                     "type": "integer"
                 },
                 "bestMatch": {
-                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo"
+                    "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeQuickInfo"
                 },
                 "highestProtein": {
-                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo"
+                    "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeQuickInfo"
                 },
                 "message": {
                     "type": "string"
                 },
                 "quickestRecipe": {
-                    "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo"
+                    "$ref": "#/definitions/github_com_dlishe_backend_internal_model.RecipeQuickInfo"
                 },
                 "totalRecipes": {
                     "type": "integer"
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.SmartMergeRequest": {
+        "github_com_dlishe_backend_internal_model.SmartMergeRequest": {
             "type": "object",
             "properties": {
                 "sourceListIds": {
@@ -2701,7 +2701,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_dishflow_backend_internal_model.SubstituteSuggestion": {
+        "github_com_dlishe_backend_internal_model.SubstituteSuggestion": {
             "type": "object",
             "properties": {
                 "item": {
@@ -2955,7 +2955,7 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string",
-                    "example": "DishFlow API"
+                    "example": "DLISHE API"
                 },
                 "version": {
                     "type": "string",
@@ -4140,10 +4140,10 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "api.dishflow.app",
+	Host:             "api.dlishe.com",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
-	Title:            "DishFlow API",
+	Title:            "DLISHE API",
 	Description:      "Recipe management API with AI-powered extraction, pantry tracking, and shopping lists",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

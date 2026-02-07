@@ -98,9 +98,13 @@ type RCAttr struct {
 // @Router /webhooks/revenuecat [post]
 func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request) {
 	// 1. Authenticate the webhook source
+	if h.cfg.RevenueCatWebhookSecret == "" {
+		h.logger.Error("RevenueCat webhook secret not configured, rejecting request")
+		response.Unauthorized(w, "Webhook not configured")
+		return
+	}
 	authHeader := r.Header.Get("Authorization")
-	expectedAuth := "Bearer " + h.cfg.RevenueCatWebhookSecret
-	if h.cfg.RevenueCatWebhookSecret != "" && authHeader != expectedAuth {
+	if authHeader != "Bearer "+h.cfg.RevenueCatWebhookSecret {
 		h.logger.Warn("Unauthorized webhook attempt", "ip", r.RemoteAddr)
 		response.Unauthorized(w, "Invalid webhook secret")
 		return
@@ -192,7 +196,14 @@ func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request
 	// 10. Optionally sync definitive state from RevenueCat API (best practice)
 	// This runs async so we can respond 200 quickly.
 	if h.rcClient != nil {
-		go h.syncFromAPI(userID, event.AppUserID)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					h.logger.Error("Panic in syncFromAPI", "error", r, "user_id", userID)
+				}
+			}()
+			h.syncFromAPI(userID, event.AppUserID)
+		}()
 	}
 
 	response.OK(w, map[string]string{"status": "processed"})

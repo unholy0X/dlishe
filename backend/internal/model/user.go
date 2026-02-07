@@ -79,7 +79,7 @@ func NewAnonymousUser(deviceID string) *User {
 
 // QuotaLimits defines the limits for each tier
 type QuotaLimits struct {
-	VideoExtractions int
+	Extractions      int // All extraction types (video, url, image)
 	PantryScans      int
 	MaxRecipes       int
 	MaxShoppingLists int
@@ -94,15 +94,23 @@ type QuotaLimits struct {
 // RevenueCat entitlement ID: "pro"
 var TierLimits = map[string]QuotaLimits{
 	"free": {
-		VideoExtractions: 3,
-		PantryScans:      3,
-		MaxRecipes:       10,
+		Extractions:      10,
+		PantryScans:      5,
+		MaxRecipes:       25,
 		MaxShoppingLists: -1, // Unlimited
 		MultiDeviceSync:  false,
 		RecipeSharing:    false,
 	},
 	"pro": {
-		VideoExtractions: -1, // Unlimited
+		Extractions:      -1, // Unlimited
+		PantryScans:      -1,
+		MaxRecipes:       -1,
+		MaxShoppingLists: -1,
+		MultiDeviceSync:  true,
+		RecipeSharing:    true,
+	},
+	"admin": {
+		Extractions:      -1, // Unlimited
 		PantryScans:      -1,
 		MaxRecipes:       -1,
 		MaxShoppingLists: -1,

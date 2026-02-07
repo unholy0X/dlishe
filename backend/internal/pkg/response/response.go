@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -94,7 +95,7 @@ func VersionConflict(w http.ResponseWriter, serverVersion, yourVersion interface
 }
 
 func RateLimited(w http.ResponseWriter, retryAfter int) {
-	w.Header().Set("Retry-After", string(rune(retryAfter)))
+	w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 	ErrorJSON(w, http.StatusTooManyRequests, "RATE_LIMITED", "Too many requests", map[string]interface{}{
 		"retryAfter": retryAfter,
 	})

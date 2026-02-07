@@ -836,6 +836,12 @@ func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Check AI service availability
+	if h.aiService == nil {
+		response.ServiceUnavailable(w, "Smart merge")
+		return
+	}
+
 	// AI Processing: Merge items
 	// Fetch user to get preference, defaulting to metric if unavailable
 	var preferredSystem = "metric"

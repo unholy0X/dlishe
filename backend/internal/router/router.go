@@ -32,6 +32,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	r.Use(middleware.Logging(logger))
 	r.Use(middleware.Recover(logger))
 	r.Use(middleware.CORS(cfg.CorsAllowedOrigins))
+	r.Use(middleware.MaxBodySize(52 << 20)) // 52MB global cap (extraction allows up to 50MB multipart)
 
 	// Swagger UI (only if enabled via config)
 	if cfg.EnableSwagger {
@@ -52,6 +53,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db, redis)
 	authHandler := handler.NewAuthHandler(userRepo)
+	adminHandler := handler.NewAdminHandler(db, cfg.AdminAPIKey, cfg.AdminEmails)
 
 	// Services
 	recipeRepo := postgres.NewRecipeRepository(db)
@@ -64,8 +66,12 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 		logger.Error("Failed to initialize Gemini client", "error", err)
 	}
 
-	var extractor ai.RecipeExtractor = geminiClient
-	var enricher ai.RecipeEnricher = geminiClient // GeminiClient also implements RecipeEnricher
+	var extractor ai.RecipeExtractor
+	var enricher ai.RecipeEnricher
+	if geminiClient != nil {
+		extractor = geminiClient
+		enricher = geminiClient
+	}
 
 	// Initialize recommendation service (uses same Gemini client)
 	var recommender ai.RecipeRecommender
@@ -77,10 +83,18 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	extractionCacheRepo := postgres.NewExtractionCacheRepository(db)
 
 	pantryRepo := postgres.NewPantryRepository(db)
-	pantryHandler := handler.NewPantryHandler(pantryRepo, geminiClient, userRepo, cfg.AdminEmails)
+	var pantryScanner ai.PantryScanner
+	if geminiClient != nil {
+		pantryScanner = geminiClient
+	}
+	pantryHandler := handler.NewPantryHandler(pantryRepo, pantryScanner, userRepo, cfg.AdminEmails)
 
 	shoppingRepo := postgres.NewShoppingRepository(db)
-	shoppingHandler := handler.NewShoppingHandler(shoppingRepo, recipeRepo, userRepo, geminiClient)
+	var shoppingAnalyzer ai.ShoppingListAnalyzer
+	if geminiClient != nil {
+		shoppingAnalyzer = geminiClient
+	}
+	shoppingHandler := handler.NewShoppingHandler(shoppingRepo, recipeRepo, userRepo, shoppingAnalyzer)
 
 	// Initialize sync service
 	syncService := sync.NewService(recipeRepo, pantryRepo, shoppingRepo)
@@ -111,7 +125,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	webhookHandler := handler.NewWebhookHandler(cfg, logger, userRepo, rcClient)
 
 	// Initialize subscription handler
-	subscriptionHandler := handler.NewSubscriptionHandler(userRepo, rcClient, logger)
+	subscriptionHandler := handler.NewSubscriptionHandler(userRepo, rcClient, logger, cfg.AdminEmails)
 
 	// Public endpoints with rate limiting
 	r.With(rateLimiter.Public()).Get("/health", healthHandler.Health)
@@ -154,7 +168,8 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 				// Unified extraction endpoint (AI-powered, async job pattern)
 				// Supports: url, image, video extraction with consistent job-based response
-				r.With(rateLimiter.VideoExtraction()).Post("/extract", unifiedExtractionHandler.Extract)
+				// Monthly quota enforced in handler via DB (no Redis rate limit needed at this scale)
+				r.Post("/extract", unifiedExtractionHandler.Extract)
 
 				r.Route("/{recipeID}", func(r chi.Router) {
 					r.Get("/", recipeHandler.Get)
@@ -209,8 +224,6 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 					r.Delete("/items/{itemId}", shoppingHandler.DeleteItem)
 					r.Post("/items/{itemId}/check", shoppingHandler.ToggleItemChecked)
 					r.Post("/complete", shoppingHandler.CompleteList)
-					// Supervised Add
-					r.Post("/add-from-recipe", shoppingHandler.AddFromRecipe)
 				})
 			})
 
@@ -228,7 +241,11 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 				r.Post("/image", placeholderHandler("upload image"))
 				r.Post("/presign", placeholderHandler("presign upload"))
 			})
+
 		})
+
+		// Admin routes (API key auth, no Clerk needed)
+		r.Get("/admin/stats", adminHandler.Stats)
 
 		// Webhook routes (server-to-server, different auth)
 		r.Route("/webhooks", func(r chi.Router) {

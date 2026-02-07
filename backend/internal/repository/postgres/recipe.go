@@ -5,12 +5,20 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/dishflow/backend/internal/model"
 )
+
+// unmarshalJSONB unmarshals JSONB data, logging a warning on corruption instead of failing silently
+func unmarshalJSONB(data []byte, target interface{}, field string) {
+	if err := json.Unmarshal(data, target); err != nil {
+		slog.Warn("Corrupted JSONB data in recipe", "field", field, "error", err)
+	}
+}
 
 var (
 	ErrRecipeNotFound = errors.New("recipe not found")
@@ -236,15 +244,15 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 	recipe.Tags = []string(tags)
 
 	if sourceMetadata != nil {
-		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+		unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 	}
 	if nutritionJSON != nil {
 		recipe.Nutrition = &model.RecipeNutrition{}
-		json.Unmarshal(nutritionJSON, recipe.Nutrition)
+		unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
 	}
 	if dietaryInfoJSON != nil {
 		recipe.DietaryInfo = &model.DietaryInfo{}
-		json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
+		unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
 	}
 
 	// Load ingredients
@@ -314,15 +322,15 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 	recipe.Tags = []string(tags)
 
 	if sourceMetadata != nil {
-		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+		unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 	}
 	if nutritionJSON != nil {
 		recipe.Nutrition = &model.RecipeNutrition{}
-		json.Unmarshal(nutritionJSON, recipe.Nutrition)
+		unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
 	}
 	if dietaryInfoJSON != nil {
 		recipe.DietaryInfo = &model.DietaryInfo{}
-		json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
+		unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
 	}
 
 	// Load ingredients
@@ -392,15 +400,15 @@ func (r *RecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sour
 	recipe.Tags = []string(tags)
 
 	if sourceMetadata != nil {
-		json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+		unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 	}
 	if nutritionJSON != nil {
 		recipe.Nutrition = &model.RecipeNutrition{}
-		json.Unmarshal(nutritionJSON, recipe.Nutrition)
+		unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
 	}
 	if dietaryInfoJSON != nil {
 		recipe.DietaryInfo = &model.DietaryInfo{}
-		json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
+		unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
 	}
 
 	return recipe, nil
@@ -561,15 +569,15 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 
 		recipe.Tags = []string(tags)
 		if sourceMetadata != nil {
-			json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+			unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 		}
 		if nutritionJSON != nil {
 			recipe.Nutrition = &model.RecipeNutrition{}
-			json.Unmarshal(nutritionJSON, recipe.Nutrition)
+			unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
 		}
 		if dietaryInfoJSON != nil {
 			recipe.DietaryInfo = &model.DietaryInfo{}
-			json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
+			unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
 		}
 
 		recipes = append(recipes, recipe)
@@ -599,10 +607,10 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 		FROM recipes r
 		WHERE r.is_public = TRUE AND r.deleted_at IS NULL
 		ORDER BY RANDOM()
-		LIMIT $1
+		LIMIT $1 OFFSET $2
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, limit)
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -646,15 +654,15 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 
 		recipe.Tags = []string(tags)
 		if sourceMetadata != nil {
-			json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+			unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 		}
 		if nutritionJSON != nil {
 			recipe.Nutrition = &model.RecipeNutrition{}
-			json.Unmarshal(nutritionJSON, recipe.Nutrition)
+			unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
 		}
 		if dietaryInfoJSON != nil {
 			recipe.DietaryInfo = &model.DietaryInfo{}
-			json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
+			unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
 		}
 
 		recipes = append(recipes, recipe)
@@ -928,7 +936,7 @@ func (r *RecipeRepository) GetChangesSince(ctx context.Context, userID uuid.UUID
 func (r *RecipeRepository) Upsert(ctx context.Context, recipe *model.Recipe) error {
 	// Check if recipe exists
 	existing, err := r.GetByID(ctx, recipe.ID)
-	if err == model.ErrNotFound {
+	if errors.Is(err, ErrRecipeNotFound) {
 		// Create new recipe
 		return r.Create(ctx, recipe)
 	}
@@ -1044,15 +1052,15 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 				recipe.SourceRecipeID = &srcID
 			}
 			if sourceMetadata != nil {
-				json.Unmarshal(sourceMetadata, &recipe.SourceMetadata)
+				unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 			}
 			if nutritionJSON != nil {
 				recipe.Nutrition = &model.RecipeNutrition{}
-				json.Unmarshal(nutritionJSON, recipe.Nutrition)
+				unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
 			}
 			if dietaryInfoJSON != nil {
 				recipe.DietaryInfo = &model.DietaryInfo{}
-				json.Unmarshal(dietaryInfoJSON, recipe.DietaryInfo)
+				unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
 			}
 			recipesMap[recipeID] = recipe
 			recipeOrder = append(recipeOrder, recipeID)

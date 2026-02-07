@@ -23,236 +23,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/auth/anonymous": {
-            "post": {
-                "description": "Create or retrieve an anonymous user account using device ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Auth"
-                ],
-                "summary": "Anonymous authentication",
-                "parameters": [
-                    {
-                        "description": "Device ID (optional)",
-                        "name": "request",
-                        "in": "body",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerAnonymousRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Authentication successful",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerAnonymousResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/login": {
-            "post": {
-                "description": "Authenticate with email and password",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Auth"
-                ],
-                "summary": "User login",
-                "parameters": [
-                    {
-                        "description": "Login credentials",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerLoginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Login successful",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerAuthResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Invalid credentials",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/logout": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Invalidate current access token and optionally refresh token",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Auth"
-                ],
-                "summary": "Logout user",
-                "parameters": [
-                    {
-                        "description": "Optional logout options",
-                        "name": "request",
-                        "in": "body",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerLogoutRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "Logged out successfully"
-                    },
-                    "401": {
-                        "description": "Not authenticated",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/refresh": {
-            "post": {
-                "description": "Get new access token using refresh token",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Auth"
-                ],
-                "summary": "Refresh access token",
-                "parameters": [
-                    {
-                        "description": "Refresh token",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerRefreshRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "New tokens generated",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerRefreshResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Invalid or expired refresh token",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/register": {
-            "post": {
-                "description": "Create a new user account with email and password",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Auth"
-                ],
-                "summary": "Register a new user",
-                "parameters": [
-                    {
-                        "description": "Registration details",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerRegisterRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "User created successfully",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerAuthResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "409": {
-                        "description": "Email already exists",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/health": {
             "get": {
                 "description": "Basic liveness probe - returns OK if the server is running",
@@ -293,131 +63,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/jobs": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get list of extraction jobs for the current user (includes url, image, and video extractions)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Jobs"
-                ],
-                "summary": "List user's jobs",
-                "parameters": [
-                    {
-                        "enum": [
-                            "url",
-                            "image",
-                            "video"
-                        ],
-                        "type": "string",
-                        "description": "Filter by job type",
-                        "name": "type",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 20,
-                        "description": "Items per page",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 0,
-                        "description": "Pagination offset",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "List of jobs",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/internal_handler.SwaggerJobResponse"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/jobs/{jobID}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get the current status of an extraction job (url, image, or video)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Jobs"
-                ],
-                "summary": "Get job status",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Job UUID",
-                        "name": "jobID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Job status",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerJobResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid job ID",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Access denied",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Job not found",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/jobs/{jobID}/cancel": {
             "post": {
                 "security": [
@@ -425,15 +70,15 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cancel a running extraction job",
+                "description": "Cancel a job by ID. Works across distributed instances via Redis Pub/Sub.",
                 "tags": [
                     "Jobs"
                 ],
-                "summary": "Cancel a job",
+                "summary": "Cancel a running job",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Job UUID",
+                        "description": "Job ID",
                         "name": "jobID",
                         "in": "path",
                         "required": true
@@ -443,20 +88,8 @@ const docTemplate = `{
                     "204": {
                         "description": "Job cancelled"
                     },
-                    "400": {
-                        "description": "Invalid job ID",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "403": {
-                        "description": "Access denied",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
                         }
@@ -581,52 +214,6 @@ const docTemplate = `{
                         "description": "Invalid request body",
                         "schema": {
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/pantry/expiring": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get list of pantry items expiring within specified days",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Pantry"
-                ],
-                "summary": "Get expiring pantry items",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "default": 7,
-                        "description": "Days until expiration (max 365)",
-                        "name": "days",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "List of expiring items",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerPantryExpiringResponse"
                         }
                     },
                     "401": {
@@ -2412,6 +1999,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/subscription": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the authenticated user's subscription status and feature limits",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Subscription"
+                ],
+                "summary": "Get current subscription status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SubscriptionResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            }
+        },
+        "/subscription/refresh": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetches the latest subscription state from RevenueCat API and updates local cache",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Subscription"
+                ],
+                "summary": "Refresh subscription from RevenueCat",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.SubscriptionResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "503": {
+                        "description": "RevenueCat unavailable"
+                    }
+                }
+            }
+        },
         "/sync": {
             "post": {
                 "security": [
@@ -2496,12 +2142,32 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
                         }
+                    }
+                }
+            }
+        },
+        "/webhooks/revenuecat": {
+            "post": {
+                "description": "Receives subscription updates from RevenueCat",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Webhooks"
+                ],
+                "summary": "Handle RevenueCat webhook",
+                "responses": {
+                    "200": {
+                        "description": "Webhook processed"
                     },
-                    "404": {
-                        "description": "User not found",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.SwaggerErrorResponse"
-                        }
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
                     }
                 }
             }
@@ -2781,6 +2447,10 @@ const docTemplate = `{
                 "recipeId": {
                     "type": "string"
                 },
+                "section": {
+                    "description": "e.g. \"Dough\", \"Sauce\", \"Main\"",
+                    "type": "string"
+                },
                 "sortOrder": {
                     "type": "integer"
                 },
@@ -3009,6 +2679,9 @@ const docTemplate = `{
                 "highestProtein": {
                     "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo"
                 },
+                "message": {
+                    "type": "string"
+                },
                 "quickestRecipe": {
                     "$ref": "#/definitions/github_com_dishflow_backend_internal_model.RecipeQuickInfo"
                 },
@@ -3049,6 +2722,73 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.Limits": {
+            "type": "object",
+            "properties": {
+                "maxRecipes": {
+                    "type": "integer"
+                },
+                "maxShoppingLists": {
+                    "type": "integer"
+                },
+                "multiDeviceSync": {
+                    "type": "boolean"
+                },
+                "pantryScans": {
+                    "type": "integer"
+                },
+                "recipeSharing": {
+                    "type": "boolean"
+                },
+                "videoExtractions": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_handler.SubscriptionResponse": {
+            "type": "object",
+            "properties": {
+                "cancelledAt": {
+                    "type": "string"
+                },
+                "entitlement": {
+                    "type": "string"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "hasBillingIssue": {
+                    "type": "boolean"
+                },
+                "isActive": {
+                    "type": "boolean"
+                },
+                "isSandbox": {
+                    "type": "boolean"
+                },
+                "lastSyncedAt": {
+                    "type": "string"
+                },
+                "limits": {
+                    "$ref": "#/definitions/internal_handler.Limits"
+                },
+                "periodType": {
+                    "type": "string"
+                },
+                "productId": {
+                    "type": "string"
+                },
+                "purchasedAt": {
+                    "type": "string"
+                },
+                "store": {
+                    "type": "string"
+                },
+                "willRenew": {
+                    "type": "boolean"
+                }
+            }
+        },
         "internal_handler.SwaggerAddFromRecipeRequest": {
             "description": "Add ingredients from recipe to shopping list",
             "type": "object",
@@ -3086,70 +2826,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/internal_handler.SwaggerShoppingItem"
                     }
-                }
-            }
-        },
-        "internal_handler.SwaggerAnonymousRequest": {
-            "description": "Anonymous authentication request",
-            "type": "object",
-            "properties": {
-                "deviceId": {
-                    "type": "string",
-                    "example": "device-abc123"
-                }
-            }
-        },
-        "internal_handler.SwaggerAnonymousResponse": {
-            "description": "Anonymous authentication response",
-            "type": "object",
-            "properties": {
-                "accessToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIs..."
-                },
-                "expiresAt": {
-                    "type": "string",
-                    "example": "2024-02-01T10:45:00Z"
-                },
-                "isNewUser": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "refreshToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIs..."
-                },
-                "tokenType": {
-                    "type": "string",
-                    "example": "Bearer"
-                },
-                "user": {
-                    "$ref": "#/definitions/internal_handler.SwaggerUserResponse"
-                }
-            }
-        },
-        "internal_handler.SwaggerAuthResponse": {
-            "description": "Authentication response with tokens",
-            "type": "object",
-            "properties": {
-                "accessToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIs..."
-                },
-                "expiresAt": {
-                    "type": "string",
-                    "example": "2024-02-01T10:45:00Z"
-                },
-                "refreshToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIs..."
-                },
-                "tokenType": {
-                    "type": "string",
-                    "example": "Bearer"
-                },
-                "user": {
-                    "$ref": "#/definitions/internal_handler.SwaggerUserResponse"
                 }
             }
         },
@@ -3375,38 +3051,6 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler.SwaggerLoginRequest": {
-            "description": "User login request",
-            "type": "object",
-            "required": [
-                "email",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string",
-                    "example": "user@example.com"
-                },
-                "password": {
-                    "type": "string",
-                    "example": "securepassword123"
-                }
-            }
-        },
-        "internal_handler.SwaggerLogoutRequest": {
-            "description": "Logout request",
-            "type": "object",
-            "properties": {
-                "refreshToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIs..."
-                },
-                "revokeAll": {
-                    "type": "boolean",
-                    "example": false
-                }
-            }
-        },
         "internal_handler.SwaggerMeResponse": {
             "description": "Current user with subscription info",
             "type": "object",
@@ -3416,26 +3060,6 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/internal_handler.SwaggerUserResponse"
-                }
-            }
-        },
-        "internal_handler.SwaggerPantryExpiringResponse": {
-            "description": "List of expiring pantry items",
-            "type": "object",
-            "properties": {
-                "count": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "days": {
-                    "type": "integer",
-                    "example": 7
-                },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/internal_handler.SwaggerPantryItem"
-                    }
                 }
             }
         },
@@ -3993,64 +3617,6 @@ const docTemplate = `{
                 "videoTimestampStart": {
                     "type": "integer",
                     "example": 60
-                }
-            }
-        },
-        "internal_handler.SwaggerRefreshRequest": {
-            "description": "Token refresh request",
-            "type": "object",
-            "required": [
-                "refreshToken"
-            ],
-            "properties": {
-                "refreshToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIs..."
-                }
-            }
-        },
-        "internal_handler.SwaggerRefreshResponse": {
-            "description": "Token refresh response",
-            "type": "object",
-            "properties": {
-                "accessToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIs..."
-                },
-                "expiresAt": {
-                    "type": "string",
-                    "example": "2024-02-01T10:45:00Z"
-                },
-                "refreshToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIs..."
-                },
-                "tokenType": {
-                    "type": "string",
-                    "example": "Bearer"
-                }
-            }
-        },
-        "internal_handler.SwaggerRegisterRequest": {
-            "description": "User registration request",
-            "type": "object",
-            "required": [
-                "email",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string",
-                    "example": "user@example.com"
-                },
-                "name": {
-                    "type": "string",
-                    "example": "John Doe"
-                },
-                "password": {
-                    "type": "string",
-                    "minLength": 8,
-                    "example": "securepassword123"
                 }
             }
         },

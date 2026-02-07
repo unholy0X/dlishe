@@ -3,18 +3,14 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isPublicRoute = createRouteMatcher([
     "/sign-in(.*)",
     "/sign-up(.*)",
-    "/" // Maybe allow home page to be public? User said "dashboard" so likely private.
-    // Actually, keeping strict for now.
-]);
-
-// If home page is public, remove "/" above.
-// For now, I'll protect everything except auth routes.
-const isProtectedRoute = createRouteMatcher([
-    '/(.*)'
+    "/", // Home page is public
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-    if (isProtectedRoute(req)) await auth.protect()
+    // Only protect non-public routes
+    if (!isPublicRoute(req)) {
+        await auth.protect();
+    }
 });
 
 export const config = {

@@ -157,7 +157,7 @@ func (rl *RateLimiter) limit(config RateLimitConfig, identifierFunc func(*http.R
 }
 
 // getIPIdentifier extracts IP address from request
-// SECURITY: Properly parses X-Forwarded-For to extract the first (client) IP
+// parseXForwardedFor extracts the client IP from X-Forwarded-For header
 // X-Forwarded-For format: "client, proxy1, proxy2, ..."
 func getIPIdentifier(r *http.Request) string {
 	// Check X-Real-IP header first (set by nginx/Cloudflare/etc)

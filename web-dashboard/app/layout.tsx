@@ -14,8 +14,8 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "DishFlow Dashboard",
-  description: "Internal dashboard for verifying DishFlow APIs",
+  title: "DLISHE Dashboard",
+  description: "Recipe management dashboard for DLISHE",
 };
 
 import { Providers } from "./providers";

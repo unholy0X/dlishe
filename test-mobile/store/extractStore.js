@@ -1,5 +1,8 @@
 import { create } from "zustand";
-import { extractRecipeFromUrl, getJobStatus, isTerminalStatus } from "../services/extract";
+import { extractRecipeFromUrl, getJobStatus, getRecipe, isTerminalStatus } from "../services/extract";
+
+const MAX_POLL_TIME = 300000; // 5 minutes
+const POLL_INTERVAL = 1000; // 1 second
 
 const initialState = {
   url: "",
@@ -33,9 +36,7 @@ export const useExtractStore = create((set, get) => ({
     });
 
     try {
-      const token = await getToken?.();
-      console.log("token here", token);
-      const job = await extractRecipeFromUrl({ url, token });
+      const job = await extractRecipeFromUrl({ url, getToken });
       const jobId = job.jobId || job.jobID || job.id;
       const status = job.status || "pending";
 
@@ -45,32 +46,49 @@ export const useExtractStore = create((set, get) => ({
 
       set({ jobId, status, message: job.message || "Extraction started" });
 
-      // Poll for status
-      let done = false;
-      while (!done) {
-        await new Promise((r) => setTimeout(r, 2000));
-        const jobStatus = await getJobStatus({ jobId, token });
+      // Poll for status with timeout
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < MAX_POLL_TIME) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+
+        // getToken is called fresh each poll via authFetch (prevents stale tokens)
+        const jobStatus = await getJobStatus({ jobId, getToken });
         const nextStatus = jobStatus.status;
         const nextMessage = jobStatus.message || "Working…";
         const nextProgress = typeof jobStatus.progress === "number" ? jobStatus.progress : 0;
-        const nextRecipe = jobStatus.recipe || null;
 
         set({
           status: nextStatus,
           message: nextMessage,
           progress: nextProgress,
-          recipe: nextRecipe,
         });
 
         if (isTerminalStatus(nextStatus)) {
-          done = true;
-          if (nextStatus !== "completed") {
-            const errMsg = jobStatus?.error?.message || "Extraction failed";
-            set({ error: errMsg });
+          if (nextStatus === "completed") {
+            // Try to get recipe from response, or fetch by recipeId
+            let recipe = jobStatus.recipe || null;
+            if (!recipe && jobStatus.recipeId) {
+              recipe = await getRecipe({ recipeId: jobStatus.recipeId, getToken });
+            }
+            if (recipe) {
+              set({ recipe, isRunning: false });
+            } else {
+              set({ error: "Job completed but no recipe returned", isRunning: false });
+            }
+          } else {
+            const errMsg = jobStatus?.error?.message || jobStatus.message || "Extraction failed";
+            set({ error: errMsg, isRunning: false });
           }
-          set({ isRunning: false });
+          return;
         }
       }
+
+      // Timeout
+      set({
+        error: "Extraction timed out. Please try again.",
+        isRunning: false,
+      });
     } catch (err) {
       set({
         error: err?.message || "Extraction failed",

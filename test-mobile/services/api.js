@@ -22,7 +22,19 @@ export async function apiFetch(path, { token, ...options } = {}) {
     throw new Error(message);
   }
 
+  if (res.status === 204) return undefined;
   return res.json();
+}
+
+/**
+ * Authenticated fetch that calls getToken fresh each time (prevents stale tokens).
+ */
+export async function authFetch(path, getToken, options = {}) {
+  const token = await getToken();
+  if (!token) {
+    throw new Error("Not authenticated");
+  }
+  return apiFetch(path, { token, ...options });
 }
 
 export function getApiBaseUrl() {

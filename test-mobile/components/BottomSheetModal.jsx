@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Modal, View, Pressable, StyleSheet, Animated, ScrollView } from "react-native";
+import { Modal, View, Pressable, StyleSheet, Animated, ScrollView, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+const SLIDE_OFFSET = 800;
 
 export default function BottomSheetModal({
   visible,
@@ -8,7 +11,7 @@ export default function BottomSheetModal({
   children,
 }) {
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(320)).current;
+  const translateY = useRef(new Animated.Value(SLIDE_OFFSET)).current;
   const [render, setRender] = useState(visible);
 
   useEffect(() => {
@@ -21,7 +24,7 @@ export default function BottomSheetModal({
       }).start();
     } else {
       Animated.timing(translateY, {
-        toValue: 320,
+        toValue: SLIDE_OFFSET,
         duration: 200,
         useNativeDriver: true,
       }).start(({ finished }) => {
@@ -44,7 +47,7 @@ export default function BottomSheetModal({
         >
           <View style={styles.grabber} />
           <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.content}>{children}</View>
+            <View style={[styles.content, { paddingBottom: insets.bottom + 16 }]}>{children}</View>
           </ScrollView>
         </Animated.View>
       </View>
@@ -67,6 +70,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 10,
+    maxHeight: SCREEN_HEIGHT * 0.9,
   },
   grabber: {
     alignSelf: "center",

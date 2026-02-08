@@ -1,11 +1,9 @@
-import { apiFetch } from "./api";
+import { authFetch } from "./api";
 
-export async function extractRecipeFromUrl({ url, token }) {
-  return apiFetch("/recipes/extract", {
+export async function extractRecipeFromUrl({ url, getToken }) {
+  return authFetch("/recipes/extract", getToken, {
     method: "POST",
-    token,
     body: JSON.stringify({
-      type: "url",
       url,
       saveAuto: true,
       detailLevel: "detailed",
@@ -14,10 +12,18 @@ export async function extractRecipeFromUrl({ url, token }) {
   });
 }
 
-export async function getJobStatus({ jobId, token }) {
-  return apiFetch(`/jobs/${jobId}`, { token });
+export async function getJobStatus({ jobId, getToken }) {
+  return authFetch(`/jobs/${jobId}`, getToken);
+}
+
+export async function getRecipe({ recipeId, getToken }) {
+  return authFetch(`/recipes/${recipeId}`, getToken);
 }
 
 export function isTerminalStatus(status) {
-  return status === "completed" || status === "failed" || status === "cancelled";
+  return (
+    status === "completed" ||
+    status === "failed" ||
+    status === "cancelled"
+  );
 }

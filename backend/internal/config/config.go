@@ -55,6 +55,10 @@ type Config struct {
 	CleanupMaxJobAge string // Max age for stuck jobs (e.g., "35m")
 	CleanupTempDir   string // Directory for temp files
 
+	// Concurrency limits
+	MaxConcurrentVideoJobs int // Max parallel video extraction jobs
+	MaxConcurrentLightJobs int // Max parallel URL/image extraction jobs
+
 	// Swagger documentation
 	EnableSwagger bool // Enable Swagger UI at /swagger/
 
@@ -111,6 +115,10 @@ func Load() *Config {
 		CleanupInterval:  getEnv("CLEANUP_INTERVAL", "5m"),
 		CleanupMaxJobAge: getEnv("CLEANUP_MAX_JOB_AGE", "35m"),
 		CleanupTempDir:   getEnv("CLEANUP_TEMP_DIR", ""),
+
+		// Concurrency
+		MaxConcurrentVideoJobs: getIntEnv("MAX_CONCURRENT_VIDEO_JOBS", 20),
+		MaxConcurrentLightJobs: getIntEnv("MAX_CONCURRENT_LIGHT_JOBS", 30),
 
 		// Swagger
 		EnableSwagger: getBoolEnv("ENABLE_SWAGGER", false),

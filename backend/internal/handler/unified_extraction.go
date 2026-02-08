@@ -70,6 +70,8 @@ func NewUnifiedExtractionHandler(
 	redisClient *redis.Client,
 	logger *slog.Logger,
 	adminEmails []string,
+	maxVideoJobs int,
+	maxLightJobs int,
 ) *UnifiedExtractionHandler {
 	h := &UnifiedExtractionHandler{
 		jobRepo:        jobRepo,
@@ -81,8 +83,8 @@ func NewUnifiedExtractionHandler(
 		downloader:     downloader,
 		redis:          redisClient,
 		logger:         logger,
-		videoSemaphore: make(chan struct{}, 4),  // Max 4 concurrent video jobs (I/O-bound, safe for 8 vCPU/24GB)
-		lightSemaphore: make(chan struct{}, 30), // Max 30 concurrent URL/image jobs
+		videoSemaphore: make(chan struct{}, maxVideoJobs),
+		lightSemaphore: make(chan struct{}, maxLightJobs),
 		tempDir:        os.TempDir(),
 		adminEmails:    adminEmails,
 	}

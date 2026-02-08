@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { fetchRecipeById, deleteRecipe, cloneRecipe } from "../../services/recipes";
+import { createShoppingList, addFromRecipe } from "../../services/shopping";
 import { useRecipeStore } from "../../store";
 import ArrowLeftIcon from "../../components/icons/ArrowLeftIcon";
 
@@ -155,6 +156,7 @@ export default function RecipeDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAddingToList, setIsAddingToList] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
@@ -354,8 +356,52 @@ export default function RecipeDetailScreen() {
           {/* Ingredients */}
           {ingredients.length > 0 ? (
             <View style={s.card}>
-              <SectionTitle>Ingredients</SectionTitle>
-              <Text style={s.countText}>{ingredients.length} items</Text>
+              <View style={s.ingredientsHeader}>
+                <View>
+                  <SectionTitle>Ingredients</SectionTitle>
+                  <Text style={s.countText}>{ingredients.length} items</Text>
+                </View>
+                <Pressable
+                  style={s.addToListBtn}
+                  onPress={async () => {
+                    setIsAddingToList(true);
+                    try {
+                      // Create a new shopping list named after the recipe
+                      const list = await createShoppingList({
+                        getToken,
+                        name: recipe.title,
+                        icon: "🍽️",
+                      });
+                      // Add all recipe ingredients to the list
+                      await addFromRecipe({
+                        getToken,
+                        listId: list.id,
+                        recipeId: id,
+                      });
+                      Alert.alert(
+                        "Shopping List Created",
+                        `Added ${ingredients.length} ingredients to "${recipe.title}"`
+                      );
+                    } catch (err) {
+                      const msg = err?.message || "";
+                      if (msg.includes("already")) {
+                        Alert.alert("Already Added", "This recipe is already in a shopping list");
+                      } else {
+                        Alert.alert("Error", msg || "Failed to create shopping list");
+                      }
+                    } finally {
+                      setIsAddingToList(false);
+                    }
+                  }}
+                  disabled={isAddingToList}
+                >
+                  {isAddingToList ? (
+                    <ActivityIndicator size="small" color={C.greenDark} />
+                  ) : (
+                    <Text style={s.addToListBtnText}>+ Shop</Text>
+                  )}
+                </Pressable>
+              </View>
               {sectionEntries.map(([section, items], si) => (
                 <View key={si}>
                   {sectionEntries.length > 1 ? (
@@ -628,6 +674,25 @@ const s = StyleSheet.create({
     color: C.textMeta,
     marginTop: 4,
     marginBottom: 14,
+    letterSpacing: -0.05,
+  },
+  ingredientsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  addToListBtn: {
+    backgroundColor: C.greenLight,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minWidth: 70,
+    alignItems: "center",
+  },
+  addToListBtnText: {
+    fontSize: 13,
+    fontFamily: FONT.semibold,
+    color: C.greenDark,
     letterSpacing: -0.05,
   },
 

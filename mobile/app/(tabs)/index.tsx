@@ -1,10 +1,58 @@
-import { View, Text, ScrollView, Pressable, ImageBackground } from "react-native";
+import { useEffect } from "react";
+import { View, Text, ScrollView, Pressable, ImageBackground, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, router } from "expo-router";
 import { Plus, Sparkles, Heart, BookOpen, Clock, ChefHat } from "lucide-react-native";
 import { colors } from "@/constants/colors";
-import { useRecipeStore, usePantryStore } from "@/store";
+import { useUser, useClerk } from "@clerk/clerk-expo";
+import { useRecipeStore, usePantryStore, useSuggestedStore } from "@/store";
 import type { Recipe } from "@/types";
+
+function SuggestedRecipeCard({ recipe }: { recipe: Recipe }) {
+  const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
+
+  return (
+    <Pressable
+      onPress={() => router.push(`/recipe/${recipe.id}`)}
+      className="bg-honey-50 border border-honey-200 rounded-xl mr-4 active:opacity-90 overflow-hidden"
+      style={{ width: 220 }}
+    >
+      <View className="p-4">
+        <Text style={{ color: colors.text.primary, fontFamily: 'Cormorant Garamond', fontSize: 18, fontWeight: '500' }} numberOfLines={2}>
+          {recipe.title}
+        </Text>
+        {recipe.description ? (
+          <Text style={{ color: colors.text.tertiary, fontFamily: 'Inter', fontSize: 12, marginTop: 4 }} numberOfLines={2}>
+            {recipe.description}
+          </Text>
+        ) : null}
+        <View className="flex-row items-center mt-3 gap-3">
+          {totalTime > 0 && (
+            <View className="flex-row items-center">
+              <Clock size={12} color={colors.text.muted} />
+              <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 11, marginLeft: 3 }}>
+                {totalTime}m
+              </Text>
+            </View>
+          )}
+          {recipe.difficulty && (
+            <View className="flex-row items-center">
+              <ChefHat size={12} color={colors.text.muted} />
+              <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 11, marginLeft: 3, textTransform: 'capitalize' }}>
+                {recipe.difficulty}
+              </Text>
+            </View>
+          )}
+          {recipe.cuisine && (
+            <Text style={{ color: colors.honey[400], fontFamily: 'Inter', fontSize: 11, fontWeight: '500' }}>
+              {recipe.cuisine}
+            </Text>
+          )}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
 
 function RecentRecipeCard({ recipe }: { recipe: Recipe }) {
   const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
@@ -41,9 +89,17 @@ function RecentRecipeCard({ recipe }: { recipe: Recipe }) {
 }
 
 export default function HomeScreen() {
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const { recipes } = useRecipeStore();
   const { items: pantryItems } = usePantryStore();
+  const { recipes: suggested, isLoading: suggestedLoading, loadSuggested } = useSuggestedStore();
 
+  useEffect(() => {
+    loadSuggested();
+  }, []);
+
+  const firstName = user?.firstName;
   const recentRecipes = recipes.slice(0, 5);
   const totalCooked = recipes.reduce((sum, r) => sum + r.cookedCount, 0);
 
@@ -65,7 +121,9 @@ export default function HomeScreen() {
               borderWidth: 1,
               borderColor: colors.stone[200]
             }}>
-              <Text className="text-sm mb-2" style={{ color: colors.text.muted, fontFamily: 'Inter' }}>Welcome home</Text>
+              <Text className="text-sm mb-2" style={{ color: colors.text.muted, fontFamily: 'Inter' }}>
+                {firstName ? `Welcome back, ${firstName}` : 'Welcome home'}
+              </Text>
               <Text className="text-4xl mb-3" style={{ color: colors.text.primary, fontFamily: 'Cormorant Garamond', fontWeight: '300', letterSpacing: -0.5 }}>
                 What shall we{"\n"}cook today?
               </Text>
@@ -251,11 +309,41 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Inspirational Footer */}
-        <View className="px-6 pb-10 items-center">
+        {/* Suggested Recipes */}
+        <View className="mt-10 mb-10">
+          <View className="px-6 flex-row items-center justify-between mb-4">
+            <Text className="text-lg" style={{ color: colors.text.primary, fontFamily: 'Cormorant Garamond', fontWeight: '500' }}>
+              Suggested for You
+            </Text>
+          </View>
+
+          {suggestedLoading ? (
+            <View className="py-8 items-center">
+              <ActivityIndicator size="small" color={colors.honey[400]} />
+            </View>
+          ) : suggested.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingLeft: 24, paddingRight: 8 }}
+            >
+              {suggested.map((recipe) => (
+                <SuggestedRecipeCard key={recipe.id} recipe={recipe} />
+              ))}
+            </ScrollView>
+          ) : null}
+        </View>
+
+        {/* Footer */}
+        <View className="px-6 pb-10 items-center gap-4">
           <Text className="italic" style={{ color: colors.text.disabled, fontFamily: 'Crimson Text', fontSize: 14 }}>
             Cook with love, eat with joy
           </Text>
+          <Pressable onPress={() => signOut()} className="active:opacity-60">
+            <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 13 }}>
+              Sign Out
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>

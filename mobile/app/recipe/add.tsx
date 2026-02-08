@@ -9,14 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ImageBackground,
-  Modal,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, Link } from "expo-router";
-import { Link2, Sparkles, X, BookOpen, PenLine, FileText, Check, ChevronRight } from "lucide-react-native";
+import { Link2, Sparkles, X, BookOpen, PenLine, Check, ChevronRight } from "lucide-react-native";
+import { useAuth } from "@clerk/clerk-expo";
 import { colors } from "@/constants/colors";
-import { extractRecipeFromUrl, extractRecipeFromText, detectUrlType } from "@/lib/recipeExtractor";
+import { extractRecipeFromUrlAsync, type JobStatus } from "@/lib/backendExtraction";
 import { useRecipeStore } from "@/store";
 import type { Recipe } from "@/types";
 
@@ -27,10 +27,9 @@ export default function AddRecipeScreen() {
   const [extractionState, setExtractionState] = useState<ExtractionState>("idle");
   const [extractedRecipe, setExtractedRecipe] = useState<Partial<Recipe> | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
-  const [showPasteModal, setShowPasteModal] = useState(false);
-  const [pastedText, setPastedText] = useState("");
-  const [isPasteExtracting, setIsPasteExtracting] = useState(false);
+  const [progressMessage, setProgressMessage] = useState("");
 
+  const { getToken } = useAuth();
   const { addRecipe } = useRecipeStore();
 
   const isLoading = extractionState === "extracting";
@@ -38,22 +37,55 @@ export default function AddRecipeScreen() {
   const handleExtract = async () => {
     if (!url.trim()) return;
 
-    const urlType = detectUrlType(url);
-
-    // For TikTok/Instagram, show paste modal
-    if (urlType === "tiktok" || urlType === "instagram") {
-      setShowPasteModal(true);
-      return;
-    }
-
     setExtractionState("extracting");
     setErrorMessage("");
+    setProgressMessage("Starting extraction...");
 
     try {
-      const result = await extractRecipeFromUrl(url.trim());
+      // Use backend extraction API (creates user in backend on first call)
+      const result = await extractRecipeFromUrlAsync(
+        url.trim(),
+        getToken,
+        (status: JobStatus, progress: number, message: string) => {
+          // Update progress message for UI feedback
+          setProgressMessage(message || `${status}... ${progress}%`);
+        }
+      );
 
       if (result.success && result.recipe) {
-        setExtractedRecipe(result.recipe);
+        // Convert backend recipe format to local recipe format
+        const recipe: Partial<Recipe> = {
+          id: result.recipe.id,
+          title: result.recipe.title,
+          description: result.recipe.description,
+          sourceUrl: result.recipe.sourceUrl,
+          sourceType: result.recipe.sourceType as any,
+          thumbnailUrl: result.recipe.thumbnailUrl,
+          prepTime: result.recipe.prepTime,
+          cookTime: result.recipe.cookTime,
+          servings: result.recipe.servings,
+          difficulty: result.recipe.difficulty,
+          cuisine: result.recipe.cuisine,
+          tags: result.recipe.tags,
+          notes: result.recipe.notes,
+          isFavorite: result.recipe.isFavorite,
+          ingredients: result.recipe.ingredients?.map(ing => ({
+            id: ing.id,
+            name: ing.name,
+            amount: ing.quantity,
+            unit: ing.unit,
+            category: ing.category as any,
+            notes: ing.notes,
+          })) || [],
+          instructions: result.recipe.instructions?.map(inst => ({
+            id: inst.id,
+            stepNumber: inst.stepNumber,
+            text: inst.instruction,
+            technique: inst.technique,
+            tip: inst.tip,
+          })) || [],
+        };
+        setExtractedRecipe(recipe);
         setExtractionState("preview");
       } else {
         setErrorMessage(result.error || "Failed to extract recipe");
@@ -61,61 +93,27 @@ export default function AddRecipeScreen() {
       }
     } catch (error) {
       console.error("Extraction error:", error);
-      setErrorMessage("Something went wrong. Please try again.");
+      setErrorMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
       setExtractionState("error");
-    }
-  };
-
-  const handlePasteExtract = async () => {
-    if (!pastedText.trim()) return;
-
-    setIsPasteExtracting(true);
-
-    try {
-      const result = await extractRecipeFromText(pastedText.trim(), url);
-
-      if (result.success && result.recipe) {
-        setExtractedRecipe(result.recipe);
-        setShowPasteModal(false);
-        setPastedText("");
-        setExtractionState("preview");
-      } else {
-        Alert.alert("Extraction Failed", result.error || "Could not find a recipe in the text");
-      }
-    } catch (error) {
-      Alert.alert("Error", "Something went wrong. Please try again.");
     } finally {
-      setIsPasteExtracting(false);
+      setProgressMessage("");
     }
   };
 
   const handleSaveRecipe = async () => {
-    if (!extractedRecipe) return;
+    if (!extractedRecipe || !extractedRecipe.id) return;
 
     try {
-      await addRecipe({
-        title: extractedRecipe.title || "Untitled Recipe",
-        description: extractedRecipe.description,
-        sourceUrl: extractedRecipe.sourceUrl,
-        sourceType: extractedRecipe.sourceType,
-        prepTime: extractedRecipe.prepTime,
-        cookTime: extractedRecipe.cookTime,
-        servings: extractedRecipe.servings,
-        difficulty: extractedRecipe.difficulty,
-        cuisine: extractedRecipe.cuisine,
-        tags: extractedRecipe.tags,
-        notes: extractedRecipe.notes,
-        ingredients: extractedRecipe.ingredients || [],
-        instructions: extractedRecipe.instructions || [],
-        isFavorite: false,
-      });
-
-      router.back();
+      // Recipe is already saved by the backend.
+      // The extractedRecipe.id contains the backend recipe ID.
+      // We just need to refresh the local store and navigate to the recipe.
+      const { loadRecipes } = useRecipeStore.getState();
+      await loadRecipes();
+      router.replace(`/recipe/${extractedRecipe.id}`);
     } catch (error) {
-      Alert.alert("Error", "Failed to save recipe. Please try again.");
+      Alert.alert("Error", "Failed to load recipe. Please try again.");
     }
   };
-
   const resetState = () => {
     setExtractionState("idle");
     setExtractedRecipe(null);
@@ -393,7 +391,7 @@ export default function AddRecipeScreen() {
               <>
                 <ActivityIndicator color="white" size="small" />
                 <Text style={{ color: 'white', fontFamily: 'Inter', fontWeight: '600', fontSize: 16, marginLeft: 12 }}>
-                  {detectUrlType(url) === "youtube" ? "Analyzing video..." : "Extracting recipe..."}
+                  {progressMessage || "Extracting recipe..."}
                 </Text>
               </>
             ) : (
@@ -423,26 +421,6 @@ export default function AddRecipeScreen() {
             <View className="flex-1 h-px" style={{ backgroundColor: colors.stone[200] }} />
           </View>
 
-          {/* TikTok/Instagram Option */}
-          <Pressable
-            onPress={() => setShowPasteModal(true)}
-            className="bg-stone-100 border border-stone-200 rounded-xl p-5 active:bg-stone-200 mb-4"
-          >
-            <View className="flex-row items-center">
-              <View className="w-12 h-12 bg-sage-50 rounded-xl items-center justify-center mr-4">
-                <FileText size={22} color={colors.sage[200]} />
-              </View>
-              <View className="flex-1">
-                <Text style={{ color: colors.text.primary, fontFamily: 'Inter', fontWeight: '600', fontSize: 16 }}>
-                  Paste Description
-                </Text>
-                <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 14, marginTop: 2 }}>
-                  For TikTok & Instagram videos
-                </Text>
-              </View>
-              <ChevronRight size={20} color={colors.text.muted} />
-            </View>
-          </Pressable>
 
           {/* Manual Entry Option */}
           <Link href="/recipe/manual" asChild>
@@ -482,18 +460,6 @@ export default function AddRecipeScreen() {
                 </View>
                 <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 11 }}>Websites</Text>
               </View>
-              <View className="items-center">
-                <View className="w-12 h-12 bg-stone-100 border border-stone-200 rounded-xl items-center justify-center mb-2">
-                  <Text className="text-xl">📱</Text>
-                </View>
-                <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 11 }}>TikTok</Text>
-              </View>
-              <View className="items-center">
-                <View className="w-12 h-12 bg-stone-100 border border-stone-200 rounded-xl items-center justify-center mb-2">
-                  <Text className="text-xl">📸</Text>
-                </View>
-                <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 11 }}>Instagram</Text>
-              </View>
             </View>
           </View>
 
@@ -505,79 +471,6 @@ export default function AddRecipeScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* Paste Description Modal */}
-      <Modal visible={showPasteModal} animationType="slide" transparent>
-        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
-            <View className="bg-stone-50 rounded-t-3xl px-6 pt-6 pb-10">
-              <View className="flex-row items-center justify-between mb-4">
-                <Text style={{ color: colors.text.primary, fontFamily: 'Cormorant Garamond', fontSize: 24, fontWeight: '500' }}>
-                  Paste Description
-                </Text>
-                <Pressable onPress={() => setShowPasteModal(false)} className="p-2 -mr-2">
-                  <X size={24} color={colors.text.muted} />
-                </Pressable>
-              </View>
-
-              <Text style={{ color: colors.text.muted, fontFamily: 'Inter', fontSize: 14, marginBottom: 16, lineHeight: 20 }}>
-                Copy the video description or caption from TikTok/Instagram and paste it here. We'll extract the recipe for you.
-              </Text>
-
-              <TextInput
-                className="bg-stone-100 border border-stone-200 rounded-xl px-4 py-4 mb-5"
-                placeholder="Paste the video description here..."
-                placeholderTextColor={colors.text.muted}
-                value={pastedText}
-                onChangeText={setPastedText}
-                multiline
-                numberOfLines={6}
-                style={{
-                  fontSize: 15,
-                  color: colors.text.primary,
-                  fontFamily: 'Inter',
-                  minHeight: 150,
-                  textAlignVertical: 'top',
-                }}
-                autoFocus
-              />
-
-              <Pressable
-                onPress={handlePasteExtract}
-                disabled={!pastedText.trim() || isPasteExtracting}
-                className="py-4 rounded-xl flex-row items-center justify-center"
-                style={{
-                  backgroundColor: pastedText.trim() && !isPasteExtracting ? colors.honey[400] : colors.stone[200],
-                }}
-              >
-                {isPasteExtracting ? (
-                  <>
-                    <ActivityIndicator color="white" size="small" />
-                    <Text style={{ color: 'white', fontFamily: 'Inter', fontWeight: '600', fontSize: 16, marginLeft: 12 }}>
-                      Extracting...
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={20} color={pastedText.trim() ? "white" : colors.text.muted} />
-                    <Text
-                      style={{
-                        color: pastedText.trim() ? "white" : colors.text.muted,
-                        fontFamily: 'Inter',
-                        fontWeight: '600',
-                        fontSize: 16,
-                        marginLeft: 8,
-                      }}
-                    >
-                      Extract Recipe
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

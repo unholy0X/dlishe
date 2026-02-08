@@ -1,7 +1,27 @@
 import { Tabs } from "expo-router";
-import { View } from "react-native";
+import { View, Text, Image } from "react-native";
 import { Home, BookOpen, Flower2, ShoppingBasket } from "lucide-react-native";
+import { useUser } from "@clerk/clerk-expo";
 import { colors } from "@/constants/colors";
+
+function ProfileHeader() {
+  const { user } = useUser();
+  if (!user) return null;
+
+  const name = user.firstName ?? user.emailAddresses?.[0]?.emailAddress?.split("@")[0] ?? "";
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", marginRight: 16, gap: 8 }}>
+      <Text style={{ color: colors.text.secondary, fontFamily: "Inter", fontSize: 14, fontWeight: "500" }}>
+        {name}
+      </Text>
+      <Image
+        source={{ uri: user.imageUrl }}
+        style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.stone[200] }}
+      />
+    </View>
+  );
+}
 
 export default function TabLayout() {
   return (
@@ -65,7 +85,8 @@ export default function TabLayout() {
               )}
             </View>
           ),
-          headerTitle: "DishFlow",
+          headerTitle: "Dlishe",
+          headerRight: () => <ProfileHeader />,
         }}
       />
       <Tabs.Screen

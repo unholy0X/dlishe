@@ -109,7 +109,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	// Unified extraction handler (handles url, image, video extraction with async jobs)
 	// Also handles job listing, status, and cancellation
 	// Now includes enrichment and caching support
-	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, userRepo, extractor, enricher, extractionCacheRepo, downloader, redis, logger, cfg.AdminEmails)
+	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, userRepo, extractor, enricher, extractionCacheRepo, downloader, redis, logger, cfg.AdminEmails, cfg.MaxConcurrentVideoJobs, cfg.MaxConcurrentLightJobs)
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(redis)

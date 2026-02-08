@@ -187,6 +187,10 @@ prod-up:
 	@test -f .env.prod || (echo "Error: .env.prod not found. Copy .env.prod.example and fill in values." && exit 1)
 	$(PROD_COMPOSE) up -d
 
+prod-restart:
+	$(PROD_COMPOSE) build api
+	$(PROD_COMPOSE) up -d api
+
 prod-down:
 	$(PROD_COMPOSE) down
 

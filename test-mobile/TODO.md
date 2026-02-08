@@ -1,0 +1,2 @@
+- splash screen
+- bottom navigation bar

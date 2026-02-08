@@ -583,6 +583,8 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 			failJob("CANCELLED", "Job was cancelled")
 		} else if errors.Is(err, model.ErrIrrelevantContent) {
 			failJob("CONTENT_IRRELEVANT", err.Error())
+		} else if isTransientError(err) {
+			failJob("TRANSIENT_FAILURE", err.Error())
 		} else {
 			failJob("EXTRACTION_FAILED", err.Error())
 		}
@@ -657,6 +659,23 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 		h.logger.Error("Failed to mark job completed — recipe was saved but job status is stale",
 			"error", err, "job_id", job.ID, "recipe_id", recipeID)
 	}
+}
+
+// isTransientError checks if an error is caused by transient infrastructure issues
+// (rate limits, server errors, timeouts) rather than bad user input.
+// Jobs failing with transient errors get TRANSIENT_FAILURE and don't count against quota.
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "429") ||
+		strings.Contains(msg, "503") ||
+		strings.Contains(msg, "500") ||
+		strings.Contains(msg, "timeout") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "RESOURCE_EXHAUSTED") ||
+		strings.Contains(msg, "max retries exceeded")
 }
 
 // processURLExtraction handles URL extraction with caching

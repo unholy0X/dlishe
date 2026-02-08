@@ -358,11 +358,14 @@ func (r *JobRepository) CountPendingByUser(ctx context.Context, userID uuid.UUID
 
 // CountUsedThisMonth counts all non-failed extractions this month for a user.
 // Includes completed AND in-progress jobs to prevent parallel request race conditions.
+// Excludes TRANSIENT_FAILURE jobs (rate limits, server errors) so users aren't penalized
+// for infrastructure issues they can't control.
 func (r *JobRepository) CountUsedThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
 	query := `
 		SELECT COUNT(*) FROM video_jobs
 		WHERE user_id = $1
 		AND status NOT IN ($2, $3)
+		AND (error_code IS NULL OR error_code != 'TRANSIENT_FAILURE')
 		AND created_at >= date_trunc('month', CURRENT_DATE)
 	`
 	var count int

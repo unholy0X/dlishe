@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"os"
@@ -318,7 +320,7 @@ type retryConfig struct {
 var defaultRetryConfig = retryConfig{
 	maxAttempts: 5,
 	baseDelay:   1 * time.Second,
-	maxDelay:    15 * time.Second,
+	maxDelay:    30 * time.Second,
 }
 
 // isRetryableError checks if an error should trigger a retry
@@ -337,7 +339,9 @@ func isRetryableError(err error) bool {
 		strings.Contains(errStr, "RESOURCE_EXHAUSTED")
 }
 
-// withRetry executes a function with exponential backoff retry
+// withRetry executes a function with exponential backoff retry using full jitter.
+// Full jitter (AWS best practice): delay = rand(0, min(maxDelay, baseDelay * 2^attempt))
+// This decorrelates retries across concurrent goroutines, preventing thundering herd.
 func withRetry[T any](ctx context.Context, cfg retryConfig, fn func() (T, error)) (T, error) {
 	var lastErr error
 	var zero T
@@ -362,18 +366,33 @@ func withRetry[T any](ctx context.Context, cfg retryConfig, fn func() (T, error)
 
 		// Don't wait after the last attempt
 		if attempt < cfg.maxAttempts-1 {
-			// Calculate delay with exponential backoff
-			delay := cfg.baseDelay * time.Duration(1<<uint(attempt))
+			isRateLimit := strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "RESOURCE_EXHAUSTED")
 
-			// If it's a rate limit error, be more aggressive with delay
-			if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "RESOURCE_EXHAUSTED") {
-				// Start with 2s, 4s, 8s, 16s...
-				delay = 2 * time.Second * time.Duration(1<<uint(attempt))
+			// Calculate ceiling: baseDelay * 2^attempt (or 2*baseDelay for rate limits)
+			base := cfg.baseDelay
+			if isRateLimit {
+				base = 2 * time.Second
+			}
+			ceiling := base * time.Duration(1<<uint(attempt))
+			if ceiling > cfg.maxDelay {
+				ceiling = cfg.maxDelay
 			}
 
-			if delay > cfg.maxDelay {
-				delay = cfg.maxDelay
+			// Full jitter: uniform random in [0, ceiling)
+			delay := time.Duration(rand.Int64N(int64(ceiling)))
+
+			// Rate-limit floor: never retry faster than 1s on 429/RESOURCE_EXHAUSTED
+			if isRateLimit && delay < 1*time.Second {
+				delay = 1 * time.Second
 			}
+
+			slog.Warn("Gemini API retry",
+				"attempt", attempt+1,
+				"max_attempts", cfg.maxAttempts,
+				"delay", delay,
+				"is_rate_limit", isRateLimit,
+				"error", err.Error(),
+			)
 
 			// Wait with context cancellation support
 			select {

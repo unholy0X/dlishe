@@ -1,5 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
 import FloatingNav from "../components/FloatingNav";
@@ -30,12 +38,20 @@ export default function HomeScreen() {
   const pathname = usePathname();
   const activeKey = pathname.replace("/", "") || "home";
   const [isSheetOpen, setSheetOpen] = useState(false);
+  const [isRecipesSheetOpen, setRecipesSheetOpen] = useState(false);
 
-  const { recipes: suggested, loadSuggested } = useSuggestedStore();
+  const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
 
   useEffect(() => {
     loadSuggested({ limit: 10 });
   }, []);
+
+  const handleSeeAll = useCallback(() => {
+    setRecipesSheetOpen(true);
+    if (allRecipes.length === 0) {
+      loadAll();
+    }
+  }, [allRecipes.length]);
 
   const carouselItems = suggested.map((r) => ({
     id: r.id,
@@ -89,7 +105,7 @@ export default function HomeScreen() {
             <StatsCardsRow />
 
             <RecentRecipesHeader
-              onPressSeeAll={() => router.push("/recipies")}
+              onPressSeeAll={handleSeeAll}
             />
           </View>
           <View style={{ marginHorizontal: 20 }}>
@@ -114,6 +130,59 @@ export default function HomeScreen() {
         onClose={() => setSheetOpen(false)}
       >
         <AddRecipeSheetContent onPressBack={() => setSheetOpen(false)} />
+      </BottomSheetModal>
+
+      {/* All Recent Recipes Sheet */}
+      <BottomSheetModal
+        visible={isRecipesSheetOpen}
+        onClose={() => setRecipesSheetOpen(false)}
+      >
+        <View style={styles.recipesSheet}>
+          <Text style={styles.recipesSheetTitle}>Recent Recipes</Text>
+          <Text style={styles.recipesSheetSubtitle}>
+            {(allRecipes.length || suggested.length)} recipe{(allRecipes.length || suggested.length) !== 1 ? "s" : ""}
+          </Text>
+
+          {isLoadingAll ? (
+            <View style={styles.recipesSheetLoading}>
+              <ActivityIndicator size="large" color="#385225" />
+            </View>
+          ) : (
+            <View style={styles.recipesSheetGrid}>
+              {(allRecipes.length > 0 ? allRecipes : suggested).map((recipe) => {
+                const imageSource = recipe.thumbnailUrl
+                  ? { uri: recipe.thumbnailUrl }
+                  : null;
+                const meta = buildMeta(recipe);
+
+                return (
+                  <Pressable
+                    key={recipe.id}
+                    style={styles.recipeCard}
+                    onPress={() => {
+                      setRecipesSheetOpen(false);
+                      router.push(`/recipe/${recipe.id}`);
+                    }}
+                  >
+                    {imageSource ? (
+                      <Image source={imageSource} style={styles.recipeCardImage} />
+                    ) : (
+                      <View style={[styles.recipeCardImage, styles.recipeCardPlaceholder]}>
+                        <Text style={styles.recipeCardPlaceholderText}>
+                          {recipe.title ? recipe.title.charAt(0).toUpperCase() : "?"}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.recipeCardInfo}>
+                      <Text style={styles.recipeCardTitle} numberOfLines={2}>{recipe.title}</Text>
+                      {meta ? <Text style={styles.recipeCardMeta}>{meta}</Text> : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
       </BottomSheetModal>
     </View>
   );
@@ -143,5 +212,68 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 4,
     color: "#6b6b6b",
+  },
+  // Recipes sheet
+  recipesSheet: {
+    paddingBottom: 20,
+  },
+  recipesSheetTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#111111",
+    letterSpacing: -0.3,
+  },
+  recipesSheetSubtitle: {
+    fontSize: 14,
+    color: "#B4B4B4",
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  recipesSheetLoading: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  recipesSheetGrid: {
+    gap: 12,
+    paddingBottom: 10,
+  },
+  recipeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#EBEBEB",
+  },
+  recipeCardImage: {
+    width: 80,
+    height: 80,
+  },
+  recipeCardPlaceholder: {
+    backgroundColor: "#DFF7C4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recipeCardPlaceholderText: {
+    fontSize: 28,
+    fontWeight: "600",
+    color: "#385225",
+  },
+  recipeCardInfo: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  recipeCardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111111",
+    letterSpacing: -0.2,
+  },
+  recipeCardMeta: {
+    fontSize: 13,
+    color: "#B4B4B4",
+    marginTop: 4,
   },
 });

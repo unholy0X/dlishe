@@ -16,6 +16,7 @@ import { fetchRecipeById, deleteRecipe, cloneRecipe } from "../../services/recip
 import { createShoppingList, addFromRecipe, deleteShoppingList } from "../../services/shopping";
 import { useRecipeStore, useShoppingStore } from "../../store";
 import ArrowLeftIcon from "../../components/icons/ArrowLeftIcon";
+import RecipePlaceholder from "../../components/RecipePlaceholder";
 
 // ─── Design tokens ───────────────────────────────────────────────
 const C = {
@@ -290,9 +291,12 @@ export default function RecipeDetailScreen() {
             </SafeAreaView>
           </View>
         ) : (
-          <SafeAreaView style={s.noImageHeader} edges={["top"]}>
-            <BackButton onPress={() => router.back()} />
-          </SafeAreaView>
+          <View>
+            <RecipePlaceholder title={recipe.title} variant="hero" style={s.heroImage} />
+            <SafeAreaView style={s.heroOverlay} edges={["top"]}>
+              <BackButton light onPress={() => router.back()} />
+            </SafeAreaView>
+          </View>
         )}
 
         <View style={s.body}>

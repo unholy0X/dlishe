@@ -4,7 +4,6 @@ import HeartIcon from "../icons/HeartIcon";
 
 export default function RecipeCard({
   title,
-  description,
   meta,
   image,
   thumbnailUrl,
@@ -64,11 +63,6 @@ export default function RecipeCard({
             </Pressable>
           )}
         </View>
-        {description ? (
-          <Text style={styles.description} numberOfLines={2}>
-            {description}
-          </Text>
-        ) : null}
         {meta ? <Text style={styles.meta}>{meta}</Text> : null}
       </View>
     </Pressable>
@@ -79,15 +73,19 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     backgroundColor: "#ffffff",
-    borderRadius: 20,
-    padding: 12,
+    borderRadius: 22,
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    overflow: "hidden",
   },
   image: {
-    width: 90,
-    height: 90,
-    borderRadius: 18,
+    width: 110,
+    height: 110,
   },
   placeholder: {
     backgroundColor: "#DFF7C4",
@@ -95,13 +93,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   placeholderText: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: "600",
     color: "#385225",
   },
   content: {
     flex: 1,
-    marginLeft: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   titleRow: {
     flexDirection: "row",
@@ -109,24 +108,19 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 20,
-    fontWeight: "500",
-    color: "#000",
-    letterSpacing: -0.05,
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#111111",
+    letterSpacing: -0.2,
+    lineHeight: 22,
   },
   heartBtn: {
-    paddingLeft: 8,
-    paddingTop: 2,
-  },
-  description: {
-    marginTop: 6,
-    fontSize: 13,
-    color: "#385225",
-    letterSpacing: -0.05,
+    paddingLeft: 10,
+    paddingTop: 1,
   },
   meta: {
-    marginTop: 8,
-    fontSize: 12,
+    marginTop: 6,
+    fontSize: 13,
     color: "#B4B4B4",
     letterSpacing: -0.05,
   },

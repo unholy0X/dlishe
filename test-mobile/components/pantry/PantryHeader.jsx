@@ -1,14 +1,12 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { BlurView } from "expo-blur";
-import MagnifierIcon from "../icons/MagnifierIcon";
 import DotsVerticalIcon from "../icons/DotsVerticalIcon";
 import PlusIcon from "../icons/PlusIcon";
 
 export default function PantryHeader({
   title = "My Pantry",
   subtitle = "Your garden of ingrediants",
-  onPressSearch,
   onPressMore,
   onPressAdd,
 }) {
@@ -20,12 +18,6 @@ export default function PantryHeader({
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={onPressSearch}>
-          <BlurView intensity={120} tint="light" style={styles.blur}>
-            <MagnifierIcon width={22} height={22} color="#B4B4B4" />
-          </BlurView>
-        </Pressable>
-
         <Pressable onPress={onPressMore}>
           <BlurView intensity={120} tint="light" style={styles.blur}>
             <DotsVerticalIcon width={6} height={20} color="#B4B4B4" />
@@ -84,6 +76,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#7FEE7F",
+    backgroundColor: "#7FEF80",
   },
 });

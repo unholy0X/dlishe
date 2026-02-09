@@ -13,8 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { fetchRecipeById, deleteRecipe, cloneRecipe } from "../../services/recipes";
-import { createShoppingList, addFromRecipe } from "../../services/shopping";
-import { useRecipeStore } from "../../store";
+import { createShoppingList, addFromRecipe, deleteShoppingList } from "../../services/shopping";
+import { useRecipeStore, useShoppingStore } from "../../store";
 import ArrowLeftIcon from "../../components/icons/ArrowLeftIcon";
 
 // ─── Design tokens ───────────────────────────────────────────────
@@ -365,28 +365,46 @@ export default function RecipeDetailScreen() {
                   style={s.addToListBtn}
                   onPress={async () => {
                     setIsAddingToList(true);
+                    let createdList = null;
                     try {
                       // Create a new shopping list named after the recipe
-                      const list = await createShoppingList({
+                      createdList = await createShoppingList({
                         getToken,
                         name: recipe.title,
-                        icon: "🍽️",
                       });
                       // Add all recipe ingredients to the list
-                      await addFromRecipe({
+                      const result = await addFromRecipe({
                         getToken,
-                        listId: list.id,
+                        listId: createdList.id,
                         recipeId: id,
                       });
-                      Alert.alert(
-                        "Shopping List Created",
-                        `Added ${ingredients.length} ingredients to "${recipe.title}"`
-                      );
+                      const addedCount = result?.count || result?.items?.length || 0;
+                      if (addedCount === 0) {
+                        // No items were added — clean up the empty list
+                        try { await deleteShoppingList({ getToken, listId: createdList.id }); } catch {}
+                        Alert.alert("No Ingredients", "This recipe has no ingredients to add.");
+                      } else {
+                        // Push the new list into the shopping store with correct counts
+                        useShoppingStore.setState((state) => ({
+                          lists: [
+                            { ...createdList, itemCount: addedCount, checkedCount: 0 },
+                            ...state.lists,
+                          ],
+                        }));
+                        Alert.alert(
+                          "Shopping List Created",
+                          `Added ${addedCount} ingredient${addedCount !== 1 ? "s" : ""} to "${recipe.title}"`
+                        );
+                      }
                     } catch (err) {
                       const msg = err?.message || "";
                       if (msg.includes("already")) {
-                        Alert.alert("Already Added", "This recipe is already in a shopping list");
+                        Alert.alert("Already Added", "This recipe's ingredients are already in a shopping list.");
                       } else {
+                        // If list was created but adding items failed, clean up
+                        if (createdList?.id) {
+                          try { await deleteShoppingList({ getToken, listId: createdList.id }); } catch {}
+                        }
                         Alert.alert("Error", msg || "Failed to create shopping list");
                       }
                     } finally {

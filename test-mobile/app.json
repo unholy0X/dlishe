@@ -1,8 +1,8 @@
 {
   "expo": {
     "scheme": "dlishe",
-    "name": "test-mobile",
-    "slug": "test-mobile",
+    "name": "DLISHE",
+    "slug": "dlishe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,15 +15,26 @@
     },
     "ios": {
       "bundleIdentifier": "com.dlishe.app",
-      "supportsTablet": true
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "DLISHE uses the camera to scan recipes from photos and pantry items",
+        "NSPhotoLibraryUsageDescription": "DLISHE lets you extract recipes from photos in your library"
+      }
     },
     "android": {
       "package": "com.dlishe.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,7 +43,20 @@
       "expo-router",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-font"
-    ]
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "DLISHE accesses your photos to extract recipes",
+          "cameraPermission": "DLISHE uses the camera to scan recipes and pantry items"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
+    },
+    "owner": "dlishe"
   }
 }

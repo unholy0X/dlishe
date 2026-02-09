@@ -11,6 +11,7 @@ import {
   LayoutAnimation,
   UIManager,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
@@ -43,22 +44,51 @@ const CATEGORY_IMAGES = {
   other: require("../assets/pantry.png"),
 };
 
+// Subtle tinted backgrounds per category
+const CATEGORY_TINTS = {
+  dairy: { bg: "#EBF3FD", accent: "#DAE8F9" },
+  produce: { bg: "#F0F8E8", accent: "#E2F0D4" },
+  proteins: { bg: "#FDEEEE", accent: "#F9DEDE" },
+  bakery: { bg: "#FDF2E8", accent: "#F9E4D0" },
+  spices: { bg: "#FDF2E8", accent: "#F9E4D0" },
+  pantry: { bg: "#F2EEFD", accent: "#E6DFFA" },
+  beverages: { bg: "#ECF6F3", accent: "#DBEeE8" },
+  condiments: { bg: "#FDF2E8", accent: "#F9E4D0" },
+  snacks: { bg: "#F2EEFD", accent: "#E6DFFA" },
+  frozen: { bg: "#EBF3FD", accent: "#DAE8F9" },
+  household: { bg: "#ECF6F3", accent: "#DBEeE8" },
+  other: { bg: "#F4F5F7", accent: "#E8E8E8" },
+};
+
 const CategoryFolder = ({ category, items, isExpanded, onToggle, onDeleteItem }) => {
   const image = CATEGORY_IMAGES[category] || CATEGORY_IMAGES.other;
+  const tint = CATEGORY_TINTS[category] || CATEGORY_TINTS.other;
   const displayName = category.charAt(0).toUpperCase() + category.slice(1);
   const previewItems = items.slice(0, 4);
 
   return (
-    <Pressable style={styles.folder} onPress={onToggle}>
+    <Pressable
+      style={[styles.folder, { backgroundColor: isExpanded ? "#ffffff" : tint.bg }]}
+      onPress={onToggle}
+    >
+      {/* Accent circle */}
+      <View style={[styles.folderAccent, { backgroundColor: tint.accent }]} />
+
       {/* Folder Header */}
       <View style={styles.folderHeader}>
-        <Image source={image} style={styles.folderImage} resizeMode="contain" />
+        <View style={styles.folderImageWrap}>
+          <Image source={image} style={styles.folderImage} resizeMode="contain" />
+        </View>
         <View style={styles.folderInfo}>
           <Text style={styles.folderTitle}>{displayName}</Text>
-          <Text style={styles.folderCount}>{items.length} item{items.length !== 1 ? "s" : ""}</Text>
+          <View style={styles.folderMeta}>
+            <Text style={styles.folderCount}>{items.length} item{items.length !== 1 ? "s" : ""}</Text>
+          </View>
         </View>
-        <View style={styles.expandIcon}>
-          <Text style={styles.expandIconText}>{isExpanded ? "−" : "+"}</Text>
+        <View style={[styles.expandIcon, isExpanded && styles.expandIconActive]}>
+          <Text style={[styles.expandIconText, isExpanded && styles.expandIconTextActive]}>
+            {isExpanded ? "−" : "+"}
+          </Text>
         </View>
       </View>
 
@@ -116,10 +146,12 @@ export default function PantryScreen() {
   const pathname = usePathname();
   const activeKey = pathname.replace("/", "") || "pantry";
   const [isSheetOpen, setSheetOpen] = useState(false);
+  const [isMenuOpen, setMenuOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
 
   const { getToken } = useAuth();
-  const { groups, total, isLoading, error, loadPantry, removeItem } = usePantryStore();
+  const { groups, total, isLoading, error, loadPantry, removeItem, clearPantry } = usePantryStore();
 
   useEffect(() => {
     loadPantry({ getToken });
@@ -153,6 +185,31 @@ export default function PantryScreen() {
     loadPantry({ getToken });
   };
 
+  const handleClearPantry = useCallback(() => {
+    setMenuOpen(false);
+    Alert.alert(
+      "Reset Pantry",
+      `This will remove all ${total} item${total !== 1 ? "s" : ""} from your pantry. This can't be undone.`,
+      [
+        { text: "Keep Items", style: "cancel" },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: async () => {
+            setIsClearing(true);
+            try {
+              await clearPantry({ getToken });
+            } catch {
+              // error set in store
+            } finally {
+              setIsClearing(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [getToken, total]);
+
   const isEmpty = !isLoading && groups.length === 0;
 
   return (
@@ -162,6 +219,7 @@ export default function PantryScreen() {
           <View style={styles.paddedContainer}>
             <PantryHeader
               subtitle="No items yet"
+              onPressMore={() => setMenuOpen(true)}
               onPressAdd={() => setSheetOpen(true)}
             />
             <PantryEmptyState onPressAdd={() => setSheetOpen(true)} />
@@ -181,6 +239,7 @@ export default function PantryScreen() {
             <View style={styles.paddedContainer}>
               <PantryHeader
                 subtitle={`${total} item${total !== 1 ? "s" : ""} in pantry`}
+                onPressMore={() => setMenuOpen(true)}
                 onPressAdd={() => setSheetOpen(true)}
               />
             </View>
@@ -226,6 +285,37 @@ export default function PantryScreen() {
           onItemAdded={handleSheetClose}
         />
       </BottomSheetModal>
+
+      {/* Menu sheet */}
+      <BottomSheetModal visible={isMenuOpen} onClose={() => setMenuOpen(false)}>
+        <View style={styles.menuSheet}>
+          <Text style={styles.menuTitle}>Pantry Options</Text>
+          <Pressable
+            style={styles.menuOption}
+            onPress={handleClearPantry}
+            disabled={total === 0 || isClearing}
+          >
+            <View style={styles.menuOptionIcon}>
+              {isClearing ? (
+                <ActivityIndicator size="small" color="#cc3b3b" />
+              ) : (
+                <Text style={styles.menuOptionIconText}>{"\u2715"}</Text>
+              )}
+            </View>
+            <View style={styles.menuOptionInfo}>
+              <Text style={[styles.menuOptionLabel, total === 0 && styles.menuOptionDisabled]}>
+                Reset Pantry
+              </Text>
+              <Text style={styles.menuOptionDesc}>
+                {total === 0 ? "Pantry is already empty" : `Remove all ${total} item${total !== 1 ? "s" : ""}`}
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable style={styles.menuDismiss} onPress={() => setMenuOpen(false)}>
+            <Text style={styles.menuDismissText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </BottomSheetModal>
     </View>
   );
 }
@@ -233,7 +323,7 @@ export default function PantryScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#f4f5f7",
+    backgroundColor: "#F4F5F7",
   },
   safeArea: {
     flex: 1,
@@ -248,21 +338,43 @@ const styles = StyleSheet.create({
   foldersContainer: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    gap: 12,
+    gap: 10,
   },
   // Folder styles
   folder: {
-    backgroundColor: "#ffffff",
     borderRadius: 20,
     padding: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  folderAccent: {
+    position: "absolute",
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    top: -25,
+    right: -15,
+    opacity: 0.3,
   },
   folderHeader: {
     flexDirection: "row",
     alignItems: "center",
   },
+  folderImageWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   folderImage: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
   },
   folderInfo: {
     flex: 1,
@@ -273,23 +385,34 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111111",
   },
+  folderMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
   folderCount: {
-    fontSize: 13,
-    color: "#B4B4B4",
-    marginTop: 2,
+    fontSize: 12,
+    color: "#999999",
+    fontWeight: "500",
   },
   expandIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F4F5F7",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.04)",
     alignItems: "center",
     justifyContent: "center",
   },
+  expandIconActive: {
+    backgroundColor: "#E8F5E9",
+  },
   expandIconText: {
-    fontSize: 18,
-    color: "#6b6b6b",
+    fontSize: 16,
+    color: "#999999",
     fontWeight: "600",
+  },
+  expandIconTextActive: {
+    color: "#2a5a2a",
   },
   // Preview chips
   previewRow: {
@@ -299,10 +422,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   previewChip: {
-    backgroundColor: "#F4F5F7",
-    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.8)",
+    borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     maxWidth: 100,
   },
   previewChipText: {
@@ -310,10 +433,10 @@ const styles = StyleSheet.create({
     color: "#6b6b6b",
   },
   previewMore: {
-    backgroundColor: "#E8F5E9",
-    borderRadius: 12,
+    backgroundColor: "rgba(56,82,37,0.08)",
+    borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
   },
   previewMoreText: {
     fontSize: 12,
@@ -328,11 +451,13 @@ const styles = StyleSheet.create({
   itemChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F4F5F7",
+    backgroundColor: "rgba(255,255,255,0.6)",
     borderRadius: 12,
     paddingLeft: 14,
     paddingRight: 8,
     paddingVertical: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#EBEBEB",
   },
   itemContent: {
     flex: 1,
@@ -347,7 +472,7 @@ const styles = StyleSheet.create({
   },
   itemQty: {
     fontSize: 13,
-    color: "#888888",
+    color: "#999999",
     marginLeft: 8,
   },
   itemDelete: {
@@ -360,7 +485,7 @@ const styles = StyleSheet.create({
   },
   itemDeleteText: {
     fontSize: 12,
-    color: "#B4B4B4",
+    color: "#C0C0C0",
     fontWeight: "600",
   },
   // States
@@ -377,5 +502,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#cc3b3b",
     textAlign: "center",
+  },
+  // Menu sheet
+  menuSheet: {
+    paddingBottom: 20,
+  },
+  menuTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111111",
+    marginBottom: 16,
+  },
+  menuOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF5F5",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  menuOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FDDEDE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+  menuOptionIconText: {
+    fontSize: 16,
+    color: "#cc3b3b",
+    fontWeight: "600",
+  },
+  menuOptionInfo: {
+    flex: 1,
+  },
+  menuOptionLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#cc3b3b",
+  },
+  menuOptionDisabled: {
+    color: "#C0C0C0",
+  },
+  menuOptionDesc: {
+    fontSize: 13,
+    color: "#999999",
+    marginTop: 2,
+  },
+  menuDismiss: {
+    alignItems: "center",
+    paddingVertical: 14,
+    borderRadius: 999,
+    backgroundColor: "#F4F5F7",
+  },
+  menuDismissText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#6b6b6b",
   },
 });

@@ -78,6 +78,26 @@ export const usePantryStore = create((set, get) => ({
         }
     },
 
+    // Clear all pantry items (delete every item across all groups)
+    clearPantry: async ({ getToken }) => {
+        const { groups } = get();
+        const allIds = groups.flatMap((g) => g.items.map((i) => i.id));
+        if (allIds.length === 0) return;
+
+        // Optimistic: clear immediately
+        set({ groups: [], total: 0 });
+
+        const results = await Promise.allSettled(
+            allIds.map((itemId) => deletePantryItem({ getToken, itemId }))
+        );
+        const failCount = results.filter((r) => r.status === "rejected").length;
+        if (failCount > 0) {
+            // Reload to show what actually remains
+            await get().loadPantry({ getToken });
+            set({ error: `Failed to remove ${failCount} item(s)` });
+        }
+    },
+
     clearError: () => set({ error: "" }),
     clearScanResult: () => set({ scanResult: null }),
 }));

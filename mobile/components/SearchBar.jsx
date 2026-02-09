@@ -1,12 +1,23 @@
 import React from "react";
-import { View, TextInput, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import SearchIcon from "./icons/SearchIcon";
 
 export default function SearchBar({
   placeholder = "Search for a recipe",
   value,
   onChangeText,
+  onPress,
 }) {
+  // If onPress is provided, render as a tappable trigger (no keyboard)
+  if (onPress) {
+    return (
+      <Pressable style={styles.container} onPress={onPress}>
+        <SearchIcon width={25} height={25} color="#B4B4B4" />
+        <Text style={styles.placeholderText}>{placeholder}</Text>
+      </Pressable>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <SearchIcon width={25} height={25} color="#B4B4B4" />
@@ -36,5 +47,11 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#111111",
     paddingVertical: 0,
+  },
+  placeholderText: {
+    marginLeft: 8,
+    flex: 1,
+    color: "#B4B4B4",
+    fontSize: 14,
   },
 });

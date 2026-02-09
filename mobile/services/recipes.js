@@ -21,3 +21,8 @@ export async function fetchSuggested({ limit = 10, offset = 0 } = {}) {
 export async function cloneRecipe({ recipeId, getToken }) {
   return authFetch(`/recipes/${recipeId}/save`, getToken, { method: "POST" });
 }
+
+export async function searchRecipes({ getToken, query, limit = 10 }) {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return authFetch(`/recipes/search?${params}`, getToken);
+}

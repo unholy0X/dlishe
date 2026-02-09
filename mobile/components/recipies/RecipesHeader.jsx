@@ -1,9 +1,13 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import { BlurView } from "expo-blur";
+import DotsVerticalIcon from "../icons/DotsVerticalIcon";
+import PlusIcon from "../icons/PlusIcon";
 
 export default function RecipesHeader({
   title = "My Recipes",
   subtitle = "10 recipes saved",
+  onPressMore,
   onPressAdd,
 }) {
   return (
@@ -13,10 +17,17 @@ export default function RecipesHeader({
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
 
-      <Pressable style={styles.addButton} onPress={onPressAdd}>
-        <Text style={styles.addText}>Add</Text>
-        <Text style={styles.plus}>+</Text>
-      </Pressable>
+      <View style={styles.actions}>
+        <Pressable onPress={onPressMore}>
+          <BlurView intensity={120} tint="light" style={styles.blur}>
+            <DotsVerticalIcon width={6} height={20} color="#B4B4B4" />
+          </BlurView>
+        </Pressable>
+
+        <Pressable onPress={onPressAdd} style={styles.addButton}>
+          <PlusIcon width={24} height={24} color="#385225" />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -29,34 +40,41 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: "normal",
+    fontWeight: "500",
     color: "#000",
-    letterSpacing: -0.05
+    letterSpacing: -0.05,
   },
   subtitle: {
-    marginTop: 6,
-    fontSize: 12,
+    marginTop: 3,
+    fontSize: 14,
     color: "#B4B4B4",
-    letterSpacing: -0.05
+    letterSpacing: -0.05,
   },
-  addButton: {
+  actions: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#7FEF80",
+  },
+  blur: {
+    width: 50,
+    height: 50,
+    borderWidth: 1,
+    borderColor: "#ffffff",
     borderRadius: 999,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    letterSpacing: -0.05
+    overflow: "hidden",
+    backgroundColor: "rgba(0, 0, 0, 0.15)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    margin: 3,
   },
-  addText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#385225",
-  },
-  plus: {
-    marginLeft: 10,
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#385225",
+  addButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#7FEF80",
   },
 });

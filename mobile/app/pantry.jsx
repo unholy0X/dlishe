@@ -21,6 +21,7 @@ import PantryHeader from "../components/pantry/PantryHeader";
 import PantryEmptyState from "../components/pantry/PantryEmptyState";
 import BottomSheetModal from "../components/BottomSheetModal";
 import AddToPantrySheetContent from "../components/pantry/AddToPantrySheetContent";
+import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
 import { usePantryStore } from "../store";
 
 // Enable LayoutAnimation on Android
@@ -146,6 +147,7 @@ export default function PantryScreen() {
   const pathname = usePathname();
   const activeKey = pathname.replace("/", "") || "pantry";
   const [isSheetOpen, setSheetOpen] = useState(false);
+  const [isAddRecipeOpen, setAddRecipeOpen] = useState(false);
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState({});
@@ -275,7 +277,7 @@ export default function PantryScreen() {
         onPressItem={(key) => {
           router.push(`/${key}`);
         }}
-        onPressPlus={() => setSheetOpen(true)}
+        onPressPlus={() => setAddRecipeOpen(true)}
         activeKey={activeKey}
       />
 
@@ -284,6 +286,11 @@ export default function PantryScreen() {
           onPressBack={handleSheetClose}
           onItemAdded={handleSheetClose}
         />
+      </BottomSheetModal>
+
+      {/* Add Recipe sheet (from FloatingNav +) */}
+      <BottomSheetModal visible={isAddRecipeOpen} onClose={() => setAddRecipeOpen(false)}>
+        <AddRecipeSheetContent onPressBack={() => setAddRecipeOpen(false)} />
       </BottomSheetModal>
 
       {/* Menu sheet */}

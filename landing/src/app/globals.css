@@ -1,0 +1,208 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Typography */
+  --font-display: var(--font-cormorant), "Georgia", serif;
+  --font-sans: var(--font-inter), "system-ui", sans-serif;
+
+  /* Colors - Extracted from Mobile App */
+  --color-bg-primary: #F4F5F7;
+  --color-bg-card: #FFFFFF;
+
+  /* Green palette */
+  --color-green-primary: #385225;
+  --color-green-bright: #7FEE7F;
+  --color-green-light: #DFF7C4;
+
+  /* Coral/Peach palette (Favorites) */
+  --color-coral-bg: #FDEEEE;
+  --color-coral: #F9BABA;
+  --color-coral-text: #943040;
+  --color-heart: #E84057;
+
+  /* Lavender palette (Lunch) */
+  --color-lavender-bg: #CCB7F9;
+  --color-lavender: #A896F0;
+  --color-lavender-text: #4A2D73;
+
+  /* Honey palette (Dinner) */
+  --color-honey-bg: #FDC597;
+  --color-honey: #F0A45E;
+  --color-honey-text: #7A4A21;
+
+  /* Text Colors */
+  --color-text-dark: #111111;
+  --color-text-muted: #6b6b6b;
+  --color-text-light: #B4B4B4;
+
+  /* Shadows */
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.08);
+  --shadow-float: 0 20px 60px rgba(0, 0, 0, 0.15);
+  --shadow-glow-green: 0 8px 32px rgba(56, 82, 37, 0.25);
+}
+
+/* Global Styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-bg-primary text-text-dark antialiased font-sans;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @apply font-display;
+}
+
+/* Hero gradient matching app */
+.hero-gradient {
+  background: linear-gradient(180deg,
+      #F4F5F7 0%,
+      #FDF9F7 30%,
+      #FDEEEE 60%,
+      #F4F5F7 100%);
+}
+
+/* Floating elements animation */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-20px) rotate(2deg);
+  }
+}
+
+@keyframes float-delayed {
+
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-15px) rotate(-2deg);
+  }
+}
+
+@keyframes float-slow {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.float-delayed {
+  animation: float-delayed 7s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+.float-slow {
+  animation: float-slow 8s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-dark {
+  background: rgba(17, 17, 17, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Phone mockup */
+.phone-frame {
+  background: linear-gradient(145deg, #1a1a1a 0%, #0a0a0a 100%);
+  border-radius: 50px;
+  padding: 12px;
+  box-shadow:
+    0 50px 100px -20px rgba(0, 0, 0, 0.4),
+    0 30px 60px -30px rgba(0, 0, 0, 0.5),
+    inset 0 2px 4px rgba(255, 255, 255, 0.1);
+}
+
+.phone-screen {
+  background: #F4F5F7;
+  border-radius: 40px;
+  overflow: hidden;
+}
+
+.phone-notch {
+  width: 120px;
+  height: 32px;
+  background: #000;
+  border-radius: 20px;
+  margin: 0 auto;
+  position: relative;
+  top: 8px;
+}
+
+/* Feature cards */
+.feature-card {
+  @apply rounded-[24px] p-6 relative overflow-hidden transition-all duration-500;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card);
+}
+
+/* Stats card style from app */
+.stat-card {
+  @apply rounded-[20px] p-4 relative overflow-hidden;
+}
+
+.stat-accent {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  top: -30px;
+  right: -30px;
+  opacity: 0.6;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #385225 0%, #4A6B2F 50%, #385225 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Section transitions */
+.section-fade {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.section-fade.visible {
+  opacity: 1;
+  transform: translateY(0);
+}

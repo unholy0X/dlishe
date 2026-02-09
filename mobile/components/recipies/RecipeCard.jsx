@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { View, Text, StyleSheet, Image, Pressable, Animated } from "react-native";
 import HeartIcon from "../icons/HeartIcon";
+import RecipePlaceholder from "../RecipePlaceholder";
 
 export default function RecipeCard({
   title,
@@ -37,11 +38,7 @@ export default function RecipeCard({
       {imageSource ? (
         <Image source={imageSource} style={styles.image} />
       ) : (
-        <View style={[styles.image, styles.placeholder]}>
-          <Text style={styles.placeholderText}>
-            {title ? title.charAt(0).toUpperCase() : "?"}
-          </Text>
-        </View>
+        <RecipePlaceholder title={title} variant="medium" style={styles.image} />
       )}
       <View style={styles.content}>
         <View style={styles.titleRow}>
@@ -86,16 +83,6 @@ const styles = StyleSheet.create({
   image: {
     width: 110,
     height: 110,
-  },
-  placeholder: {
-    backgroundColor: "#DFF7C4",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  placeholderText: {
-    fontSize: 36,
-    fontWeight: "600",
-    color: "#385225",
   },
   content: {
     flex: 1,

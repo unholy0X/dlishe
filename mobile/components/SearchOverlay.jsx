@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SearchIcon from "./icons/SearchIcon";
+import RecipePlaceholder from "./RecipePlaceholder";
 import { searchRecipes } from "../services/recipes";
 
 const DEBOUNCE_MS = 300;
@@ -187,11 +188,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
                   {imageSource ? (
                     <Image source={imageSource} style={styles.resultImage} />
                   ) : (
-                    <View style={[styles.resultImage, styles.resultPlaceholder]}>
-                      <Text style={styles.resultPlaceholderText}>
-                        {recipe.title ? recipe.title.charAt(0).toUpperCase() : "?"}
-                      </Text>
-                    </View>
+                    <RecipePlaceholder title={recipe.title} variant="small" style={styles.resultImage} />
                   )}
                   <View style={styles.resultInfo}>
                     <Text style={styles.resultTitle} numberOfLines={2}>
@@ -334,16 +331,6 @@ const styles = StyleSheet.create({
   resultImage: {
     width: 72,
     height: 72,
-  },
-  resultPlaceholder: {
-    backgroundColor: "#DFF7C4",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  resultPlaceholderText: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "#385225",
   },
   resultInfo: {
     flex: 1,

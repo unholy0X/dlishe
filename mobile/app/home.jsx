@@ -26,6 +26,7 @@ import BottomSheetModal from "../components/BottomSheetModal";
 import SearchOverlay from "../components/SearchOverlay";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
 import HeartIcon from "../components/icons/HeartIcon";
+import RecipePlaceholder from "../components/RecipePlaceholder";
 import { useSuggestedStore, useRecipeStore } from "../store";
 import { useAuth } from "@clerk/clerk-expo";
 
@@ -189,11 +190,7 @@ export default function HomeScreen() {
                     {imageSource ? (
                       <Image source={imageSource} style={styles.masonryImage} />
                     ) : (
-                      <View style={[styles.masonryImage, styles.masonryPlaceholder]}>
-                        <Text style={styles.masonryPlaceholderText}>
-                          {recipe.title ? recipe.title.charAt(0).toUpperCase() : "?"}
-                        </Text>
-                      </View>
+                      <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
                     )}
                     <LinearGradient
                       colors={["transparent", "rgba(0,0,0,0.6)"]}
@@ -259,11 +256,7 @@ export default function HomeScreen() {
                     {imageSource ? (
                       <Image source={imageSource} style={styles.masonryImage} />
                     ) : (
-                      <View style={[styles.masonryImage, styles.masonryPlaceholder]}>
-                        <Text style={styles.masonryPlaceholderText}>
-                          {recipe.title ? recipe.title.charAt(0).toUpperCase() : "?"}
-                        </Text>
-                      </View>
+                      <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
                     )}
                     <LinearGradient
                       colors={["transparent", "rgba(0,0,0,0.6)"]}
@@ -364,16 +357,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
-  },
-  masonryPlaceholder: {
-    backgroundColor: "#DFF7C4",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  masonryPlaceholderText: {
-    fontSize: 36,
-    fontWeight: "600",
-    color: "#385225",
   },
   masonryGradient: {
     position: "absolute",

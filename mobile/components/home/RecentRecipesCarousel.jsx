@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import RecipePlaceholder from "../RecipePlaceholder";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH * 0.62;
@@ -40,11 +41,7 @@ export default function RecentRecipesCarousel({ items = [], onPressItem }) {
             {imageSource ? (
               <Image source={imageSource} style={styles.image} />
             ) : (
-              <View style={[styles.image, styles.placeholder]}>
-                <Text style={styles.placeholderText}>
-                  {item.title ? item.title.charAt(0).toUpperCase() : "?"}
-                </Text>
-              </View>
+              <RecipePlaceholder title={item.title} variant="large" style={styles.image} />
             )}
             <LinearGradient
               colors={["transparent", "rgba(0,0,0,0.55)"]}
@@ -81,16 +78,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
-  },
-  placeholder: {
-    backgroundColor: "#DFF7C4",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  placeholderText: {
-    fontSize: 48,
-    fontWeight: "600",
-    color: "#385225",
   },
   gradient: {
     position: "absolute",

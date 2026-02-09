@@ -33,3 +33,8 @@ export async function toggleFavorite({ recipeId, isFavorite, getToken }) {
     body: JSON.stringify({ isFavorite }),
   });
 }
+
+export async function fetchRecommendations({ getToken, filter, limit = 20 }) {
+  const params = new URLSearchParams({ filter, limit: String(limit) });
+  return authFetch(`/recommendations?${params}`, getToken);
+}

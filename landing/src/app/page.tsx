@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 /* ─── Scroll reveal observer ────────────────────────────────── */
 function useScrollReveal() {
@@ -27,6 +27,12 @@ function useScrollReveal() {
 /* ─── Page ──────────────────────────────────────────────────── */
 export default function LandingPage() {
   useScrollReveal();
+  const [comingSoon, setComingSoon] = useState(false);
+
+  const showComingSoon = useCallback(() => {
+    setComingSoon(true);
+    setTimeout(() => setComingSoon(false), 3000);
+  }, []);
 
   return (
     <main className="min-h-screen overflow-hidden">
@@ -35,7 +41,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo-mark.png" alt="Dlishe" width={36} height={36} className="w-9 h-9" />
-            <span className="text-xl font-display font-bold text-green-primary tracking-tight">
+            <span className="text-2xl sm:text-3xl font-display font-extrabold text-green-primary tracking-tight">
               Dlishe
             </span>
           </Link>
@@ -49,9 +55,9 @@ export default function LandingPage() {
             <Link href="/privacy" className="text-sm font-medium text-text-muted hover:text-green-primary transition-colors hidden sm:block">
               Privacy
             </Link>
-            <a href="#download" className="bg-green-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:shadow-glow-green transition-all hover:scale-[1.03] active:scale-[0.98]">
+            <button onClick={showComingSoon} className="bg-green-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:shadow-glow-green transition-all hover:scale-[1.03] active:scale-[0.98] cursor-pointer">
               Get the app
-            </a>
+            </button>
           </div>
         </div>
       </nav>
@@ -79,13 +85,13 @@ export default function LandingPage() {
               </h1>
 
               <p className="text-lg sm:text-xl text-text-muted leading-relaxed mb-10 max-w-lg mx-auto lg:mx-0">
-                Snap a photo of any cookbook page. Paste a link from any website.
-                Dlishe extracts, organizes, and keeps every recipe at your fingertips.
+                Save recipes from <span className="text-text-dark font-semibold">TikTok</span>, <span className="text-text-dark font-semibold">YouTube</span>, any website, or snap a cookbook page.
+                Dlishe turns any recipe into your personal cookbook, instantly.
               </p>
 
               {/* Store buttons */}
               <div id="download" className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
-                <a href="#" className="group inline-flex items-center gap-3 bg-text-dark text-white px-6 py-4 rounded-2xl hover:bg-black transition-all hover:shadow-float active:scale-[0.97]">
+                <button onClick={showComingSoon} className="group inline-flex items-center gap-3 bg-text-dark text-white px-6 py-4 rounded-2xl hover:bg-black transition-all hover:shadow-float active:scale-[0.97] cursor-pointer">
                   <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                   </svg>
@@ -93,8 +99,8 @@ export default function LandingPage() {
                     <div className="text-[11px] opacity-60 leading-tight">Download on the</div>
                     <div className="text-lg font-semibold leading-tight">App Store</div>
                   </div>
-                </a>
-                <a href="#" className="group inline-flex items-center gap-3 bg-text-dark text-white px-6 py-4 rounded-2xl hover:bg-black transition-all hover:shadow-float active:scale-[0.97]">
+                </button>
+                <button onClick={showComingSoon} className="group inline-flex items-center gap-3 bg-text-dark text-white px-6 py-4 rounded-2xl hover:bg-black transition-all hover:shadow-float active:scale-[0.97] cursor-pointer">
                   <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 010 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z" />
                   </svg>
@@ -102,7 +108,7 @@ export default function LandingPage() {
                     <div className="text-[11px] opacity-60 leading-tight">Get it on</div>
                     <div className="text-lg font-semibold leading-tight">Google Play</div>
                   </div>
-                </a>
+                </button>
               </div>
             </div>
 
@@ -156,29 +162,73 @@ export default function LandingPage() {
                         </div>
                         <div className="stat-card bg-lavender-bg flex-1">
                           <div className="stat-accent bg-lavender" />
-                          <div className="text-[8px] text-lavender-text font-medium">Lunch</div>
-                          <div className="text-xl font-semibold text-lavender-text mt-1.5">8</div>
+                          <div className="text-[8px] text-lavender-text font-medium flex items-center gap-1">
+                            <svg className="w-2 h-2" fill="#4A2D73" viewBox="0 0 24 24"><path d="M12 23c-4.97 0-8-3.03-8-7.5 0-3.82 2.77-7.3 5.06-9.74A.75.75 0 0 1 10.35 6c-.02 2.1.82 3.93 2.15 5.15.28-.72.5-1.56.5-2.4 0-.42-.04-.83-.13-1.23a.75.75 0 0 1 1.15-.76C16.21 8.47 20 12.07 20 15.5c0 4.47-3.03 7.5-8 7.5Z" /></svg>
+                            High Protein
+                          </div>
+                          <div className="text-[10px] font-semibold text-lavender-text mt-2.5">Explore</div>
                         </div>
                         <div className="stat-card bg-honey-bg flex-1">
                           <div className="stat-accent bg-honey" />
-                          <div className="text-[8px] text-honey-text font-medium">Dinner</div>
-                          <div className="text-xl font-semibold text-honey-text mt-1.5">5</div>
+                          <div className="text-[8px] text-honey-text font-medium flex items-center gap-1">
+                            <svg className="w-2 h-2" fill="none" stroke="#7A4A21" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M10 2h4" /><path d="M12 14V10" /><path d="M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" /></svg>
+                            Quick Meals
+                          </div>
+                          <div className="text-[10px] font-semibold text-honey-text mt-2.5">Explore</div>
                         </div>
                       </div>
 
                       {/* Suggested recipes */}
                       <div className="text-[11px] font-display font-semibold text-text-dark mb-2">Suggested For You</div>
                       <div className="flex gap-2">
-                        <div className="w-1/2 aspect-[4/5] bg-gradient-to-br from-[#E8845C] to-[#F2A65A] rounded-2xl relative overflow-hidden">
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                        <div className="w-1/2 aspect-[4/5] rounded-2xl relative overflow-hidden">
+                          <Image src="/food-pasta.jpg" alt="Spicy Vodka Rigatoni" fill className="object-cover" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                           <div className="absolute bottom-2 left-2.5 right-2">
-                            <div className="text-[9px] font-semibold text-white leading-tight">Pasta Carbonara</div>
+                            <div className="text-[9px] font-semibold text-white leading-tight">Spicy Vodka Rigatoni</div>
                           </div>
                         </div>
-                        <div className="w-1/2 aspect-[4/5] bg-gradient-to-br from-[#7A8A5A] to-[#A3B580] rounded-2xl relative overflow-hidden">
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                        <div className="w-1/2 aspect-[4/5] rounded-2xl relative overflow-hidden">
+                          <Image src="/food-grilled.jpg" alt="Honey Glazed Chicken" fill className="object-cover" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                           <div className="absolute bottom-2 left-2.5 right-2">
-                            <div className="text-[9px] font-semibold text-white leading-tight">Garden Salad</div>
+                            <div className="text-[9px] font-semibold text-white leading-tight">Honey Glazed Chicken</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Floating nav bar */}
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <div className="relative">
+                        <div className="bg-white/70 backdrop-blur-md rounded-full border border-white/80 shadow-soft px-2 py-1.5 flex items-center justify-between">
+                          {/* Left group */}
+                          <div className="flex items-center">
+                            <div className="flex flex-col items-center px-2.5 py-0.5 bg-white/90 rounded-full">
+                              <svg className="w-3 h-3 text-text-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                              <span className="text-[5px] font-semibold text-text-dark mt-0.5">Home</span>
+                            </div>
+                            <div className="flex flex-col items-center px-2.5 py-0.5">
+                              <svg className="w-3 h-3 text-text-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                              <span className="text-[5px] text-text-muted/40 mt-0.5">Recipes</span>
+                            </div>
+                          </div>
+
+                          {/* Center plus button */}
+                          <div className="absolute left-1/2 -translate-x-1/2 -top-2.5 w-8 h-8 rounded-full bg-gradient-to-b from-[#9EFF00] via-[#06B27A] to-[#039274] flex items-center justify-center shadow-md border border-white/30">
+                            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                          </div>
+
+                          {/* Right group */}
+                          <div className="flex items-center">
+                            <div className="flex flex-col items-center px-2.5 py-0.5">
+                              <svg className="w-3 h-3 text-text-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                              <span className="text-[5px] text-text-muted/40 mt-0.5">Pantry</span>
+                            </div>
+                            <div className="flex flex-col items-center px-2.5 py-0.5">
+                              <svg className="w-3 h-3 text-text-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                              <span className="text-[5px] text-text-muted/40 mt-0.5">Shopping</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -189,10 +239,12 @@ export default function LandingPage() {
                 {/* Floating: recipe card */}
                 <div className="absolute -left-20 top-[30%] bg-white/90 backdrop-blur-md rounded-2xl p-3 shadow-card border border-white/60 float hidden lg:block">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#D4775D] to-[#E8A87C] rounded-xl" />
+                    <div className="w-12 h-12 rounded-xl relative overflow-hidden">
+                      <Image src="/food-pancakes.jpg" alt="PB&J Pancakes" fill className="object-cover" />
+                    </div>
                     <div>
-                      <div className="text-xs font-semibold text-text-dark">Tikka Masala</div>
-                      <div className="text-[10px] text-text-muted">35 min &middot; Medium</div>
+                      <div className="text-xs font-semibold text-text-dark">PB&amp;J Pancakes</div>
+                      <div className="text-[10px] text-text-muted">20 min &middot; Easy</div>
                     </div>
                   </div>
                 </div>
@@ -226,7 +278,7 @@ export default function LandingPage() {
               Everything your kitchen needs
             </h2>
             <p className="text-lg text-text-muted max-w-2xl mx-auto leading-relaxed">
-              From snapping a cookbook page to putting dinner on the table,
+              From a viral TikTok to tonight&apos;s dinner on the table —
               Dlishe keeps your culinary life beautifully organized.
             </p>
           </div>
@@ -243,11 +295,11 @@ export default function LandingPage() {
                   </svg>
                 </div>
                 <h3 className="text-2xl font-display font-semibold text-coral-text mb-3">
-                  Capture any recipe
+                  Save any recipe
                 </h3>
                 <p className="text-coral-text/75 leading-relaxed">
-                  Snap a photo of a cookbook page, paste a URL, or share from social media.
-                  Dlishe extracts ingredients, steps, and timing in seconds.
+                  See a dish you love on TikTok, YouTube, or a food blog? Share the link
+                  and Dlishe saves the full recipe — ingredients, steps, and timing — in seconds.
                 </p>
               </div>
             </div>
@@ -340,10 +392,10 @@ export default function LandingPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-display font-semibold text-text-dark mb-3">
-                Snap or paste
+                Snap, share, or paste
               </h3>
               <p className="text-text-muted leading-relaxed max-w-[260px] mx-auto">
-                Take a photo of a cookbook page, paste a URL, or share from any app.
+                Share a TikTok, paste a YouTube link, snap a cookbook page — any recipe, any source.
               </p>
             </div>
 
@@ -358,7 +410,7 @@ export default function LandingPage() {
                 Review & save
               </h3>
               <p className="text-text-muted leading-relaxed max-w-[260px] mx-auto">
-                Dlishe extracts ingredients, steps, and nutrition. Review and save to your collection.
+                Ingredients, steps, and cook times appear like magic. Review and add to your collection.
               </p>
             </div>
 
@@ -380,67 +432,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════════ Cookbook Feature Highlight ════════ */}
-      <section className="bg-white py-24 sm:py-32 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="reveal">
-              <div className="inline-flex items-center gap-2 bg-coral-bg px-4 py-1.5 rounded-full mb-5">
-                <span className="text-xs font-semibold text-coral-text tracking-wide uppercase">New</span>
-              </div>
-              <h2 className="text-4xl sm:text-5xl font-display font-semibold text-text-dark mb-5 tracking-tight">
-                Scan your cookbooks
-              </h2>
-              <p className="text-lg text-text-muted leading-relaxed mb-8">
-                Point your camera at any cookbook page and Dlishe extracts
-                the full recipe: title, ingredients, steps, and cooking times, all in seconds.
-                Your favorite books, digitized and searchable.
-              </p>
-              <div className="flex flex-col gap-4">
-                {[
-                  { text: "Smart text extraction", icon: "sparkle" },
-                  { text: "Works with any cookbook or magazine", icon: "book" },
-                  { text: "Automatic ingredient parsing", icon: "list" },
-                ].map((item) => (
-                  <div key={item.text} className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-light rounded-lg flex items-center justify-center flex-shrink-0">
-                      <svg className="w-4 h-4 text-green-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <span className="text-text-dark font-medium">{item.text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Visual */}
-            <div className="reveal reveal-delay-2 flex justify-center">
-              <div className="relative">
-                <div className="w-[260px] h-[360px] bg-gradient-to-br from-[#E8845C] to-[#F2A65A] rounded-3xl shadow-elevated flex items-center justify-center">
-                  <svg width="80" height="80" viewBox="0 0 64 64" fill="none" opacity="0.2">
-                    <path d="M22 8v18c0 3.3 2.7 6 6 6h0v24a2 2 0 004 0V32h0c3.3 0 6-2.7 6-6V8" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M28 8v14M32 8v14M36 8v14" stroke="#fff" strokeWidth="3" strokeLinecap="round"/>
-                    <path d="M40 14c4-4 10-5 14-3-1 5-5 9-10 10-2 .5-4-.5-4-.5" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="#fff" fillOpacity="0.3"/>
-                  </svg>
-                </div>
-                {/* Extracted recipe card overlay */}
-                <div className="absolute -bottom-6 -left-6 right-6 bg-white rounded-2xl p-5 shadow-elevated">
-                  <div className="text-xs text-green-primary font-semibold mb-1.5 flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Recipe extracted
-                  </div>
-                  <div className="text-base font-semibold text-text-dark mb-1">Chicken Tikka Masala</div>
-                  <div className="text-xs text-text-muted">12 ingredients &middot; 8 steps &middot; 45 min</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ════════ CTA ════════ */}
       <section className="relative overflow-hidden py-24 sm:py-32 px-6">
         <div className="absolute inset-0 cta-gradient" />
@@ -451,21 +442,21 @@ export default function LandingPage() {
 
         <div className="relative z-10 max-w-4xl mx-auto text-center">
           <h2 className="text-4xl sm:text-5xl font-display font-semibold text-white mb-6 tracking-tight reveal">
-            Ready to simplify your kitchen?
+            Never lose a recipe again
           </h2>
           <p className="text-lg text-white/60 mb-10 max-w-xl mx-auto reveal reveal-delay-1">
-            Join home cooks who spend less time searching and more time cooking what they love.
+            Join home cooks who spend less time scrolling and more time savoring what they love.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 reveal reveal-delay-2">
-            <a
-              href="#download"
-              className="inline-flex items-center gap-2.5 bg-white text-green-primary px-8 py-4 rounded-full font-semibold hover:shadow-float transition-all hover:scale-105 active:scale-[0.98]"
+            <button
+              onClick={showComingSoon}
+              className="inline-flex items-center gap-2.5 bg-white text-green-primary px-8 py-4 rounded-full font-semibold hover:shadow-float transition-all hover:scale-105 active:scale-[0.98] cursor-pointer"
             >
-              Download for free
+              Get early access
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
-            </a>
+            </button>
             <a
               href="#features"
               className="inline-flex items-center gap-2 text-white/70 px-6 py-4 rounded-full font-medium hover:text-white transition-colors"
@@ -526,6 +517,24 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      {/* ════════ Coming Soon Toast ════════ */}
+      <div
+        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 ${
+          comingSoon
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-4 pointer-events-none"
+        }`}
+      >
+        <div className="bg-white/95 backdrop-blur-xl rounded-2xl px-6 py-4 shadow-elevated border border-white/60 flex items-center gap-4 max-w-sm">
+          <div className="w-10 h-10 bg-green-light rounded-xl flex items-center justify-center flex-shrink-0">
+            <Image src="/logo-mark.png" alt="" width={28} height={28} className="w-7 h-7" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-text-dark">Something delicious is cooking</div>
+            <div className="text-xs text-text-muted mt-0.5">Dlishe is launching soon — stay hungry!</div>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

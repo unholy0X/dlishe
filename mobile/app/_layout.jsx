@@ -13,10 +13,21 @@ import UserSync from "../components/UserSync";
 
 const tokenCache = {
   async getToken(key) {
-    return SecureStore.getItemAsync(key);
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch (err) {
+      console.error("SecureStore get item error: ", err);
+      return null;
+    }
   },
   async saveToken(key, value) {
-    return SecureStore.setItemAsync(key, value);
+    try {
+      return await SecureStore.setItemAsync(key, value);
+    } catch (err) {
+      console.error("SecureStore set item error: ", err);
+      // alert(`SecureStore Error: ${err.message}`);
+      return;
+    }
   },
 };
 

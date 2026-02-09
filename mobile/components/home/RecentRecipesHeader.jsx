@@ -6,7 +6,10 @@ import ChevronRightIcon from "../icons/ChevronRightIcon";
 export default function RecentRecipesHeader({ onPressSeeAll }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.title}>Recent Recipes</Text>
+      <View>
+        <Text style={styles.title}>Suggested For You</Text>
+        <Text style={styles.subtitle}>Based on your taste</Text>
+      </View>
       <Pressable onPress={onPressSeeAll}>
         <BlurView intensity={105} tint="extraLight" style={styles.blur}>
           <Text style={styles.buttonText}>See all</Text>
@@ -41,6 +44,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#111111",
+  },
+  subtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    color: "#B4B4B4",
+    letterSpacing: -0.05,
   },
   buttonText: {
     fontSize: 12,

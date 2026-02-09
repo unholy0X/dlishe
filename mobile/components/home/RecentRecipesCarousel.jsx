@@ -2,40 +2,51 @@ import React from "react";
 import { View, Text, StyleSheet, Image, ScrollView, Pressable } from "react-native";
 
 export default function RecentRecipesCarousel({ items = [], onPressItem }) {
+  // Pair items into columns of 2 for the 2-row grid
+  const columns = [];
+  for (let i = 0; i < items.length; i += 2) {
+    columns.push(items.slice(i, i + 2));
+  }
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.scroll}
-      contentContainerStyle={styles.row}
+      contentContainerStyle={styles.scrollContent}
     >
-      {items.map((item, index) => {
-        const imageSource = item.thumbnailUrl
-          ? { uri: item.thumbnailUrl }
-          : item.image;
+      {columns.map((pair, colIndex) => (
+        <View key={colIndex} style={[styles.column, colIndex > 0 && styles.columnSpacing]}>
+          {pair.map((item) => {
+            const imageSource = item.thumbnailUrl
+              ? { uri: item.thumbnailUrl }
+              : null;
 
-        return (
-          <Pressable
-            key={item.id || item.title}
-            style={[styles.card, index > 0 && styles.spacing]}
-            onPress={() => onPressItem?.(item)}
-          >
-            {imageSource ? (
-              <Image source={imageSource} style={styles.image} />
-            ) : (
-              <View style={[styles.image, styles.placeholder]}>
-                <Text style={styles.placeholderText}>
-                  {item.title ? item.title.charAt(0).toUpperCase() : "?"}
-                </Text>
-              </View>
-            )}
-            <Text style={styles.title} numberOfLines={2}>
-              {item.title}
-            </Text>
-            <Text style={styles.meta}>{item.meta}</Text>
-          </Pressable>
-        );
-      })}
+            return (
+              <Pressable
+                key={item.id || item.title}
+                style={styles.card}
+                onPress={() => onPressItem?.(item)}
+              >
+                {imageSource ? (
+                  <Image source={imageSource} style={styles.image} />
+                ) : (
+                  <View style={[styles.image, styles.placeholder]}>
+                    <Text style={styles.placeholderText}>
+                      {item.title ? item.title.charAt(0).toUpperCase() : "?"}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+                {item.meta ? (
+                  <Text style={styles.meta} numberOfLines={1}>{item.meta}</Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
+          {pair.length === 1 && <View style={styles.cardSpacer} />}
+        </View>
+      ))}
     </ScrollView>
   );
 }
@@ -44,22 +55,30 @@ const styles = StyleSheet.create({
   scroll: {
     marginHorizontal: -20,
   },
-  row: {
+  scrollContent: {
     paddingHorizontal: 20,
     paddingRight: 12,
-    marginTop: 10,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  spacing: {
+  column: {
+    gap: 12,
+  },
+  columnSpacing: {
     marginLeft: 12,
   },
   card: {
-    width: 220,
+    width: 168,
     overflow: "hidden",
+  },
+  cardSpacer: {
+    width: 168,
+    height: 160,
   },
   image: {
     width: "100%",
-    borderRadius: 28,
-    height: 180,
+    height: 130,
+    borderRadius: 20,
   },
   placeholder: {
     backgroundColor: "#DFF7C4",
@@ -67,22 +86,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   placeholderText: {
-    fontSize: 40,
+    fontSize: 32,
     fontWeight: "600",
     color: "#385225",
   },
   title: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: 8,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#000",
-    letterSpacing: -0.05,
+    color: "#111111",
+    letterSpacing: -0.2,
   },
   meta: {
-    paddingBottom: 12,
-    marginTop: 6,
-    fontSize: 14,
-    color: "#A1A0A6",
+    marginTop: 3,
+    fontSize: 12,
+    color: "#B4B4B4",
     letterSpacing: -0.05,
   },
 });

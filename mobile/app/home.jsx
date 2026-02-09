@@ -29,6 +29,7 @@ import HeartIcon from "../components/icons/HeartIcon";
 import RecipePlaceholder from "../components/RecipePlaceholder";
 import { useSuggestedStore, useRecipeStore } from "../store";
 import { useAuth } from "@clerk/clerk-expo";
+import { fetchRecommendations } from "../services/recipes";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const MASONRY_GAP = 10;
@@ -53,6 +54,10 @@ export default function HomeScreen() {
   const [isRecipesSheetOpen, setRecipesSheetOpen] = useState(false);
   const [isFavoritesOpen, setFavoritesOpen] = useState(false);
   const [isSearchOpen, setSearchOpen] = useState(false);
+  const [recoSheetOpen, setRecoSheetOpen] = useState(false);
+  const [recoFilter, setRecoFilter] = useState(null);
+  const [recoResults, setRecoResults] = useState([]);
+  const [recoLoading, setRecoLoading] = useState(false);
 
   const { getToken } = useAuth();
   const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
@@ -64,6 +69,20 @@ export default function HomeScreen() {
     loadSuggested({ limit: 20 });
     loadRecipes({ getToken });
   }, []);
+
+  const handleRecommendation = useCallback(async (filter) => {
+    setRecoFilter(filter);
+    setRecoSheetOpen(true);
+    setRecoLoading(true);
+    try {
+      const data = await fetchRecommendations({ getToken, filter, limit: 20 });
+      setRecoResults(data.items || []);
+    } catch {
+      setRecoResults([]);
+    } finally {
+      setRecoLoading(false);
+    }
+  }, [getToken]);
 
   const handleSeeAll = useCallback(() => {
     setRecipesSheetOpen(true);
@@ -122,6 +141,8 @@ export default function HomeScreen() {
             <StatsCardsRow
               favoriteCount={favoriteCount}
               onPressFavorites={() => setFavoritesOpen(true)}
+              onPressHighProtein={() => handleRecommendation("high-protein")}
+              onPressQuickMeals={() => handleRecommendation("quick-meals")}
             />
 
             <RecentRecipesHeader
@@ -272,6 +293,72 @@ export default function HomeScreen() {
                     >
                       <HeartIcon width={18} height={18} color="#E84057" filled />
                     </Pressable>
+                    <View style={styles.masonryOverlay}>
+                      <Text style={styles.masonryTitle} numberOfLines={2}>
+                        {recipe.title}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </BottomSheetModal>
+
+      {/* Recommendations Sheet */}
+      <BottomSheetModal
+        visible={recoSheetOpen}
+        onClose={() => setRecoSheetOpen(false)}
+      >
+        <View style={styles.recipesSheet}>
+          <Text style={styles.recipesSheetTitle}>
+            {recoFilter === "high-protein" ? "High Protein" : "Quick Meals"}
+          </Text>
+          <Text style={styles.recipesSheetSubtitle}>
+            {recoLoading ? "Loading..." : `${recoResults.length} recipe${recoResults.length !== 1 ? "s" : ""}`}
+          </Text>
+
+          {recoLoading ? (
+            <View style={styles.recipesSheetLoading}>
+              <ActivityIndicator size="large" color="#385225" />
+            </View>
+          ) : recoResults.length === 0 ? (
+            <View style={styles.emptyFavorites}>
+              <Text style={styles.emptyTitle}>No recipes found</Text>
+              <Text style={styles.emptySubtitle}>
+                We couldn't find any recipes for this category right now
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.masonryGrid}>
+              {recoResults.map((recipe, index) => {
+                const imageSource = recipe.thumbnailUrl
+                  ? { uri: recipe.thumbnailUrl }
+                  : null;
+                const isTall = index % 3 === 0;
+
+                return (
+                  <Pressable
+                    key={recipe.id}
+                    style={[
+                      styles.masonryCard,
+                      { height: isTall ? MASONRY_TALL : MASONRY_SHORT },
+                    ]}
+                    onPress={() => {
+                      setRecoSheetOpen(false);
+                      router.push(`/recipe/${recipe.id}`);
+                    }}
+                  >
+                    {imageSource ? (
+                      <Image source={imageSource} style={styles.masonryImage} />
+                    ) : (
+                      <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
+                    )}
+                    <LinearGradient
+                      colors={["transparent", "rgba(0,0,0,0.6)"]}
+                      style={styles.masonryGradient}
+                    />
                     <View style={styles.masonryOverlay}>
                       <Text style={styles.masonryTitle} numberOfLines={2}>
                         {recipe.title}

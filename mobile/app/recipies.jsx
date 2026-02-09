@@ -96,7 +96,6 @@ export default function RecipiesScreen() {
   const renderItem = useCallback(({ item }) => (
     <RecipeCard
       title={item.title}
-      description={item.description}
       meta={buildMeta(item)}
       thumbnailUrl={item.thumbnailUrl}
       isFavorite={item.isFavorite}

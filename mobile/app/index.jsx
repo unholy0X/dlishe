@@ -37,8 +37,13 @@ export default function LoginScreen() {
         identifier: email,
         password,
       });
+
       if (result.status === "complete") {
         await setActive?.({ session: result.createdSessionId });
+      } else {
+        // Debug alert for incomplete status
+        alert(`Login Status: ${result.status}`);
+        console.log("Login Status:", result.status);
       }
     } catch (err) {
       const message =
@@ -46,6 +51,11 @@ export default function LoginScreen() {
         err?.errors?.[0]?.message ??
         err?.message ??
         "Incorrect email or password";
+
+      // Debug alert for errors
+      alert(`Login Error: ${message}`);
+      console.error("Login Error:", JSON.stringify(err, null, 2));
+
       setError(message);
     } finally {
       setLoading(false);

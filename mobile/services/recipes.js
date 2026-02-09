@@ -26,3 +26,10 @@ export async function searchRecipes({ getToken, query, limit = 10 }) {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
   return authFetch(`/recipes/search?${params}`, getToken);
 }
+
+export async function toggleFavorite({ recipeId, isFavorite, getToken }) {
+  return authFetch(`/recipes/${recipeId}/favorite`, getToken, {
+    method: "POST",
+    body: JSON.stringify({ isFavorite }),
+  });
+}

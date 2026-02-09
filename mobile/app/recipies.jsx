@@ -40,7 +40,7 @@ export default function RecipiesScreen() {
   const [isClearing, setIsClearing] = useState(false);
 
   const { getToken } = useAuth();
-  const { recipes, total, isLoading, isLoadingMore, error, loadRecipes, loadMore, refresh, clearAll } =
+  const { recipes, total, isLoading, isLoadingMore, error, loadRecipes, loadMore, refresh, clearAll, toggleFavorite } =
     useRecipeStore();
 
   const hasMore = recipes.length < total;
@@ -89,15 +89,21 @@ export default function RecipiesScreen() {
     );
   }, [getToken, total]);
 
+  const handleToggleFavorite = useCallback((recipeId) => {
+    toggleFavorite({ recipeId, getToken });
+  }, [getToken]);
+
   const renderItem = useCallback(({ item }) => (
     <RecipeCard
       title={item.title}
       description={item.description}
       meta={buildMeta(item)}
       thumbnailUrl={item.thumbnailUrl}
+      isFavorite={item.isFavorite}
       onPress={() => router.push(`/recipe/${item.id}`)}
+      onToggleFavorite={() => handleToggleFavorite(item.id)}
     />
-  ), [router]);
+  ), [router, handleToggleFavorite]);
 
   const ListHeader = (
     <>

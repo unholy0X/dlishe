@@ -1,20 +1,20 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import HeartIcon from "../icons/HeartIcon";
 
-const ITEMS = [
+const CARDS = [
   {
-    key: "saved",
-    title: "Saved\nRecipes",
-    value: "10",
-    bg: "#9BC6FB",
-    accent: "#6FAFEF",
-    accent2: "#86BCF7",
-    text: "#28457A",
+    key: "favorites",
+    title: "Favorites",
+    bg: "#FDEEEE",
+    accent: "#F9BABA",
+    accent2: "#F9DEDE",
+    text: "#943040",
+    iconColor: "#E84057",
   },
   {
     key: "lunch",
     title: "Lunch",
-    value: "0",
     bg: "#CCB7F9",
     accent: "#A896F0",
     accent2: "#BFAEFF",
@@ -23,7 +23,6 @@ const ITEMS = [
   {
     key: "dinner",
     title: "Dinner",
-    value: "0",
     bg: "#FDC597",
     accent: "#F0A45E",
     accent2: "#F7BC85",
@@ -31,22 +30,33 @@ const ITEMS = [
   },
 ];
 
-export default function StatsCardsRow() {
+export default function StatsCardsRow({ favoriteCount = 0 }) {
+  const values = {
+    favorites: String(favoriteCount),
+    lunch: "0",
+    dinner: "0",
+  };
+
   return (
     <View style={styles.row}>
-      {ITEMS.map((item) => (
+      {CARDS.map((card) => (
         <View
-          key={item.key}
-          style={[styles.card, { backgroundColor: item.bg }]}
+          key={card.key}
+          style={[styles.card, { backgroundColor: card.bg }]}
         >
-          <View style={[styles.accent, { backgroundColor: item.accent }]} />
-          <View style={[styles.accent2, { backgroundColor: item.accent }]} />
-          <View style={{ flex: 1, justifyContent: "space-between" }}>
-            <Text style={[styles.title, { color: item.text }]}>
-              {item.title}
-            </Text>
-            <Text style={[styles.value, { color: item.text }]}>
-              {item.value}
+          <View style={[styles.accent, { backgroundColor: card.accent }]} />
+          <View style={[styles.accent2, { backgroundColor: card.accent }]} />
+          <View style={styles.cardContent}>
+            <View style={styles.titleRow}>
+              {card.key === "favorites" && (
+                <HeartIcon width={12} height={12} color={card.iconColor} filled />
+              )}
+              <Text style={[styles.title, { color: card.text }, card.key === "favorites" && styles.titleWithIcon]}>
+                {card.title}
+              </Text>
+            </View>
+            <Text style={[styles.value, { color: card.text }]}>
+              {values[card.key]}
             </Text>
           </View>
         </View>
@@ -86,10 +96,21 @@ const styles = StyleSheet.create({
     right: -15,
     opacity: 0.7,
   },
+  cardContent: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   title: {
     fontSize: 10,
     fontWeight: "600",
     lineHeight: 13,
+  },
+  titleWithIcon: {
+    marginLeft: 4,
   },
   value: {
     marginTop: 18,

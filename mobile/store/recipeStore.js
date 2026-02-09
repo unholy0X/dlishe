@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { fetchRecipes, deleteRecipe } from "../services/recipes";
+import { fetchRecipes, deleteRecipe, toggleFavorite as toggleFavoriteApi } from "../services/recipes";
 
 const PAGE_SIZE = 20;
 
@@ -68,6 +68,32 @@ export const useRecipeStore = create((set, get) => ({
       set({
         error: err?.message || "Failed to refresh recipes",
         isLoading: false,
+      });
+    }
+  },
+
+  toggleFavorite: async ({ recipeId, getToken }) => {
+    const { recipes } = get();
+    const recipe = recipes.find((r) => r.id === recipeId);
+    if (!recipe) return;
+
+    const newValue = !recipe.isFavorite;
+
+    // Optimistic update
+    set({
+      recipes: recipes.map((r) =>
+        r.id === recipeId ? { ...r, isFavorite: newValue } : r
+      ),
+    });
+
+    try {
+      await toggleFavoriteApi({ recipeId, isFavorite: newValue, getToken });
+    } catch {
+      // Revert on failure
+      set({
+        recipes: get().recipes.map((r) =>
+          r.id === recipeId ? { ...r, isFavorite: !newValue } : r
+        ),
       });
     }
   },

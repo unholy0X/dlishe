@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import HeartIcon from "../icons/HeartIcon";
 
 const CARDS = [
@@ -30,37 +30,47 @@ const CARDS = [
   },
 ];
 
-export default function StatsCardsRow({ favoriteCount = 0 }) {
+export default function StatsCardsRow({ favoriteCount = 0, onPressFavorites }) {
   const values = {
     favorites: String(favoriteCount),
     lunch: "0",
     dinner: "0",
   };
 
+  const handlers = {
+    favorites: onPressFavorites,
+  };
+
   return (
     <View style={styles.row}>
-      {CARDS.map((card) => (
-        <View
-          key={card.key}
-          style={[styles.card, { backgroundColor: card.bg }]}
-        >
-          <View style={[styles.accent, { backgroundColor: card.accent }]} />
-          <View style={[styles.accent2, { backgroundColor: card.accent }]} />
-          <View style={styles.cardContent}>
-            <View style={styles.titleRow}>
-              {card.key === "favorites" && (
-                <HeartIcon width={12} height={12} color={card.iconColor} filled />
-              )}
-              <Text style={[styles.title, { color: card.text }, card.key === "favorites" && styles.titleWithIcon]}>
-                {card.title}
+      {CARDS.map((card) => {
+        const Wrapper = handlers[card.key] ? Pressable : View;
+        const wrapperProps = handlers[card.key] ? { onPress: handlers[card.key] } : {};
+
+        return (
+          <Wrapper
+            key={card.key}
+            style={[styles.card, { backgroundColor: card.bg }]}
+            {...wrapperProps}
+          >
+            <View style={[styles.accent, { backgroundColor: card.accent }]} />
+            <View style={[styles.accent2, { backgroundColor: card.accent }]} />
+            <View style={styles.cardContent}>
+              <View style={styles.titleRow}>
+                {card.key === "favorites" && (
+                  <HeartIcon width={12} height={12} color={card.iconColor} filled />
+                )}
+                <Text style={[styles.title, { color: card.text }, card.key === "favorites" && styles.titleWithIcon]}>
+                  {card.title}
+                </Text>
+              </View>
+              <Text style={[styles.value, { color: card.text }]}>
+                {values[card.key]}
               </Text>
             </View>
-            <Text style={[styles.value, { color: card.text }]}>
-              {values[card.key]}
-            </Text>
-          </View>
-        </View>
-      ))}
+          </Wrapper>
+        );
+      })}
     </View>
   );
 }

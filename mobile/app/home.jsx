@@ -23,6 +23,7 @@ import RecentRecipesCarousel from "../components/home/RecentRecipesCarousel";
 import BottomSheetModal from "../components/BottomSheetModal";
 import SearchOverlay from "../components/SearchOverlay";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
+import HeartIcon from "../components/icons/HeartIcon";
 import { useSuggestedStore, useRecipeStore } from "../store";
 import { useAuth } from "@clerk/clerk-expo";
 
@@ -41,12 +42,14 @@ export default function HomeScreen() {
   const activeKey = pathname.replace("/", "") || "home";
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [isRecipesSheetOpen, setRecipesSheetOpen] = useState(false);
+  const [isFavoritesOpen, setFavoritesOpen] = useState(false);
   const [isSearchOpen, setSearchOpen] = useState(false);
 
   const { getToken } = useAuth();
   const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
-  const { recipes: userRecipes, loadRecipes } = useRecipeStore();
-  const favoriteCount = userRecipes.filter((r) => r.isFavorite).length;
+  const { recipes: userRecipes, loadRecipes, toggleFavorite } = useRecipeStore();
+  const favoriteRecipes = userRecipes.filter((r) => r.isFavorite);
+  const favoriteCount = favoriteRecipes.length;
 
   useEffect(() => {
     loadSuggested({ limit: 20 });
@@ -97,7 +100,7 @@ export default function HomeScreen() {
                   title: "What can I make ?",
                   subtitle: { txt: "Match your pantry", color: "#385225" },
                   Icon: () => (
-                    <View style={{backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999}}>
+                    <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
                       <SparkleBadgeIcon width={40} height={40} />
                     </View>
                   ),
@@ -112,7 +115,10 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.padded}>
-            <StatsCardsRow favoriteCount={favoriteCount} />
+            <StatsCardsRow
+              favoriteCount={favoriteCount}
+              onPressFavorites={() => setFavoritesOpen(true)}
+            />
 
             <RecentRecipesHeader
               onPressSeeAll={handleSeeAll}
@@ -187,6 +193,78 @@ export default function HomeScreen() {
                       <Text style={styles.recipeCardTitle} numberOfLines={2}>{recipe.title}</Text>
                       {meta ? <Text style={styles.recipeCardMeta}>{meta}</Text> : null}
                     </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </BottomSheetModal>
+
+      {/* Favorites Sheet */}
+      <BottomSheetModal
+        visible={isFavoritesOpen}
+        onClose={() => setFavoritesOpen(false)}
+      >
+        <View style={styles.recipesSheet}>
+          <View style={styles.favoritesHeader}>
+            <HeartIcon width={22} height={22} color="#E84057" filled />
+            <Text style={styles.favoritesTitle}>My Favorites</Text>
+          </View>
+          <Text style={styles.recipesSheetSubtitle}>
+            {favoriteCount} recipe{favoriteCount !== 1 ? "s" : ""} saved
+          </Text>
+
+          {favoriteCount === 0 ? (
+            <View style={styles.emptyFavorites}>
+              <View style={styles.emptyHeartCircle}>
+                <HeartIcon width={32} height={32} color="#F9BABA" />
+              </View>
+              <Text style={styles.emptyTitle}>No favorites yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Tap the heart on any recipe to save it here
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.recipesSheetGrid}>
+              {favoriteRecipes.map((recipe) => {
+                const imageSource = recipe.thumbnailUrl
+                  ? { uri: recipe.thumbnailUrl }
+                  : null;
+                const meta = buildMeta(recipe);
+
+                return (
+                  <Pressable
+                    key={recipe.id}
+                    style={styles.recipeCard}
+                    onPress={() => {
+                      setFavoritesOpen(false);
+                      router.push(`/recipe/${recipe.id}`);
+                    }}
+                  >
+                    {imageSource ? (
+                      <Image source={imageSource} style={styles.recipeCardImage} />
+                    ) : (
+                      <View style={[styles.recipeCardImage, styles.recipeCardPlaceholder]}>
+                        <Text style={styles.recipeCardPlaceholderText}>
+                          {recipe.title ? recipe.title.charAt(0).toUpperCase() : "?"}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.recipeCardInfo}>
+                      <Text style={styles.recipeCardTitle} numberOfLines={2}>{recipe.title}</Text>
+                      {meta ? <Text style={styles.recipeCardMeta}>{meta}</Text> : null}
+                    </View>
+                    <Pressable
+                      style={styles.unfavoriteBtn}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        toggleFavorite(recipe.id, getToken);
+                      }}
+                      hitSlop={10}
+                    >
+                      <HeartIcon width={18} height={18} color="#E84057" filled />
+                    </Pressable>
                   </Pressable>
                 );
               })}
@@ -293,5 +371,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#B4B4B4",
     marginTop: 4,
+  },
+  // Favorites sheet styles
+  favoritesHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  favoritesTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#111111",
+    letterSpacing: -0.3,
+  },
+  emptyFavorites: {
+    alignItems: "center",
+    paddingVertical: 50,
+  },
+  emptyHeartCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#FDEEEE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#111111",
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#B4B4B4",
+    textAlign: "center",
+    maxWidth: 220,
+  },
+  unfavoriteBtn: {
+    padding: 12,
+    marginRight: 4,
   },
 });

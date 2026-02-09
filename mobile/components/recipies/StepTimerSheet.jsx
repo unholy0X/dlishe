@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 const C = {
@@ -18,51 +18,114 @@ const FONT = {
   semibold: "Inter_600SemiBold",
 };
 
-export default function StepTimerSheet({ onBack, onStart, onWatch, onPrev, onNext }) {
+function formatTimer(seconds) {
+  if (seconds == null || seconds < 0) return "00:00";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function getTimerButtonLabel(timerRunning, timerSeconds) {
+  if (timerRunning) return "Pause";
+  if (timerSeconds != null && timerSeconds > 0) return "Resume";
+  return "Start timer";
+}
+
+export default function StepTimerSheet({
+  step,
+  currentStep,
+  totalSteps,
+  timerSeconds,
+  timerRunning,
+  onBack,
+  onStartTimer,
+  onPrev,
+  onNext,
+}) {
+  const hasDuration = step?.durationSeconds > 0;
+  const isFirstStep = currentStep === 0;
+  const isLastStep = currentStep === totalSteps - 1;
+
+  // Build subtitle from technique + temperature
+  const subtitleParts = [];
+  if (step?.technique) subtitleParts.push(step.technique);
+  if (step?.temperature) subtitleParts.push(step.temperature);
+  const subtitle = subtitleParts.join("  ·  ");
+
+  // Timer progress
+  const progress =
+    hasDuration && timerSeconds != null
+      ? timerSeconds / step.durationSeconds
+      : 1;
+
   return (
     <View style={s.container}>
-      {/* Back */}
-      <Pressable style={s.backBtn} onPress={onBack}>
-        <Text style={s.backIcon}>←</Text>
-        <Text style={s.backText}>Back</Text>
-      </Pressable>
-
-      {/* Title */}
-      <Text style={s.title}>Heat olive oil in a pan{"\n"}over medium heat.</Text>
-      <Text style={s.subtitle}>Sauté - Medium heat</Text>
-
-      {/* Timer Card */}
-      <View style={s.timerCard}>
-        <ProgressRing progress={0.65} />
-        <Text style={s.timerText}>04:00</Text>
+      {/* Top bar */}
+      <View style={s.topBar}>
+        <Pressable style={s.backBtn} onPress={onBack}>
+          <Text style={s.backIcon}>←</Text>
+          <Text style={s.backText}>Back</Text>
+        </Pressable>
+        <View style={s.stepCounterPill}>
+          <Text style={s.stepCounterText}>
+            {currentStep + 1} / {totalSteps}
+          </Text>
+        </View>
       </View>
 
-      {/* Action buttons */}
-      <Pressable style={s.secondaryBtn} onPress={onStart}>
-        <Text style={s.secondaryText}>▶  Start timer</Text>
-      </Pressable>
+      {/* Scrollable content */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scrollContent}
+        style={s.scrollView}
+      >
+        {/* Instruction */}
+        <Text style={s.instruction}>{step?.instruction}</Text>
+        {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
 
-      <Pressable style={s.secondaryBtn} onPress={onWatch}>
-        <Text style={s.secondaryText}>🖥  Watch this step</Text>
-      </Pressable>
+        {/* Timer Card — only if step has explicit duration */}
+        {hasDuration ? (
+          <View style={s.timerSection}>
+            <View style={s.timerCard}>
+              <ProgressRing progress={progress} />
+              <Text style={s.timerText}>{formatTimer(timerSeconds)}</Text>
+            </View>
 
-      {/* Bottom nav */}
+            <Pressable
+              style={[s.timerBtn, timerRunning && s.timerBtnActive]}
+              onPress={onStartTimer}
+            >
+              <Text style={[s.timerBtnText, timerRunning && s.timerBtnTextActive]}>
+                {timerRunning ? "⏸" : "▶"}{"  "}
+                {getTimerButtonLabel(timerRunning, timerSeconds)}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </ScrollView>
+
+      {/* Bottom nav — pinned */}
       <View style={s.bottomNav}>
-        <Pressable style={s.prevBtn} onPress={onPrev}>
-          <Text style={s.prevText}>‹  Previous</Text>
+        <Pressable
+          style={[s.prevBtn, isFirstStep && s.btnDisabled]}
+          onPress={onPrev}
+          disabled={isFirstStep}
+        >
+          <Text style={[s.prevText, isFirstStep && s.textDisabled]}>
+            ‹  Previous
+          </Text>
         </Pressable>
         <Pressable style={s.nextBtn} onPress={onNext}>
-          <Text style={s.nextText}>Next  ›</Text>
+          <Text style={s.nextText}>{isLastStep ? "Finish" : "Next  ›"}</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-// Simple static ring
-function ProgressRing({ progress = 0.6 }) {
-  const size = 220;
-  const strokeWidth = 12;
+function ProgressRing({ progress = 1 }) {
+  const size = 200;
+  const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference * (1 - progress);
@@ -98,12 +161,16 @@ const s = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 20,
+    paddingBottom: 6,
   },
   backBtn: {
-    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
@@ -121,22 +188,45 @@ const s = StyleSheet.create({
     fontFamily: FONT.medium,
     color: C.muted,
   },
-  title: {
-    marginTop: 18,
-    fontSize: 28,
+  stepCounterPill: {
+    backgroundColor: "#fff",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  stepCounterText: {
+    fontSize: 13,
     fontFamily: FONT.semibold,
     color: C.text,
-    lineHeight: 36,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontFamily: FONT.regular,
-    color: C.muted,
-    marginTop: 6,
+    letterSpacing: -0.05,
   },
 
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  instruction: {
+    fontSize: 22,
+    fontFamily: FONT.semibold,
+    color: C.text,
+    lineHeight: 30,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontFamily: FONT.regular,
+    color: C.muted,
+    marginTop: 8,
+    textTransform: "capitalize",
+  },
+
+  timerSection: {
+    marginTop: 28,
+  },
   timerCard: {
-    marginTop: 22,
     backgroundColor: "#fff",
     borderRadius: 24,
     padding: 20,
@@ -150,21 +240,29 @@ const s = StyleSheet.create({
     color: C.text,
   },
 
-  secondaryBtn: {
+  timerBtn: {
     marginTop: 14,
     backgroundColor: "#F0F0F0",
     borderRadius: 999,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: "center",
   },
-  secondaryText: {
+  timerBtnActive: {
+    backgroundColor: "#FFF3E0",
+  },
+  timerBtnText: {
     fontSize: 15,
     fontFamily: FONT.medium,
     color: C.greenDark,
   },
+  timerBtnTextActive: {
+    color: "#E8845C",
+  },
 
   bottomNav: {
-    marginTop: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -173,19 +271,25 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F0F0F0",
     borderRadius: 999,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: "center",
+  },
+  btnDisabled: {
+    opacity: 0.35,
   },
   prevText: {
     fontSize: 15,
     fontFamily: FONT.medium,
     color: C.greenDark,
   },
+  textDisabled: {
+    color: C.muted,
+  },
   nextBtn: {
     flex: 1,
     backgroundColor: C.green,
     borderRadius: 999,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: "center",
   },
   nextText: {

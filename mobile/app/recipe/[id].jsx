@@ -8,6 +8,8 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Modal,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -25,6 +27,9 @@ import {
 import { useRecipeStore, useShoppingStore } from "../../store";
 import ArrowLeftIcon from "../../components/icons/ArrowLeftIcon";
 import RecipePlaceholder from "../../components/RecipePlaceholder";
+import PrepChecklistSheet from "../../components/recipies/PrepShecklistSheet";
+import StepTimerSheet from "../../components/recipies/StepTimerSheet";
+import DoneSheet from "../../components/recipies/DoneSheet";
 import Svg, { Path } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -205,6 +210,14 @@ export default function RecipeDetailScreen() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  // Cooking mode state
+  const [cookingOpen, setCookingOpen] = useState(false);
+  const [cookingPhase, setCookingPhase] = useState("prep");
+  const [currentStep, setCurrentStep] = useState(0);
+  const [checkedIngredients, setCheckedIngredients] = useState({});
+  const [timerSeconds, setTimerSeconds] = useState(null);
+  const [timerRunning, setTimerRunning] = useState(false);
+
   const refreshList = useRecipeStore((state) => state.refresh);
   const isOwn = recipe && !recipe.isPublic;
 
@@ -270,6 +283,21 @@ export default function RecipeDetailScreen() {
     };
   }, [id]);
 
+  // Cooking timer
+  useEffect(() => {
+    if (!timerRunning || timerSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setTimerSeconds((s) => {
+        if (s <= 1) {
+          setTimerRunning(false);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timerRunning]);
+
   if (isLoading) {
     return (
       <View style={s.screen}>
@@ -319,6 +347,39 @@ export default function RecipeDetailScreen() {
     if (dietary.isHalal) dietaryBadges.push("Halal");
     if (dietary.isKosher) dietaryBadges.push("Kosher");
   }
+
+  // Cooking mode helpers
+  const sortedSteps = steps.slice().sort((a, b) => a.stepNumber - b.stepNumber);
+
+  const handleNextStep = () => {
+    setTimerRunning(false);
+    setTimerSeconds(null);
+    if (currentStep >= sortedSteps.length - 1) {
+      setCookingPhase("done");
+    } else {
+      setCurrentStep((s) => s + 1);
+    }
+  };
+
+  const handlePrevStep = () => {
+    setTimerRunning(false);
+    setTimerSeconds(null);
+    if (currentStep > 0) setCurrentStep((s) => s - 1);
+  };
+
+  const handleStartTimer = () => {
+    const step = sortedSteps[currentStep];
+    if (step?.durationSeconds) {
+      if (timerRunning) {
+        setTimerRunning(false); // pause
+      } else {
+        if (timerSeconds === null || timerSeconds === 0) {
+          setTimerSeconds(step.durationSeconds); // reset
+        }
+        setTimerRunning(true); // start/resume
+      }
+    }
+  };
 
   return (
     <View style={s.screen}>
@@ -566,7 +627,17 @@ export default function RecipeDetailScreen() {
           <View style={s.actionsZone}>
             {isOwn ? (
               <>
-                <Pressable style={s.primaryBtn}>
+                <Pressable
+                  style={s.primaryBtn}
+                  onPress={() => {
+                    setCookingPhase("prep");
+                    setCurrentStep(0);
+                    setCheckedIngredients({});
+                    setTimerSeconds(null);
+                    setTimerRunning(false);
+                    setCookingOpen(true);
+                  }}
+                >
                   <Text style={s.primaryBtnText}>
                     <PlayIcon size={12} /> Start cooking
                   </Text>
@@ -609,6 +680,55 @@ export default function RecipeDetailScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Cooking mode — full-screen immersive */}
+      <Modal
+        visible={cookingOpen}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setCookingOpen(false)}
+      >
+        <StatusBar barStyle="dark-content" />
+        <SafeAreaView style={s.cookingModal} edges={["top", "bottom"]}>
+          {cookingPhase === "prep" && (
+            <PrepChecklistSheet
+              ingredients={ingredients}
+              checkedIngredients={checkedIngredients}
+              onToggle={(idx) =>
+                setCheckedIngredients((prev) => ({ ...prev, [idx]: !prev[idx] }))
+              }
+              onBack={() => setCookingOpen(false)}
+              onReady={() => {
+                setCookingPhase("steps");
+                setCurrentStep(0);
+              }}
+            />
+          )}
+          {cookingPhase === "steps" && sortedSteps[currentStep] && (
+            <StepTimerSheet
+              step={sortedSteps[currentStep]}
+              currentStep={currentStep}
+              totalSteps={sortedSteps.length}
+              timerSeconds={timerSeconds}
+              timerRunning={timerRunning}
+              onBack={() => setCookingOpen(false)}
+              onStartTimer={handleStartTimer}
+              onPrev={handlePrevStep}
+              onNext={handleNextStep}
+            />
+          )}
+          {cookingPhase === "done" && (
+            <DoneSheet
+              title={recipe?.title}
+              imageUri={recipe?.thumbnailUrl}
+              totalSteps={sortedSteps.length}
+              totalTime={totalTime}
+              onBack={() => setCookingPhase("steps")}
+              onServe={() => setCookingOpen(false)}
+            />
+          )}
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -637,6 +757,10 @@ function BackButton({ onPress, light }) {
 
 const s = StyleSheet.create({
   screen: {
+    flex: 1,
+    backgroundColor: C.bg,
+  },
+  cookingModal: {
     flex: 1,
     backgroundColor: C.bg,
   },

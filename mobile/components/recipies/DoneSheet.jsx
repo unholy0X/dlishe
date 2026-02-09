@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable, Image } from "react-native";
+import RecipePlaceholder from "../RecipePlaceholder";
 
 const C = {
   bg: "#F4F5F7",
@@ -17,11 +18,18 @@ const FONT = {
 };
 
 export default function DoneSheet({
+  title,
+  imageUri,
+  totalSteps,
+  totalTime,
   onBack,
   onServe,
-  onWatchStep,
-  imageUri,
 }) {
+  const metaParts = [];
+  if (totalSteps) metaParts.push(`${totalSteps} steps completed`);
+  if (totalTime > 0) metaParts.push(`≈${totalTime} min`);
+  const metaText = metaParts.join("  ·  ");
+
   return (
     <View style={s.container}>
       {/* Back */}
@@ -36,28 +44,19 @@ export default function DoneSheet({
 
       {/* Image */}
       <View style={s.imageWrap}>
-        <Image
-          source={imageUri ? { uri: imageUri } : require("../assets/recipe-done.png")}
-          style={s.image}
-        />
+        {imageUri ? (
+          <Image source={{ uri: imageUri }} style={s.image} />
+        ) : (
+          <RecipePlaceholder title={title} variant="hero" style={s.image} />
+        )}
       </View>
 
-      <Text style={s.meta}>7 steps completed ≈25 minutes active</Text>
+      {metaText ? <Text style={s.meta}>{metaText}</Text> : null}
 
       {/* Primary */}
       <Pressable style={s.primaryBtn} onPress={onServe}>
-        <Text style={s.primaryText}>🍽  Serve & enjoy</Text>
+        <Text style={s.primaryText}>Serve & enjoy</Text>
       </Pressable>
-
-      {/* Secondary row */}
-      <View style={s.secondaryRow}>
-        <Pressable style={s.secondaryBtn} onPress={onWatchStep}>
-          <Text style={s.secondaryText}>🔖  Watch this step</Text>
-        </Pressable>
-        <Pressable style={s.secondaryBtn} onPress={onWatchStep}>
-          <Text style={s.secondaryText}>🎥  Watch this step</Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -66,7 +65,6 @@ const s = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
-    paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
   },
@@ -131,24 +129,6 @@ const s = StyleSheet.create({
   primaryText: {
     fontSize: 15,
     fontFamily: FONT.semibold,
-    color: C.greenDark,
-  },
-
-  secondaryRow: {
-    marginTop: 12,
-    flexDirection: "row",
-    gap: 10,
-  },
-  secondaryBtn: {
-    flex: 1,
-    backgroundColor: "#F0F0F0",
-    borderRadius: 999,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  secondaryText: {
-    fontSize: 13,
-    fontFamily: FONT.medium,
     color: C.greenDark,
   },
 });

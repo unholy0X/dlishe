@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Image,
   ScrollView,
 } from "react-native";
 
@@ -24,68 +23,126 @@ const FONT = {
   semibold: "Inter_600SemiBold",
 };
 
-export default function PrepChecklistSheet({ onBack, onReady }) {
+const SECTION_COLORS = [
+  "#E8845C",
+  "#7A8A5A",
+  "#6B7F6A",
+  "#C17A4E",
+  "#8B6B4A",
+  "#B57A5F",
+  "#D4775D",
+  "#A8856A",
+];
+
+function getSectionColor(index) {
+  return SECTION_COLORS[index % SECTION_COLORS.length];
+}
+
+export default function PrepChecklistSheet({
+  ingredients,
+  checkedIngredients,
+  onToggle,
+  onBack,
+  onReady,
+}) {
+  // Group ingredients by section
+  const sections = {};
+  (ingredients || []).forEach((ing) => {
+    const key = ing.section || "Ingredients";
+    if (!sections[key]) sections[key] = [];
+    sections[key].push(ing);
+  });
+  const sectionEntries = Object.entries(sections);
+
+  // Build a flat index for toggle tracking
+  let flatIndex = 0;
+  const sectionData = sectionEntries.map(([title, items]) => {
+    const rows = items.map((ing) => {
+      const idx = flatIndex++;
+      return { ing, idx };
+    });
+    return { title, rows };
+  });
+
+  const totalCount = flatIndex;
+  const checkedCount = Object.values(checkedIngredients || {}).filter(Boolean).length;
+
   return (
     <View style={s.container}>
-      {/* Back */}
-      <Pressable style={s.backBtn} onPress={onBack}>
-        <Text style={s.backIcon}>←</Text>
-        <Text style={s.backText}>Back</Text>
-      </Pressable>
+      {/* Header */}
+      <View style={s.header}>
+        <Pressable style={s.backBtn} onPress={onBack}>
+          <Text style={s.backIcon}>←</Text>
+          <Text style={s.backText}>Back</Text>
+        </Pressable>
 
-      {/* Title */}
-      <Text style={s.title}>Before we start</Text>
-      <Text style={s.subtitle}>Gather everything you need</Text>
+        <Text style={s.title}>Before we start</Text>
+        <Text style={s.subtitle}>Gather everything you need</Text>
+      </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-        {/* Produce Card */}
-        <View style={s.sectionCard}>
-          <View style={s.sectionHeader}>
-            <Image source={require("../assets/produce.png")} style={s.sectionIcon} />
-            <Text style={s.sectionTitle}>Produce</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scroll}
+        style={s.scrollView}
+      >
+        {sectionData.map(({ title, rows }, si) => (
+          <View key={si} style={s.sectionCard}>
+            <View style={s.sectionHeader}>
+              <View style={[s.sectionCircle, { backgroundColor: getSectionColor(si) }]}>
+                <Text style={s.sectionInitial}>{title.charAt(0).toUpperCase()}</Text>
+              </View>
+              <Text style={s.sectionTitle}>{title}</Text>
+            </View>
+
+            <View style={s.sectionInner}>
+              {rows.map(({ ing, idx }, ri) => {
+                const checked = !!checkedIngredients?.[idx];
+                const qty = ing.quantity
+                  ? `${ing.quantity}${ing.unit ? ` ${ing.unit}` : ""}`
+                  : null;
+                const isLast = ri === rows.length - 1;
+                return (
+                  <Pressable
+                    key={idx}
+                    style={[s.row, !isLast && s.rowBorder]}
+                    onPress={() => onToggle(idx)}
+                  >
+                    <View style={[s.check, checked ? s.checkOn : s.checkOff]}>
+                      {checked ? <Text style={s.checkMark}>✓</Text> : null}
+                    </View>
+                    <View style={s.rowContent}>
+                      <View style={s.rowTopLine}>
+                        <Text
+                          style={[s.rowLabel, checked && s.rowLabelChecked]}
+                          numberOfLines={2}
+                        >
+                          {ing.name}
+                        </Text>
+                        {qty ? (
+                          <Text style={s.rowQty}>{qty}</Text>
+                        ) : null}
+                      </View>
+                      {ing.notes ? (
+                        <Text style={s.rowNotes} numberOfLines={2}>
+                          {ing.notes}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-
-          <View style={s.sectionInner}>
-            <Row checked label="Ginger" amount="1/2 cup" />
-            <Row checked label="Garlic" amount="4 cloves" />
-            <Row label="Lecoin" amount="1 unit" />
-            <Row label="Dill" amount="1 Tbsp" />
-          </View>
-        </View>
-
-        {/* Pantry Card */}
-        <View style={s.sectionCard}>
-          <View style={s.sectionHeader}>
-            <Image source={require("../assets/pantry.png")} style={s.sectionIcon} />
-            <Text style={s.sectionTitle}>Pantry</Text>
-          </View>
-
-          <View style={s.sectionInner}>
-            <Row checked label="Eggs" amount="3 units" />
-            <Row label="Flour" amount="1/2 cup" />
-          </View>
-        </View>
+        ))}
       </ScrollView>
 
       {/* Footer */}
       <View style={s.footer}>
-        <Text style={s.readyText}>8/12 ready</Text>
+        <Text style={s.readyText}>{checkedCount}/{totalCount} ready</Text>
         <Pressable style={s.readyBtn} onPress={onReady}>
-          <Text style={s.readyBtnText}>I’m ready</Text>
+          <Text style={s.readyBtnText}>I'm ready</Text>
         </Pressable>
       </View>
-    </View>
-  );
-}
-
-function Row({ checked, label, amount }) {
-  return (
-    <View style={s.row}>
-      <View style={[s.check, checked ? s.checkOn : s.checkOff]}>
-        {checked ? <Text style={s.checkMark}>✓</Text> : null}
-      </View>
-      <Text style={s.rowLabel}>{label}</Text>
-      <Text style={s.rowAmount}>{amount}</Text>
     </View>
   );
 }
@@ -94,12 +151,17 @@ const s = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: C.bg,
+  },
+  header: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 20,
+  },
+  scrollView: {
+    flex: 1,
   },
   scroll: {
-    paddingBottom: 30,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   backBtn: {
     alignSelf: "flex-start",
@@ -131,23 +193,32 @@ const s = StyleSheet.create({
     fontFamily: FONT.regular,
     color: C.muted,
     marginTop: 4,
+    marginBottom: 4,
   },
 
   sectionCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 16,
-    marginTop: 20,
+    marginTop: 16,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
   },
-  sectionIcon: {
+  sectionCircle: {
     width: 28,
     height: 28,
+    borderRadius: 14,
     marginRight: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionInitial: {
+    fontSize: 14,
+    fontFamily: FONT.semibold,
+    color: "#fff",
   },
   sectionTitle: {
     fontSize: 16,
@@ -157,19 +228,24 @@ const s = StyleSheet.create({
   sectionInner: {
     backgroundColor: "#F7F7F7",
     borderRadius: 16,
-    padding: 12,
+    padding: 14,
   },
 
   row: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
+    alignItems: "flex-start",
+    paddingVertical: 10,
+  },
+  rowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#ECECEC",
   },
   check: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    marginRight: 12,
+    marginTop: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -184,24 +260,48 @@ const s = StyleSheet.create({
     color: C.greenDark,
     fontFamily: FONT.semibold,
   },
+  rowContent: {
+    flex: 1,
+  },
+  rowTopLine: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
   rowLabel: {
     fontSize: 15,
     fontFamily: FONT.medium,
     color: C.text,
     flex: 1,
+    marginRight: 10,
+    lineHeight: 20,
   },
-  rowAmount: {
-    fontSize: 14,
+  rowLabelChecked: {
+    textDecorationLine: "line-through",
+    color: C.muted,
+  },
+  rowQty: {
+    fontSize: 13,
+    fontFamily: FONT.semibold,
+    color: C.text,
+    flexShrink: 0,
+  },
+  rowNotes: {
+    fontSize: 13,
     fontFamily: FONT.regular,
     color: C.muted,
+    marginTop: 2,
+    lineHeight: 18,
   },
 
   footer: {
-    marginTop: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    paddingTop: 10,
     backgroundColor: "#fff",
     borderRadius: 999,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    marginHorizontal: 20,
+    marginBottom: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

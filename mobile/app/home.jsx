@@ -7,7 +7,9 @@ import {
   Pressable,
   Image,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
 import FloatingNav from "../components/FloatingNav";
@@ -26,6 +28,12 @@ import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent"
 import HeartIcon from "../components/icons/HeartIcon";
 import { useSuggestedStore, useRecipeStore } from "../store";
 import { useAuth } from "@clerk/clerk-expo";
+
+const { width: SCREEN_W } = Dimensions.get("window");
+const MASONRY_GAP = 10;
+const MASONRY_COL = (SCREEN_W - 40 - MASONRY_GAP) / 2;
+const MASONRY_TALL = MASONRY_COL * 1.45;
+const MASONRY_SHORT = MASONRY_COL * 1.1;
 
 function buildMeta(recipe) {
   const parts = [];
@@ -67,7 +75,6 @@ export default function HomeScreen() {
     id: r.id,
     title: r.title,
     thumbnailUrl: r.thumbnailUrl,
-    meta: buildMeta(r),
   }));
 
   return (
@@ -164,34 +171,42 @@ export default function HomeScreen() {
               <ActivityIndicator size="large" color="#385225" />
             </View>
           ) : (
-            <View style={styles.recipesSheetGrid}>
-              {(allRecipes.length > 0 ? allRecipes : suggested).map((recipe) => {
+            <View style={styles.masonryGrid}>
+              {(allRecipes.length > 0 ? allRecipes : suggested).map((recipe, index) => {
                 const imageSource = recipe.thumbnailUrl
                   ? { uri: recipe.thumbnailUrl }
                   : null;
-                const meta = buildMeta(recipe);
+                const isTall = index % 3 === 0;
 
                 return (
                   <Pressable
                     key={recipe.id}
-                    style={styles.recipeCard}
+                    style={[
+                      styles.masonryCard,
+                      { height: isTall ? MASONRY_TALL : MASONRY_SHORT },
+                    ]}
                     onPress={() => {
                       setRecipesSheetOpen(false);
                       router.push(`/recipe/${recipe.id}`);
                     }}
                   >
                     {imageSource ? (
-                      <Image source={imageSource} style={styles.recipeCardImage} />
+                      <Image source={imageSource} style={styles.masonryImage} />
                     ) : (
-                      <View style={[styles.recipeCardImage, styles.recipeCardPlaceholder]}>
-                        <Text style={styles.recipeCardPlaceholderText}>
+                      <View style={[styles.masonryImage, styles.masonryPlaceholder]}>
+                        <Text style={styles.masonryPlaceholderText}>
                           {recipe.title ? recipe.title.charAt(0).toUpperCase() : "?"}
                         </Text>
                       </View>
                     )}
-                    <View style={styles.recipeCardInfo}>
-                      <Text style={styles.recipeCardTitle} numberOfLines={2}>{recipe.title}</Text>
-                      {meta ? <Text style={styles.recipeCardMeta}>{meta}</Text> : null}
+                    <LinearGradient
+                      colors={["transparent", "rgba(0,0,0,0.6)"]}
+                      style={styles.masonryGradient}
+                    />
+                    <View style={styles.masonryOverlay}>
+                      <Text style={styles.masonryTitle} numberOfLines={2}>
+                        {recipe.title}
+                      </Text>
                     </View>
                   </Pressable>
                 );
@@ -226,37 +241,40 @@ export default function HomeScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.recipesSheetGrid}>
-              {favoriteRecipes.map((recipe) => {
+            <View style={styles.masonryGrid}>
+              {favoriteRecipes.map((recipe, index) => {
                 const imageSource = recipe.thumbnailUrl
                   ? { uri: recipe.thumbnailUrl }
                   : null;
-                const meta = buildMeta(recipe);
+                const isTall = index % 3 === 0;
 
                 return (
                   <Pressable
                     key={recipe.id}
-                    style={styles.recipeCard}
+                    style={[
+                      styles.masonryCard,
+                      { height: isTall ? MASONRY_TALL : MASONRY_SHORT },
+                    ]}
                     onPress={() => {
                       setFavoritesOpen(false);
                       router.push(`/recipe/${recipe.id}`);
                     }}
                   >
                     {imageSource ? (
-                      <Image source={imageSource} style={styles.recipeCardImage} />
+                      <Image source={imageSource} style={styles.masonryImage} />
                     ) : (
-                      <View style={[styles.recipeCardImage, styles.recipeCardPlaceholder]}>
-                        <Text style={styles.recipeCardPlaceholderText}>
+                      <View style={[styles.masonryImage, styles.masonryPlaceholder]}>
+                        <Text style={styles.masonryPlaceholderText}>
                           {recipe.title ? recipe.title.charAt(0).toUpperCase() : "?"}
                         </Text>
                       </View>
                     )}
-                    <View style={styles.recipeCardInfo}>
-                      <Text style={styles.recipeCardTitle} numberOfLines={2}>{recipe.title}</Text>
-                      {meta ? <Text style={styles.recipeCardMeta}>{meta}</Text> : null}
-                    </View>
+                    <LinearGradient
+                      colors={["transparent", "rgba(0,0,0,0.6)"]}
+                      style={styles.masonryGradient}
+                    />
                     <Pressable
-                      style={styles.unfavoriteBtn}
+                      style={styles.favHeartBtn}
                       onPress={(e) => {
                         e.stopPropagation?.();
                         toggleFavorite(recipe.id, getToken);
@@ -265,6 +283,11 @@ export default function HomeScreen() {
                     >
                       <HeartIcon width={18} height={18} color="#E84057" filled />
                     </Pressable>
+                    <View style={styles.masonryOverlay}>
+                      <Text style={styles.masonryTitle} numberOfLines={2}>
+                        {recipe.title}
+                      </Text>
+                    </View>
                   </Pressable>
                 );
               })}
@@ -323,54 +346,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#B4B4B4",
     marginTop: 4,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   recipesSheetLoading: {
     alignItems: "center",
     paddingVertical: 40,
   },
-  recipesSheetGrid: {
-    gap: 12,
+  // Masonry grid
+  masonryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: MASONRY_GAP,
     paddingBottom: 10,
   },
-  recipeCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 18,
+  masonryCard: {
+    width: MASONRY_COL,
+    borderRadius: 20,
     overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#EBEBEB",
   },
-  recipeCardImage: {
-    width: 80,
-    height: 80,
+  masonryImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
   },
-  recipeCardPlaceholder: {
+  masonryPlaceholder: {
     backgroundColor: "#DFF7C4",
     alignItems: "center",
     justifyContent: "center",
   },
-  recipeCardPlaceholderText: {
-    fontSize: 28,
+  masonryPlaceholderText: {
+    fontSize: 36,
     fontWeight: "600",
     color: "#385225",
   },
-  recipeCardInfo: {
-    flex: 1,
+  masonryGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "50%",
+  },
+  masonryOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingBottom: 14,
   },
-  recipeCardTitle: {
+  masonryTitle: {
     fontSize: 15,
-    fontWeight: "600",
-    color: "#111111",
+    fontWeight: "700",
+    color: "#ffffff",
     letterSpacing: -0.2,
-  },
-  recipeCardMeta: {
-    fontSize: 13,
-    color: "#B4B4B4",
-    marginTop: 4,
+    textShadowColor: "rgba(0,0,0,0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   // Favorites sheet styles
   favoritesHeader: {
@@ -409,8 +440,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
     maxWidth: 220,
   },
-  unfavoriteBtn: {
-    padding: 12,
-    marginRight: 4,
+  favHeartBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -1,10 +1,13 @@
 import { useEffect } from "react";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser, useAuth } from "@clerk/clerk-expo";
 import { useUserStore } from "../store";
+import { getMe } from "../services/user";
 
 export default function UserSync() {
   const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
   const setUser = useUserStore((s) => s.setUser);
+  const setPreferredUnitSystem = useUserStore((s) => s.setPreferredUnitSystem);
   const clearUser = useUserStore((s) => s.clearUser);
 
   useEffect(() => {
@@ -12,11 +15,21 @@ export default function UserSync() {
     if (user) {
       const firstName = user.firstName ?? "";
       const lastName = user.lastName ?? "";
-      setUser(firstName, lastName);
+      const imageUrl = user.hasImage ? user.imageUrl : null;
+      setUser(firstName, lastName, imageUrl);
+
+      // Fetch backend preferences
+      getMe({ getToken })
+        .then((res) => {
+          if (res?.user?.preferredUnitSystem) {
+            setPreferredUnitSystem(res.user.preferredUnitSystem);
+          }
+        })
+        .catch(() => {});
     } else {
       clearUser();
     }
-  }, [user, isLoaded, setUser, clearUser]);
+  }, [user, isLoaded]);
 
   return null;
 }

@@ -23,7 +23,7 @@ import RecentRecipesCarousel from "../components/home/RecentRecipesCarousel";
 import BottomSheetModal from "../components/BottomSheetModal";
 import SearchOverlay from "../components/SearchOverlay";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
-import { useSuggestedStore } from "../store";
+import { useSuggestedStore, useRecipeStore } from "../store";
 import { useAuth } from "@clerk/clerk-expo";
 
 function buildMeta(recipe) {
@@ -45,9 +45,12 @@ export default function HomeScreen() {
 
   const { getToken } = useAuth();
   const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
+  const { recipes: userRecipes, loadRecipes } = useRecipeStore();
+  const favoriteCount = userRecipes.filter((r) => r.isFavorite).length;
 
   useEffect(() => {
     loadSuggested({ limit: 20 });
+    loadRecipes({ getToken });
   }, []);
 
   const handleSeeAll = useCallback(() => {
@@ -109,7 +112,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.padded}>
-            <StatsCardsRow />
+            <StatsCardsRow favoriteCount={favoriteCount} />
 
             <RecentRecipesHeader
               onPressSeeAll={handleSeeAll}

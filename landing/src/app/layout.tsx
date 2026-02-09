@@ -14,19 +14,19 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "DLISHE | Your Kitchen, Simplified",
+  title: "Dlishe | Your Kitchen, Simplified",
   description: "Capture recipes from anywhere. Manage your pantry. Cook with confidence. The companion app for home cooks who love great food.",
   keywords: ["recipe app", "cooking", "meal planning", "pantry management", "recipe saver"],
   openGraph: {
-    title: "DLISHE | Your Kitchen, Simplified",
+    title: "Dlishe | Your Kitchen, Simplified",
     description: "Capture recipes from anywhere. Manage your pantry. Cook with confidence.",
     url: "https://dlishe.com",
-    siteName: "DLISHE",
+    siteName: "Dlishe",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "DLISHE | Your Kitchen, Simplified",
+    title: "Dlishe | Your Kitchen, Simplified",
     description: "Capture recipes from anywhere. Manage your pantry. Cook with confidence.",
   },
 };

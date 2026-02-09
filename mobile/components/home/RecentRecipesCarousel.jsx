@@ -1,52 +1,63 @@
 import React from "react";
-import { View, Text, StyleSheet, Image, ScrollView, Pressable } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  Pressable,
+  Dimensions,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_WIDTH = SCREEN_WIDTH * 0.62;
+const CARD_HEIGHT = CARD_WIDTH * 1.28;
+const CARD_GAP = 14;
 
 export default function RecentRecipesCarousel({ items = [], onPressItem }) {
-  // Pair items into columns of 2 for the 2-row grid
-  const columns = [];
-  for (let i = 0; i < items.length; i += 2) {
-    columns.push(items.slice(i, i + 2));
-  }
-
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.scroll}
       contentContainerStyle={styles.scrollContent}
+      decelerationRate="fast"
+      snapToInterval={CARD_WIDTH + CARD_GAP}
+      snapToAlignment="start"
     >
-      {columns.map((pair, colIndex) => (
-        <View key={colIndex} style={[styles.column, colIndex > 0 && styles.columnSpacing]}>
-          {pair.map((item) => {
-            const imageSource = item.thumbnailUrl
-              ? { uri: item.thumbnailUrl }
-              : null;
+      {items.map((item, index) => {
+        const imageSource = item.thumbnailUrl
+          ? { uri: item.thumbnailUrl }
+          : null;
 
-            return (
-              <Pressable
-                key={item.id || item.title}
-                style={styles.card}
-                onPress={() => onPressItem?.(item)}
-              >
-                {imageSource ? (
-                  <Image source={imageSource} style={styles.image} />
-                ) : (
-                  <View style={[styles.image, styles.placeholder]}>
-                    <Text style={styles.placeholderText}>
-                      {item.title ? item.title.charAt(0).toUpperCase() : "?"}
-                    </Text>
-                  </View>
-                )}
-                <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                {item.meta ? (
-                  <Text style={styles.meta} numberOfLines={1}>{item.meta}</Text>
-                ) : null}
-              </Pressable>
-            );
-          })}
-          {pair.length === 1 && <View style={styles.cardSpacer} />}
-        </View>
-      ))}
+        return (
+          <Pressable
+            key={item.id || item.title}
+            style={[styles.card, index > 0 && { marginLeft: CARD_GAP }]}
+            onPress={() => onPressItem?.(item)}
+          >
+            {imageSource ? (
+              <Image source={imageSource} style={styles.image} />
+            ) : (
+              <View style={[styles.image, styles.placeholder]}>
+                <Text style={styles.placeholderText}>
+                  {item.title ? item.title.charAt(0).toUpperCase() : "?"}
+                </Text>
+              </View>
+            )}
+            <LinearGradient
+              colors={["transparent", "rgba(0,0,0,0.55)"]}
+              style={styles.gradient}
+            />
+            <View style={styles.overlay}>
+              <Text style={styles.title} numberOfLines={2}>
+                {item.title}
+              </Text>
+            </View>
+          </Pressable>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -57,28 +68,19 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingRight: 12,
     paddingTop: 12,
-    paddingBottom: 4,
-  },
-  column: {
-    gap: 12,
-  },
-  columnSpacing: {
-    marginLeft: 12,
+    paddingBottom: 8,
   },
   card: {
-    width: 168,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: 24,
     overflow: "hidden",
   },
-  cardSpacer: {
-    width: 168,
-    height: 160,
-  },
   image: {
+    ...StyleSheet.absoluteFillObject,
     width: "100%",
-    height: 130,
-    borderRadius: 20,
+    height: "100%",
   },
   placeholder: {
     backgroundColor: "#DFF7C4",
@@ -86,21 +88,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   placeholderText: {
-    fontSize: 32,
+    fontSize: 48,
     fontWeight: "600",
     color: "#385225",
   },
-  title: {
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111111",
-    letterSpacing: -0.2,
+  gradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "45%",
   },
-  meta: {
-    marginTop: 3,
-    fontSize: 12,
-    color: "#B4B4B4",
-    letterSpacing: -0.05,
+  overlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 18,
+    paddingBottom: 20,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: -0.3,
+    textShadowColor: "rgba(0,0,0,0.15)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 });

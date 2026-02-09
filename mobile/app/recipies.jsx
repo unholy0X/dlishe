@@ -133,7 +133,7 @@ export default function RecipiesScreen() {
     <View style={styles.centered}>
       <Text style={styles.emptyTitle}>No recipes yet</Text>
       <Text style={styles.emptySubtitle}>
-        Tap the + button to extract your first recipe
+        Tap + to add your first recipe
       </Text>
     </View>
   );

@@ -12,6 +12,20 @@ export async function extractRecipeFromUrl({ url, getToken }) {
   });
 }
 
+export async function extractRecipeFromImage({ imageBase64, mimeType, getToken }) {
+  return authFetch("/recipes/extract", getToken, {
+    method: "POST",
+    body: JSON.stringify({
+      type: "image",
+      imageBase64,
+      mimeType: mimeType || "image/jpeg",
+      saveAuto: true,
+      detailLevel: "detailed",
+      language: "auto",
+    }),
+  });
+}
+
 export async function getJobStatus({ jobId, getToken }) {
   return authFetch(`/jobs/${jobId}`, getToken);
 }

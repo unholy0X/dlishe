@@ -144,7 +144,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
       // Request permission first
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission needed", "Please allow access to photos to scan items.");
+        Alert.alert("Photo access needed", "Allow photo access so we can spot your ingredients.");
         return;
       }
 
@@ -177,17 +177,17 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
 
       const addedCount = scanResult?.addedCount || 0;
       Alert.alert(
-        "Scan Complete",
+        "All done!",
         addedCount > 0
           ? `Added ${addedCount} item${addedCount !== 1 ? "s" : ""} to your pantry!`
-          : "No items detected. Try a clearer photo of your ingredients."
+          : "Hmm, we couldn't spot any items. Try a clearer photo of your ingredients."
       );
 
       if (addedCount > 0) {
         onItemAdded?.();
       }
     } catch (err) {
-      Alert.alert("Scan Failed", err?.message || "Could not scan image");
+      Alert.alert("Oops", err?.message || "Something went wrong. Try again?");
     }
   }, [getToken, scanImage, onItemAdded]);
 
@@ -234,9 +234,9 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
         </View>
         <View>
           <Text style={styles.actionTitle}>
-            {isScanning ? "Scanning…" : "Scan with AI"}
+            {isScanning ? "Spotting items…" : "Snap your groceries"}
           </Text>
-          <Text style={styles.actionSubtitle}>Add items from photos</Text>
+          <Text style={styles.actionSubtitle}>Add items from a photo</Text>
         </View>
       </Pressable>
 

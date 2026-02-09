@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -6,14 +6,15 @@ import {
   Image,
   Pressable,
   TextInput,
-  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { BlurView } from "expo-blur";
+import * as ImagePicker from "expo-image-picker";
 import ArrowLeftIcon from "../icons/ArrowLeftIcon";
 import LinkIcon from "../icons/LinkIcon";
-import PasteIcon from "../icons/PasteIcon";
-import AddManualIcon from "../icons/AddManualIcon";
+import CameraIcon from "../icons/CameraIcon";
 import SparkleBadgeIcon from "../icons/SparkleBadgeIcon";
+import ExtractionProgress from "./ExtractionProgress";
 import { useAuth } from "@clerk/clerk-expo";
 import { useExtractStore } from "../../store";
 
@@ -23,9 +24,9 @@ export default function AddRecipeSheetContent({ onPressBack }) {
     url,
     setUrl,
     startExtraction,
+    startImageExtraction,
     reset,
     status,
-    message,
     progress,
     error,
     isRunning,
@@ -41,7 +42,89 @@ export default function AddRecipeSheetContent({ onPressBack }) {
     reset();
   };
 
-  // Success preview after extraction
+  const handleTakePhoto = useCallback(async () => {
+    try {
+      const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      if (camStatus !== "granted") {
+        Alert.alert(
+          "Camera access needed",
+          "Allow camera access so you can snap a photo of your recipe."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        quality: 0.6,
+        base64: true,
+        allowsEditing: true,
+        exif: false,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        Alert.alert("Oops", "Couldn't read the photo. Try again?");
+        return;
+      }
+
+      startImageExtraction({
+        imageBase64: asset.base64,
+        mimeType: asset.mimeType || "image/jpeg",
+        getToken,
+      });
+    } catch {
+      Alert.alert("Oops", "Something went wrong with the camera.");
+    }
+  }, [getToken, startImageExtraction]);
+
+  const handlePickPhoto = useCallback(async () => {
+    try {
+      const { status: libStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (libStatus !== "granted") {
+        Alert.alert(
+          "Photo access needed",
+          "Allow photo access so you can pick a recipe from your library."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.6,
+        base64: true,
+        allowsEditing: true,
+        exif: false,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        Alert.alert("Oops", "Couldn't read the photo. Try again?");
+        return;
+      }
+
+      startImageExtraction({
+        imageBase64: asset.base64,
+        mimeType: asset.mimeType || "image/jpeg",
+        getToken,
+      });
+    } catch {
+      Alert.alert("Oops", "Something went wrong picking the photo.");
+    }
+  }, [getToken, startImageExtraction]);
+
+  const handlePhotoOption = useCallback(() => {
+    Alert.alert("Snap a recipe", "How would you like to add your recipe photo?", [
+      { text: "Take Photo", onPress: handleTakePhoto },
+      { text: "Choose from Library", onPress: handlePickPhoto },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [handleTakePhoto, handlePickPhoto]);
+
+  // Success preview after completion
   if (recipe && status === "completed") {
     const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
     const ingredientCount = recipe.ingredients?.length || 0;
@@ -56,13 +139,12 @@ export default function AddRecipeSheetContent({ onPressBack }) {
               <Text style={styles.backText}>Back</Text>
             </BlurView>
           </Pressable>
-          <Text style={styles.headerTitle}>Recipe found!</Text>
+          <Text style={styles.headerTitle}>Recipe ready!</Text>
           <View style={styles.headerSpacer} />
         </View>
 
-        {/* Success Icon */}
         <View style={styles.successIconWrap}>
-          <Text style={styles.successIcon}>✓</Text>
+          <Text style={styles.successIcon}>{"\u2713"}</Text>
         </View>
 
         <Text style={styles.recipeTitle}>{recipe.title}</Text>
@@ -73,7 +155,6 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           </Text>
         ) : null}
 
-        {/* Meta pills */}
         <View style={styles.metaRow}>
           {totalTime > 0 && (
             <View style={styles.metaPill}>
@@ -97,7 +178,6 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           ) : null}
         </View>
 
-        {/* Counts */}
         <View style={styles.countsCard}>
           <View style={styles.countRow}>
             <Text style={styles.countLabel}>Ingredients</Text>
@@ -110,7 +190,6 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           </View>
         </View>
 
-        {/* Ingredient preview */}
         {ingredientCount > 0 && (
           <View style={styles.ingredientPreview}>
             {recipe.ingredients.slice(0, 4).map((ing, idx) => (
@@ -128,14 +207,33 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           </View>
         )}
 
-        {/* Recipe is auto-saved by backend, just confirm */}
         <View style={styles.savedBanner}>
-          <Text style={styles.savedText}>Recipe saved to your collection</Text>
+          <Text style={styles.savedText}>Saved to your recipe box</Text>
         </View>
 
         <Pressable style={styles.tryAnotherButton} onPress={handleTryAnother}>
-          <Text style={styles.tryAnotherText}>Extract another recipe</Text>
+          <Text style={styles.tryAnotherText}>Add another recipe</Text>
         </Pressable>
+      </View>
+    );
+  }
+
+  // Progress view
+  if (isRunning) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
+          <Pressable onPress={handleBack}>
+            <BlurView intensity={100} tint="light" style={styles.backPill}>
+              <ArrowLeftIcon width={9} height={8} color="#555555" />
+              <Text style={styles.backText}>Cancel</Text>
+            </BlurView>
+          </Pressable>
+          <Text style={styles.headerTitle}>Cooking it up</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <ExtractionProgress progress={progress} />
       </View>
     );
   }
@@ -162,7 +260,7 @@ export default function AddRecipeSheetContent({ onPressBack }) {
 
       <Text style={styles.title}>Add a new recipe</Text>
       <Text style={styles.subtitle}>
-        Paste a link from YouTube or any recipe website and watch the magic happen
+        Paste a link from YouTube or any recipe website and we'll do the rest
       </Text>
 
       <View style={styles.inputWrap}>
@@ -176,7 +274,6 @@ export default function AddRecipeSheetContent({ onPressBack }) {
             setUrl(text);
             if (error) useExtractStore.setState({ error: "" });
           }}
-          editable={!isRunning}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
@@ -186,25 +283,13 @@ export default function AddRecipeSheetContent({ onPressBack }) {
       <Pressable
         style={[
           styles.primaryButton,
-          (!url.trim() || isRunning) && styles.primaryButtonDisabled,
+          !url.trim() && styles.primaryButtonDisabled,
         ]}
         onPress={() => startExtraction({ getToken })}
-        disabled={!url.trim() || isRunning}
+        disabled={!url.trim()}
       >
-        {isRunning ? (
-          <>
-            <ActivityIndicator size="small" color="#385225" />
-            <Text style={styles.primaryText}>
-              {message || "Extracting…"}
-              {typeof progress === "number" && progress > 0 ? ` (${progress}%)` : ""}
-            </Text>
-          </>
-        ) : (
-          <>
-            <SparkleBadgeIcon width={22} height={22} />
-            <Text style={styles.primaryText}>Extract with AI</Text>
-          </>
-        )}
+        <SparkleBadgeIcon width={22} height={22} />
+        <Text style={styles.primaryText}>Grab recipe</Text>
       </Pressable>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -215,25 +300,15 @@ export default function AddRecipeSheetContent({ onPressBack }) {
         <View style={styles.divider} />
       </View>
 
-      <View style={styles.actionCard}>
+      <Pressable style={styles.actionCard} onPress={handlePhotoOption}>
         <View style={styles.actionIconWrap}>
-          <PasteIcon width={22} height={22} />
+          <CameraIcon width={22} height={22} />
         </View>
         <View style={styles.actionTextBlock}>
-          <Text style={styles.actionTitle}>Paste description</Text>
-          <Text style={styles.actionSubtitle}>For TikTok & Instagram videos</Text>
+          <Text style={styles.actionTitle}>Snap a cookbook</Text>
+          <Text style={styles.actionSubtitle}>Take a photo of any recipe page</Text>
         </View>
-      </View>
-
-      <View style={styles.actionCard}>
-        <View style={styles.actionIconWrap}>
-          <AddManualIcon width={22} height={22} />
-        </View>
-        <View style={styles.actionTextBlock}>
-          <Text style={styles.actionTitle}>Add Manually</Text>
-          <Text style={styles.actionSubtitle}>Type in your recipe by hand</Text>
-        </View>
-      </View>
+      </Pressable>
     </View>
   );
 }

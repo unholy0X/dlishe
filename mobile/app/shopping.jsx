@@ -19,6 +19,7 @@ import FloatingNav from "../components/FloatingNav";
 import BottomSheetModal from "../components/BottomSheetModal";
 import ShoppingIcon from "../components/icons/ShoppingIcon";
 import CheckIcon from "../components/icons/CheckIcon";
+import PlusIcon from "../components/icons/PlusIcon";
 import DotsVerticalIcon from "../components/icons/DotsVerticalIcon";
 import { useShoppingStore } from "../store";
 
@@ -309,27 +310,21 @@ export default function ShoppingScreen() {
             </Text>
           </View>
           <View style={styles.headerActions}>
-            {safeListsArray.length > 0 && !isSelecting && (
-              <Pressable onPress={() => setMenuOpen(true)} style={styles.dotsBtn}>
-                <BlurView intensity={120} tint="light" style={styles.dotsBlur}>
-                  <DotsVerticalIcon width={6} height={20} color="#B4B4B4" />
-                </BlurView>
+            {isSelecting ? (
+              <Pressable style={styles.cancelSelectBtn} onPress={exitSelectMode}>
+                <Text style={styles.cancelSelectText}>Cancel</Text>
               </Pressable>
-            )}
-            {safeListsArray.length > 0 && (
-              <Pressable
-                style={[styles.selectBtn, isSelecting && styles.selectBtnActive]}
-                onPress={isSelecting ? exitSelectMode : enterSelectMode}
-              >
-                <Text style={[styles.selectBtnText, isSelecting && styles.selectBtnTextActive]}>
-                  {isSelecting ? "Cancel" : "Select"}
-                </Text>
-              </Pressable>
-            )}
-            {!isSelecting && (
-              <Pressable style={styles.addBtn} onPress={() => setSheetOpen(true)}>
-                <Text style={styles.addBtnText}>+ New</Text>
-              </Pressable>
+            ) : (
+              <>
+                <Pressable onPress={() => setMenuOpen(true)}>
+                  <BlurView intensity={120} tint="light" style={styles.dotsBlur}>
+                    <DotsVerticalIcon width={6} height={20} color="#B4B4B4" />
+                  </BlurView>
+                </Pressable>
+                <Pressable style={styles.addButton} onPress={() => setSheetOpen(true)}>
+                  <PlusIcon width={24} height={24} color="#385225" />
+                </Pressable>
+              </>
             )}
           </View>
         </View>
@@ -426,6 +421,22 @@ export default function ShoppingScreen() {
       <BottomSheetModal visible={isMenuOpen} onClose={() => setMenuOpen(false)}>
         <View style={styles.menuSheet}>
           <Text style={styles.menuTitle}>Shopping Options</Text>
+
+          {/* Select Lists */}
+          <Pressable
+            style={styles.menuOptionNeutral}
+            onPress={() => { setMenuOpen(false); enterSelectMode(); }}
+          >
+            <View style={styles.menuOptionNeutralIcon}>
+              <CheckIcon width={16} height={16} color="#2a5a2a" />
+            </View>
+            <View style={styles.menuOptionInfo}>
+              <Text style={styles.menuOptionNeutralLabel}>Select Lists</Text>
+              <Text style={styles.menuOptionDesc}>Merge or delete multiple lists</Text>
+            </View>
+          </Pressable>
+
+          {/* Clear All */}
           <Pressable
             style={styles.menuOption}
             onPress={handleClearAll}
@@ -445,6 +456,7 @@ export default function ShoppingScreen() {
               </Text>
             </View>
           </Pressable>
+
           <Pressable style={styles.menuDismiss} onPress={() => setMenuOpen(false)}>
             <Text style={styles.menuDismissText}>Cancel</Text>
           </Pressable>
@@ -472,60 +484,53 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: "700",
-    color: "#111111",
+    fontWeight: "500",
+    color: "#000",
+    letterSpacing: -0.05,
   },
   subtitle: {
-    marginTop: 2,
+    marginTop: 3,
     fontSize: 14,
-    color: "#6b6b6b",
+    color: "#B4B4B4",
+    letterSpacing: -0.05,
   },
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-  },
-  dotsBtn: {
-    marginRight: 2,
   },
   dotsBlur: {
-    width: 42,
-    height: 42,
+    width: 50,
+    height: 50,
     borderWidth: 1,
     borderColor: "#ffffff",
     borderRadius: 999,
     overflow: "hidden",
-    backgroundColor: "rgba(0, 0, 0, 0.08)",
+    backgroundColor: "rgba(0, 0, 0, 0.15)",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-  },
-  selectBtn: {
-    borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: "#F4F5F7",
+    paddingVertical: 8,
+    margin: 3,
   },
-  selectBtnActive: {
+  addButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#7FEF80",
+  },
+  cancelSelectBtn: {
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     backgroundColor: "#E8E8E8",
   },
-  selectBtnText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#6b6b6b",
-  },
-  selectBtnTextActive: {
-    color: "#111111",
-  },
-  addBtn: {
-    backgroundColor: "#2a5a2a",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  addBtnText: {
+  cancelSelectText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#ffffff",
+    color: "#111111",
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -807,6 +812,28 @@ const styles = StyleSheet.create({
   },
   menuOptionInfo: {
     flex: 1,
+  },
+  menuOptionNeutral: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F8E8",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+  },
+  menuOptionNeutralIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E2F0D4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+  menuOptionNeutralLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2a5a2a",
   },
   menuOptionLabel: {
     fontSize: 16,

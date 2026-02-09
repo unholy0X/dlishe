@@ -21,8 +21,10 @@ import StatsCardsRow from "../components/home/StatsCardsRow";
 import RecentRecipesHeader from "../components/home/RecentRecipesHeader";
 import RecentRecipesCarousel from "../components/home/RecentRecipesCarousel";
 import BottomSheetModal from "../components/BottomSheetModal";
+import SearchOverlay from "../components/SearchOverlay";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
 import { useSuggestedStore } from "../store";
+import { useAuth } from "@clerk/clerk-expo";
 
 function buildMeta(recipe) {
   const parts = [];
@@ -39,7 +41,9 @@ export default function HomeScreen() {
   const activeKey = pathname.replace("/", "") || "home";
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [isRecipesSheetOpen, setRecipesSheetOpen] = useState(false);
+  const [isSearchOpen, setSearchOpen] = useState(false);
 
+  const { getToken } = useAuth();
   const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
 
   useEffect(() => {
@@ -74,7 +78,10 @@ export default function HomeScreen() {
               imageUrl="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"
             />
 
-            <SearchBar placeholder="Search for a recipe" />
+            <SearchBar
+              placeholder="Search for a recipe"
+              onPress={() => setSearchOpen(true)}
+            />
 
             <MealCategoryGrid />
 
@@ -184,6 +191,14 @@ export default function HomeScreen() {
           )}
         </View>
       </BottomSheetModal>
+
+      {/* Search overlay */}
+      <SearchOverlay
+        visible={isSearchOpen}
+        onClose={() => setSearchOpen(false)}
+        getToken={getToken}
+        onSelectRecipe={(recipe) => router.push(`/recipe/${recipe.id}`)}
+      />
     </View>
   );
 }

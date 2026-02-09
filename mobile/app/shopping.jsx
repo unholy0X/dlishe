@@ -21,6 +21,7 @@ import ShoppingIcon from "../components/icons/ShoppingIcon";
 import CheckIcon from "../components/icons/CheckIcon";
 import PlusIcon from "../components/icons/PlusIcon";
 import DotsVerticalIcon from "../components/icons/DotsVerticalIcon";
+import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
 import { useShoppingStore } from "../store";
 
 // Subtle tinted cards — just enough to tell them apart
@@ -151,6 +152,7 @@ export default function ShoppingScreen() {
   const pathname = usePathname();
   const activeKey = pathname.replace("/", "") || "shopping";
   const [isSheetOpen, setSheetOpen] = useState(false);
+  const [isAddRecipeOpen, setAddRecipeOpen] = useState(false);
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -405,7 +407,7 @@ export default function ShoppingScreen() {
       {!isSelecting && (
         <FloatingNav
           onPressItem={(key) => router.push(`/${key}`)}
-          onPressPlus={() => setSheetOpen(true)}
+          onPressPlus={() => setAddRecipeOpen(true)}
           activeKey={activeKey}
         />
       )}
@@ -415,6 +417,11 @@ export default function ShoppingScreen() {
           onClose={() => setSheetOpen(false)}
           onCreate={handleCreateList}
         />
+      </BottomSheetModal>
+
+      {/* Add Recipe sheet (from FloatingNav +) */}
+      <BottomSheetModal visible={isAddRecipeOpen} onClose={() => setAddRecipeOpen(false)}>
+        <AddRecipeSheetContent onPressBack={() => setAddRecipeOpen(false)} />
       </BottomSheetModal>
 
       {/* Menu sheet */}

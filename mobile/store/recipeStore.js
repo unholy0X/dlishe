@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { fetchRecipes } from "../services/recipes";
+import { fetchRecipes, deleteRecipe } from "../services/recipes";
 
 const PAGE_SIZE = 20;
 
@@ -69,6 +69,24 @@ export const useRecipeStore = create((set, get) => ({
         error: err?.message || "Failed to refresh recipes",
         isLoading: false,
       });
+    }
+  },
+
+  clearAll: async ({ getToken }) => {
+    const { recipes } = get();
+    const allIds = recipes.map((r) => r.id);
+    if (allIds.length === 0) return;
+
+    // Optimistic: clear immediately
+    set({ recipes: [], total: 0, offset: 0 });
+
+    const results = await Promise.allSettled(
+      allIds.map((recipeId) => deleteRecipe({ recipeId, getToken }))
+    );
+    const failCount = results.filter((r) => r.status === "rejected").length;
+    if (failCount > 0) {
+      await get().refresh({ getToken });
+      set({ error: `Failed to remove ${failCount} recipe(s)` });
     }
   },
 }));

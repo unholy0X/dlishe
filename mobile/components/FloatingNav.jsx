@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import React, { useRef } from "react";
+import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +8,7 @@ import HomeIcon from "./icons/HomeIcon";
 import RecipiesIcon from "./icons/RecipiesIcon";
 import PantryIcon from "./icons/PantryIcon";
 import ShoppingIcon from "./icons/ShoppingIcon";
+import PlusIcon from "./icons/PlusIcon";
 
 const NAV_ITEMS = [
   { key: "home", label: "Home", Icon: HomeIcon },
@@ -18,85 +19,164 @@ const NAV_ITEMS = [
 
 export default function FloatingNav({ onPressItem, onPressPlus, activeKey }) {
   const insets = useSafeAreaInsets();
+  const plusScale = useRef(new Animated.Value(1)).current;
+
+  const handlePlusPressIn = () => {
+    Animated.spring(plusScale, {
+      toValue: 0.88,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 300,
+    }).start();
+  };
+
+  const handlePlusPressOut = () => {
+    Animated.spring(plusScale, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 3,
+      tension: 200,
+    }).start();
+  };
+
+  const renderNavItem = (item) => {
+    const isActive = item.key === activeKey;
+    return (
+      <Pressable
+        key={item.key}
+        onPress={() => onPressItem?.(item.key)}
+        style={styles.item}
+      >
+        {isActive && (
+          <View style={styles.activePill}>
+            <LinearGradient
+              colors={["rgba(255,255,255,0.95)", "rgba(255,255,255,0.65)"]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            {/* Active pill specular */}
+            <LinearGradient
+              colors={["rgba(255,255,255,0.5)", "transparent"]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 0.5 }}
+              style={styles.activePillSpecular}
+              pointerEvents="none"
+            />
+          </View>
+        )}
+        <item.Icon
+          width={22}
+          height={22}
+          color={isActive ? "#111111" : "rgba(20,27,52,0.4)"}
+        />
+        <Text
+          style={[styles.label, isActive && styles.labelActive]}
+          numberOfLines={1}
+        >
+          {item.label}
+        </Text>
+      </Pressable>
+    );
+  };
 
   return (
     <View style={[styles.wrapper, { paddingBottom: insets.bottom + 8 }]}>
       <View style={styles.navContainer}>
-        <BlurView intensity={105} tint="extraLight" style={styles.blur}>
-          <View style={styles.container}>
-            <View style={styles.row}>
-              <View style={styles.group}>
-                {NAV_ITEMS.slice(0, 2).map((item, index) => {
-                  const isActive = item.key === activeKey;
-                  return (
-                    <Pressable
-                      key={item.key}
-                      onPress={() => onPressItem?.(item.key)}
-                      style={[
-                        styles.item,
-                        index === 0 && styles.itemSpacing,
-                        isActive && styles.itemActive,
-                      ]}
-                    >
-                      <item.Icon
-                        width={22}
-                        height={22}
-                        color={isActive ? "#141B34" : "#141B34"}
-                      />
-                      <Text
-                        style={[styles.label, isActive && styles.labelActive]}
-                        numberOfLines={1}
-                      >
-                        {item.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+        {/* Ambient shadow — soft wide glow behind bar */}
+        <View style={styles.ambientShadow} />
 
-              {/* <View style={styles.centerSpacer} /> */}
+        {/* Glass bar */}
+        <View style={styles.glassOuter}>
+          <BlurView intensity={80} tint="light" style={styles.blur}>
+            {/* Glass base tint */}
+            <View style={styles.glassTint} pointerEvents="none" />
 
-              <View style={styles.group}>
-                {NAV_ITEMS.slice(2).map((item, index) => {
-                  const isActive = item.key === activeKey;
-                  return (
-                    <Pressable
-                      key={item.key}
-                      onPress={() => onPressItem?.(item.key)}
-                      style={[
-                        styles.item,
-                        index === 0 && styles.itemSpacing,
-                        isActive && styles.itemActive,
-                      ]}
-                    >
-                      <item.Icon
-                        width={22}
-                        height={22}
-                        color={isActive ? "#141B34" : "#141B34"}
-                      />
-                      <Text
-                        style={[styles.label, isActive && styles.labelActive]}
-                        numberOfLines={1}
-                      >
-                        {item.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+            {/* Specular highlight — liquid glass crescent */}
+            <LinearGradient
+              colors={[
+                "rgba(255,255,255,0.6)",
+                "rgba(255,255,255,0.2)",
+                "rgba(255,255,255,0.02)",
+                "transparent",
+              ]}
+              locations={[0, 0.25, 0.45, 0.65]}
+              style={styles.specular}
+              pointerEvents="none"
+            />
+
+            {/* Rim light — edge refraction glow */}
+            <LinearGradient
+              colors={[
+                "rgba(255,255,255,0.2)",
+                "transparent",
+                "transparent",
+                "rgba(255,255,255,0.2)",
+              ]}
+              locations={[0, 0.15, 0.85, 1]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+
+            {/* Subtle bottom reflection */}
+            <LinearGradient
+              colors={["transparent", "rgba(255,255,255,0.1)"]}
+              start={{ x: 0.5, y: 0.7 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+
+            {/* Nav content */}
+            <View style={styles.container}>
+              <View style={styles.row}>
+                <View style={styles.group}>
+                  {NAV_ITEMS.slice(0, 2).map(renderNavItem)}
+                </View>
+                <View style={styles.group}>
+                  {NAV_ITEMS.slice(2).map(renderNavItem)}
+                </View>
               </View>
             </View>
-          </View>
-        </BlurView>
+          </BlurView>
+        </View>
 
-        <Pressable onPress={onPressPlus} style={styles.plusButton}>
-          <LinearGradient
-            colors={["#9EFF00", "#039274"]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={styles.plusGradient}
-          />
-          <Text style={styles.plusText}>+</Text>
-        </Pressable>
+        {/* Floating Plus — liquid glass orb */}
+        <Animated.View
+          style={[
+            styles.plusOuter,
+            { transform: [{ scale: plusScale }] },
+          ]}
+        >
+          <Pressable
+            onPress={onPressPlus}
+            onPressIn={handlePlusPressIn}
+            onPressOut={handlePlusPressOut}
+            style={styles.plusButton}
+          >
+            <LinearGradient
+              colors={["#9EFF00", "#06B27A", "#039274"]}
+              locations={[0, 0.6, 1]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.plusGradient}
+            />
+            {/* Glass specular crescent */}
+            <LinearGradient
+              colors={[
+                "rgba(255,255,255,0.45)",
+                "rgba(255,255,255,0.1)",
+                "transparent",
+              ]}
+              locations={[0, 0.35, 0.6]}
+              style={styles.plusSpecular}
+              pointerEvents="none"
+            />
+            <PlusIcon width={24} height={24} color="#ffffff" />
+          </Pressable>
+        </Animated.View>
       </View>
     </View>
   );
@@ -109,25 +189,62 @@ const styles = StyleSheet.create({
     right: 15,
     bottom: 0,
   },
-  blur: {
-    borderWidth: 1,
-    borderColor: "#ffffff",
-    borderRadius: 999,
-    overflow: "hidden",
-    backgroundColor: "rgba(0, 0, 0, 0.15)",
-  },
   navContainer: {
     position: "relative",
   },
+  // Ambient shadow — soft, wide depth glow
+  ambientShadow: {
+    position: "absolute",
+    top: 4,
+    left: 8,
+    right: 8,
+    bottom: -4,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.01)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 32,
+    elevation: 8,
+  },
+  // Glass outer shell — contact shadow
+  glassOuter: {
+    borderRadius: 999,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  blur: {
+    borderRadius: 999,
+    overflow: "hidden",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.65)",
+  },
+  glassTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(248, 250, 255, 0.3)",
+  },
+  specular: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "60%",
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
+  },
+  // Nav content
   container: {
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
   row: {
-    display: "flex",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
   },
   group: {
     flexDirection: "row",
@@ -137,51 +254,76 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: 75,
-    // minWidth: 60,
-    backgroundColor: "transparent",
     borderRadius: 999,
     paddingVertical: 6,
     paddingHorizontal: 15,
+    position: "relative",
   },
-  itemActive: {
-    backgroundColor: "#ffffff",
+  // Active pill — glass within glass
+  activePill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.85)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
   },
-  itemSpacing: {
-    marginRight: 6,
+  activePillSpecular: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "50%",
   },
   label: {
     marginTop: 2,
     fontSize: 10,
-    color: "#141B34",
+    color: "rgba(20,27,52,0.4)",
     letterSpacing: -0.05,
   },
   labelActive: {
-    color: "#141B34",
+    color: "#111111",
+    fontWeight: "600",
+  },
+  // Plus button — floating liquid glass orb
+  plusOuter: {
+    position: "absolute",
+    top: -20,
+    left: "50%",
+    marginLeft: -28,
+    width: 56,
+    height: 56,
+    // Colored glow shadow
+    shadowColor: "#06B27A",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 14,
   },
   plusButton: {
-    position: "absolute",
-    top: -18,
-    left: "50%",
-    marginLeft: -26,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "transparent",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  plusText: {
-    fontSize: 28,
-    color: "#ffffff",
-    marginTop: -2,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.35)",
+    overflow: "hidden",
   },
   plusGradient: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 26,
+    borderRadius: 28,
+  },
+  plusSpecular: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "55%",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
   },
 });

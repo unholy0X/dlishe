@@ -12,11 +12,21 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
-import { fetchRecipeById, deleteRecipe, cloneRecipe } from "../../services/recipes";
-import { createShoppingList, addFromRecipe, deleteShoppingList } from "../../services/shopping";
+import {
+  fetchRecipeById,
+  deleteRecipe,
+  cloneRecipe,
+} from "../../services/recipes";
+import {
+  createShoppingList,
+  addFromRecipe,
+  deleteShoppingList,
+} from "../../services/shopping";
 import { useRecipeStore, useShoppingStore } from "../../store";
 import ArrowLeftIcon from "../../components/icons/ArrowLeftIcon";
 import RecipePlaceholder from "../../components/RecipePlaceholder";
+import Svg, { Path } from "react-native-svg";
+import { LinearGradient } from "expo-linear-gradient";
 
 // ─── Design tokens ───────────────────────────────────────────────
 const C = {
@@ -60,6 +70,35 @@ function formatDuration(seconds) {
   if (m === 0) return `${s}s`;
   return s ? `${m}m ${s}s` : `${m} min`;
 }
+
+// ─── Icons ───────────────────────────────────────────────────────
+const PlayIcon = ({ size = 14, color = "#385225" }) => (
+  <Svg width={size} height={size + 1} viewBox="0 0 13 14" fill="none">
+    <Path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M11.3101 4.92362C12.646 5.6658 12.646 7.58702 11.3101 8.32921L2.89382 13.0048C1.59551 13.7262 -8.06676e-05 12.7874 -8.06027e-05 11.3021L-8.01939e-05 1.95072C-8.0129e-05 0.465462 1.59551 -0.473371 2.89382 0.247932L11.3101 4.92362Z"
+      fill={color}
+    />
+  </Svg>
+);
+
+const DeleteIcon = ({ size = 17, color = "#FF0000" }) => (
+  <Svg width={size} height={size} viewBox="0 0 17 17" fill="none">
+    <Path
+      d="M13.8125 3.89587L13.3735 10.997C13.2613 12.8112 13.2053 13.7184 12.7506 14.3706C12.5257 14.6931 12.2362 14.9652 11.9005 15.1697C11.2215 15.5834 10.3126 15.5834 8.49483 15.5834C6.67471 15.5834 5.76463 15.5834 5.08516 15.1689C4.74923 14.9641 4.45967 14.6914 4.2349 14.3684C3.78029 13.7152 3.72544 12.8068 3.61577 10.99L3.1875 3.89587"
+      stroke={color}
+      strokeLinecap="round"
+    />
+    <Path
+      d="M2.125 3.89579H14.875M11.3728 3.89579L10.8893 2.89827C10.568 2.23564 10.4074 1.90433 10.1304 1.6977C10.069 1.65186 10.0039 1.61109 9.93579 1.57579C9.62901 1.41663 9.26082 1.41663 8.52444 1.41663C7.76957 1.41663 7.39217 1.41663 7.08027 1.58246C7.01115 1.61922 6.94519 1.66164 6.88308 1.70929C6.60283 1.92429 6.44628 2.26772 6.13318 2.9546L5.70415 3.89579"
+      stroke={color}
+      strokeLinecap="round"
+    />
+    <Path d="M6.729 11.6875V7.4375" stroke={color} strokeLinecap="round" />
+    <Path d="M10.2708 11.6875V7.4375" stroke={color} strokeLinecap="round" />
+  </Svg>
+);
 
 // ─── Sub-components ──────────────────────────────────────────────
 
@@ -107,7 +146,7 @@ function StepRow({ step }) {
       </View>
       <View style={s.stepContent}>
         <Text style={s.stepInstruction}>{step.instruction}</Text>
-        {(step.technique || step.durationSeconds) ? (
+        {step.technique || step.durationSeconds ? (
           <View style={s.stepMetaRow}>
             {step.technique ? (
               <View style={s.stepChip}>
@@ -116,7 +155,9 @@ function StepRow({ step }) {
             ) : null}
             {step.durationSeconds ? (
               <View style={s.stepChip}>
-                <Text style={s.stepChipText}>{formatDuration(step.durationSeconds)}</Text>
+                <Text style={s.stepChipText}>
+                  {formatDuration(step.durationSeconds)}
+                </Text>
               </View>
             ) : null}
             {step.temperature ? (
@@ -140,7 +181,10 @@ function NutritionItem({ label, value, unit }) {
   if (value == null) return null;
   return (
     <View style={s.nutritionItem}>
-      <Text style={s.nutritionValue}>{Math.round(value)}{unit}</Text>
+      <Text style={s.nutritionValue}>
+        {Math.round(value)}
+        {unit}
+      </Text>
       <Text style={s.nutritionLabel}>{label}</Text>
     </View>
   );
@@ -185,7 +229,7 @@ export default function RecipeDetailScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -197,7 +241,6 @@ export default function RecipeDetailScreen() {
       setSaved(true);
     } catch (err) {
       const msg = err?.message || "";
-      // Backend returns 409 if already cloned
       if (msg.includes("already")) {
         setSaved(true);
       } else {
@@ -222,10 +265,11 @@ export default function RecipeDetailScreen() {
         if (!cancelled) setIsLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  // Loading
   if (isLoading) {
     return (
       <View style={s.screen}>
@@ -237,7 +281,6 @@ export default function RecipeDetailScreen() {
     );
   }
 
-  // Error
   if (error || !recipe) {
     return (
       <View style={s.screen}>
@@ -257,7 +300,6 @@ export default function RecipeDetailScreen() {
   const nutrition = recipe.nutrition;
   const dietary = recipe.dietaryInfo;
 
-  // Group ingredients by section
   const sections = {};
   ingredients.forEach((ing) => {
     const key = ing.section || "Ingredients";
@@ -266,7 +308,6 @@ export default function RecipeDetailScreen() {
   });
   const sectionEntries = Object.entries(sections);
 
-  // Dietary badges
   const dietaryBadges = [];
   if (dietary) {
     if (dietary.isVegetarian) dietaryBadges.push("Vegetarian");
@@ -281,43 +322,68 @@ export default function RecipeDetailScreen() {
 
   return (
     <View style={s.screen}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scrollContent}
+      >
         {/* Hero */}
-        {recipe.thumbnailUrl ? (
-          <View>
-            <Image source={{ uri: recipe.thumbnailUrl }} style={s.heroImage} />
-            <SafeAreaView style={s.heroOverlay} edges={["top"]}>
-              <BackButton light onPress={() => router.back()} />
-            </SafeAreaView>
+        <View style={s.heroWrap}>
+          {recipe.thumbnailUrl ? (
+            <>
+              <Image
+                source={{ uri: recipe.thumbnailUrl }}
+                style={s.heroImage}
+              />
+              {/* <View style={s.heroGradient} /> */}
+              <LinearGradient
+                colors={["rgba(0,0,0,0.85)", "rgba(0,0,0,0)"]}
+                start={{ x: 0.5, y: 1 }}
+                end={{ x: 0.5, y: 0 }}
+                style={s.heroGradient}
+              />
+            </>
+          ) : (
+            <RecipePlaceholder
+              title={recipe.title}
+              variant="hero"
+              style={s.heroImage}
+            />
+          )}
+          <SafeAreaView style={s.heroOverlay} edges={["top"]}>
+            <BackButton light onPress={() => router.back()} />
+          </SafeAreaView>
+          <View style={s.heroContent}>
+            <Text style={s.heroTitle}>{recipe.title}</Text>
+            {isOwn && (
+              <Pressable style={s.heroPlay}>
+                <PlayIcon />
+              </Pressable>
+            )}
           </View>
-        ) : (
-          <View>
-            <RecipePlaceholder title={recipe.title} variant="hero" style={s.heroImage} />
-            <SafeAreaView style={s.heroOverlay} edges={["top"]}>
-              <BackButton light onPress={() => router.back()} />
-            </SafeAreaView>
-          </View>
-        )}
+        </View>
 
         <View style={s.body}>
-          {/* Title & Description */}
-          <Text style={s.title}>{recipe.title}</Text>
+          {/* Description */}
           {recipe.description ? (
             <Text style={s.description}>{recipe.description}</Text>
           ) : null}
 
-          {/* Meta Row */}
-          <View style={s.metaRow}>
-            {totalTime > 0 && <MetaPill label={formatTime(totalTime)} />}
-            {recipe.servings ? <MetaPill label={`${recipe.servings} servings`} /> : null}
+          {/* Inline Meta */}
+          <View style={s.metaInline}>
+            {totalTime > 0 ? (
+              <Text style={s.metaInlineText}>{formatTime(totalTime)}</Text>
+            ) : null}
+            {totalTime > 0 && recipe.difficulty ? (
+              <Text style={s.metaDot}>·</Text>
+            ) : null}
             {recipe.difficulty ? (
-              <MetaPill label={recipe.difficulty} />
+              <Text style={s.metaInlineText}>{recipe.difficulty}</Text>
             ) : null}
-            {recipe.cuisine ? (
-              <MetaPill label={recipe.cuisine} color={C.greenLight} />
+            {recipe.difficulty && recipe.servings ? (
+              <Text style={s.metaDot}>·</Text>
             ) : null}
-            {recipe.sourceType ? (
-              <MetaPill label={recipe.sourceType} color={C.blueLight} />
+            {recipe.servings ? (
+              <Text style={s.metaInlineText}>{recipe.servings} servings</Text>
             ) : null}
           </View>
 
@@ -344,12 +410,24 @@ export default function RecipeDetailScreen() {
           ) : null}
 
           {/* Nutrition */}
-          {nutrition && (nutrition.calories || nutrition.protein || nutrition.carbs || nutrition.fat) ? (
+          {nutrition &&
+          (nutrition.calories ||
+            nutrition.protein ||
+            nutrition.carbs ||
+            nutrition.fat) ? (
             <View style={s.card}>
               <SectionTitle>Nutrition</SectionTitle>
               <View style={s.nutritionGrid}>
-                <NutritionItem label="Calories" value={nutrition.calories} unit="" />
-                <NutritionItem label="Protein" value={nutrition.protein} unit="g" />
+                <NutritionItem
+                  label="Calories"
+                  value={nutrition.calories}
+                  unit=""
+                />
+                <NutritionItem
+                  label="Protein"
+                  value={nutrition.protein}
+                  unit="g"
+                />
                 <NutritionItem label="Carbs" value={nutrition.carbs} unit="g" />
                 <NutritionItem label="Fat" value={nutrition.fat} unit="g" />
                 <NutritionItem label="Fiber" value={nutrition.fiber} unit="g" />
@@ -371,45 +449,64 @@ export default function RecipeDetailScreen() {
                     setIsAddingToList(true);
                     let createdList = null;
                     try {
-                      // Create a new shopping list named after the recipe
                       createdList = await createShoppingList({
                         getToken,
                         name: recipe.title,
                       });
-                      // Add all recipe ingredients to the list
                       const result = await addFromRecipe({
                         getToken,
                         listId: createdList.id,
                         recipeId: id,
                       });
-                      const addedCount = result?.count || result?.items?.length || 0;
+                      const addedCount =
+                        result?.count || result?.items?.length || 0;
                       if (addedCount === 0) {
-                        // No items were added — clean up the empty list
-                        try { await deleteShoppingList({ getToken, listId: createdList.id }); } catch {}
-                        Alert.alert("No Ingredients", "This recipe has no ingredients to add.");
+                        try {
+                          await deleteShoppingList({
+                            getToken,
+                            listId: createdList.id,
+                          });
+                        } catch {}
+                        Alert.alert(
+                          "No Ingredients",
+                          "This recipe has no ingredients to add.",
+                        );
                       } else {
-                        // Push the new list into the shopping store with correct counts
                         useShoppingStore.setState((state) => ({
                           lists: [
-                            { ...createdList, itemCount: addedCount, checkedCount: 0 },
+                            {
+                              ...createdList,
+                              itemCount: addedCount,
+                              checkedCount: 0,
+                            },
                             ...state.lists,
                           ],
                         }));
                         Alert.alert(
                           "Shopping List Created",
-                          `Added ${addedCount} ingredient${addedCount !== 1 ? "s" : ""} to "${recipe.title}"`
+                          `Added ${addedCount} ingredient${addedCount !== 1 ? "s" : ""} to "${recipe.title}"`,
                         );
                       }
                     } catch (err) {
                       const msg = err?.message || "";
                       if (msg.includes("already")) {
-                        Alert.alert("Already Added", "This recipe's ingredients are already in a shopping list.");
+                        Alert.alert(
+                          "Already Added",
+                          "This recipe's ingredients are already in a shopping list.",
+                        );
                       } else {
-                        // If list was created but adding items failed, clean up
                         if (createdList?.id) {
-                          try { await deleteShoppingList({ getToken, listId: createdList.id }); } catch {}
+                          try {
+                            await deleteShoppingList({
+                              getToken,
+                              listId: createdList.id,
+                            });
+                          } catch {}
                         }
-                        Alert.alert("Error", msg || "Failed to create shopping list");
+                        Alert.alert(
+                          "Error",
+                          msg || "Failed to create shopping list",
+                        );
                       }
                     } finally {
                       setIsAddingToList(false);
@@ -424,18 +521,24 @@ export default function RecipeDetailScreen() {
                   )}
                 </Pressable>
               </View>
+
               {sectionEntries.map(([section, items], si) => (
-                <View key={si}>
-                  {sectionEntries.length > 1 ? (
-                    <Text style={s.ingredientSection}>{section}</Text>
-                  ) : null}
-                  {items.map((ing, i) => (
-                    <IngredientRow
-                      key={ing.id || i}
-                      ingredient={ing}
-                      isLast={i === items.length - 1}
+                <View key={si} style={s.ingredientsCard}>
+                  <View style={s.ingredientsHeaderRow}>
+                    {/* Replace with correct icon for section */}
+                    <Image
+                      source={require("../../assets/produce.png")}
+                      style={s.ingredientsIcon}
                     />
-                  ))}
+                    <Text style={s.ingredientsTitle}>{section}</Text>
+                  </View>
+                  <View style={s.ingredientsList}>
+                    {items.map((ing, i) => (
+                      <Text key={ing.id || i} style={s.ingredientsBullet}>
+                        • {ing.name}
+                      </Text>
+                    ))}
+                  </View>
                 </View>
               ))}
             </View>
@@ -449,7 +552,12 @@ export default function RecipeDetailScreen() {
               {steps
                 .sort((a, b) => a.stepNumber - b.stepNumber)
                 .map((step, i) => (
-                  <StepRow key={step.id || i} step={step} />
+                  <View key={step.id || i} style={s.stepCard}>
+                    <View style={s.stepBadge}>
+                      <Text style={s.stepBadgeText}>{step.stepNumber}</Text>
+                    </View>
+                    <Text style={s.stepCardText}>{step.instruction}</Text>
+                  </View>
                 ))}
             </View>
           ) : null}
@@ -457,20 +565,27 @@ export default function RecipeDetailScreen() {
           {/* Actions */}
           <View style={s.actionsZone}>
             {isOwn ? (
-              <Pressable
-                style={({ pressed }) => [
-                  s.deleteButton,
-                  pressed && s.deleteButtonPressed,
-                ]}
-                onPress={handleDelete}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator size="small" color={C.error} />
-                ) : (
-                  <Text style={s.deleteButtonText}>Delete Recipe</Text>
-                )}
-              </Pressable>
+              <>
+                <Pressable style={s.primaryBtn}>
+                  <Text style={s.primaryBtnText}>
+                    <PlayIcon size={12} /> Start cooking
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={s.deleteBtn}
+                  onPress={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator size="small" color="#FF0000" />
+                  ) : (
+                    <View style={s.deleteRow}>
+                      <DeleteIcon />
+                      <Text style={s.deleteBtnText}>Delete recipe</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </>
             ) : saved ? (
               <View style={s.savedBanner}>
                 <Text style={s.savedText}>Saved to your collection</Text>
@@ -548,9 +663,21 @@ const s = StyleSheet.create({
   },
 
   // Hero
+  heroWrap: { position: "relative" },
   heroImage: {
     width: "100%",
-    height: 300,
+    height: 340,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  heroGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 130,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   heroOverlay: {
     position: "absolute",
@@ -560,11 +687,22 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
   },
-  noImageHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
+  heroContent: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
   },
+  heroTitle: {
+    color: "#fff",
+    fontSize: 24,
+    fontFamily: FONT.semibold,
+    width: "75%",
+  },
+
   safeTop: {
     flex: 1,
     paddingHorizontal: 20,
@@ -594,17 +732,19 @@ const s = StyleSheet.create({
   backButtonTextLight: {
     color: "#ffffff",
   },
+  heroPlay: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: C.greenBright,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   // Body
   body: {
     paddingHorizontal: 20,
     paddingTop: 20,
-  },
-  title: {
-    fontSize: 26,
-    fontFamily: FONT.semibold,
-    color: C.textPrimary,
-    letterSpacing: -0.05,
   },
   description: {
     marginTop: 10,
@@ -615,7 +755,23 @@ const s = StyleSheet.create({
     letterSpacing: -0.05,
   },
 
-  // Meta pills
+  // Inline Meta
+  metaInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  metaInlineText: {
+    fontSize: 13,
+    color: C.textMeta,
+    fontFamily: FONT.regular,
+  },
+  metaDot: {
+    marginHorizontal: 6,
+    color: C.textMeta,
+  },
+
+  // Meta pills (unused now but kept)
   metaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -718,7 +874,191 @@ const s = StyleSheet.create({
     letterSpacing: -0.05,
   },
 
-  // Ingredients
+  // Ingredients (new)
+  ingredientsCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 14,
+  },
+  ingredientsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  ingredientsIcon: {
+    width: 28,
+    height: 28,
+    marginRight: 10,
+  },
+  ingredientsTitle: {
+    fontSize: 16,
+    fontFamily: FONT.semibold,
+    color: C.textPrimary,
+  },
+  ingredientsList: {
+    backgroundColor: "#F7F7F7",
+    borderRadius: 14,
+    padding: 12,
+  },
+  ingredientsBullet: {
+    fontSize: 14,
+    color: C.textPrimary,
+    fontFamily: FONT.regular,
+    marginBottom: 6,
+  },
+
+  // Steps (new)
+  stepCard: {
+    flexDirection: "row",
+    backgroundColor: "#F7F7F7",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 12,
+    alignItems: "flex-start",
+  },
+  stepBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: C.greenLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  stepBadgeText: {
+    fontSize: 13,
+    fontFamily: FONT.semibold,
+    color: C.greenDark,
+  },
+  stepCardText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: C.textPrimary,
+  },
+
+  // Nutrition
+  nutritionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 14,
+  },
+  nutritionItem: {
+    backgroundColor: C.bg,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    minWidth: 70,
+  },
+  nutritionValue: {
+    fontSize: 18,
+    fontFamily: FONT.semibold,
+    color: C.textPrimary,
+    letterSpacing: -0.05,
+  },
+  nutritionLabel: {
+    fontSize: 11,
+    fontFamily: FONT.regular,
+    color: C.textMeta,
+    marginTop: 2,
+    letterSpacing: -0.05,
+  },
+
+  // Actions zone
+  actionsZone: {
+    marginTop: 36,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
+    alignItems: "center",
+  },
+  primaryBtn: {
+    marginTop: 20,
+    backgroundColor: C.greenBright,
+    borderRadius: 999,
+    paddingVertical: 16,
+    alignItems: "center",
+    width: "100%",
+  },
+  primaryBtnText: {
+    color: C.greenDark,
+    fontSize: 16,
+    fontFamily: FONT.semibold,
+  },
+  deleteBtn: {
+    marginTop: 14,
+    backgroundColor: "#FDECEC",
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: "center",
+    width: "100%",
+  },
+  deleteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  deleteBtnText: {
+    color: "#E24B4B",
+    fontSize: 15,
+    fontFamily: FONT.medium,
+  },
+  deleteButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#F0D0D0",
+    backgroundColor: "#FFF5F5",
+  },
+  deleteButtonPressed: {
+    backgroundColor: "#FFE8E8",
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontFamily: FONT.medium,
+    color: C.error,
+    letterSpacing: -0.05,
+  },
+  saveButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 999,
+    backgroundColor: C.greenBright,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  saveButtonPressed: {
+    opacity: 0.85,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontFamily: FONT.semibold,
+    color: C.greenDark,
+    letterSpacing: -0.05,
+  },
+  savedBanner: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 999,
+    backgroundColor: C.greenLight,
+    width: "100%",
+    justifyContent: "center",
+    alignContent: "center",
+  },
+  savedText: {
+    fontSize: 14,
+    fontFamily: FONT.medium,
+    color: C.greenDark,
+    letterSpacing: -0.05,
+    textAlign: "center",
+  },
+
+  // Old ingredient styles kept
   ingredientRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -736,9 +1076,7 @@ const s = StyleSheet.create({
     marginTop: 6,
     marginRight: 12,
   },
-  ingredientContent: {
-    flex: 1,
-  },
+  ingredientContent: { flex: 1 },
   ingredientName: {
     fontSize: 15,
     fontFamily: FONT.regular,
@@ -746,9 +1084,7 @@ const s = StyleSheet.create({
     lineHeight: 22,
     letterSpacing: -0.05,
   },
-  ingredientQty: {
-    fontFamily: FONT.semibold,
-  },
+  ingredientQty: { fontFamily: FONT.semibold },
   ingredientOptional: {
     fontFamily: FONT.regular,
     color: C.textMeta,
@@ -771,7 +1107,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.05,
   },
 
-  // Steps
+  // Old steps styles kept
   stepRow: {
     flexDirection: "row",
     marginBottom: 20,
@@ -791,9 +1127,7 @@ const s = StyleSheet.create({
     fontFamily: FONT.semibold,
     color: C.greenDark,
   },
-  stepContent: {
-    flex: 1,
-  },
+  stepContent: { flex: 1 },
   stepInstruction: {
     fontSize: 15,
     fontFamily: FONT.regular,
@@ -834,88 +1168,6 @@ const s = StyleSheet.create({
     color: C.orangeDark,
     fontStyle: "italic",
     lineHeight: 20,
-    letterSpacing: -0.05,
-  },
-
-  // Nutrition
-  nutritionGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 14,
-  },
-  nutritionItem: {
-    backgroundColor: C.bg,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    alignItems: "center",
-    minWidth: 70,
-  },
-  nutritionValue: {
-    fontSize: 18,
-    fontFamily: FONT.semibold,
-    color: C.textPrimary,
-    letterSpacing: -0.05,
-  },
-  nutritionLabel: {
-    fontSize: 11,
-    fontFamily: FONT.regular,
-    color: C.textMeta,
-    marginTop: 2,
-    letterSpacing: -0.05,
-  },
-
-  // Actions zone
-  actionsZone: {
-    marginTop: 36,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-    alignItems: "center",
-  },
-  deleteButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#F0D0D0",
-    backgroundColor: "#FFF5F5",
-  },
-  deleteButtonPressed: {
-    backgroundColor: "#FFE8E8",
-  },
-  deleteButtonText: {
-    fontSize: 14,
-    fontFamily: FONT.medium,
-    color: C.error,
-    letterSpacing: -0.05,
-  },
-  saveButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 999,
-    backgroundColor: C.greenBright,
-  },
-  saveButtonPressed: {
-    opacity: 0.85,
-  },
-  saveButtonText: {
-    fontSize: 14,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-    letterSpacing: -0.05,
-  },
-  savedBanner: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 999,
-    backgroundColor: C.greenLight,
-  },
-  savedText: {
-    fontSize: 14,
-    fontFamily: FONT.medium,
-    color: C.greenDark,
     letterSpacing: -0.05,
   },
 });

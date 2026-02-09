@@ -47,7 +47,7 @@ export default function HomeScreen() {
   const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
 
   useEffect(() => {
-    loadSuggested({ limit: 10 });
+    loadSuggested({ limit: 20 });
   }, []);
 
   const handleSeeAll = useCallback(() => {
@@ -145,9 +145,9 @@ export default function HomeScreen() {
         onClose={() => setRecipesSheetOpen(false)}
       >
         <View style={styles.recipesSheet}>
-          <Text style={styles.recipesSheetTitle}>Recent Recipes</Text>
+          <Text style={styles.recipesSheetTitle}>Suggested For You</Text>
           <Text style={styles.recipesSheetSubtitle}>
-            {(allRecipes.length || suggested.length)} recipe{(allRecipes.length || suggested.length) !== 1 ? "s" : ""}
+            {(allRecipes.length || suggested.length)} suggestion{(allRecipes.length || suggested.length) !== 1 ? "s" : ""}
           </Text>
 
           {isLoadingAll ? (

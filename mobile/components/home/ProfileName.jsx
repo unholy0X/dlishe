@@ -1,46 +1,160 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Image, Pressable, Modal } from "react-native";
-import { useClerk } from "@clerk/clerk-expo";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Pressable,
+  Modal,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useClerk, useUser } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
+import RulerIcon from "../icons/RulerIcon";
+import LogoutIcon from "../icons/LogoutIcon";
+import { FOOD_AVATARS, AVATAR_COLORS } from "../avatars/FoodAvatars";
 import { useUserStore } from "../../store";
 
-export default function ProfileName({
-  name = "Samantha",
-  subtitle = "Your kitchen awaits",
-  imageUrl = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png",
-}) {
+function hashName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = name.charCodeAt(i) + ((h << 5) - h);
+  }
+  return Math.abs(h);
+}
+
+function Avatar({ imageUrl, firstName, lastName, size = 50 }) {
+  if (imageUrl) {
+    return (
+      <Image
+        style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}
+        source={{ uri: imageUrl }}
+      />
+    );
+  }
+
+  const name = `${firstName || ""}${lastName || ""}`;
+  const idx = hashName(name) % FOOD_AVATARS.length;
+  const bg = AVATAR_COLORS[idx];
+  const FoodIcon = FOOD_AVATARS[idx];
+
+  return (
+    <View
+      style={[
+        styles.avatarFallback,
+        { width: size, height: size, borderRadius: size / 2, backgroundColor: bg },
+      ]}
+    >
+      <FoodIcon size={size} />
+    </View>
+  );
+}
+
+export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
   const { signOut } = useClerk();
+  const { getToken } = useAuth();
+  const { user } = useUser();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+
   const firstName = useUserStore((s) => s.firstName);
   const lastName = useUserStore((s) => s.lastName);
-  const displayName = firstName || lastName ? `${firstName} ${lastName}`.trim() : name;
+  const imageUrl = useUserStore((s) => s.imageUrl);
+  const preferredUnitSystem = useUserStore((s) => s.preferredUnitSystem);
+  const updatePreferences = useUserStore((s) => s.updatePreferences);
+
+  const displayName = firstName || lastName ? `${firstName} ${lastName}`.trim() : "Chef";
+  const email = user?.primaryEmailAddress?.emailAddress || "";
+
+  const toggleUnit = () => {
+    const next = preferredUnitSystem === "metric" ? "imperial" : "metric";
+    updatePreferences({ preferredUnitSystem: next, getToken });
+  };
 
   return (
     <View style={styles.wrapper}>
-      <Pressable onPress={() => setOpen((prev) => !prev)}>
+      <Pressable onPress={() => setOpen(true)}>
         <View style={styles.welcomeCard}>
-          <Image style={styles.avatar} source={{ uri: imageUrl }} />
-          <View>
+          <Avatar
+            imageUrl={imageUrl}
+            firstName={firstName}
+            lastName={lastName}
+            size={50}
+          />
+          <View style={{ marginLeft: 12 }}>
             <Text style={styles.welcomeTitle}>Welcome {displayName}!</Text>
             <Text style={styles.welcomeSubtitle}>{subtitle}</Text>
           </View>
         </View>
       </Pressable>
 
-      <Modal transparent visible={open} onRequestClose={() => setOpen(false)}>
+      <Modal
+        transparent
+        visible={open}
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
-        <View style={styles.menu}>
-          <Text style={styles.menuTitle}>Account</Text>
+        <View style={[styles.menuSheet, { paddingBottom: insets.bottom + 20 }]}>
+          {/* Grabber */}
+          <View style={styles.grabber} />
+
+          {/* Profile header */}
+          <View style={styles.profileSection}>
+            <Avatar
+              imageUrl={imageUrl}
+              firstName={firstName}
+              lastName={lastName}
+              size={56}
+            />
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{displayName}</Text>
+              {email ? <Text style={styles.profileEmail}>{email}</Text> : null}
+            </View>
+          </View>
+
+          {/* Preferences */}
+          <Text style={styles.sectionLabel}>Kitchen preferences</Text>
+
+          <Pressable style={styles.menuRow} onPress={toggleUnit}>
+            <View style={styles.menuRowIconWrap}>
+              <RulerIcon width={20} height={20} color="#385225" />
+            </View>
+            <View style={styles.menuRowContent}>
+              <Text style={styles.menuRowTitle}>Measurement units</Text>
+              <Text style={styles.menuRowValue}>
+                {preferredUnitSystem === "metric" ? "Metric (g, ml)" : "Imperial (oz, cups)"}
+              </Text>
+            </View>
+            <View style={styles.unitToggle}>
+              <Text style={[
+                styles.unitOption,
+                preferredUnitSystem === "metric" && styles.unitOptionActive,
+              ]}>Metric</Text>
+              <Text style={[
+                styles.unitOption,
+                preferredUnitSystem === "imperial" && styles.unitOptionActive,
+              ]}>Imperial</Text>
+            </View>
+          </Pressable>
+
+          {/* Log out */}
+          <View style={styles.menuDivider} />
+
           <Pressable
-            style={styles.menuItem}
+            style={styles.logoutRow}
             onPress={async () => {
               setOpen(false);
               await signOut();
               router.replace("/");
             }}
           >
-            <Text style={styles.menuText}>Log out</Text>
+            <View style={styles.logoutIconWrap}>
+              <LogoutIcon width={20} height={20} color="#cc3b3b" />
+            </View>
+            <Text style={styles.logoutText}>Log out</Text>
           </Pressable>
         </View>
       </Modal>
@@ -51,6 +165,7 @@ export default function ProfileName({
 const styles = StyleSheet.create({
   wrapper: {
     position: "relative",
+    marginBottom: 13,
   },
   welcomeCard: {
     flexDirection: "row",
@@ -59,13 +174,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    marginBottom: 13,
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
+  avatar: {},
+  avatarFallback: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   welcomeTitle: {
     fontSize: 16,
@@ -79,36 +192,136 @@ const styles = StyleSheet.create({
     color: "#6b6b6b",
     letterSpacing: -0.05,
   },
+  // Menu overlay
   backdrop: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.25)",
   },
-  menu: {
+  menuSheet: {
     position: "absolute",
-    top: 96,
-    left: 20,
-    right: 20,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#F4F5F7",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
-  menuTitle: {
-    fontSize: 12,
-    color: "#9b9b9b",
-    marginBottom: 6,
+  grabber: {
+    alignSelf: "center",
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#d9d9d9",
+    marginBottom: 20,
   },
-  menuItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+  // Profile section
+  profileSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
   },
-  menuText: {
-    color: "#111111",
-    fontSize: 14,
+  profileInfo: {
+    marginLeft: 14,
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 20,
     fontWeight: "600",
+    color: "#111111",
+    letterSpacing: -0.2,
+  },
+  profileEmail: {
+    marginTop: 3,
+    fontSize: 13,
+    color: "#B4B4B4",
+    letterSpacing: -0.05,
+  },
+  // Section
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#B4B4B4",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  // Menu rows
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    padding: 14,
+  },
+  menuRowIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F4F5F7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  menuRowContent: {
+    flex: 1,
+  },
+  menuRowTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111111",
+    letterSpacing: -0.1,
+  },
+  menuRowValue: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "#B4B4B4",
+  },
+  unitToggle: {
+    flexDirection: "row",
+    backgroundColor: "#F4F5F7",
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  unitOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#B4B4B4",
+  },
+  unitOptionActive: {
+    backgroundColor: "#7FEF80",
+    color: "#385225",
+    fontWeight: "600",
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  // Divider & logout
+  menuDivider: {
+    height: 1,
+    backgroundColor: "#EAEAEA",
+    marginVertical: 16,
+  },
+  logoutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingBottom: 8,
+  },
+  logoutIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFF0F0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#cc3b3b",
   },
 });

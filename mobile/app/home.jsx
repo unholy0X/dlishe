@@ -85,11 +85,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
         >
           <View style={styles.padded}>
-            <ProfileName
-              name="Samantha"
-              subtitle="Your kitchen awaits"
-              imageUrl="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"
-            />
+            <ProfileName subtitle="Your kitchen awaits" />
 
             <SearchBar
               placeholder="Search for a recipe"

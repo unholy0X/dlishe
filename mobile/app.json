@@ -1,54 +1,65 @@
 {
   "expo": {
-    "name": "DishFlow",
-    "slug": "dishflow",
-    "version": "2.0.0",
+    "scheme": "dlishe",
+    "name": "DLISHE",
+    "slug": "dlishe",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "dlishe",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F7F3EE"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.dishflow.app",
+      "bundleIdentifier": "com.dlishe.app",
       "buildNumber": "1",
+      "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "DishFlow needs camera access to scan ingredients and barcodes for your pantry.",
-        "NSPhotoLibraryUsageDescription": "DishFlow needs photo library access to save and view recipe images.",
-        "NSPhotoLibraryAddUsageDescription": "DishFlow needs permission to save recipe images to your photo library.",
+        "NSCameraUsageDescription": "DLISHE uses the camera to scan recipes from photos and pantry items",
+        "NSPhotoLibraryUsageDescription": "DLISHE lets you extract recipes from photos in your library",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
+      "package": "com.dlishe.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#C19A6B"
+        "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.dishflow.app"
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite",
-      "expo-font"
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "DLISHE accesses your photos to extract recipes",
+          "cameraPermission": "DLISHE uses the camera to scan recipes and pantry items"
+        }
+      ]
     ],
-    "experiments": {
-      "typedRoutes": true
-    },
     "extra": {
-      "router": {},
       "eas": {
-        "projectId": "df1758ad-1ec3-4181-9a1b-a00ccf378304"
-      }
-    }
+        "projectId": "42f23a45-0d0c-401a-9668-45b87622f23c"
+      },
+      "router": {}
+    },
+    "owner": "0xunholy"
   }
 }

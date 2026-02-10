@@ -421,14 +421,17 @@ func NewGeminiClient(ctx context.Context, apiKey string) (*GeminiClient, error) 
 	}
 
 	// Use the pro model for advanced analysis
-	// verified: gemini-2.5-pro (sweet spot for reasoning/cost)
+	// verified: gemini-3.0-pro (best for reasoning/cost)
 	return &GeminiClient{
 		client: client,
-		model:  "gemini-2.5-pro",
+		model:  "gemini-3.0-pro",
 	}, nil
 }
 
-// ExtractRecipe extracts a recipe from a video file
+// ExtractRecipe extracts a recipe from a video file or a remote video URL.
+// If req.VideoURL starts with https://, it is passed directly to Gemini as a
+// native URL reference (used for YouTube). Otherwise, the local file is uploaded
+// to the Gemini Files API as before (used for yt-dlp downloaded videos).
 func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest, onProgress ProgressCallback) (*ExtractionResult, error) {
 	// Validate inputs to prevent prompt injection
 	if req.Language != "" {
@@ -445,48 +448,63 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		}
 	}
 
-	// 1. Upload file (req.VideoURL holds the local path from the downloader)
-	onProgress(model.JobStatusDownloading, 20, "Uploading video to Gemini...")
+	// Determine video source: remote URL (YouTube) vs local file (yt-dlp download)
+	isRemoteURL := strings.HasPrefix(req.VideoURL, "https://") || strings.HasPrefix(req.VideoURL, "http://")
 
-	f, err := g.uploadFile(ctx, req.VideoURL)
-	if err != nil {
-		return nil, fmt.Errorf("upload failed: %w", err)
-	}
-	defer g.client.DeleteFile(ctx, f.Name)
-
-	// 2. Wait for processing with timeout (max 10 minutes to prevent infinite loop)
-	onProgress(model.JobStatusProcessing, 40, "Waiting for Gemini processing...")
-	pollDeadline := time.Now().Add(10 * time.Minute)
-	for {
-		if time.Now().After(pollDeadline) {
-			return nil, fmt.Errorf("video processing timed out after 10 minutes")
+	var videoPart genai.Part
+	if isRemoteURL {
+		// Native URL — Gemini fetches the video directly (e.g. YouTube)
+		onProgress(model.JobStatusExtracting, 30, "Sending video URL to Gemini...")
+		videoPart = genai.FileData{
+			MIMEType: "video/*",
+			URI:      req.VideoURL,
 		}
+	} else {
+		// Local file — upload to Gemini Files API
+		onProgress(model.JobStatusDownloading, 20, "Uploading video to Gemini...")
 
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		file, err := g.client.GetFile(ctx, f.Name)
+		f, err := g.uploadFile(ctx, req.VideoURL)
 		if err != nil {
-			return nil, fmt.Errorf("get file status failed: %w", err)
+			return nil, fmt.Errorf("upload failed: %w", err)
 		}
-		if file.State == genai.FileStateActive {
-			break
-		}
-		if file.State == genai.FileStateFailed {
-			return nil, fmt.Errorf("Gemini video processing failed")
+		defer g.client.DeleteFile(ctx, f.Name)
+
+		// Wait for processing with timeout (max 10 minutes to prevent infinite loop)
+		onProgress(model.JobStatusProcessing, 40, "Waiting for Gemini processing...")
+		pollDeadline := time.Now().Add(10 * time.Minute)
+		for {
+			if time.Now().After(pollDeadline) {
+				return nil, fmt.Errorf("video processing timed out after 10 minutes")
+			}
+
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+
+			file, err := g.client.GetFile(ctx, f.Name)
+			if err != nil {
+				return nil, fmt.Errorf("get file status failed: %w", err)
+			}
+			if file.State == genai.FileStateActive {
+				break
+			}
+			if file.State == genai.FileStateFailed {
+				return nil, fmt.Errorf("Gemini video processing failed")
+			}
+
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(2 * time.Second):
+			}
 		}
 
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(2 * time.Second):
-		}
+		videoPart = genai.FileData{URI: f.URI}
 	}
 
-	// 3. Generate content with retry
+	// Generate content with retry
 	onProgress(model.JobStatusExtracting, 60, "Analyzing video content...")
 
 	genModel := g.client.GenerativeModel(g.model)
@@ -503,12 +521,12 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		</video_context>
 
 		Use the context above to accurately identify ingredients and steps that might be spoken quickly or listed in the caption.
-		
+
 		**GROUPING INSTRUCTION**:
 		If the recipe has distinct parts (e.g. "For the Dough", "For the Sauce", "Toppings", "Assembly"), use the "section" field in the ingredients list to group them.
 		If there are no distinct sections, use "Main" as the section name.
 
-		**CRITICAL INSTRUCTION**: 
+		**CRITICAL INSTRUCTION**:
 		Analyze the content provided in <video_context>. If this is clearly **NOT a cooking recipe or food preparation video** (e.g. a dance video, news article, vlog without food, gaming, etc.),
 		return a JSON with: {"non_recipe": true, "reason": "Content appears to be [description of content]"}.
 		DO NOT try to invent a recipe if one does not exist.
@@ -534,13 +552,13 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		req.Language, req.DetailLevel, req.Metadata)
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, genai.FileData{URI: f.URI}, genai.Text(prompt))
+		return genModel.GenerateContent(ctx, videoPart, genai.Text(prompt))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generation failed: %w", err)
 	}
 
-	// 4. Parse response (validates FinishReason for safety/truncation)
+	// Parse response (validates FinishReason for safety/truncation)
 	onProgress(model.JobStatusExtracting, 90, "Finalizing recipe...")
 
 	result, err := parseGeminiJSON[ExtractionResult](resp)

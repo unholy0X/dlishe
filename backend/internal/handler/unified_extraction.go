@@ -352,6 +352,13 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			response.ValidationFailed(w, "url", "URL too long (max 2083 characters)")
 			return
 		}
+		// Instagram blocks all server-side access to video content.
+		// Even public Reels require authentication from Meta's servers.
+		if isInstagramURL(req.URL) {
+			response.ErrorJSON(w, http.StatusUnprocessableEntity, "PLATFORM_NOT_SUPPORTED",
+				"Instagram video extraction is not currently supported. Instagram restricts automated access to their content. Try sharing a YouTube or TikTok link instead, or save the video to your device and upload it directly.", nil)
+			return
+		}
 	}
 
 	// Set defaults
@@ -793,7 +800,9 @@ func (h *UnifiedExtractionHandler) processImageExtraction(ctx context.Context, j
 	return result, nil
 }
 
-// processVideoExtraction handles video extraction
+// processVideoExtraction handles video extraction.
+// YouTube URLs are sent directly to Gemini (no yt-dlp download needed).
+// Other platforms (TikTok, Facebook, Vimeo, etc.) use yt-dlp as before.
 func (h *UnifiedExtractionHandler) processVideoExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
 	// Check cache first (unless force refresh is requested)
 	if h.cacheRepo != nil && !job.ForceRefresh {
@@ -812,6 +821,61 @@ func (h *UnifiedExtractionHandler) processVideoExtraction(ctx context.Context, j
 		h.logger.Info("Force refresh requested, bypassing cache", "url", job.SourceURL)
 	}
 
+	// YouTube: pass URL directly to Gemini (skips yt-dlp entirely).
+	// This avoids the "no JS runtime" and "sign in to confirm you're not a bot"
+	// errors that yt-dlp encounters with YouTube on server environments.
+	if isYouTubeURL(job.SourceURL) {
+		return h.processYouTubeExtraction(ctx, job, updateProgress)
+	}
+
+	// Other platforms: download with yt-dlp, then upload to Gemini.
+	return h.processYtDlpExtraction(ctx, job, updateProgress)
+}
+
+// processYouTubeExtraction handles YouTube videos by passing the URL directly
+// to Gemini, which natively understands YouTube content. Metadata and thumbnail
+// are fetched via YouTube's public oEmbed API (no auth required).
+func (h *UnifiedExtractionHandler) processYouTubeExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
+	updateProgress(model.JobStatusProcessing, 10, "Fetching video info...")
+
+	// Fetch metadata via oEmbed (best-effort, non-blocking on failure)
+	oembed := fetchYouTubeOEmbed(ctx, job.SourceURL)
+	thumbnailURL := oembed.ThumbnailURL
+
+	var metadataStr string
+	if oembed.Title != "" {
+		h.logger.Info("YouTube oEmbed metadata fetched", "title", oembed.Title)
+		metadataStr = fmt.Sprintf("Video Title: %s\nChannel: %s", oembed.Title, oembed.AuthorName)
+		updateProgress(model.JobStatusExtracting, 20, fmt.Sprintf("Analyzing: %s...", oembed.Title))
+	} else {
+		updateProgress(model.JobStatusExtracting, 20, "Analyzing YouTube video...")
+	}
+
+	extractReq := ai.ExtractionRequest{
+		VideoURL:    job.SourceURL, // pass the YouTube URL directly — Gemini handles it natively
+		Language:    job.Language,
+		DetailLevel: job.DetailLevel,
+		Metadata:    metadataStr,
+	}
+
+	result, err := h.extractor.ExtractRecipe(ctx, extractReq, func(status model.JobStatus, progress int, msg string) {
+		updateProgress(status, progress, msg)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract from YouTube video: %w", err)
+	}
+
+	// Use oEmbed thumbnail if Gemini didn't provide one
+	if result != nil && result.Thumbnail == "" && thumbnailURL != "" {
+		result.Thumbnail = thumbnailURL
+	}
+
+	return result, nil
+}
+
+// processYtDlpExtraction handles non-YouTube platforms by downloading the video
+// with yt-dlp, then uploading to Gemini for analysis.
+func (h *UnifiedExtractionHandler) processYtDlpExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
 	updateProgress(model.JobStatusDownloading, 10, "Downloading video...")
 
 	localPath, thumbnailURL, err := h.downloader.Download(ctx, job.SourceURL)

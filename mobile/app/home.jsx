@@ -29,7 +29,8 @@ import HeartIcon from "../components/icons/HeartIcon";
 import RecipePlaceholder from "../components/RecipePlaceholder";
 import { useSuggestedStore, useRecipeStore } from "../store";
 import { useAuth } from "@clerk/clerk-expo";
-import { fetchRecommendations } from "../services/recipes";
+import { fetchRecommendations, cloneRecipe, toggleFavorite as toggleFavoriteApi } from "../services/recipes";
+import { filterByMealCategory, CATEGORIES } from "../utils/mealCategories";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const MASONRY_GAP = 10;
@@ -46,6 +47,15 @@ function buildMeta(recipe) {
   return parts.join(" · ");
 }
 
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const pathname = usePathname();
@@ -58,6 +68,10 @@ export default function HomeScreen() {
   const [recoFilter, setRecoFilter] = useState(null);
   const [recoResults, setRecoResults] = useState([]);
   const [recoLoading, setRecoLoading] = useState(false);
+  const [mealCatOpen, setMealCatOpen] = useState(false);
+  const [mealCatKey, setMealCatKey] = useState(null);
+  const [mealCatShuffled, setMealCatShuffled] = useState([]);
+  const [savingIds, setSavingIds] = useState(new Set());
 
   const { getToken } = useAuth();
   const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
@@ -83,6 +97,55 @@ export default function HomeScreen() {
       setRecoLoading(false);
     }
   }, [getToken]);
+
+  const handleMealCategory = useCallback((key) => {
+    setMealCatKey(key);
+    const pool = allRecipes.length > 0 ? allRecipes : suggested;
+    setMealCatShuffled(shuffle(filterByMealCategory(pool, key)));
+    setMealCatOpen(true);
+    if (allRecipes.length === 0) {
+      loadAll();
+    }
+  }, [allRecipes.length, suggested]);
+
+  // Re-shuffle when allRecipes finishes loading (user tapped before data was ready)
+  useEffect(() => {
+    if (mealCatOpen && mealCatKey && allRecipes.length > 0) {
+      setMealCatShuffled(shuffle(filterByMealCategory(allRecipes, mealCatKey)));
+    }
+  }, [allRecipes.length]);
+
+  const [savedPublicIds, setSavedPublicIds] = useState(new Set());
+
+  const handleSaveAndFavorite = useCallback(async (recipeId) => {
+    if (savingIds.has(recipeId) || savedPublicIds.has(recipeId)) return;
+
+    // Optimistic — fill heart immediately
+    setSavedPublicIds((prev) => new Set(prev).add(recipeId));
+    setSavingIds((prev) => new Set(prev).add(recipeId));
+
+    try {
+      const cloned = await cloneRecipe({ recipeId, getToken });
+      const clonedId = cloned?.id || cloned?.recipe?.id;
+      if (clonedId) {
+        await toggleFavoriteApi({ recipeId: clonedId, isFavorite: true, getToken });
+      }
+      loadRecipes({ getToken });
+    } catch {
+      // Revert optimistic update on failure
+      setSavedPublicIds((prev) => {
+        const next = new Set(prev);
+        next.delete(recipeId);
+        return next;
+      });
+    } finally {
+      setSavingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(recipeId);
+        return next;
+      });
+    }
+  }, [getToken, savingIds, savedPublicIds]);
 
   const handleSeeAll = useCallback(() => {
     setRecipesSheetOpen(true);
@@ -112,7 +175,7 @@ export default function HomeScreen() {
               onPress={() => setSearchOpen(true)}
             />
 
-            <MealCategoryGrid />
+            <MealCategoryGrid onPress={handleMealCategory} />
 
             <Text style={styles.title}>What Shall we cook today?</Text>
           </View>
@@ -160,7 +223,7 @@ export default function HomeScreen() {
 
       <FloatingNav
         onPressItem={(key) => {
-          router.push(`/${key}`);
+          if (key !== activeKey) router.replace(`/${key}`);
         }}
         onPressPlus={() => setSheetOpen(true)}
         activeKey={activeKey}
@@ -195,6 +258,8 @@ export default function HomeScreen() {
                   ? { uri: recipe.thumbnailUrl }
                   : null;
                 const isTall = index % 3 === 0;
+                const isSaved = savedPublicIds.has(recipe.id);
+                const isSaving = savingIds.has(recipe.id);
 
                 return (
                   <Pressable
@@ -217,6 +282,22 @@ export default function HomeScreen() {
                       colors={["transparent", "rgba(0,0,0,0.6)"]}
                       style={styles.masonryGradient}
                     />
+                    <Pressable
+                      style={styles.favHeartBtn}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        if (!isSaved && !isSaving) {
+                          handleSaveAndFavorite(recipe.id);
+                        }
+                      }}
+                      hitSlop={10}
+                    >
+                      {isSaving ? (
+                        <ActivityIndicator size="small" color="#E84057" />
+                      ) : (
+                        <HeartIcon width={18} height={18} color="#E84057" filled={isSaved} />
+                      )}
+                    </Pressable>
                     <View style={styles.masonryOverlay}>
                       <Text style={styles.masonryTitle} numberOfLines={2}>
                         {recipe.title}
@@ -287,7 +368,7 @@ export default function HomeScreen() {
                       style={styles.favHeartBtn}
                       onPress={(e) => {
                         e.stopPropagation?.();
-                        toggleFavorite(recipe.id, getToken);
+                        toggleFavorite({ recipeId: recipe.id, getToken });
                       }}
                       hitSlop={10}
                     >
@@ -337,6 +418,8 @@ export default function HomeScreen() {
                   ? { uri: recipe.thumbnailUrl }
                   : null;
                 const isTall = index % 3 === 0;
+                const isSaved = savedPublicIds.has(recipe.id);
+                const isSaving = savingIds.has(recipe.id);
 
                 return (
                   <Pressable
@@ -359,6 +442,108 @@ export default function HomeScreen() {
                       colors={["transparent", "rgba(0,0,0,0.6)"]}
                       style={styles.masonryGradient}
                     />
+                    <Pressable
+                      style={styles.favHeartBtn}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        if (!isSaved && !isSaving) {
+                          handleSaveAndFavorite(recipe.id);
+                        }
+                      }}
+                      hitSlop={10}
+                    >
+                      {isSaving ? (
+                        <ActivityIndicator size="small" color="#E84057" />
+                      ) : (
+                        <HeartIcon width={18} height={18} color="#E84057" filled={isSaved} />
+                      )}
+                    </Pressable>
+                    <View style={styles.masonryOverlay}>
+                      <Text style={styles.masonryTitle} numberOfLines={2}>
+                        {recipe.title}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </BottomSheetModal>
+
+      {/* Meal Category Sheet */}
+      <BottomSheetModal
+        visible={mealCatOpen}
+        onClose={() => setMealCatOpen(false)}
+      >
+        <View style={styles.recipesSheet}>
+          <Text style={styles.recipesSheetTitle}>
+            {mealCatKey ? CATEGORIES[mealCatKey]?.label : ""}
+          </Text>
+          <Text style={styles.recipesSheetSubtitle}>
+            {isLoadingAll
+              ? "Loading..."
+              : `${mealCatShuffled.length} recipe${mealCatShuffled.length !== 1 ? "s" : ""}`}
+          </Text>
+
+          {isLoadingAll ? (
+            <View style={styles.recipesSheetLoading}>
+              <ActivityIndicator size="large" color="#385225" />
+            </View>
+          ) : mealCatShuffled.length === 0 ? (
+            <View style={styles.emptyFavorites}>
+              <Text style={styles.emptyTitle}>No recipes found</Text>
+              <Text style={styles.emptySubtitle}>
+                We couldn't find any recipes for this category right now
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.masonryGrid}>
+              {mealCatShuffled.map((recipe, index) => {
+                const imageSource = recipe.thumbnailUrl
+                  ? { uri: recipe.thumbnailUrl }
+                  : null;
+                const isTall = index % 3 === 0;
+                const isSaved = savedPublicIds.has(recipe.id);
+                const isSaving = savingIds.has(recipe.id);
+
+                return (
+                  <Pressable
+                    key={recipe.id}
+                    style={[
+                      styles.masonryCard,
+                      { height: isTall ? MASONRY_TALL : MASONRY_SHORT },
+                    ]}
+                    onPress={() => {
+                      setMealCatOpen(false);
+                      router.push(`/recipe/${recipe.id}`);
+                    }}
+                  >
+                    {imageSource ? (
+                      <Image source={imageSource} style={styles.masonryImage} />
+                    ) : (
+                      <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
+                    )}
+                    <LinearGradient
+                      colors={["transparent", "rgba(0,0,0,0.6)"]}
+                      style={styles.masonryGradient}
+                    />
+                    <Pressable
+                      style={styles.favHeartBtn}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        if (!isSaved && !isSaving) {
+                          handleSaveAndFavorite(recipe.id);
+                        }
+                      }}
+                      hitSlop={10}
+                    >
+                      {isSaving ? (
+                        <ActivityIndicator size="small" color="#E84057" />
+                      ) : (
+                        <HeartIcon width={18} height={18} color="#E84057" filled={isSaved} />
+                      )}
+                    </Pressable>
                     <View style={styles.masonryOverlay}>
                       <Text style={styles.masonryTitle} numberOfLines={2}>
                         {recipe.title}
@@ -389,6 +574,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F5F7",
   },
   safeArea: {
+    flex: 1,
     paddingTop: 12,
   },
   padded: {

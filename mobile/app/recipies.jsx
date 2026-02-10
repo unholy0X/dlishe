@@ -171,7 +171,7 @@ export default function RecipiesScreen() {
 
       <FloatingNav
         onPressItem={(key) => {
-          router.push(`/${key}`);
+          if (key !== activeKey) router.replace(`/${key}`);
         }}
         onPressPlus={() => setSheetOpen(true)}
         activeKey={activeKey}

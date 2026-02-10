@@ -283,10 +283,10 @@ export default function AddRecipeSheetContent({ onPressBack }) {
       <Pressable
         style={[
           styles.primaryButton,
-          !url.trim() && styles.primaryButtonDisabled,
+          (!url.trim() || isRunning) && styles.primaryButtonDisabled,
         ]}
         onPress={() => startExtraction({ getToken })}
-        disabled={!url.trim()}
+        disabled={!url.trim() || isRunning}
       >
         <SparkleBadgeIcon width={22} height={22} />
         <Text style={styles.primaryText}>Grab recipe</Text>

@@ -59,6 +59,7 @@ type mockRecipeRepository struct {
 	GetBySourceURLFunc         func(ctx context.Context, userID uuid.UUID, sourceURL string) (*model.Recipe, error)
 	ListByUserFunc             func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error)
 	ListPublicFunc             func(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
+	ListFeaturedFunc           func(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
 	ListForRecommendationsFunc func(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error)
 	SearchFunc                 func(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*model.Recipe, error)
 	UpdateFunc                 func(ctx context.Context, recipe *model.Recipe) error
@@ -101,6 +102,12 @@ func (m *mockRecipeRepository) ListPublic(ctx context.Context, limit, offset int
 		return nil, 0, nil
 	}
 	return m.ListPublicFunc(ctx, limit, offset)
+}
+func (m *mockRecipeRepository) ListFeatured(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
+	if m.ListFeaturedFunc == nil {
+		return nil, 0, nil
+	}
+	return m.ListFeaturedFunc(ctx, limit, offset)
 }
 func (m *mockRecipeRepository) ListForRecommendations(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error) {
 	if m.ListForRecommendationsFunc == nil {

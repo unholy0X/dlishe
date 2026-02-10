@@ -52,6 +52,8 @@ type Recipe struct {
 	Tags           []string         `json:"tags,omitempty" db:"tags"`
 	IsPublic       bool             `json:"isPublic" db:"is_public"` // Public/suggested recipes visible to all users
 	IsFavorite     bool             `json:"isFavorite" db:"is_favorite"`
+	IsFeatured     bool             `json:"isFeatured" db:"is_featured"`
+	FeaturedAt     *time.Time       `json:"featuredAt,omitempty" db:"featured_at"`
 	Nutrition      *RecipeNutrition `json:"nutrition,omitempty" db:"nutrition"`      // Nutritional info per serving
 	DietaryInfo    *DietaryInfo     `json:"dietaryInfo,omitempty" db:"dietary_info"` // Dietary flags for filtering
 	SyncVersion    int              `json:"syncVersion" db:"sync_version"`

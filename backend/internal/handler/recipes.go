@@ -18,12 +18,13 @@ import (
 )
 
 type RecipeHandler struct {
-	repo        RecipeRepository
-	adminEmails []string
+	repo             RecipeRepository
+	adminEmails      []string
+	inspiratorEmails []string
 }
 
-func NewRecipeHandler(repo RecipeRepository, adminEmails []string) *RecipeHandler {
-	return &RecipeHandler{repo: repo, adminEmails: adminEmails}
+func NewRecipeHandler(repo RecipeRepository, adminEmails []string, inspiratorEmails []string) *RecipeHandler {
+	return &RecipeHandler{repo: repo, adminEmails: adminEmails, inspiratorEmails: inspiratorEmails}
 }
 
 // Create handles POST /api/v1/recipes
@@ -95,6 +96,13 @@ func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Auto-public for admin users
 	if model.IsAdminEmail(user.Email, h.adminEmails) {
 		req.IsPublic = true
+	}
+
+	// Auto-featured for inspirator users (not public — exclusive to featured endpoint)
+	if model.IsInspiratorEmail(user.Email, h.inspiratorEmails) {
+		req.IsFeatured = true
+		now := time.Now().UTC()
+		req.FeaturedAt = &now
 	}
 
 	if err := h.repo.Create(r.Context(), &req); err != nil {
@@ -227,6 +235,53 @@ func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
 	}
 
 	recipes, total, err := h.repo.ListPublic(r.Context(), limit, offset)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	if recipes == nil {
+		recipes = []*model.Recipe{}
+	}
+
+	response.OK(w, map[string]interface{}{
+		"items":  recipes,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+// ListFeatured handles GET /api/v1/recipes/featured
+// @Summary List featured/curated recipes
+// @Description Get paginated list of featured recipes from inspirator creators
+// @Tags Recipes
+// @Produce json
+// @Param limit query int false "Items per page (max 50)" default(30)
+// @Param offset query int false "Pagination offset" default(0)
+// @Success 200 {object} SwaggerRecipeListResponse "List of featured recipes"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /recipes/featured [get]
+func (h *RecipeHandler) ListFeatured(w http.ResponseWriter, r *http.Request) {
+	// No auth required - public endpoint
+
+	// Pagination
+	limit := 30
+	offset := 0
+
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 50 {
+			limit = val
+		}
+	}
+
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if val, err := strconv.Atoi(o); err == nil && val >= 0 {
+			offset = val
+		}
+	}
+
+	recipes, total, err := h.repo.ListFeatured(r.Context(), limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return

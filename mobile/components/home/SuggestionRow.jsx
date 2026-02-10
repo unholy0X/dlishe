@@ -16,6 +16,7 @@ export default function SuggestionRow({ items = [] }) {
             title={item.title}
             subtitle={item.subtitle}
             Icon={item.Icon}
+            onPress={item.onPress}
           />
         </View>
       ))}

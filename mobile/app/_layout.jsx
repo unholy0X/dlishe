@@ -59,10 +59,10 @@ function AuthGate() {
     >
       <Stack.Screen name="index" options={{ gestureEnabled: false, animation: "none" }} />
       <Stack.Screen name="sign-up" options={{ gestureEnabled: false, animation: "fade" }} />
-      <Stack.Screen name="home" options={{ gestureEnabled: false, animation: "fade", animationDuration: 150 }} />
-      <Stack.Screen name="recipies" options={{ gestureEnabled: false, animation: "fade", animationDuration: 150 }} />
-      <Stack.Screen name="pantry" options={{ gestureEnabled: false, animation: "fade", animationDuration: 150 }} />
-      <Stack.Screen name="shopping" options={{ gestureEnabled: false, animation: "fade", animationDuration: 150 }} />
+      <Stack.Screen name="home" options={{ gestureEnabled: false, animation: "fade", animationDuration: 100 }} />
+      <Stack.Screen name="recipies" options={{ gestureEnabled: false, animation: "fade", animationDuration: 100 }} />
+      <Stack.Screen name="pantry" options={{ gestureEnabled: false, animation: "fade", animationDuration: 100 }} />
+      <Stack.Screen name="shopping" options={{ gestureEnabled: false, animation: "fade", animationDuration: 100 }} />
       <Stack.Screen name="shoppingList" options={{ animation: "ios_from_right" }} />
       <Stack.Screen name="recipe/[id]" options={{ animation: "ios_from_right" }} />
     </Stack>

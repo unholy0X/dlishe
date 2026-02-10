@@ -56,6 +56,8 @@ type UnifiedExtractionHandler struct {
 
 	// adminEmails whitelist for auto-public + unlimited extractions
 	adminEmails []string
+	// inspiratorEmails whitelist for auto-featured + unlimited extractions
+	inspiratorEmails []string
 }
 
 // NewUnifiedExtractionHandler creates a new unified extraction handler
@@ -70,6 +72,7 @@ func NewUnifiedExtractionHandler(
 	redisClient *redis.Client,
 	logger *slog.Logger,
 	adminEmails []string,
+	inspiratorEmails []string,
 	maxVideoJobs int,
 	maxLightJobs int,
 ) *UnifiedExtractionHandler {
@@ -85,8 +88,9 @@ func NewUnifiedExtractionHandler(
 		logger:         logger,
 		videoSemaphore: make(chan struct{}, maxVideoJobs),
 		lightSemaphore: make(chan struct{}, maxLightJobs),
-		tempDir:        os.TempDir(),
-		adminEmails:    adminEmails,
+		tempDir:          os.TempDir(),
+		adminEmails:      adminEmails,
+		inspiratorEmails: inspiratorEmails,
 	}
 
 	// Cleanup orphaned temp files from previous crashes
@@ -174,11 +178,12 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Check admin status once — used for quota bypass and auto-public
+	// Check admin/inspirator status once — used for quota bypass and auto-public/featured
 	isAdmin := model.IsAdminEmail(user.Email, h.adminEmails)
+	isInspirator := model.IsInspiratorEmail(user.Email, h.inspiratorEmails)
 
-	// Enforce subscription tier limits on extractions (admins bypass)
-	if !isAdmin && h.userRepo != nil {
+	// Enforce subscription tier limits on extractions (admins and inspirators bypass)
+	if !isAdmin && !isInspirator && h.userRepo != nil {
 		sub, err := h.userRepo.GetSubscription(r.Context(), user.ID)
 		if err != nil {
 			h.logger.Warn("Failed to get subscription for limit check", "error", err, "user_id", user.ID)
@@ -505,7 +510,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		h.processJob(ctx, job, isAdmin)
+		h.processJob(ctx, job, isAdmin, isInspirator)
 	}()
 
 	// Return job ID immediately
@@ -516,7 +521,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 }
 
 // processJob handles the background processing for all extraction types
-func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.ExtractionJob, isAdmin bool) {
+func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.ExtractionJob, isAdmin bool, isInspirator bool) {
 	logger := middleware.GetLogger(ctx)
 	logger.Info("JobStarted",
 		"job_id", job.ID,
@@ -656,10 +661,10 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 	// Always save the extracted recipe to prevent data loss after burning AI tokens.
 	// Previously saveAuto=false would discard the result with no retrieval path.
 	updateProgress(model.JobStatusExtracting, 95, "Saving recipe...")
-	recipeID, saveErr := h.saveExtractedRecipe(ctx, job, result, enrichment, isAdmin)
+	recipeID, saveErr := h.saveExtractedRecipe(ctx, job, result, enrichment, isAdmin, isInspirator)
 	if saveErr != nil {
 		h.logger.Error("Failed to save recipe", "error", saveErr)
-		failJob("SAVE_FAILED", "Failed to save recipe: "+saveErr.Error())
+		failJob("SAVE_FAILED", "Failed to save recipe. Please try again.")
 		return
 	}
 	if err := h.jobRepo.MarkCompleted(ctx, job.ID, recipeID); err != nil {
@@ -1095,7 +1100,7 @@ func (h *UnifiedExtractionHandler) cacheExtractionResult(url string, result *ai.
 }
 
 // saveExtractedRecipe saves the extracted recipe to the database
-func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job *model.ExtractionJob, result *ai.ExtractionResult, enrichment *ai.EnrichmentResult, isAdmin bool) (uuid.UUID, error) {
+func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job *model.ExtractionJob, result *ai.ExtractionResult, enrichment *ai.EnrichmentResult, isAdmin bool, isInspirator bool) (uuid.UUID, error) {
 	sourceType := "extraction"
 	switch job.JobType {
 	case model.JobTypeURL:
@@ -1140,6 +1145,12 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 		IsPublic:     isAdmin,
+		IsFeatured:   isInspirator,
+	}
+
+	if isInspirator {
+		now := time.Now().UTC()
+		recipe.FeaturedAt = &now
 	}
 
 	// Apply enrichment data

@@ -57,7 +57,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 	// Services
 	recipeRepo := postgres.NewRecipeRepository(db)
-	recipeHandler := handler.NewRecipeHandler(recipeRepo, cfg.AdminEmails)
+	recipeHandler := handler.NewRecipeHandler(recipeRepo, cfg.AdminEmails, cfg.InspiratorEmails)
 
 	// Initialize AI service
 	geminiCtx := context.Background()
@@ -109,7 +109,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	// Unified extraction handler (handles url, image, video extraction with async jobs)
 	// Also handles job listing, status, and cancellation
 	// Now includes enrichment and caching support
-	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, userRepo, extractor, enricher, extractionCacheRepo, downloader, redis, logger, cfg.AdminEmails, cfg.MaxConcurrentVideoJobs, cfg.MaxConcurrentLightJobs)
+	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, userRepo, extractor, enricher, extractionCacheRepo, downloader, redis, logger, cfg.AdminEmails, cfg.InspiratorEmails, cfg.MaxConcurrentVideoJobs, cfg.MaxConcurrentLightJobs)
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(redis)
@@ -138,6 +138,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 		// Public recipes endpoint (suggested/curated recipes for all users)
 		r.With(rateLimiter.Public()).Get("/recipes/suggested", recipeHandler.ListSuggested)
+		r.With(rateLimiter.Public()).Get("/recipes/featured", recipeHandler.ListFeatured)
 
 		// Auth routes
 		// Deprecated: Login/Register handled by Clerk frontend

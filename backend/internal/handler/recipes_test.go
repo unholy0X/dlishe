@@ -16,7 +16,7 @@ import (
 
 func TestRecipeHandler_List(t *testing.T) {
 	mockRepo := &mockRecipeRepository{}
-	handler := NewRecipeHandler(mockRepo, nil)
+	handler := NewRecipeHandler(mockRepo, nil, nil)
 	userID := uuid.New()
 
 	t.Run("auth required", func(t *testing.T) {
@@ -75,7 +75,7 @@ func TestRecipeHandler_List(t *testing.T) {
 
 func TestRecipeHandler_Get(t *testing.T) {
 	mockRepo := &mockRecipeRepository{}
-	handler := NewRecipeHandler(mockRepo, nil)
+	handler := NewRecipeHandler(mockRepo, nil, nil)
 	userID := uuid.New()
 	recipeID := uuid.New()
 
@@ -124,7 +124,7 @@ func TestRecipeHandler_Get(t *testing.T) {
 
 func TestRecipeHandler_Search(t *testing.T) {
 	mockRepo := &mockRecipeRepository{}
-	handler := NewRecipeHandler(mockRepo, nil)
+	handler := NewRecipeHandler(mockRepo, nil, nil)
 	userID := uuid.New()
 
 	t.Run("auth required", func(t *testing.T) {

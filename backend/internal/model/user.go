@@ -144,3 +144,21 @@ func IsAdminEmail(email *string, adminEmails []string) bool {
 	}
 	return false
 }
+
+// IsInspiratorEmail checks if the given email is in the inspirator whitelist.
+// Comparison is case-insensitive and trimmed. Safe for nil email pointers.
+func IsInspiratorEmail(email *string, inspiratorEmails []string) bool {
+	if email == nil || len(inspiratorEmails) == 0 {
+		return false
+	}
+	normalized := strings.TrimSpace(strings.ToLower(*email))
+	if normalized == "" {
+		return false
+	}
+	for _, e := range inspiratorEmails {
+		if e == normalized {
+			return true
+		}
+	}
+	return false
+}

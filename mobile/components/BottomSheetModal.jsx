@@ -14,15 +14,27 @@ export default function BottomSheetModal({
   const translateY = useRef(new Animated.Value(SLIDE_OFFSET)).current;
   const panY = useRef(new Animated.Value(0)).current;
   const scrollOffset = useRef(0);
+  const isDragging = useRef(false);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   const [render, setRender] = useState(visible);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
+      // Capture phase fires BEFORE children (ScrollView) — this is the key fix
+      onMoveShouldSetPanResponderCapture: (_, gs) => {
+        // Only capture when at top of scroll AND swiping clearly downward
+        if (scrollOffset.current <= 2 && gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx)) {
+          return true;
+        }
+        return false;
+      },
       onMoveShouldSetPanResponder: (_, gs) => {
-        return gs.dy > 10 && scrollOffset.current <= 0;
+        return gs.dy > 8 && scrollOffset.current <= 2;
       },
       onPanResponderGrant: () => {
+        isDragging.current = true;
+        setScrollEnabled(false);
         panY.setOffset(panY._value);
         panY.setValue(0);
       },
@@ -31,6 +43,8 @@ export default function BottomSheetModal({
       },
       onPanResponderRelease: (_, gs) => {
         panY.flattenOffset();
+        isDragging.current = false;
+        setScrollEnabled(true);
         if (gs.dy > 120 || gs.vy > 0.5) {
           Animated.timing(panY, {
             toValue: SLIDE_OFFSET,
@@ -60,6 +74,8 @@ export default function BottomSheetModal({
     if (visible) {
       setRender(true);
       panY.setValue(0);
+      scrollOffset.current = 0;
+      setScrollEnabled(true);
       Animated.timing(translateY, {
         toValue: 0,
         duration: 220,
@@ -101,6 +117,7 @@ export default function BottomSheetModal({
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            scrollEnabled={scrollEnabled}
             onScroll={(e) => {
               scrollOffset.current = e.nativeEvent.contentOffset.y;
             }}

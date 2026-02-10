@@ -421,10 +421,10 @@ func NewGeminiClient(ctx context.Context, apiKey string) (*GeminiClient, error) 
 	}
 
 	// Use the pro model for advanced analysis
-	// verified: gemini-3.0-pro (best for reasoning/cost)
+	// verified: gemini-2.5-pro (best for reasoning/cost)
 	return &GeminiClient{
 		client: client,
-		model:  "gemini-3.0-pro",
+		model:  "gemini-2.5-pro",
 	}, nil
 }
 

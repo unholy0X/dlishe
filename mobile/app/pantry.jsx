@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import FloatingNav from "../components/FloatingNav";
+import SwipeNavigator from "../components/SwipeNavigator";
 import PantryHeader from "../components/pantry/PantryHeader";
 import PantryEmptyState from "../components/pantry/PantryEmptyState";
 import BottomSheetModal from "../components/BottomSheetModal";
@@ -216,6 +217,7 @@ export default function PantryScreen() {
 
   return (
     <View style={styles.screen}>
+      <SwipeNavigator>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         {isEmpty ? (
           <View style={styles.paddedContainer}>
@@ -272,6 +274,7 @@ export default function PantryScreen() {
           </ScrollView>
         )}
       </SafeAreaView>
+      </SwipeNavigator>
 
       <FloatingNav
         onPressItem={(key) => {

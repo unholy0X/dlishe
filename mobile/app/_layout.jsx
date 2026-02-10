@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Slot, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
 import * as SecureStore from "expo-secure-store";
 import {
@@ -14,19 +14,20 @@ import UserSync from "../components/UserSync";
 const tokenCache = {
   async getToken(key) {
     try {
-      return await SecureStore.getItemAsync(key);
+      const value = await SecureStore.getItemAsync(key);
+      return value;
     } catch (err) {
-      console.error("SecureStore get item error: ", err);
+      console.error("SecureStore get error:", err);
       return null;
     }
   },
   async saveToken(key, value) {
     try {
-      return await SecureStore.setItemAsync(key, value);
+      await SecureStore.setItemAsync(key, value);
     } catch (err) {
-      console.error("SecureStore set item error: ", err);
-      // alert(`SecureStore Error: ${err.message}`);
-      return;
+      // SecureStore can fail on Android production (keystore issues, value too large)
+      console.error("SecureStore save error:", err);
+      alert(`Token save failed: ${err?.message}`);
     }
   },
 };
@@ -48,7 +49,24 @@ function AuthGate() {
     }
   }, [isSignedIn, isLoaded, segments, router]);
 
-  return <Slot />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: "ios_from_right",
+        gestureEnabled: true,
+      }}
+    >
+      <Stack.Screen name="index" options={{ gestureEnabled: false, animation: "none" }} />
+      <Stack.Screen name="sign-up" options={{ gestureEnabled: false, animation: "fade" }} />
+      <Stack.Screen name="home" options={{ gestureEnabled: false, animation: "fade", animationDuration: 150 }} />
+      <Stack.Screen name="recipies" options={{ gestureEnabled: false, animation: "fade", animationDuration: 150 }} />
+      <Stack.Screen name="pantry" options={{ gestureEnabled: false, animation: "fade", animationDuration: 150 }} />
+      <Stack.Screen name="shopping" options={{ gestureEnabled: false, animation: "fade", animationDuration: 150 }} />
+      <Stack.Screen name="shoppingList" options={{ animation: "ios_from_right" }} />
+      <Stack.Screen name="recipe/[id]" options={{ animation: "ios_from_right" }} />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {

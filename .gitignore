@@ -49,4 +49,6 @@ backend/logs/dlishe-backend.jsonl
 backend/e2e_output/
 backend/e2e_results.json
 backend/coverage.out
-backend/middleware_test_output.txt
+backend/middleware_test_output.txtmobile/eas.json
+mobile/eas.json
+mobile/screens_bugs/Screenshot 2026-02-10 at 14.31.54.png

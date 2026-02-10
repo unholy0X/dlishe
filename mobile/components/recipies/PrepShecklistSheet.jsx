@@ -69,13 +69,21 @@ export default function PrepChecklistSheet({
 
   return (
     <View style={s.container}>
-      {/* Header */}
-      <View style={s.header}>
+      {/* Top bar */}
+      <View style={s.topBar}>
         <Pressable style={s.backBtn} onPress={onBack}>
           <Text style={s.backIcon}>←</Text>
           <Text style={s.backText}>Back</Text>
         </Pressable>
+        <View style={s.counterPill}>
+          <Text style={s.counterPillText}>
+            {checkedCount} / {totalCount}
+          </Text>
+        </View>
+      </View>
 
+      {/* Title area */}
+      <View style={s.titleArea}>
         <Text style={s.title}>Before we start</Text>
         <Text style={s.subtitle}>Gather everything you need</Text>
       </View>
@@ -138,9 +146,8 @@ export default function PrepChecklistSheet({
 
       {/* Footer */}
       <View style={s.footer}>
-        <Text style={s.readyText}>{checkedCount}/{totalCount} ready</Text>
         <Pressable style={s.readyBtn} onPress={onReady}>
-          <Text style={s.readyBtnText}>I'm ready</Text>
+          <Text style={s.readyBtnText}>I'm ready, let's cook</Text>
         </Pressable>
       </View>
     </View>
@@ -152,19 +159,17 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
-  header: {
+
+  // ─── Top bar ──────────────────────────────────
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 10,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 4,
   },
   backBtn: {
-    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
@@ -175,16 +180,34 @@ const s = StyleSheet.create({
   backIcon: {
     fontSize: 14,
     color: C.muted,
-    marginRight: 8,
+    marginRight: 6,
   },
   backText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONT.medium,
     color: C.muted,
   },
+  counterPill: {
+    backgroundColor: "#fff",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  counterPillText: {
+    fontSize: 13,
+    fontFamily: FONT.semibold,
+    color: C.text,
+    letterSpacing: -0.05,
+  },
+
+  // ─── Title area ───────────────────────────────
+  titleArea: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   title: {
-    marginTop: 16,
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: FONT.semibold,
     color: C.text,
   },
@@ -193,7 +216,14 @@ const s = StyleSheet.create({
     fontFamily: FONT.regular,
     color: C.muted,
     marginTop: 4,
-    marginBottom: 4,
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+  scroll: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
 
   sectionCard: {
@@ -296,29 +326,17 @@ const s = StyleSheet.create({
 
   footer: {
     paddingHorizontal: 20,
-    paddingBottom: 8,
     paddingTop: 10,
-    backgroundColor: "#fff",
-    borderRadius: 999,
-    marginHorizontal: 20,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  readyText: {
-    fontSize: 15,
-    fontFamily: FONT.medium,
-    color: C.text,
+    paddingBottom: 8,
   },
   readyBtn: {
     backgroundColor: C.green,
     borderRadius: 999,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
+    paddingVertical: 16,
+    alignItems: "center",
   },
   readyBtnText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: FONT.semibold,
     color: C.greenDark,
   },

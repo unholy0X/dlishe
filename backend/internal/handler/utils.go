@@ -1,8 +1,13 @@
 package handler
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
+	"time"
 )
 
 // detectMimeType detects image mime type from file magic bytes
@@ -85,4 +90,74 @@ func parseQuantity(s string) *float64 {
 	}
 
 	return nil
+}
+
+// youtubeHosts lists all YouTube hostname variations.
+var youtubeHosts = map[string]bool{
+	"youtube.com":     true,
+	"www.youtube.com": true,
+	"m.youtube.com":   true,
+	"youtu.be":        true,
+}
+
+// instagramHosts lists all Instagram hostname variations.
+var instagramHosts = map[string]bool{
+	"instagram.com":     true,
+	"www.instagram.com": true,
+}
+
+// isYouTubeURL checks whether the given URL points to YouTube.
+func isYouTubeURL(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	return youtubeHosts[parsed.Hostname()]
+}
+
+// isInstagramURL checks whether the given URL points to Instagram.
+func isInstagramURL(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	return instagramHosts[parsed.Hostname()]
+}
+
+// youtubeOEmbedResult holds the fields we care about from YouTube oEmbed.
+type youtubeOEmbedResult struct {
+	Title        string `json:"title"`
+	AuthorName   string `json:"author_name"`
+	ThumbnailURL string `json:"thumbnail_url"`
+}
+
+// fetchYouTubeOEmbed calls the public YouTube oEmbed API to get title and
+// thumbnail URL. This is a lightweight, auth-free alternative to yt-dlp for
+// metadata. Returns zero-value fields on any error (best-effort).
+func fetchYouTubeOEmbed(ctx context.Context, videoURL string) youtubeOEmbedResult {
+	oembedURL := "https://www.youtube.com/oembed?url=" + url.QueryEscape(videoURL) + "&format=json"
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", oembedURL, nil)
+	if err != nil {
+		return youtubeOEmbedResult{}
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return youtubeOEmbedResult{}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return youtubeOEmbedResult{}
+	}
+
+	var result youtubeOEmbedResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return youtubeOEmbedResult{}
+	}
+	return result
 }

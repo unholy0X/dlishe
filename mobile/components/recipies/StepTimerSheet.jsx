@@ -9,6 +9,7 @@ const C = {
   muted: "#B4B4B4",
   green: "#7FEF80",
   greenDark: "#385225",
+  greenLight: "#DFF7C4",
   border: "#EAEAEA",
 };
 
@@ -23,6 +24,14 @@ function formatTimer(seconds) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function formatDurationHint(seconds) {
+  if (!seconds || seconds <= 0) return null;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m === 0) return `${s}s`;
+  return s ? `${m}m ${s}s` : `${m} min`;
 }
 
 function getTimerButtonLabel(timerRunning, timerSeconds) {
@@ -46,16 +55,18 @@ export default function StepTimerSheet({
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
 
-  // Build subtitle from technique + temperature
-  const subtitleParts = [];
-  if (step?.technique) subtitleParts.push(step.technique);
-  if (step?.temperature) subtitleParts.push(step.temperature);
-  const subtitle = subtitleParts.join("  ·  ");
+  // Build chips
+  const chips = [];
+  if (step?.technique) chips.push(step.technique);
+  if (step?.temperature) chips.push(step.temperature);
+
+  // Timer display value: show initial duration before start, then live countdown
+  const displaySeconds = timerSeconds ?? (hasDuration ? step.durationSeconds : 0);
 
   // Timer progress
   const progress =
-    hasDuration && timerSeconds != null
-      ? timerSeconds / step.durationSeconds
+    hasDuration && displaySeconds != null
+      ? displaySeconds / step.durationSeconds
       : 1;
 
   return (
@@ -66,40 +77,89 @@ export default function StepTimerSheet({
           <Text style={s.backIcon}>←</Text>
           <Text style={s.backText}>Back</Text>
         </Pressable>
-        <View style={s.stepCounterPill}>
-          <Text style={s.stepCounterText}>
-            {currentStep + 1} / {totalSteps}
+        <View style={s.stepPill}>
+          <Text style={s.stepPillText}>
+            Step {currentStep + 1} of {totalSteps}
           </Text>
         </View>
       </View>
 
-      {/* Scrollable content */}
+      {/* Center content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scrollContent}
+        contentContainerStyle={[
+          s.scrollContent,
+          !hasDuration && s.scrollContentCentered,
+        ]}
         style={s.scrollView}
       >
-        {/* Instruction */}
-        <Text style={s.instruction}>{step?.instruction}</Text>
-        {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
+        {/* Instruction card */}
+        <View style={s.instructionCard}>
+          <View style={s.stepBadge}>
+            <Text style={s.stepBadgeText}>{currentStep + 1}</Text>
+          </View>
 
-        {/* Timer Card — only if step has explicit duration */}
-        {hasDuration ? (
-          <View style={s.timerSection}>
-            <View style={s.timerCard}>
-              <ProgressRing progress={progress} />
-              <Text style={s.timerText}>{formatTimer(timerSeconds)}</Text>
+          <Text style={s.instructionText}>{step?.instruction}</Text>
+
+          {(chips.length > 0 || hasDuration) ? (
+            <View style={s.chipsRow}>
+              {chips.map((chip, i) => (
+                <View key={i} style={s.chip}>
+                  <Text style={s.chipText}>{chip}</Text>
+                </View>
+              ))}
+              {hasDuration ? (
+                <View style={s.chipDuration}>
+                  <Text style={s.chipDurationText}>
+                    ⏱ {formatDurationHint(step.durationSeconds)}
+                  </Text>
+                </View>
+              ) : null}
             </View>
+          ) : null}
 
-            <Pressable
-              style={[s.timerBtn, timerRunning && s.timerBtnActive]}
-              onPress={onStartTimer}
-            >
-              <Text style={[s.timerBtnText, timerRunning && s.timerBtnTextActive]}>
-                {timerRunning ? "⏸" : "▶"}{"  "}
-                {getTimerButtonLabel(timerRunning, timerSeconds)}
-              </Text>
-            </Pressable>
+          {step?.tip ? (
+            <View style={s.tipBanner}>
+              <Text style={s.tipText}>{step.tip}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Timer section — only if step has a real duration */}
+        {hasDuration ? (
+          <View style={s.timerCard}>
+            <View style={s.timerRow}>
+              <View style={s.timerRingWrap}>
+                <ProgressRing progress={progress} running={timerRunning} />
+                <Text style={s.timerRingTime}>{formatTimer(displaySeconds)}</Text>
+              </View>
+              <View style={s.timerInfo}>
+                <Text style={s.timerLabel}>
+                  {timerRunning
+                    ? "Counting down…"
+                    : timerSeconds === 0
+                    ? "Timer done!"
+                    : `${formatDurationHint(step.durationSeconds)} for this step`}
+                </Text>
+                <Pressable
+                  style={[
+                    s.timerBtn,
+                    timerRunning && s.timerBtnPause,
+                    timerSeconds === 0 && !timerRunning && s.timerBtnReset,
+                  ]}
+                  onPress={onStartTimer}
+                >
+                  <Text
+                    style={[
+                      s.timerBtnText,
+                      timerRunning && s.timerBtnTextPause,
+                    ]}
+                  >
+                    {getTimerButtonLabel(timerRunning, timerSeconds)}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         ) : null}
       </ScrollView>
@@ -107,25 +167,27 @@ export default function StepTimerSheet({
       {/* Bottom nav — pinned */}
       <View style={s.bottomNav}>
         <Pressable
-          style={[s.prevBtn, isFirstStep && s.btnDisabled]}
+          style={[s.navBtn, s.navBtnPrev, isFirstStep && s.navBtnDisabled]}
           onPress={onPrev}
           disabled={isFirstStep}
         >
-          <Text style={[s.prevText, isFirstStep && s.textDisabled]}>
+          <Text style={[s.navBtnPrevText, isFirstStep && s.navBtnTextDisabled]}>
             ‹  Previous
           </Text>
         </Pressable>
-        <Pressable style={s.nextBtn} onPress={onNext}>
-          <Text style={s.nextText}>{isLastStep ? "Finish" : "Next  ›"}</Text>
+        <Pressable style={[s.navBtn, s.navBtnNext]} onPress={onNext}>
+          <Text style={s.navBtnNextText}>
+            {isLastStep ? "Finish" : "Next  ›"}
+          </Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-function ProgressRing({ progress = 1 }) {
-  const size = 200;
-  const strokeWidth = 10;
+function ProgressRing({ progress = 1, running }) {
+  const size = 80;
+  const strokeWidth = 6;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference * (1 - progress);
@@ -133,7 +195,7 @@ function ProgressRing({ progress = 1 }) {
   return (
     <Svg width={size} height={size}>
       <Circle
-        stroke="#E6E6E6"
+        stroke="#EFEFEF"
         fill="none"
         cx={size / 2}
         cy={size / 2}
@@ -141,7 +203,7 @@ function ProgressRing({ progress = 1 }) {
         strokeWidth={strokeWidth}
       />
       <Circle
-        stroke={C.green}
+        stroke={running ? C.green : C.greenLight}
         fill="none"
         cx={size / 2}
         cy={size / 2}
@@ -162,18 +224,20 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: C.bg,
   },
+
+  // ─── Top bar ──────────────────────────────────
   topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 6,
+    paddingBottom: 4,
   },
   backBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: C.card,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -181,118 +245,204 @@ const s = StyleSheet.create({
   backIcon: {
     fontSize: 14,
     color: C.muted,
-    marginRight: 8,
+    marginRight: 6,
   },
   backText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONT.medium,
     color: C.muted,
   },
-  stepCounterPill: {
-    backgroundColor: "#fff",
+  stepPill: {
+    backgroundColor: C.card,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  stepCounterText: {
+  stepPillText: {
     fontSize: 13,
-    fontFamily: FONT.semibold,
-    color: C.text,
+    fontFamily: FONT.medium,
+    color: C.muted,
     letterSpacing: -0.05,
   },
 
+  // ─── Scroll content ───────────────────────────
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 24,
     paddingBottom: 20,
   },
-  instruction: {
-    fontSize: 22,
-    fontFamily: FONT.semibold,
-    color: C.text,
-    lineHeight: 30,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: FONT.regular,
-    color: C.muted,
-    marginTop: 8,
-    textTransform: "capitalize",
+  scrollContentCentered: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingTop: 0,
   },
 
-  timerSection: {
-    marginTop: 28,
-  },
-  timerCard: {
-    backgroundColor: "#fff",
+  // ─── Instruction card ─────────────────────────
+  instructionCard: {
+    backgroundColor: C.card,
     borderRadius: 24,
-    padding: 20,
+    padding: 24,
+  },
+  stepBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: C.greenLight,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 16,
   },
-  timerText: {
+  stepBadgeText: {
+    fontSize: 15,
+    fontFamily: FONT.semibold,
+    color: C.greenDark,
+  },
+  instructionText: {
+    fontSize: 17,
+    fontFamily: FONT.regular,
+    color: C.text,
+    lineHeight: 26,
+    letterSpacing: -0.1,
+  },
+  chipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 18,
+  },
+  chip: {
+    backgroundColor: C.bg,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  chipText: {
+    fontSize: 12,
+    fontFamily: FONT.medium,
+    color: C.muted,
+    textTransform: "capitalize",
+    letterSpacing: -0.05,
+  },
+  chipDuration: {
+    backgroundColor: C.greenLight,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  chipDurationText: {
+    fontSize: 12,
+    fontFamily: FONT.semibold,
+    color: C.greenDark,
+    letterSpacing: -0.05,
+  },
+  tipBanner: {
+    backgroundColor: "#FFF9F0",
+    borderLeftWidth: 3,
+    borderLeftColor: "#FDC597",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+  },
+  tipText: {
+    fontSize: 13,
+    fontFamily: FONT.regular,
+    color: "#7A4A21",
+    fontStyle: "italic",
+    lineHeight: 19,
+  },
+
+  // ─── Timer card ───────────────────────────────
+  timerCard: {
+    backgroundColor: C.card,
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 16,
+  },
+  timerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  timerRingWrap: {
+    width: 80,
+    height: 80,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 18,
+  },
+  timerRingTime: {
     position: "absolute",
-    fontSize: 34,
+    fontSize: 16,
     fontFamily: FONT.semibold,
     color: C.text,
   },
-
+  timerInfo: {
+    flex: 1,
+  },
+  timerLabel: {
+    fontSize: 13,
+    fontFamily: FONT.regular,
+    color: C.muted,
+    marginBottom: 10,
+    lineHeight: 18,
+  },
   timerBtn: {
-    marginTop: 14,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: C.greenLight,
     borderRadius: 999,
-    paddingVertical: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignSelf: "flex-start",
     alignItems: "center",
   },
-  timerBtnActive: {
+  timerBtnPause: {
     backgroundColor: "#FFF3E0",
   },
+  timerBtnReset: {
+    backgroundColor: C.greenLight,
+  },
   timerBtnText: {
-    fontSize: 15,
-    fontFamily: FONT.medium,
+    fontSize: 14,
+    fontFamily: FONT.semibold,
     color: C.greenDark,
   },
-  timerBtnTextActive: {
-    color: "#E8845C",
+  timerBtnTextPause: {
+    color: "#C17A4E",
   },
 
+  // ─── Bottom nav ───────────────────────────────
   bottomNav: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 10,
     paddingBottom: 8,
     flexDirection: "row",
-    alignItems: "center",
     gap: 12,
   },
-  prevBtn: {
+  navBtn: {
     flex: 1,
-    backgroundColor: "#F0F0F0",
     borderRadius: 999,
-    paddingVertical: 14,
+    paddingVertical: 15,
     alignItems: "center",
   },
-  btnDisabled: {
+  navBtnPrev: {
+    backgroundColor: C.card,
+  },
+  navBtnNext: {
+    backgroundColor: C.green,
+  },
+  navBtnDisabled: {
     opacity: 0.35,
   },
-  prevText: {
+  navBtnPrevText: {
     fontSize: 15,
     fontFamily: FONT.medium,
     color: C.greenDark,
   },
-  textDisabled: {
+  navBtnTextDisabled: {
     color: C.muted,
   },
-  nextBtn: {
-    flex: 1,
-    backgroundColor: C.green,
-    borderRadius: 999,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  nextText: {
+  navBtnNextText: {
     fontSize: 15,
     fontFamily: FONT.semibold,
     color: C.greenDark,

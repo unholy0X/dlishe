@@ -275,7 +275,7 @@ export default function PantryScreen() {
 
       <FloatingNav
         onPressItem={(key) => {
-          router.push(`/${key}`);
+          if (key !== activeKey) router.replace(`/${key}`);
         }}
         onPressPlus={() => setAddRecipeOpen(true)}
         activeKey={activeKey}

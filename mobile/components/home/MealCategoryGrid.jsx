@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet, Image, Pressable } from "react-native";
 
 const ITEMS = [
   {
@@ -18,16 +18,18 @@ const ITEMS = [
   },
 ];
 
-export default function MealCategoryGrid() {
+export default function MealCategoryGrid({ onPress }) {
   return (
     <View style={styles.grid}>
       {ITEMS.map((item) => (
-        <View
+        <Pressable
           key={item.key}
-          style={[
+          style={({ pressed }) => [
             styles.card,
             item.bgColor && { backgroundColor: item.bgColor },
+            pressed && { opacity: 0.7 },
           ]}
+          onPress={() => onPress?.(item.key)}
         >
           <View style={styles.imageShadow}>
             <Image
@@ -41,7 +43,7 @@ export default function MealCategoryGrid() {
           >
             {item.label}
           </Text>
-        </View>
+        </Pressable>
       ))}
     </View>
   );

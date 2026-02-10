@@ -4,6 +4,27 @@ import { extractRecipeFromUrl, extractRecipeFromImage, getJobStatus, getRecipe, 
 const MAX_POLL_TIME = 300000; // 5 minutes
 const POLL_INTERVAL = 1000; // 1 second
 
+function friendlyError(raw) {
+  const msg = (raw || "").toLowerCase();
+  if (msg.includes("download") || msg.includes("yt-dlp") || msg.includes("ytdl"))
+    return "We couldn't download this video. The link may be private, region-locked, or unsupported.";
+  if (msg.includes("instagram"))
+    return "Instagram blocked this request. Try copying the recipe text or taking a screenshot instead.";
+  if (msg.includes("tiktok"))
+    return "We couldn't access this TikTok. It may be private or region-restricted.";
+  if (msg.includes("timeout") || msg.includes("timed out"))
+    return "The request took too long. Please try again.";
+  if (msg.includes("rate") || msg.includes("limit") || msg.includes("429"))
+    return "Too many requests. Please wait a moment and try again.";
+  if (msg.includes("not found") || msg.includes("404"))
+    return "We couldn't find a recipe at this link. Double-check the URL.";
+  if (msg.includes("no recipe") || msg.includes("couldn't extract") || msg.includes("could not extract"))
+    return "We couldn't find a recipe in this content. Try a different link or take a photo.";
+  if (raw && raw.length > 120)
+    return "Something went wrong processing this link. Try a different one or take a photo instead.";
+  return raw || "Something went wrong. Give it another try.";
+}
+
 const initialState = {
   url: "",
   jobId: null,
@@ -44,7 +65,8 @@ async function pollJob({ jobId, getToken, set }) {
           set({ error: "We couldn't find the recipe. Please try again.", isRunning: false });
         }
       } else {
-        const errMsg = jobStatus?.error?.message || jobStatus.message || "Something went wrong. Give it another try.";
+        const rawMsg = jobStatus?.error?.message || jobStatus.message || "";
+        const errMsg = friendlyError(rawMsg);
         set({ error: errMsg, isRunning: false });
       }
       return;

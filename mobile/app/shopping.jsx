@@ -406,7 +406,7 @@ export default function ShoppingScreen() {
 
       {!isSelecting && (
         <FloatingNav
-          onPressItem={(key) => router.push(`/${key}`)}
+          onPressItem={(key) => { if (key !== activeKey) router.replace(`/${key}`); }}
           onPressPlus={() => setAddRecipeOpen(true)}
           activeKey={activeKey}
         />

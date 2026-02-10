@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   StatusBar,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -219,7 +220,16 @@ export default function RecipeDetailScreen() {
   const [timerRunning, setTimerRunning] = useState(false);
 
   const refreshList = useRecipeStore((state) => state.refresh);
-  const isOwn = recipe && !recipe.isPublic;
+  const myRecipes = useRecipeStore((state) => state.recipes);
+
+  // A recipe is "own" if it exists in the user's recipe list (by id or as a clone source)
+  const isOwn = recipe && myRecipes.some((r) => r.id === recipe.id);
+  const alreadySaved =
+    recipe &&
+    !isOwn &&
+    myRecipes.some(
+      (r) => r.sourceRecipeId === recipe.id || r.id === recipe.id
+    );
 
   const handleDelete = () => {
     Alert.alert(
@@ -415,11 +425,14 @@ export default function RecipeDetailScreen() {
           </SafeAreaView>
           <View style={s.heroContent}>
             <Text style={s.heroTitle}>{recipe.title}</Text>
-            {isOwn && (
-              <Pressable style={s.heroPlay}>
+            {recipe.sourceUrl ? (
+              <Pressable
+                style={s.heroPlay}
+                onPress={() => Linking.openURL(recipe.sourceUrl)}
+              >
                 <PlayIcon />
               </Pressable>
-            )}
+            ) : null}
           </View>
         </View>
 
@@ -657,7 +670,7 @@ export default function RecipeDetailScreen() {
                   )}
                 </Pressable>
               </>
-            ) : saved ? (
+            ) : saved || alreadySaved ? (
               <View style={s.savedBanner}>
                 <Text style={s.savedText}>Saved to your collection</Text>
               </View>

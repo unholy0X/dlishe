@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   Image,
   Pressable,
   ActivityIndicator,
@@ -211,6 +212,8 @@ export default function RecipeDetailScreen() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Cooking mode state
   const [cookingOpen, setCookingOpen] = useState(false);
   const [cookingPhase, setCookingPhase] = useState("prep");
@@ -292,6 +295,18 @@ export default function RecipeDetailScreen() {
       cancelled = true;
     };
   }, [id]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await fetchRecipeById({ recipeId: id, getToken });
+      setRecipe(data);
+    } catch {
+      // Keep existing data on refresh failure
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [id, getToken]);
 
   // Cooking timer
   useEffect(() => {
@@ -396,6 +411,13 @@ export default function RecipeDetailScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={C.greenDark}
+          />
+        }
       >
         {/* Hero */}
         <View style={s.heroWrap}>

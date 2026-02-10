@@ -10,6 +10,7 @@ import {
 } from "@expo-google-fonts/inter";
 import { useAuth } from "@clerk/clerk-expo";
 import UserSync from "../components/UserSync";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 const tokenCache = {
   async getToken(key) {
@@ -88,11 +89,13 @@ export default function RootLayout() {
   }
 
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <ClerkLoaded>
-        <UserSync />
-        <AuthGate />
-      </ClerkLoaded>
-    </ClerkProvider>
+    <ErrorBoundary>
+      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <ClerkLoaded>
+          <UserSync />
+          <AuthGate />
+        </ClerkLoaded>
+      </ClerkProvider>
+    </ErrorBoundary>
   );
 }

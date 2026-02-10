@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { Alert } from "react-native";
 import { updatePreferences as updatePrefsApi } from "../services/user";
 
 export const useUserStore = create((set, get) => ({
@@ -14,11 +15,13 @@ export const useUserStore = create((set, get) => ({
     set({ preferredUnitSystem }),
 
   updatePreferences: async ({ preferredUnitSystem, getToken }) => {
+    const previous = get().preferredUnitSystem;
     set({ preferredUnitSystem });
     try {
       await updatePrefsApi({ preferredUnitSystem, getToken });
-    } catch {
-      // Revert on failure would be ideal but keep it simple for now
+    } catch (err) {
+      set({ preferredUnitSystem: previous });
+      Alert.alert("Error", err?.message || "Failed to save preferences");
     }
   },
 

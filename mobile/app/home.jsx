@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -106,6 +107,17 @@ export default function HomeScreen() {
   const [pantryMatchResults, setPantryMatchResults] = useState([]);
   const [pantryMatchLoading, setPantryMatchLoading] = useState(false);
 
+  const closeAllSheets = useCallback(() => {
+    setSheetOpen(false);
+    setRecipesSheetOpen(false);
+    setFavoritesOpen(false);
+    setSearchOpen(false);
+    setRecoSheetOpen(false);
+    setDinnerOpen(false);
+    setMealCatOpen(false);
+    setPantryMatchOpen(false);
+  }, []);
+
   const { getToken } = useAuth();
   const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
   const { recipes: featuredRecipes, loadFeatured } = useFeaturedStore();
@@ -120,16 +132,26 @@ export default function HomeScreen() {
     loadRecipes({ getToken });
   }, []);
 
+  // Refresh user recipes when navigating back to this screen
+  useEffect(() => {
+    if (pathname === "/home") {
+      loadRecipes({ getToken });
+    }
+  }, [pathname]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     Promise.all([
       loadSuggested({ limit: 20 }),
       loadFeatured({ limit: 30 }),
       loadRecipes({ getToken }),
-    ]).finally(() => setRefreshing(false));
+    ])
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
   }, [getToken]);
 
   const handlePantryMatch = useCallback(() => {
+    closeAllSheets();
     setPantryMatchOpen(true);
     setPantryMatchLoading(true);
     setPantryMatchResults([]);
@@ -138,7 +160,9 @@ export default function HomeScreen() {
     const promises = [loadPantry({ getToken })];
     if (allRecipes.length === 0) promises.push(loadAll());
 
-    Promise.all(promises).finally(() => setPantryMatchLoading(false));
+    Promise.all(promises)
+      .catch(() => {})
+      .finally(() => setPantryMatchLoading(false));
   }, [getToken, allRecipes.length]);
 
   // Reactively compute pantry matches when data arrives
@@ -164,6 +188,7 @@ export default function HomeScreen() {
   }, [pantryMatchOpen, pantryGroups, allRecipes.length, suggested.length]);
 
   const handleRecommendation = useCallback((filter) => {
+    closeAllSheets();
     setRecoFilter(filter);
     setRecoSheetOpen(true);
 
@@ -188,12 +213,14 @@ export default function HomeScreen() {
   }, [allRecipes, suggested]);
 
   const handleDinnerInspiration = useCallback(() => {
+    closeAllSheets();
     const withThumbnails = featuredRecipes.filter((r) => r.thumbnailUrl);
     setDinnerRecipes(shuffle(withThumbnails));
     setDinnerOpen(true);
   }, [featuredRecipes]);
 
   const handleMealCategory = useCallback((key) => {
+    closeAllSheets();
     setMealCatKey(key);
     const pool = allRecipes.length > 0 ? allRecipes : suggested;
     setMealCatShuffled(shuffle(filterByMealCategory(pool, key)));
@@ -240,13 +267,14 @@ export default function HomeScreen() {
         await toggleFavoriteApi({ recipeId: clonedId, isFavorite: true, getToken });
       }
       loadRecipes({ getToken });
-    } catch {
+    } catch (err) {
       // Revert optimistic update on failure
       setSavedPublicIds((prev) => {
         const next = new Set(prev);
         next.delete(recipeId);
         return next;
       });
+      Alert.alert("Error", err?.message || "Failed to save recipe");
     } finally {
       setSavingIds((prev) => {
         const next = new Set(prev);
@@ -257,6 +285,7 @@ export default function HomeScreen() {
   }, [getToken, savingIds, savedPublicIds]);
 
   const handleSeeAll = useCallback(() => {
+    closeAllSheets();
     setRecipesSheetOpen(true);
     if (allRecipes.length === 0) {
       loadAll();
@@ -289,7 +318,7 @@ export default function HomeScreen() {
 
             <SearchBar
               placeholder="Search for a recipe"
-              onPress={() => setSearchOpen(true)}
+              onPress={() => { closeAllSheets(); setSearchOpen(true); }}
             />
 
             <MealCategoryGrid onPress={handleMealCategory} />
@@ -322,7 +351,7 @@ export default function HomeScreen() {
           <View style={styles.padded}>
             <StatsCardsRow
               favoriteCount={favoriteCount}
-              onPressFavorites={() => setFavoritesOpen(true)}
+              onPressFavorites={() => { closeAllSheets(); setFavoritesOpen(true); }}
               onPressHighProtein={() => handleRecommendation("high-protein")}
               onPressQuickMeals={() => handleRecommendation("quick-meals")}
             />
@@ -345,7 +374,7 @@ export default function HomeScreen() {
         onPressItem={(key) => {
           if (key !== activeKey) router.replace(`/${key}`);
         }}
-        onPressPlus={() => setSheetOpen(true)}
+        onPressPlus={() => { closeAllSheets(); setSheetOpen(true); }}
         activeKey={activeKey}
       />
 

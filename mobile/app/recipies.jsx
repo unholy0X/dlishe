@@ -55,6 +55,13 @@ export default function RecipiesScreen() {
     loadRecipes({ getToken });
   }, []);
 
+  // Refresh when navigating back to this screen
+  useEffect(() => {
+    if (pathname === "/recipies") {
+      refresh({ getToken });
+    }
+  }, [pathname]);
+
   const onRefresh = useCallback(() => {
     refresh({ getToken });
   }, [getToken]);
@@ -84,8 +91,8 @@ export default function RecipiesScreen() {
             setIsClearing(true);
             try {
               await clearAll({ getToken });
-            } catch {
-              // error set in store
+            } catch (err) {
+              Alert.alert("Error", err?.message || "Failed to clear recipes");
             } finally {
               setIsClearing(false);
             }

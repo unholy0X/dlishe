@@ -52,7 +52,8 @@
           "photosPermission": "DLISHE accesses your photos to extract recipes",
           "cameraPermission": "DLISHE uses the camera to scan recipes and pantry items"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
       "eas": {

@@ -1,6 +1,8 @@
 import React, { useEffect } from "react";
+import { View, Text, StyleSheet, Alert } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
+import * as Sentry from "@sentry/react-native";
 import * as SecureStore from "expo-secure-store";
 import {
   useFonts,
@@ -11,6 +13,15 @@ import {
 import { useAuth } from "@clerk/clerk-expo";
 import UserSync from "../components/UserSync";
 import ErrorBoundary from "../components/ErrorBoundary";
+
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    tracesSampleRate: 0.2,
+    sendDefaultPii: false,
+  });
+}
 
 const tokenCache = {
   async getToken(key) {
@@ -28,7 +39,7 @@ const tokenCache = {
     } catch (err) {
       // SecureStore can fail on Android production (keystore issues, value too large)
       console.error("SecureStore save error:", err);
-      alert(`Token save failed: ${err?.message}`);
+      Alert.alert("Token Error", `Token save failed: ${err?.message}`);
     }
   },
 };
@@ -71,20 +82,26 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
   });
 
-  if (!fontsLoaded) {
+  // Proceed if fonts loaded OR if font loading failed (use system fonts as fallback)
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
   if (!publishableKey) {
-    throw new Error(
-      "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY. Add it to your .env file."
+    return (
+      <View style={missingKeyStyles.container}>
+        <Text style={missingKeyStyles.title}>Configuration Error</Text>
+        <Text style={missingKeyStyles.message}>
+          Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY. Please contact support.
+        </Text>
+      </View>
     );
   }
 
@@ -99,3 +116,9 @@ export default function RootLayout() {
     </ErrorBoundary>
   );
 }
+
+const missingKeyStyles = StyleSheet.create({
+  container: { flex: 1, alignItems: "center", justifyContent: "center", padding: 40 },
+  title: { fontSize: 18, fontWeight: "600", color: "#cc3b3b", marginBottom: 12 },
+  message: { fontSize: 14, color: "#666", textAlign: "center" },
+});

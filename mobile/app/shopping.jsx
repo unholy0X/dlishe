@@ -195,7 +195,11 @@ export default function ShoppingScreen() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => deleteList({ getToken, listId: list.id }),
+        onPress: () => {
+          deleteList({ getToken, listId: list.id }).catch((err) => {
+            Alert.alert("Error", err?.message || "Failed to delete list");
+          });
+        },
       },
     ]);
   };

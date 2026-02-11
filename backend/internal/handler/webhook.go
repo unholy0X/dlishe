@@ -11,21 +11,29 @@ import (
 	"github.com/dishflow/backend/internal/config"
 	"github.com/dishflow/backend/internal/model"
 	"github.com/dishflow/backend/internal/pkg/response"
-	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/service/revenuecat"
 	"github.com/google/uuid"
 )
+
+// UserRepository defines the methods required by WebhookHandler
+type UserRepository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*model.User, error)
+	GetByClerkID(ctx context.Context, clerkID string) (*model.User, error)
+	UpsertSubscription(ctx context.Context, sub *model.UserSubscription) error
+	IsEventProcessed(ctx context.Context, eventID string) (bool, error)
+	LogEvent(ctx context.Context, eventID, eventType, appUserID string, payload []byte) error
+}
 
 // WebhookHandler handles external webhooks
 type WebhookHandler struct {
 	cfg      *config.Config
 	logger   *slog.Logger
-	userRepo *postgres.UserRepository
+	userRepo UserRepository
 	rcClient *revenuecat.Client // optional, used to fetch definitive state
 }
 
 // NewWebhookHandler creates a new webhook handler
-func NewWebhookHandler(cfg *config.Config, logger *slog.Logger, userRepo *postgres.UserRepository, rcClient *revenuecat.Client) *WebhookHandler {
+func NewWebhookHandler(cfg *config.Config, logger *slog.Logger, userRepo UserRepository, rcClient *revenuecat.Client) *WebhookHandler {
 	return &WebhookHandler{
 		cfg:      cfg,
 		logger:   logger,
@@ -156,19 +164,29 @@ func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// 5. Resolve User ID — app_user_id should be our UUID set by the mobile SDK
-	userID, err := uuid.Parse(event.AppUserID)
-	if err != nil {
-		// Try original_app_user_id as fallback
-		userID, err = uuid.Parse(event.OriginalAppUserID)
-		if err != nil {
-			h.logger.Warn("Webhook for non-UUID user, ignoring",
-				"app_user_id", event.AppUserID,
-				"original_app_user_id", event.OriginalAppUserID,
-			)
-			// Return 200 so RevenueCat doesn't retry
-			response.OK(w, map[string]string{"status": "ignored_unknown_user"})
-			return
+	// 5. Resolve User ID — app_user_id could be UUID or Clerk ID
+	var userID uuid.UUID
+	var errUUID error
+
+	// First try to parse as UUID (legacy behavior)
+	userID, errUUID = uuid.Parse(event.AppUserID)
+	if errUUID != nil {
+		// Not a UUID, try to look up by Clerk ID
+		user, errClerk := h.userRepo.GetByClerkID(ctx, event.AppUserID)
+		if errClerk == nil {
+			userID = user.ID
+		} else {
+			// Try original_app_user_id as fallback (only if it's a UUID)
+			userID, errUUID = uuid.Parse(event.OriginalAppUserID)
+			if errUUID != nil {
+				h.logger.Warn("Webhook for unknown user, ignoring",
+					"app_user_id", event.AppUserID,
+					"original_app_user_id", event.OriginalAppUserID,
+				)
+				// Return 200 so RevenueCat doesn't retry
+				response.OK(w, map[string]string{"status": "ignored_unknown_user"})
+				return
+			}
 		}
 	}
 

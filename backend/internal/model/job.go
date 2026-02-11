@@ -1,6 +1,8 @@
 package model
 
 import (
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -210,8 +212,55 @@ func (j *ExtractionJob) MarkCancelled() {
 	j.StatusMessage = &msg
 }
 
-// SetSourcePath sets the source path for image jobs
+// SetSourcePath sets the source path for image jobs (single image)
 func (j *ExtractionJob) SetSourcePath(path, mimeType string) {
 	j.SourcePath = &path
 	j.MimeType = &mimeType
+}
+
+// SetSourcePaths sets multiple source paths for multi-image jobs.
+// For a single image, stores the path as-is. For multiple, JSON-encodes arrays.
+// No database migration needed — reuses the existing source_path and mime_type columns.
+func (j *ExtractionJob) SetSourcePaths(paths []string, mimeTypes []string) {
+	if len(paths) == 1 {
+		j.SetSourcePath(paths[0], mimeTypes[0])
+		return
+	}
+	pathsJSON, _ := json.Marshal(paths)
+	mimesJSON, _ := json.Marshal(mimeTypes)
+	p := string(pathsJSON)
+	m := string(mimesJSON)
+	j.SourcePath = &p
+	j.MimeType = &m
+}
+
+// GetSourcePaths returns all source paths and mime types.
+// Detects whether the column contains a JSON array or a plain string.
+func (j *ExtractionJob) GetSourcePaths() ([]string, []string) {
+	if j.SourcePath == nil || *j.SourcePath == "" {
+		return nil, nil
+	}
+	path := *j.SourcePath
+	mime := "image/jpeg"
+	if j.MimeType != nil {
+		mime = *j.MimeType
+	}
+
+	// JSON array detection
+	if strings.HasPrefix(path, "[") {
+		var paths []string
+		if err := json.Unmarshal([]byte(path), &paths); err == nil {
+			var mimeTypes []string
+			if strings.HasPrefix(mime, "[") {
+				json.Unmarshal([]byte(mime), &mimeTypes)
+			}
+			// Ensure mimeTypes matches paths length
+			for len(mimeTypes) < len(paths) {
+				mimeTypes = append(mimeTypes, "image/jpeg")
+			}
+			return paths, mimeTypes
+		}
+	}
+
+	return []string{path}, []string{mime}
 }

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -319,11 +318,18 @@ func (h *PantryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
+// ImageInput represents a single image in a multi-image request
+type ImageInput struct {
+	Base64   string `json:"base64"`
+	MimeType string `json:"mimeType"`
+}
+
 // ScanRequest represents the request body for JSON-based scan
 type ScanRequest struct {
-	ImageBase64 string `json:"imageBase64"`
-	MimeType    string `json:"mimeType,omitempty"`
-	AutoAdd     bool   `json:"autoAdd,omitempty"` // Auto-add detected items to pantry
+	ImageBase64 string       `json:"imageBase64"`         // Legacy single image
+	MimeType    string       `json:"mimeType,omitempty"`  // Legacy single mime type
+	Images      []ImageInput `json:"images,omitempty"`    // New multi-image field
+	AutoAdd     bool         `json:"autoAdd,omitempty"`   // Auto-add detected items to pantry
 }
 
 // ScanResponse represents the response from pantry scan
@@ -405,8 +411,8 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var imageData []byte
-	var mimeType string
+	var imageDataList [][]byte
+	var mimeTypes []string
 	var autoAdd bool
 
 	// Check content type to determine how image is sent
@@ -427,51 +433,63 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 
-		imageData, err = io.ReadAll(file)
+		imageData, err := io.ReadAll(file)
 		if err != nil {
 			response.BadRequest(w, "Failed to read image file")
 			return
 		}
 
-		mimeType = header.Header.Get("Content-Type")
+		mimeType := header.Header.Get("Content-Type")
 		if mimeType == "" {
 			mimeType = detectMimeType(imageData)
 		}
 
+		imageDataList = [][]byte{imageData}
+		mimeTypes = []string{mimeType}
 		autoAdd = r.FormValue("autoAdd") == "true"
 
 	} else if strings.HasPrefix(contentType, "application/json") {
-		// Handle JSON with base64 image
+		// Handle JSON with base64 image(s)
 		var req ScanRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			response.BadRequest(w, "Invalid request body")
 			return
 		}
 
-		if req.ImageBase64 == "" {
-			response.ValidationFailed(w, "imageBase64", "Image data is required")
+		// Resolve images: prefer new `images` array, fall back to legacy `imageBase64`
+		if len(req.Images) > 0 {
+			for i, img := range req.Images {
+				if img.Base64 == "" {
+					response.ValidationFailed(w, fmt.Sprintf("images[%d].base64", i), "Image data is required")
+					return
+				}
+				decoded, err := decodeBase64Flexible(img.Base64)
+				if err != nil {
+					response.ValidationFailed(w, fmt.Sprintf("images[%d].base64", i), "Invalid base64 encoding")
+					return
+				}
+				mt := img.MimeType
+				if mt == "" {
+					mt = detectMimeType(decoded)
+				}
+				imageDataList = append(imageDataList, decoded)
+				mimeTypes = append(mimeTypes, mt)
+			}
+		} else if req.ImageBase64 != "" {
+			decoded, err := decodeBase64Flexible(req.ImageBase64)
+			if err != nil {
+				response.ValidationFailed(w, "imageBase64", "Invalid base64 encoding")
+				return
+			}
+			mt := req.MimeType
+			if mt == "" {
+				mt = detectMimeType(decoded)
+			}
+			imageDataList = [][]byte{decoded}
+			mimeTypes = []string{mt}
+		} else {
+			response.ValidationFailed(w, "images", "At least one image is required")
 			return
-		}
-
-		// Accept both standard and URL-safe base64 (mobile clients often send URL-safe)
-		decoded, err := base64.StdEncoding.DecodeString(req.ImageBase64)
-		if err != nil {
-			// Retry with URL-safe encoding
-			decoded, err = base64.URLEncoding.DecodeString(req.ImageBase64)
-		}
-		if err != nil {
-			// Retry with raw (no padding) variants
-			decoded, err = base64.RawStdEncoding.DecodeString(req.ImageBase64)
-		}
-		if err != nil {
-			response.ValidationFailed(w, "imageBase64", "Invalid base64 encoding")
-			return
-		}
-		imageData = decoded
-
-		mimeType = req.MimeType
-		if mimeType == "" {
-			mimeType = detectMimeType(imageData)
 		}
 		autoAdd = req.AutoAdd
 	} else {
@@ -479,31 +497,35 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate image data
-	if len(imageData) == 0 {
+	// Validate all images
+	if len(imageDataList) == 0 {
 		response.ValidationFailed(w, "image", "Image data is empty")
 		return
 	}
 
-	if len(imageData) > 10*1024*1024 {
-		response.ValidationFailed(w, "image", "Image size exceeds 10MB limit")
-		return
-	}
-
-	// Validate mime type
 	validTypes := map[string]bool{
 		"image/jpeg": true,
 		"image/png":  true,
 		"image/webp": true,
 		"image/gif":  true,
 	}
-	if !validTypes[mimeType] {
-		response.ValidationFailed(w, "mimeType", "Unsupported image type. Use JPEG, PNG, WebP, or GIF")
-		return
+	for i, data := range imageDataList {
+		if len(data) == 0 {
+			response.ValidationFailed(w, fmt.Sprintf("images[%d]", i), "Image data is empty")
+			return
+		}
+		if len(data) > 10*1024*1024 {
+			response.ValidationFailed(w, fmt.Sprintf("images[%d]", i), "Image size exceeds 10MB limit")
+			return
+		}
+		if !validTypes[mimeTypes[i]] {
+			response.ValidationFailed(w, fmt.Sprintf("images[%d].mimeType", i), "Unsupported image type. Use JPEG, PNG, WebP, or GIF")
+			return
+		}
 	}
 
-	// Call AI to scan the image
-	result, err := h.scanner.ScanPantry(ctx, imageData, mimeType)
+	// Call AI to scan the image(s)
+	result, err := h.scanner.ScanPantryMulti(ctx, imageDataList, mimeTypes)
 	if err != nil {
 		if errors.Is(err, model.ErrIrrelevantContent) {
 			response.ErrorJSON(w, http.StatusUnprocessableEntity, "CONTENT_IRRELEVANT", err.Error(), nil)

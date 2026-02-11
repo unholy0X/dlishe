@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -134,12 +133,13 @@ func (h *UnifiedExtractionHandler) cleanupOrphanedTempFiles() {
 
 // UnifiedExtractRequest represents a unified extraction request
 type UnifiedExtractRequest struct {
-	Type         string      `json:"type"`                   // "url", "image", "video"
-	URL          string      `json:"url,omitempty"`          // For url and video types
-	ImageBase64  string      `json:"imageBase64,omitempty"`  // For image type (JSON)
-	MimeType     string      `json:"mimeType,omitempty"`     // For image type
-	Language     string      `json:"language,omitempty"`     // "en", "fr", "es", "auto"
-	DetailLevel  string      `json:"detailLevel,omitempty"`  // "quick", "detailed"
+	Type         string       `json:"type"`                   // "url", "image", "video"
+	URL          string       `json:"url,omitempty"`          // For url and video types
+	ImageBase64  string       `json:"imageBase64,omitempty"`  // For image type (JSON) — legacy single image
+	MimeType     string       `json:"mimeType,omitempty"`     // For image type — legacy single mime
+	Images       []ImageInput `json:"images,omitempty"`       // New multi-image field
+	Language     string       `json:"language,omitempty"`     // "en", "fr", "es", "auto"
+	DetailLevel  string       `json:"detailLevel,omitempty"`  // "quick", "detailed"
 	SaveAuto     interface{} `json:"saveAuto,omitempty"`     // Auto-save extracted recipe (bool or string)
 	ForceRefresh interface{} `json:"forceRefresh,omitempty"` // Bypass cache and re-extract (bool or string)
 }
@@ -211,7 +211,8 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 
 	// Parse request based on content type
 	var req UnifiedExtractRequest
-	var imageData []byte
+	var imageDataList [][]byte
+	var imageMimeTypes []string
 	contentType := r.Header.Get("Content-Type")
 
 	if strings.HasPrefix(contentType, "multipart/form-data") {
@@ -233,17 +234,20 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		// Handle image file if present
 		if file, header, err := r.FormFile("image"); err == nil {
 			defer file.Close()
-			imageData, err = io.ReadAll(file)
+			imageData, err := io.ReadAll(file)
 			if err != nil {
 				response.BadRequest(w, "Failed to read image file")
 				return
 			}
-			if req.MimeType == "" {
-				req.MimeType = header.Header.Get("Content-Type")
-				if req.MimeType == "" {
-					req.MimeType = detectMimeType(imageData)
+			mimeType := req.MimeType
+			if mimeType == "" {
+				mimeType = header.Header.Get("Content-Type")
+				if mimeType == "" {
+					mimeType = detectMimeType(imageData)
 				}
 			}
+			imageDataList = [][]byte{imageData}
+			imageMimeTypes = []string{mimeType}
 		}
 	} else {
 		// Handle JSON request
@@ -252,17 +256,37 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		// Decode base64 image if provided
-		if req.ImageBase64 != "" {
-			var err error
-			imageData, err = base64.StdEncoding.DecodeString(req.ImageBase64)
+		// Resolve images: prefer new `images` array, fall back to legacy `imageBase64`
+		if len(req.Images) > 0 {
+			for i, img := range req.Images {
+				if img.Base64 == "" {
+					response.ValidationFailed(w, fmt.Sprintf("images[%d].base64", i), "Image data is required")
+					return
+				}
+				decoded, err := decodeBase64Flexible(img.Base64)
+				if err != nil {
+					response.ValidationFailed(w, fmt.Sprintf("images[%d].base64", i), "Invalid base64 encoding")
+					return
+				}
+				mt := img.MimeType
+				if mt == "" {
+					mt = detectMimeType(decoded)
+				}
+				imageDataList = append(imageDataList, decoded)
+				imageMimeTypes = append(imageMimeTypes, mt)
+			}
+		} else if req.ImageBase64 != "" {
+			decoded, err := decodeBase64Flexible(req.ImageBase64)
 			if err != nil {
 				response.ValidationFailed(w, "imageBase64", "Invalid base64 encoding")
 				return
 			}
-			if req.MimeType == "" {
-				req.MimeType = detectMimeType(imageData)
+			mt := req.MimeType
+			if mt == "" {
+				mt = detectMimeType(decoded)
 			}
+			imageDataList = [][]byte{decoded}
+			imageMimeTypes = []string{mt}
 		}
 
 		// Default saveAuto to true for JSON requests if not explicitly set
@@ -289,7 +313,7 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 	// Resolve type: explicit or auto-detect from inputs
 	if req.Type == "" {
 		switch {
-		case len(imageData) > 0:
+		case len(imageDataList) > 0:
 			req.Type = "image"
 		case req.URL != "" && ai.IsSupportedPlatform(req.URL):
 			req.Type = "video"
@@ -331,20 +355,22 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		}
 
 	case model.JobTypeImage:
-		if len(imageData) == 0 {
+		if len(imageDataList) == 0 {
 			response.ValidationFailed(w, "image", "Image is required for image extraction")
-			return
-		}
-		if len(imageData) > 10*1024*1024 {
-			response.ValidationFailed(w, "image", "Image size exceeds 10MB limit")
 			return
 		}
 		validTypes := map[string]bool{
 			"image/jpeg": true, "image/png": true, "image/webp": true, "image/gif": true,
 		}
-		if !validTypes[req.MimeType] {
-			response.ValidationFailed(w, "mimeType", "Unsupported image type. Use JPEG, PNG, WebP, or GIF")
-			return
+		for i, data := range imageDataList {
+			if len(data) > 10*1024*1024 {
+				response.ValidationFailed(w, fmt.Sprintf("images[%d]", i), "Image size exceeds 10MB limit")
+				return
+			}
+			if !validTypes[imageMimeTypes[i]] {
+				response.ValidationFailed(w, fmt.Sprintf("images[%d].mimeType", i), "Unsupported image type. Use JPEG, PNG, WebP, or GIF")
+				return
+			}
 		}
 
 	case model.JobTypeVideo:
@@ -425,10 +451,13 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 	// For image jobs, we hash the image content to detect duplicates.
 	if idempotencyKey != "" {
 		job.IdempotencyKey = &idempotencyKey
-	} else if jobType == model.JobTypeImage && len(imageData) > 0 {
-		hash := sha256.Sum256(imageData)
-		hashStr := hex.EncodeToString(hash[:])
-		// Check for existing job with this hash
+	} else if jobType == model.JobTypeImage && len(imageDataList) > 0 {
+		// Hash all images together for idempotency
+		hasher := sha256.New()
+		for _, data := range imageDataList {
+			hasher.Write(data)
+		}
+		hashStr := hex.EncodeToString(hasher.Sum(nil))
 		imgIdempotencyKey := fmt.Sprintf("%s|image|%s", user.ID.String(), hashStr)
 
 		if existingJob, err := h.jobRepo.GetByIdempotencyKey(r.Context(), user.ID, imgIdempotencyKey); err == nil {
@@ -448,15 +477,23 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		job.IdempotencyKey = &imgIdempotencyKey
 	}
 
-	// For image jobs, save image to temp file
-	if jobType == model.JobTypeImage && len(imageData) > 0 {
-		tempPath := filepath.Join(h.tempDir, fmt.Sprintf("extract_%s.tmp", job.ID.String()))
-		if err := os.WriteFile(tempPath, imageData, 0644); err != nil {
-			h.logger.Error("Failed to save temp image", "error", err)
-			response.InternalError(w)
-			return
+	// For image jobs, save image(s) to temp file(s)
+	if jobType == model.JobTypeImage && len(imageDataList) > 0 {
+		var paths []string
+		for i, data := range imageDataList {
+			tempPath := filepath.Join(h.tempDir, fmt.Sprintf("extract_%s_%d.tmp", job.ID.String(), i))
+			if err := os.WriteFile(tempPath, data, 0644); err != nil {
+				h.logger.Error("Failed to save temp image", "error", err, "index", i)
+				// Cleanup any already written files
+				for _, p := range paths {
+					os.Remove(p)
+				}
+				response.InternalError(w)
+				return
+			}
+			paths = append(paths, tempPath)
 		}
-		job.SetSourcePath(tempPath, req.MimeType)
+		job.SetSourcePaths(paths, imageMimeTypes)
 	}
 
 	// Save job to database
@@ -767,36 +804,42 @@ func (h *UnifiedExtractionHandler) cachedDataToExtractionResult(cached *model.Ca
 	return result
 }
 
-// processImageExtraction handles image extraction
+// processImageExtraction handles image extraction (single or multi-image)
 func (h *UnifiedExtractionHandler) processImageExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
 	updateProgress(model.JobStatusProcessing, 10, "Reading image...")
 
-	if job.SourcePath == nil || *job.SourcePath == "" {
+	paths, mimeTypes := job.GetSourcePaths()
+	if len(paths) == 0 {
 		return nil, fmt.Errorf("image source path not found")
 	}
 
-	imageData, err := os.ReadFile(*job.SourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read image: %w", err)
+	var imageDataList [][]byte
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read image: %w", err)
+		}
+		imageDataList = append(imageDataList, data)
 	}
 
-	// Cleanup temp file after reading
-	defer os.Remove(*job.SourcePath)
-
-	mimeType := "image/jpeg"
-	if job.MimeType != nil {
-		mimeType = *job.MimeType
-	}
+	// Cleanup temp files after reading
+	defer func() {
+		for _, path := range paths {
+			os.Remove(path)
+		}
+	}()
 
 	// Use filename from SourceURL if available for better feedback
 	msg := "Extracting recipe from image..."
-	if job.SourceURL != "" && job.SourceURL != "image" {
+	if len(imageDataList) > 1 {
+		msg = fmt.Sprintf("Analyzing %d images...", len(imageDataList))
+	} else if job.SourceURL != "" && job.SourceURL != "image" {
 		msg = fmt.Sprintf("Analyzing image: %s...", job.SourceURL)
 	}
 
 	updateProgress(model.JobStatusExtracting, 30, msg)
 
-	result, err := h.extractor.ExtractFromImage(ctx, imageData, mimeType)
+	result, err := h.extractor.ExtractFromImages(ctx, imageDataList, mimeTypes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract from image: %w", err)
 	}

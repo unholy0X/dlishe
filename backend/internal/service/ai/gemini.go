@@ -886,6 +886,10 @@ Return ONLY the JSON, no markdown or explanations.`, sanitizePromptString(url), 
 
 	// Use extracted image URL if AI didn't find one or if we prefer metadata
 	if imageURL != "" {
+		// Upgrade HTTP to HTTPS — Android blocks cleartext HTTP image loads
+		if strings.HasPrefix(imageURL, "http://") {
+			imageURL = "https://" + imageURL[7:]
+		}
 		result.Thumbnail = imageURL
 	}
 

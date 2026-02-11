@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"strings"
 	"net/http"
 	"time"
 
@@ -14,15 +15,6 @@ import (
 	"github.com/dishflow/backend/internal/service/revenuecat"
 	"github.com/google/uuid"
 )
-
-// UserRepository defines the methods required by WebhookHandler
-type UserRepository interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*model.User, error)
-	GetByClerkID(ctx context.Context, clerkID string) (*model.User, error)
-	UpsertSubscription(ctx context.Context, sub *model.UserSubscription) error
-	IsEventProcessed(ctx context.Context, eventID string) (bool, error)
-	LogEvent(ctx context.Context, eventID, eventType, appUserID string, payload []byte) error
-}
 
 // WebhookHandler handles external webhooks
 type WebhookHandler struct {
@@ -164,30 +156,18 @@ func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// 5. Resolve User ID — app_user_id could be UUID or Clerk ID
-	var userID uuid.UUID
-	var errUUID error
-
-	// First try to parse as UUID (legacy behavior)
-	userID, errUUID = uuid.Parse(event.AppUserID)
-	if errUUID != nil {
-		// Not a UUID, try to look up by Clerk ID
-		user, errClerk := h.userRepo.GetByClerkID(ctx, event.AppUserID)
-		if errClerk == nil {
-			userID = user.ID
-		} else {
-			// Try original_app_user_id as fallback (only if it's a UUID)
-			userID, errUUID = uuid.Parse(event.OriginalAppUserID)
-			if errUUID != nil {
-				h.logger.Warn("Webhook for unknown user, ignoring",
-					"app_user_id", event.AppUserID,
-					"original_app_user_id", event.OriginalAppUserID,
-				)
-				// Return 200 so RevenueCat doesn't retry
-				response.OK(w, map[string]string{"status": "ignored_unknown_user"})
-				return
-			}
-		}
+	// 5. Resolve User ID — try all available identifiers from the event
+	userID, found := h.resolveUserID(ctx, &event)
+	if !found {
+		h.logger.Warn("Webhook for unknown user, ignoring",
+			"app_user_id", event.AppUserID,
+			"original_app_user_id", event.OriginalAppUserID,
+			"aliases", event.Aliases,
+			"type", event.Type,
+		)
+		// Return 200 so RevenueCat doesn't retry
+		response.OK(w, map[string]string{"status": "ignored_unknown_user"})
+		return
 	}
 
 	// 6. Build subscription update from event
@@ -205,7 +185,7 @@ func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request
 
 	// 9. Log event for idempotency
 	if event.ID != "" {
-		if err := h.userRepo.LogEvent(ctx, event.ID, event.Type, event.AppUserID, rawBody); err != nil {
+		if err := h.userRepo.LogEvent(ctx, event.ID, event.Type, event.AppUserID, json.RawMessage(rawBody)); err != nil {
 			h.logger.Error("Failed to log event", "error", err, "event_id", event.ID)
 			// Non-fatal: the subscription was already updated
 		}
@@ -225,6 +205,62 @@ func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request
 	}
 
 	response.OK(w, map[string]string{"status": "processed"})
+}
+
+// resolveUserID tries all available identifiers from a webhook event to find the user.
+// It checks app_user_id, original_app_user_id, aliases, and transfer arrays.
+func (h *WebhookHandler) resolveUserID(ctx context.Context, event *RevenueCatEventBody) (uuid.UUID, bool) {
+	// Collect all candidate IDs to try, in priority order
+	candidates := make([]string, 0, 8)
+
+	// Primary: app_user_id
+	if event.AppUserID != "" {
+		candidates = append(candidates, event.AppUserID)
+	}
+
+	// Secondary: original_app_user_id
+	if event.OriginalAppUserID != "" && event.OriginalAppUserID != event.AppUserID {
+		candidates = append(candidates, event.OriginalAppUserID)
+	}
+
+	// Tertiary: aliases
+	for _, alias := range event.Aliases {
+		candidates = append(candidates, alias)
+	}
+
+	// For TRANSFER events: try transferred_to first (recipient), then transferred_from
+	for _, id := range event.TransferredTo {
+		candidates = append(candidates, id)
+	}
+	for _, id := range event.TransferredFrom {
+		candidates = append(candidates, id)
+	}
+
+	// Try each candidate: first as UUID, then as Clerk ID
+	seen := make(map[string]bool, len(candidates))
+	for _, candidate := range candidates {
+		if candidate == "" || seen[candidate] {
+			continue
+		}
+		seen[candidate] = true
+
+		// Skip RevenueCat anonymous IDs — they're never in our DB
+		if strings.HasPrefix(candidate, "$RCAnonymousID:") {
+			continue
+		}
+
+		// Try as UUID
+		if uid, err := uuid.Parse(candidate); err == nil {
+			return uid, true
+		}
+
+		// Try as Clerk ID
+		if user, err := h.userRepo.GetByClerkID(ctx, candidate); err == nil {
+			return user.ID, true
+		}
+	}
+
+	return uuid.UUID{}, false
 }
 
 // buildSubscriptionUpdate creates the base UserSubscription from event metadata.
@@ -321,10 +357,12 @@ func (h *WebhookHandler) applyEventLogic(sub *model.UserSubscription, event *Rev
 		sub.Entitlement = h.resolveEntitlement(event)
 
 	case "TRANSFER":
-		// Subscription transferred between users — handled specially.
-		// The transferred_to user gets the subscription, transferred_from loses it.
-		// We can't fully handle this without knowing which side we are,
-		// so log and let the API sync handle it.
+		// Subscription transferred between users.
+		// Activate for the resolved user and let the API sync confirm definitive state.
+		sub.IsActive = true
+		sub.Entitlement = "pro"
+		sub.WillRenew = true
+		sub.HasBillingIssue = false
 		h.logger.Info("Received TRANSFER event",
 			"from", event.TransferredFrom,
 			"to", event.TransferredTo,

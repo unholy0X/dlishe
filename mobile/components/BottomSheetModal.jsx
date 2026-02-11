@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Modal, View, Pressable, StyleSheet, Animated, ScrollView, Dimensions, KeyboardAvoidingView, Platform, PanResponder } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -9,6 +9,7 @@ export default function BottomSheetModal({
   visible,
   onClose,
   children,
+  customScroll,
 }) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(SLIDE_OFFSET)).current;
@@ -70,6 +71,10 @@ export default function BottomSheetModal({
     extrapolate: "clamp",
   });
 
+  const handleContentScroll = useCallback((e) => {
+    scrollOffset.current = e.nativeEvent.contentOffset.y;
+  }, []);
+
   useEffect(() => {
     if (visible) {
       setRender(true);
@@ -109,22 +114,31 @@ export default function BottomSheetModal({
         <Animated.View
           style={[
             styles.sheet,
+            customScroll && { height: SCREEN_HEIGHT * 0.9 },
             { transform: [{ translateY: combinedTranslateY }] },
           ]}
           {...panResponder.panHandlers}
         >
           <View style={styles.grabber} />
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            scrollEnabled={scrollEnabled}
-            onScroll={(e) => {
-              scrollOffset.current = e.nativeEvent.contentOffset.y;
-            }}
-            scrollEventThrottle={16}
-          >
-            <View style={[styles.content, { paddingBottom: insets.bottom + 16 }]}>{children}</View>
-          </ScrollView>
+          {customScroll ? (
+            <View style={[styles.customScrollWrap, { paddingBottom: insets.bottom + 16 }]}>
+              {typeof children === "function"
+                ? children({ onScroll: handleContentScroll, scrollEnabled })
+                : children}
+            </View>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              scrollEnabled={scrollEnabled}
+              onScroll={(e) => {
+                scrollOffset.current = e.nativeEvent.contentOffset.y;
+              }}
+              scrollEventThrottle={16}
+            >
+              <View style={[styles.content, { paddingBottom: insets.bottom + 16 }]}>{children}</View>
+            </ScrollView>
+          )}
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -161,5 +175,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 0,
+  },
+  customScrollWrap: {
+    flex: 1,
   },
 });

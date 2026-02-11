@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import FloatingNav from "../components/FloatingNav";
+import SwipeNavigator from "../components/SwipeNavigator";
 import PantryHeader from "../components/pantry/PantryHeader";
 import PantryEmptyState from "../components/pantry/PantryEmptyState";
 import BottomSheetModal from "../components/BottomSheetModal";
@@ -159,6 +160,13 @@ export default function PantryScreen() {
     loadPantry({ getToken });
   }, []);
 
+  // Refresh when navigating back to this screen
+  useEffect(() => {
+    if (pathname === "/pantry") {
+      loadPantry({ getToken });
+    }
+  }, [pathname]);
+
   const onRefresh = useCallback(() => {
     loadPantry({ getToken });
   }, [getToken]);
@@ -167,8 +175,8 @@ export default function PantryScreen() {
     async (itemId) => {
       try {
         await removeItem({ getToken, itemId });
-      } catch {
-        // Error already set in store
+      } catch (err) {
+        Alert.alert("Error", err?.message || "Failed to remove item");
       }
     },
     [getToken]
@@ -201,8 +209,8 @@ export default function PantryScreen() {
             setIsClearing(true);
             try {
               await clearPantry({ getToken });
-            } catch {
-              // error set in store
+            } catch (err) {
+              Alert.alert("Error", err?.message || "Failed to clear pantry");
             } finally {
               setIsClearing(false);
             }
@@ -216,6 +224,7 @@ export default function PantryScreen() {
 
   return (
     <View style={styles.screen}>
+      <SwipeNavigator>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         {isEmpty ? (
           <View style={styles.paddedContainer}>
@@ -272,6 +281,7 @@ export default function PantryScreen() {
           </ScrollView>
         )}
       </SafeAreaView>
+      </SwipeNavigator>
 
       <FloatingNav
         onPressItem={(key) => {

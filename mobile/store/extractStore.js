@@ -3,9 +3,15 @@ import { extractRecipeFromUrl, extractRecipeFromImage, getJobStatus, getRecipe, 
 
 const MAX_POLL_TIME = 300000; // 5 minutes
 const POLL_INTERVAL = 1000; // 1 second
+const MAX_POLL_RETRIES = 3; // retries per poll failure
+
+// Cancellation token — incremented on each new extraction or reset
+let currentExtractionId = 0;
 
 function friendlyError(raw) {
   const msg = (raw || "").toLowerCase();
+  if (msg.includes("quota_exceeded") || msg.includes("monthly extraction limit") || msg.includes("monthly scan limit"))
+    return "QUOTA_EXCEEDED";
   if (msg.includes("download") || msg.includes("yt-dlp") || msg.includes("ytdl"))
     return "We couldn't download this video. The link may be private, region-locked, or unsupported.";
   if (msg.includes("instagram"))
@@ -36,13 +42,39 @@ const initialState = {
   isRunning: false,
 };
 
-async function pollJob({ jobId, getToken, set }) {
+async function pollJob({ jobId, getToken, set, extractionId }) {
   const startTime = Date.now();
+  let consecutiveFailures = 0;
 
   while (Date.now() - startTime < MAX_POLL_TIME) {
+    // Check cancellation before each poll
+    if (extractionId !== currentExtractionId) return;
+
     await new Promise((r) => setTimeout(r, POLL_INTERVAL));
 
-    const jobStatus = await getJobStatus({ jobId, getToken });
+    // Check cancellation after sleep
+    if (extractionId !== currentExtractionId) return;
+
+    let jobStatus;
+    try {
+      jobStatus = await getJobStatus({ jobId, getToken });
+      consecutiveFailures = 0;
+    } catch (err) {
+      consecutiveFailures++;
+      if (consecutiveFailures >= MAX_POLL_RETRIES) {
+        set({
+          error: "Connection lost. Please check your network and try again.",
+          isRunning: false,
+        });
+        return;
+      }
+      // Wait a bit longer before retrying
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL * 2));
+      continue;
+    }
+
+    if (extractionId !== currentExtractionId) return;
+
     const nextStatus = jobStatus.status;
     const nextMessage = jobStatus.message || "Working on it…";
     const nextProgress = typeof jobStatus.progress === "number" ? jobStatus.progress : 0;
@@ -57,8 +89,13 @@ async function pollJob({ jobId, getToken, set }) {
       if (nextStatus === "completed") {
         let recipe = jobStatus.recipe || null;
         if (!recipe && jobStatus.recipeId) {
-          recipe = await getRecipe({ recipeId: jobStatus.recipeId, getToken });
+          try {
+            recipe = await getRecipe({ recipeId: jobStatus.recipeId, getToken });
+          } catch {
+            // Fall through to "couldn't find" error below
+          }
         }
+        if (extractionId !== currentExtractionId) return;
         if (recipe) {
           set({ recipe, isRunning: false });
         } else {
@@ -73,6 +110,7 @@ async function pollJob({ jobId, getToken, set }) {
     }
   }
 
+  if (extractionId !== currentExtractionId) return;
   set({
     error: "This is taking too long. Give it another try?",
     isRunning: false,
@@ -82,7 +120,10 @@ async function pollJob({ jobId, getToken, set }) {
 export const useExtractStore = create((set, get) => ({
   ...initialState,
   setUrl: (url) => set({ url }),
-  reset: () => set({ ...initialState }),
+  reset: () => {
+    currentExtractionId++; // Cancel any running poll loop
+    set({ ...initialState });
+  },
 
   startExtraction: async ({ getToken }) => {
     const url = get().url.trim();
@@ -90,6 +131,9 @@ export const useExtractStore = create((set, get) => ({
       set({ error: "Paste a recipe link to get started." });
       return;
     }
+
+    currentExtractionId++; // Cancel any previous poll
+    const extractionId = currentExtractionId;
 
     set({
       isRunning: true,
@@ -102,6 +146,7 @@ export const useExtractStore = create((set, get) => ({
 
     try {
       const job = await extractRecipeFromUrl({ url, getToken });
+      if (extractionId !== currentExtractionId) return;
       const jobId = job.jobId || job.jobID || job.id;
 
       if (!jobId) {
@@ -109,20 +154,24 @@ export const useExtractStore = create((set, get) => ({
       }
 
       set({ jobId, status: job.status || "pending", message: job.message || "On it!" });
-      await pollJob({ jobId, getToken, set });
+      await pollJob({ jobId, getToken, set, extractionId });
     } catch (err) {
+      if (extractionId !== currentExtractionId) return;
       set({
-        error: err?.message || "Something went wrong. Give it another try.",
+        error: friendlyError(err?.message),
         isRunning: false,
       });
     }
   },
 
-  startImageExtraction: async ({ imageBase64, mimeType, getToken }) => {
-    if (!imageBase64) {
+  startImageExtraction: async ({ images, getToken }) => {
+    if (!images || images.length === 0) {
       set({ error: "No photo selected." });
       return;
     }
+
+    currentExtractionId++; // Cancel any previous poll
+    const extractionId = currentExtractionId;
 
     set({
       isRunning: true,
@@ -134,7 +183,8 @@ export const useExtractStore = create((set, get) => ({
     });
 
     try {
-      const job = await extractRecipeFromImage({ imageBase64, mimeType, getToken });
+      const job = await extractRecipeFromImage({ images, getToken });
+      if (extractionId !== currentExtractionId) return;
       const jobId = job.jobId || job.jobID || job.id;
 
       if (!jobId) {
@@ -142,10 +192,11 @@ export const useExtractStore = create((set, get) => ({
       }
 
       set({ jobId, status: job.status || "pending", message: job.message || "On it!" });
-      await pollJob({ jobId, getToken, set });
+      await pollJob({ jobId, getToken, set, extractionId });
     } catch (err) {
+      if (extractionId !== currentExtractionId) return;
       set({
-        error: err?.message || "Something went wrong. Give it another try.",
+        error: friendlyError(err?.message),
         isRunning: false,
       });
     }

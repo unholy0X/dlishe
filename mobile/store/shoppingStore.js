@@ -42,7 +42,7 @@ export const useShoppingStore = create((set, get) => ({
             });
             set({ lists: merged, isLoading: false });
         } catch (err) {
-            set({ error: err?.message || "Failed to load lists", isLoading: false, lists: [] });
+            set({ error: err?.message || "Failed to load lists", isLoading: false });
         }
     },
 

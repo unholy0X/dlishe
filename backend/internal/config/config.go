@@ -65,6 +65,9 @@ type Config struct {
 	// Admin configuration — comma-separated list of admin emails
 	AdminEmails []string
 	AdminAPIKey string // Simple API key for admin endpoints (curl-friendly)
+
+	// Inspirator configuration — comma-separated list of inspirator emails
+	InspiratorEmails []string
 }
 
 // Load creates a Config from environment variables
@@ -124,8 +127,9 @@ func Load() *Config {
 		EnableSwagger: getBoolEnv("ENABLE_SWAGGER", false),
 
 		// Admin — comma-separated emails, e.g. "alice@example.com,bob@example.com"
-		AdminEmails: parseEmailList(getEnv("ADMIN_EMAILS", "")),
-		AdminAPIKey: getEnv("ADMIN_API_KEY", ""),
+		AdminEmails:      parseEmailList(getEnv("ADMIN_EMAILS", "")),
+		AdminAPIKey:      getEnv("ADMIN_API_KEY", ""),
+		InspiratorEmails: parseEmailList(getEnv("INSPIRATOR_EMAILS", "")),
 	}
 }
 

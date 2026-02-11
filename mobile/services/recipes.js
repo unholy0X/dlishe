@@ -18,6 +18,11 @@ export async function fetchSuggested({ limit = 10, offset = 0 } = {}) {
   return apiFetch(`/recipes/suggested?${params}`, {});
 }
 
+export async function fetchFeatured({ limit = 30, offset = 0 } = {}) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  return apiFetch(`/recipes/featured?${params}`, {});
+}
+
 export async function cloneRecipe({ recipeId, getToken }) {
   return authFetch(`/recipes/${recipeId}/save`, getToken, { method: "POST" });
 }
@@ -25,6 +30,11 @@ export async function cloneRecipe({ recipeId, getToken }) {
 export async function searchRecipes({ getToken, query, limit = 10 }) {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
   return authFetch(`/recipes/search?${params}`, getToken);
+}
+
+export async function searchPublicRecipes({ query, limit = 15 }) {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return apiFetch(`/recipes/search/public?${params}`, {});
 }
 
 export async function toggleFavorite({ recipeId, isFavorite, getToken }) {
@@ -35,6 +45,13 @@ export async function toggleFavorite({ recipeId, isFavorite, getToken }) {
 }
 
 export async function fetchRecommendations({ getToken, filter, limit = 20 }) {
-  const params = new URLSearchParams({ filter, limit: String(limit) });
+  const params = new URLSearchParams({ limit: String(limit), minMatch: "0" });
+  if (filter === "high-protein") {
+    params.set("minProtein", "20");
+    params.set("mood", "healthy");
+  } else if (filter === "quick-meals") {
+    params.set("maxTime", "30");
+    params.set("mood", "quick");
+  }
   return authFetch(`/recommendations?${params}`, getToken);
 }

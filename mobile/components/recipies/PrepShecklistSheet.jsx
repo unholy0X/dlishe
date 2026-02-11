@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const C = {
   bg: "#F4F5F7",
@@ -45,6 +46,8 @@ export default function PrepChecklistSheet({
   onBack,
   onReady,
 }) {
+  const insets = useSafeAreaInsets();
+
   // Group ingredients by section
   const sections = {};
   (ingredients || []).forEach((ing) => {
@@ -70,7 +73,7 @@ export default function PrepChecklistSheet({
   return (
     <View style={s.container}>
       {/* Top bar */}
-      <View style={s.topBar}>
+      <View style={[s.topBar, { paddingTop: insets.top + 10 }]}>
         <Pressable style={s.backBtn} onPress={onBack}>
           <Text style={s.backIcon}>←</Text>
           <Text style={s.backText}>Back</Text>
@@ -145,7 +148,7 @@ export default function PrepChecklistSheet({
       </ScrollView>
 
       {/* Footer */}
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
         <Pressable style={s.readyBtn} onPress={onReady}>
           <Text style={s.readyBtnText}>I'm ready, let's cook</Text>
         </Pressable>
@@ -166,7 +169,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 10,
     paddingBottom: 4,
   },
   backBtn: {
@@ -327,7 +329,6 @@ const s = StyleSheet.create({
   footer: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 8,
   },
   readyBtn: {
     backgroundColor: C.green,

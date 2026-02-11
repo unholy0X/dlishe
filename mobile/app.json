@@ -1,9 +1,9 @@
 {
   "expo": {
     "scheme": "dlishe",
-    "name": "DLISHE",
+    "name": "Dlishe",
     "slug": "dlishe",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -52,7 +52,8 @@
           "photosPermission": "DLISHE accesses your photos to extract recipes",
           "cameraPermission": "DLISHE uses the camera to scan recipes and pantry items"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
       "eas": {

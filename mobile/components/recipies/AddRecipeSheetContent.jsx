@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,17 +6,16 @@ import {
   Image,
   Pressable,
   TextInput,
-  Alert,
 } from "react-native";
 import { BlurView } from "expo-blur";
-import * as ImagePicker from "expo-image-picker";
 import ArrowLeftIcon from "../icons/ArrowLeftIcon";
 import LinkIcon from "../icons/LinkIcon";
-import CameraIcon from "../icons/CameraIcon";
 import SparkleBadgeIcon from "../icons/SparkleBadgeIcon";
 import ExtractionProgress from "./ExtractionProgress";
+import ImageCapture from "../ImageCapture";
 import { useAuth } from "@clerk/clerk-expo";
 import { useExtractStore } from "../../store";
+import PaywallSheet from "../paywall/PaywallSheet";
 
 export default function AddRecipeSheetContent({ onPressBack }) {
   const { getToken } = useAuth();
@@ -33,96 +32,76 @@ export default function AddRecipeSheetContent({ onPressBack }) {
     recipe,
   } = useExtractStore();
 
+  const [capturedImages, setCapturedImages] = useState([]);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+
   const handleBack = () => {
+    setCapturedImages([]);
     reset();
     onPressBack();
   };
 
   const handleTryAnother = () => {
+    setCapturedImages([]);
     reset();
   };
 
-  const handleTakePhoto = useCallback(async () => {
-    try {
-      const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
-      if (camStatus !== "granted") {
-        Alert.alert(
-          "Camera access needed",
-          "Allow camera access so you can snap a photo of your recipe."
-        );
-        return;
-      }
+  const handleExtractFromPhotos = useCallback(() => {
+    if (capturedImages.length === 0) return;
+    startImageExtraction({
+      images: capturedImages.map((img) => ({
+        base64: img.base64,
+        mimeType: img.mimeType,
+      })),
+      getToken,
+    });
+  }, [capturedImages, getToken, startImageExtraction]);
 
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        quality: 0.6,
-        base64: true,
-        allowsEditing: true,
-        exif: false,
-      });
+  // Quota exceeded view
+  if (error === "QUOTA_EXCEEDED") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
+          <Pressable onPress={handleBack}>
+            <BlurView intensity={100} tint="light" style={styles.backPill}>
+              <ArrowLeftIcon width={9} height={8} color="#555555" />
+              <Text style={styles.backText}>Back</Text>
+            </BlurView>
+          </Pressable>
+          <Text style={styles.headerTitle}>Add a recipe</Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-      if (result.canceled || !result.assets?.[0]) return;
+        <View style={styles.quotaIconWrap}>
+          <Text style={styles.quotaIcon}>🔒</Text>
+        </View>
 
-      const asset = result.assets[0];
-      if (!asset.base64) {
-        Alert.alert("Oops", "Couldn't read the photo. Try again?");
-        return;
-      }
+        <Text style={styles.quotaTitle}>Monthly limit reached</Text>
+        <Text style={styles.quotaSubtitle}>
+          You've used all your free extractions this month.
+        </Text>
 
-      startImageExtraction({
-        imageBase64: asset.base64,
-        mimeType: asset.mimeType || "image/jpeg",
-        getToken,
-      });
-    } catch {
-      Alert.alert("Oops", "Something went wrong with the camera.");
-    }
-  }, [getToken, startImageExtraction]);
+        <Pressable
+          style={styles.upgradeButton}
+          onPress={() => setPaywallVisible(true)}
+        >
+          <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+        </Pressable>
 
-  const handlePickPhoto = useCallback(async () => {
-    try {
-      const { status: libStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (libStatus !== "granted") {
-        Alert.alert(
-          "Photo access needed",
-          "Allow photo access so you can pick a recipe from your library."
-        );
-        return;
-      }
+        <Text style={styles.quotaHint}>
+          Unlimited extractions, pantry scans & more
+        </Text>
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        quality: 0.6,
-        base64: true,
-        allowsEditing: true,
-        exif: false,
-      });
+        <Text style={styles.quotaReset}>Resets next month</Text>
 
-      if (result.canceled || !result.assets?.[0]) return;
-
-      const asset = result.assets[0];
-      if (!asset.base64) {
-        Alert.alert("Oops", "Couldn't read the photo. Try again?");
-        return;
-      }
-
-      startImageExtraction({
-        imageBase64: asset.base64,
-        mimeType: asset.mimeType || "image/jpeg",
-        getToken,
-      });
-    } catch {
-      Alert.alert("Oops", "Something went wrong picking the photo.");
-    }
-  }, [getToken, startImageExtraction]);
-
-  const handlePhotoOption = useCallback(() => {
-    Alert.alert("Snap a recipe", "How would you like to add your recipe photo?", [
-      { text: "Take Photo", onPress: handleTakePhoto },
-      { text: "Choose from Library", onPress: handlePickPhoto },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }, [handleTakePhoto, handlePickPhoto]);
+        <PaywallSheet
+          visible={paywallVisible}
+          onClose={() => setPaywallVisible(false)}
+          reason="extraction_limit"
+        />
+      </View>
+    );
+  }
 
   // Success preview after completion
   if (recipe && status === "completed") {
@@ -283,10 +262,10 @@ export default function AddRecipeSheetContent({ onPressBack }) {
       <Pressable
         style={[
           styles.primaryButton,
-          !url.trim() && styles.primaryButtonDisabled,
+          (!url.trim() || isRunning) && styles.primaryButtonDisabled,
         ]}
         onPress={() => startExtraction({ getToken })}
-        disabled={!url.trim()}
+        disabled={!url.trim() || isRunning}
       >
         <SparkleBadgeIcon width={22} height={22} />
         <Text style={styles.primaryText}>Grab recipe</Text>
@@ -300,15 +279,24 @@ export default function AddRecipeSheetContent({ onPressBack }) {
         <View style={styles.divider} />
       </View>
 
-      <Pressable style={styles.actionCard} onPress={handlePhotoOption}>
-        <View style={styles.actionIconWrap}>
-          <CameraIcon width={22} height={22} />
-        </View>
-        <View style={styles.actionTextBlock}>
-          <Text style={styles.actionTitle}>Snap a cookbook</Text>
-          <Text style={styles.actionSubtitle}>Take a photo of any recipe page</Text>
-        </View>
-      </Pressable>
+      <ImageCapture
+        images={capturedImages}
+        onImagesChange={setCapturedImages}
+        maxImages={3}
+        quality={0.6}
+        disabled={isRunning}
+        label="Snap a cookbook"
+        sublabel="Take a photo of any recipe page (up to 3)"
+      />
+
+      {capturedImages.length > 0 && !isRunning && (
+        <Pressable style={styles.primaryButton} onPress={handleExtractFromPhotos}>
+          <SparkleBadgeIcon width={22} height={22} />
+          <Text style={styles.primaryText}>
+            Extract recipe ({capturedImages.length} photo{capturedImages.length !== 1 ? "s" : ""})
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -422,36 +410,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     fontSize: 12,
     color: "#B4B4B4",
-  },
-  actionCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 999,
-    padding: 10,
-    marginBottom: 12,
-  },
-  actionIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#DFF7C4",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  actionTextBlock: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 18,
-    fontWeight: "normal",
-    color: "#111111",
-  },
-  actionSubtitle: {
-    marginTop: 2,
-    fontSize: 12,
-    color: "#385225",
   },
   // Preview styles
   successIconWrap: {
@@ -583,5 +541,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#6b6b6b",
+  },
+  // Quota exceeded styles
+  quotaIconWrap: {
+    alignSelf: "center",
+    marginTop: 40,
+    marginBottom: 16,
+  },
+  quotaIcon: {
+    fontSize: 48,
+  },
+  quotaTitle: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: "#111111",
+    textAlign: "center",
+    letterSpacing: -0.2,
+  },
+  quotaSubtitle: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#6b6b6b",
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: 20,
+  },
+  upgradeButton: {
+    marginTop: 24,
+    backgroundColor: "#385225",
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  quotaHint: {
+    marginTop: 12,
+    fontSize: 13,
+    color: "#6b6b6b",
+    textAlign: "center",
+  },
+  quotaReset: {
+    marginTop: 24,
+    fontSize: 12,
+    color: "#B4B4B4",
+    textAlign: "center",
   },
 });

@@ -13,8 +13,10 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import RulerIcon from "../icons/RulerIcon";
 import LogoutIcon from "../icons/LogoutIcon";
+import CrownIcon from "../icons/CrownIcon";
 import { FOOD_AVATARS, AVATAR_COLORS } from "../avatars/FoodAvatars";
-import { useUserStore } from "../../store";
+import { useUserStore, useSubscriptionStore } from "../../store";
+import PaywallSheet from "../paywall/PaywallSheet";
 
 function hashName(name) {
   let h = 0;
@@ -58,6 +60,9 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+
+  const entitlement = useSubscriptionStore((s) => s.entitlement);
 
   const firstName = useUserStore((s) => s.firstName);
   const lastName = useUserStore((s) => s.lastName);
@@ -140,6 +145,35 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
             </View>
           </Pressable>
 
+          {/* Subscription */}
+          {entitlement === "pro" ? (
+            <View style={[styles.menuRow, { marginTop: 10 }]}>
+              <View style={[styles.menuRowIconWrap, { backgroundColor: "#DFF7C4" }]}>
+                <CrownIcon width={20} height={20} color="#385225" />
+              </View>
+              <View style={styles.menuRowContent}>
+                <Text style={styles.menuRowTitle}>Pro Member</Text>
+                <Text style={styles.menuRowValue}>Unlimited access</Text>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              style={[styles.menuRow, { marginTop: 10 }]}
+              onPress={() => {
+                setOpen(false);
+                setTimeout(() => setPaywallVisible(true), 300);
+              }}
+            >
+              <View style={[styles.menuRowIconWrap, { backgroundColor: "#FFF8E1" }]}>
+                <CrownIcon width={20} height={20} color="#F9A825" />
+              </View>
+              <View style={styles.menuRowContent}>
+                <Text style={styles.menuRowTitle}>Upgrade to Pro</Text>
+                <Text style={styles.menuRowValue}>Unlimited recipes & more</Text>
+              </View>
+            </Pressable>
+          )}
+
           {/* Log out */}
           <View style={styles.menuDivider} />
 
@@ -158,6 +192,11 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
           </Pressable>
         </View>
       </Modal>
+
+      <PaywallSheet
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+      />
     </View>
   );
 }

@@ -59,6 +59,7 @@ type mockRecipeRepository struct {
 	GetBySourceURLFunc         func(ctx context.Context, userID uuid.UUID, sourceURL string) (*model.Recipe, error)
 	ListByUserFunc             func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error)
 	ListPublicFunc             func(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
+	ListFeaturedFunc           func(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
 	ListForRecommendationsFunc func(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error)
 	SearchFunc                 func(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*model.Recipe, error)
 	UpdateFunc                 func(ctx context.Context, recipe *model.Recipe) error
@@ -102,6 +103,12 @@ func (m *mockRecipeRepository) ListPublic(ctx context.Context, limit, offset int
 	}
 	return m.ListPublicFunc(ctx, limit, offset)
 }
+func (m *mockRecipeRepository) ListFeatured(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
+	if m.ListFeaturedFunc == nil {
+		return nil, 0, nil
+	}
+	return m.ListFeaturedFunc(ctx, limit, offset)
+}
 func (m *mockRecipeRepository) ListForRecommendations(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error) {
 	if m.ListForRecommendationsFunc == nil {
 		return nil, nil
@@ -113,6 +120,9 @@ func (m *mockRecipeRepository) Search(ctx context.Context, userID uuid.UUID, que
 		return []*model.Recipe{}, nil
 	}
 	return m.SearchFunc(ctx, userID, query, limit)
+}
+func (m *mockRecipeRepository) SearchPublic(ctx context.Context, query string, limit int) ([]*model.Recipe, error) {
+	return []*model.Recipe{}, nil
 }
 func (m *mockRecipeRepository) Update(ctx context.Context, recipe *model.Recipe) error {
 	if m.UpdateFunc == nil {
@@ -409,6 +419,15 @@ func (m *mockRecipeExtractor) ExtractFromImage(ctx context.Context, imageData []
 		return &ai.ExtractionResult{}, nil
 	}
 	return m.ExtractFromImageFunc(ctx, imageData, mimeType)
+}
+func (m *mockRecipeExtractor) ExtractFromImages(ctx context.Context, imageDataList [][]byte, mimeTypes []string) (*ai.ExtractionResult, error) {
+	if m.ExtractFromImageFunc == nil {
+		return &ai.ExtractionResult{}, nil
+	}
+	if len(imageDataList) > 0 {
+		return m.ExtractFromImageFunc(ctx, imageDataList[0], mimeTypes[0])
+	}
+	return &ai.ExtractionResult{}, nil
 }
 func (m *mockRecipeExtractor) ValidateURL(url string) error {
 	if m.ValidateURLFunc == nil {

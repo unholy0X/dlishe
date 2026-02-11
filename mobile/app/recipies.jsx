@@ -13,13 +13,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import FloatingNav from "../components/FloatingNav";
+import SwipeNavigator from "../components/SwipeNavigator";
 import RecipesHeader from "../components/recipies/RecipesHeader";
 import SearchBar from "../components/SearchBar";
 import RecipeCard from "../components/recipies/RecipeCard";
 import BottomSheetModal from "../components/BottomSheetModal";
 import SearchOverlay from "../components/SearchOverlay";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
+import CheckIcon from "../components/icons/CheckIcon";
 import { useRecipeStore } from "../store";
+import { deleteRecipe } from "../services/recipes";
 
 function buildMeta(recipe) {
   const parts = [];
@@ -38,6 +41,9 @@ export default function RecipiesScreen() {
   const [isSearchOpen, setSearchOpen] = useState(false);
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { getToken } = useAuth();
   const { recipes, total, isLoading, isLoadingMore, error, loadRecipes, loadMore, refresh, clearAll, toggleFavorite } =
@@ -48,6 +54,13 @@ export default function RecipiesScreen() {
   useEffect(() => {
     loadRecipes({ getToken });
   }, []);
+
+  // Refresh when navigating back to this screen
+  useEffect(() => {
+    if (pathname === "/recipies") {
+      refresh({ getToken });
+    }
+  }, [pathname]);
 
   const onRefresh = useCallback(() => {
     refresh({ getToken });
@@ -78,8 +91,8 @@ export default function RecipiesScreen() {
             setIsClearing(true);
             try {
               await clearAll({ getToken });
-            } catch {
-              // error set in store
+            } catch (err) {
+              Alert.alert("Error", err?.message || "Failed to clear recipes");
             } finally {
               setIsClearing(false);
             }
@@ -93,18 +106,129 @@ export default function RecipiesScreen() {
     toggleFavorite({ recipeId, getToken });
   }, [getToken]);
 
-  const renderItem = useCallback(({ item }) => (
-    <RecipeCard
-      title={item.title}
-      meta={buildMeta(item)}
-      thumbnailUrl={item.thumbnailUrl}
-      isFavorite={item.isFavorite}
-      onPress={() => router.push(`/recipe/${item.id}`)}
-      onToggleFavorite={() => handleToggleFavorite(item.id)}
-    />
-  ), [router, handleToggleFavorite]);
+  const handleEnterSelect = useCallback(() => {
+    setMenuOpen(false);
+    setIsSelectMode(true);
+    setSelectedIds(new Set());
+  }, []);
 
-  const ListHeader = (
+  const exitSelectMode = useCallback(() => {
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const toggleSelection = useCallback((id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedIds.size === recipes.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(recipes.map((r) => r.id)));
+    }
+  }, [recipes, selectedIds.size]);
+
+  const handleBulkDelete = useCallback(() => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    Alert.alert(
+      "Delete Recipes",
+      `Permanently delete ${count} recipe${count !== 1 ? "s" : ""}? This can't be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: `Delete ${count}`,
+          style: "destructive",
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const results = await Promise.allSettled(
+                [...selectedIds].map((id) => deleteRecipe({ recipeId: id, getToken }))
+              );
+              const failCount = results.filter((r) => r.status === "rejected").length;
+              exitSelectMode();
+              await refresh({ getToken });
+              if (failCount > 0) {
+                Alert.alert("Partial Failure", `Failed to delete ${failCount} recipe${failCount !== 1 ? "s" : ""}. Please try again.`);
+              }
+            } catch (err) {
+              Alert.alert("Error", err?.message || "Failed to delete recipes");
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [selectedIds, getToken]);
+
+  const renderItem = useCallback(({ item }) => {
+    if (isSelectMode) {
+      const isSelected = selectedIds.has(item.id);
+      return (
+        <Pressable onPress={() => toggleSelection(item.id)}>
+          <View style={{ opacity: isSelected ? 1 : 0.6 }}>
+            <RecipeCard
+              title={item.title}
+              meta={buildMeta(item)}
+              thumbnailUrl={item.thumbnailUrl}
+              isFavorite={item.isFavorite}
+              onPress={() => toggleSelection(item.id)}
+              onToggleFavorite={() => {}}
+            />
+          </View>
+          <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxActive]}>
+            {isSelected && <CheckIcon width={14} height={14} color="#fff" />}
+          </View>
+        </Pressable>
+      );
+    }
+    return (
+      <RecipeCard
+        title={item.title}
+        meta={buildMeta(item)}
+        thumbnailUrl={item.thumbnailUrl}
+        isFavorite={item.isFavorite}
+        onPress={() => router.push(`/recipe/${item.id}`)}
+        onToggleFavorite={() => handleToggleFavorite(item.id)}
+      />
+    );
+  }, [router, handleToggleFavorite, isSelectMode, selectedIds, toggleSelection]);
+
+  const ListHeader = isSelectMode ? (
+    <View style={styles.selectBar}>
+      <Pressable onPress={exitSelectMode} hitSlop={8}>
+        <Text style={styles.selectBarCancel}>Cancel</Text>
+      </Pressable>
+      <Text style={styles.selectBarCount}>
+        {selectedIds.size} selected
+      </Text>
+      <Pressable onPress={handleSelectAll} hitSlop={8}>
+        <Text style={styles.selectAllBtn}>
+          {selectedIds.size === recipes.length ? "Deselect All" : "Select All"}
+        </Text>
+      </Pressable>
+      <Pressable
+        style={[styles.deleteBtn, selectedIds.size === 0 && { opacity: 0.4 }]}
+        onPress={handleBulkDelete}
+        disabled={selectedIds.size === 0 || isDeleting}
+      >
+        {isDeleting ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.deleteBtnText}>
+            Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+          </Text>
+        )}
+      </Pressable>
+    </View>
+  ) : (
     <>
       <RecipesHeader
         subtitle={`${total} recipe${total !== 1 ? "s" : ""} saved`}
@@ -147,6 +271,7 @@ export default function RecipiesScreen() {
 
   return (
     <View style={styles.screen}>
+      <SwipeNavigator>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <FlatList
           data={recipes}
@@ -168,6 +293,7 @@ export default function RecipiesScreen() {
           }
         />
       </SafeAreaView>
+      </SwipeNavigator>
 
       <FloatingNav
         onPressItem={(key) => {
@@ -188,6 +314,23 @@ export default function RecipiesScreen() {
       <BottomSheetModal visible={isMenuOpen} onClose={() => setMenuOpen(false)}>
         <View style={styles.menuSheet}>
           <Text style={styles.menuTitle}>Recipe Options</Text>
+          <Pressable
+            style={[styles.menuOption, styles.menuOptionGreen]}
+            onPress={handleEnterSelect}
+            disabled={total === 0}
+          >
+            <View style={[styles.menuOptionIcon, styles.menuOptionIconGreen]}>
+              <CheckIcon width={16} height={16} color="#385225" />
+            </View>
+            <View style={styles.menuOptionInfo}>
+              <Text style={[styles.menuOptionLabel, styles.menuOptionLabelGreen, total === 0 && styles.menuOptionDisabled]}>
+                Select
+              </Text>
+              <Text style={styles.menuOptionDesc}>
+                Select recipes to delete
+              </Text>
+            </View>
+          </Pressable>
           <Pressable
             style={styles.menuOption}
             onPress={handleClearAll}
@@ -331,5 +474,66 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     color: "#6b6b6b",
+  },
+  // Green menu option variant
+  menuOptionGreen: {
+    backgroundColor: "#F2F7ED",
+  },
+  menuOptionIconGreen: {
+    backgroundColor: "#DDE9CF",
+  },
+  menuOptionLabelGreen: {
+    color: "#385225",
+  },
+  // Selection mode
+  selectBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  selectBarCancel: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#6b6b6b",
+  },
+  selectBarCount: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111111",
+  },
+  selectAllBtn: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#385225",
+  },
+  deleteBtn: {
+    backgroundColor: "#cc3b3b",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  deleteBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  selectCheckbox: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: "#B4B4B4",
+    backgroundColor: "rgba(255,255,255,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectCheckboxActive: {
+    backgroundColor: "#385225",
+    borderColor: "#385225",
   },
 });

@@ -15,11 +15,11 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { useAuth } from "@clerk/clerk-expo";
-import * as ImagePicker from "expo-image-picker";
 import ArrowLeftIcon from "../icons/ArrowLeftIcon";
-import MagnifierIcon from "../icons/MagnifierIcon";
 import ScanWithAiIcon from "../icons/ScanWithAiIcon";
+import ImageCapture from "../ImageCapture";
 import { usePantryStore } from "../../store";
+import PaywallSheet from "../paywall/PaywallSheet";
 
 // Categories with predefined common items
 const CATEGORIES = [
@@ -103,6 +103,8 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
   const [unit, setUnit] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [capturedImages, setCapturedImages] = useState([]);
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
   const handleCategoryTap = (category) => {
     setSelectedCategory(category);
@@ -140,39 +142,14 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
   };
 
   const handleScanWithAI = useCallback(async () => {
+    if (capturedImages.length === 0) return;
     try {
-      // Request permission first
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Photo access needed", "Allow photo access so we can spot your ingredients.");
-        return;
-      }
-
-      // Launch image picker with compression
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        quality: 0.4, // Compress to reduce size
-        base64: true,
-        allowsEditing: false,
-        exif: false, // Don't include EXIF data
-      });
-
-      if (result.canceled || !result.assets?.[0]) {
-        return;
-      }
-
-      const asset = result.assets[0];
-      if (!asset.base64) {
-        Alert.alert("Error", "Could not read image data");
-        return;
-      }
-
-      const mimeType = asset.mimeType || "image/jpeg";
-
       const scanResult = await scanImage({
         getToken,
-        imageBase64: asset.base64,
-        mimeType,
+        images: capturedImages.map((img) => ({
+          base64: img.base64,
+          mimeType: img.mimeType,
+        })),
       });
 
       const addedCount = scanResult?.addedCount || 0;
@@ -183,13 +160,19 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
           : "Hmm, we couldn't spot any items. Try a clearer photo of your ingredients."
       );
 
+      setCapturedImages([]);
       if (addedCount > 0) {
         onItemAdded?.();
       }
     } catch (err) {
-      Alert.alert("Oops", err?.message || "Something went wrong. Try again?");
+      const msg = (err?.message || "").toLowerCase();
+      if (msg.includes("quota_exceeded") || msg.includes("monthly scan limit")) {
+        setPaywallVisible(true);
+      } else {
+        Alert.alert("Oops", err?.message || "Something went wrong. Try again?");
+      }
     }
-  }, [getToken, scanImage, onItemAdded]);
+  }, [capturedImages, getToken, scanImage, onItemAdded]);
 
   const closeModal = () => {
     setSelectedCategory(null);
@@ -224,21 +207,35 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
       </View>
 
       <Text style={styles.sectionTitle}>Or import in bulk</Text>
-      <Pressable style={styles.actionCard} onPress={handleScanWithAI} disabled={isScanning}>
-        <View style={styles.actionIconWrap}>
-          {isScanning ? (
-            <ActivityIndicator size="small" color="#141B34" />
-          ) : (
-            <ScanWithAiIcon width={22} height={20} color="#141B34" />
-          )}
+      <ImageCapture
+        images={capturedImages}
+        onImagesChange={setCapturedImages}
+        maxImages={1}
+        quality={0.6}
+        disabled={isScanning}
+        label="Snap your groceries"
+        sublabel="Add items from a photo"
+      />
+
+      {capturedImages.length > 0 && !isScanning && (
+        <Pressable style={styles.scanButton} onPress={handleScanWithAI}>
+          <ScanWithAiIcon width={20} height={18} color="#2a5a2a" />
+          <Text style={styles.scanButtonText}>Scan for ingredients</Text>
+        </Pressable>
+      )}
+
+      {isScanning && (
+        <View style={styles.scanningRow}>
+          <ActivityIndicator size="small" color="#141B34" />
+          <Text style={styles.scanningText}>Spotting items…</Text>
         </View>
-        <View>
-          <Text style={styles.actionTitle}>
-            {isScanning ? "Spotting items…" : "Snap your groceries"}
-          </Text>
-          <Text style={styles.actionSubtitle}>Add items from a photo</Text>
-        </View>
-      </Pressable>
+      )}
+
+      <PaywallSheet
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        reason="scan_limit"
+      />
 
       {/* Category Items Modal */}
       <Modal
@@ -424,31 +421,31 @@ const styles = StyleSheet.create({
     color: "#141B34",
     textTransform: "capitalize",
   },
-  actionCard: {
+  scanButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    backgroundColor: "#7FEF80",
     borderRadius: 999,
-    padding: 8,
+    paddingVertical: 12,
+    gap: 8,
     marginBottom: 12,
   },
-  actionIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#DFF7C4",
+  scanButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#2a5a2a",
+  },
+  scanningRow: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    gap: 8,
+    paddingVertical: 12,
+    marginBottom: 12,
   },
-  actionTitle: {
+  scanningText: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#111111",
-  },
-  actionSubtitle: {
-    marginTop: 4,
-    fontSize: 12,
     color: "#6b6b6b",
   },
   // Modal styles

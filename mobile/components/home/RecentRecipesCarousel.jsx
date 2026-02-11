@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   ScrollView,
   Pressable,
   Dimensions,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import RecipePlaceholder from "../RecipePlaceholder";
 
@@ -38,11 +38,10 @@ export default function RecentRecipesCarousel({ items = [], onPressItem }) {
             style={[styles.card, index > 0 && { marginLeft: CARD_GAP }]}
             onPress={() => onPressItem?.(item)}
           >
+            <RecipePlaceholder title={item.title} variant="large" style={styles.image} />
             {imageSource ? (
-              <Image source={imageSource} style={styles.image} />
-            ) : (
-              <RecipePlaceholder title={item.title} variant="large" style={styles.image} />
-            )}
+              <Image source={imageSource} style={styles.image} transition={200} recyclingKey={item.id} cachePolicy="memory-disk" />
+            ) : null}
             <LinearGradient
               colors={["transparent", "rgba(0,0,0,0.55)"]}
               style={styles.gradient}

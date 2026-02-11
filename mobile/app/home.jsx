@@ -218,9 +218,9 @@ export default function HomeScreen() {
   const favoriteIds = useMemo(() => new Set(favoriteRecipes.map((r) => r.id)), [favoriteRecipes]);
 
   useEffect(() => {
-    loadSuggested({ limit: 20 });
-    loadFeatured({ limit: 30 });
-    loadRecipes({ getToken });
+    loadSuggested({ limit: 20 }).catch(() => {});
+    loadFeatured({ limit: 30 }).catch(() => {});
+    loadRecipes({ getToken }).catch(() => {});
   }, []);
 
   // Prefetch suggested recipe thumbnails for smooth carousel
@@ -276,7 +276,7 @@ export default function HomeScreen() {
       return;
     }
 
-    const tokens = allItems.flatMap((item) => tokenize(item.name));
+    const tokens = allItems.flatMap((item) => item.name ? tokenize(item.name) : []);
     const uniqueTokens = [...new Set(tokens)];
     const pool = allRecipes.length > 0 ? allRecipes : suggested;
 
@@ -294,7 +294,7 @@ export default function HomeScreen() {
     setRecoSheetOpen(true);
 
     // Load full dataset if needed
-    if (allRecipes.length === 0) loadAll();
+    if (allRecipes.length === 0) loadAll().catch(() => {});
 
     const pool = allRecipes.length > 0 ? allRecipes : suggested;
 
@@ -327,7 +327,7 @@ export default function HomeScreen() {
     setMealCatShuffled(shuffle(filterByMealCategory(pool, key)));
     setMealCatOpen(true);
     if (allRecipes.length === 0) {
-      loadAll();
+      loadAll().catch(() => {});
     }
   }, [allRecipes.length, suggested]);
 
@@ -367,7 +367,7 @@ export default function HomeScreen() {
       if (clonedId) {
         await toggleFavoriteApi({ recipeId: clonedId, isFavorite: true, getToken });
       }
-      loadRecipes({ getToken });
+      loadRecipes({ getToken }).catch(() => {});
     } catch (err) {
       // Revert optimistic update on failure
       setSavedPublicIds((prev) => {
@@ -389,7 +389,7 @@ export default function HomeScreen() {
     closeAllSheets();
     setRecipesSheetOpen(true);
     if (allRecipes.length === 0) {
-      loadAll();
+      loadAll().catch(() => {});
     }
   }, [allRecipes.length]);
 

@@ -11,23 +11,22 @@ export default function SwipeNavigator({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const current = pathname.replace("/", "") || "home";
+  const currentRef = useRef(current);
+  currentRef.current = current;
   const translateX = useRef(new Animated.Value(0)).current;
   const isNavigating = useRef(false);
 
   const getDirection = useCallback((dx, vx) => {
-    const idx = TABS.indexOf(current);
-    // Swipe left (negative dx) → next tab
+    const idx = TABS.indexOf(currentRef.current);
     if ((dx < -SWIPE_THRESHOLD || vx < -VELOCITY_THRESHOLD) && idx < TABS.length - 1) return 1;
-    // Swipe right (positive dx) → prev tab
     if ((dx > SWIPE_THRESHOLD || vx > VELOCITY_THRESHOLD) && idx > 0) return -1;
     return 0;
-  }, [current]);
+  }, []);
 
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => {
         if (isNavigating.current) return false;
-        // Only claim horizontal gestures that are clearly horizontal
         return Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy) * 2;
       },
       onPanResponderGrant: () => {
@@ -35,12 +34,11 @@ export default function SwipeNavigator({ children }) {
         translateX.setValue(0);
       },
       onPanResponderMove: (_, g) => {
-        const idx = TABS.indexOf(current);
+        const idx = TABS.indexOf(currentRef.current);
         let dx = g.dx;
 
-        // Rubber-band at boundaries (first/last tab)
         if ((idx === 0 && dx > 0) || (idx === TABS.length - 1 && dx < 0)) {
-          dx = dx * 0.15; // heavy resistance
+          dx = dx * 0.15;
         }
 
         translateX.setValue(dx);
@@ -48,7 +46,7 @@ export default function SwipeNavigator({ children }) {
       onPanResponderRelease: (_, g) => {
         if (isNavigating.current) return;
 
-        const idx = TABS.indexOf(current);
+        const idx = TABS.indexOf(currentRef.current);
         const dir = getDirection(g.dx, g.vx);
         const nextIdx = idx + dir;
 
@@ -63,14 +61,12 @@ export default function SwipeNavigator({ children }) {
             useNativeDriver: true,
           }).start(() => {
             router.replace(`/${TABS[nextIdx]}`);
-            // Reset after navigation — small delay to let new screen mount
             setTimeout(() => {
               translateX.setValue(0);
               isNavigating.current = false;
             }, 50);
           });
         } else {
-          // Snap back
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,

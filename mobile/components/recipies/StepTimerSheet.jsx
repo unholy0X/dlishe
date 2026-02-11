@@ -87,7 +87,7 @@ export default function StepTimerSheet({
     <LinearGradient colors={gradient} style={s.container}>
       {/* ─── Top bar ─────────────────────────────── */}
       <View style={[s.topBar, { paddingTop: insets.top + 10 }]}>
-        <Pressable onPress={handleQuit}>
+        <Pressable onPress={handleQuit} hitSlop={8}>
           <BlurView intensity={40} tint="light" style={s.quitPill}>
             <Text style={s.quitText}>{"\u2715"}</Text>
           </BlurView>

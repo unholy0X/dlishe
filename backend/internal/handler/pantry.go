@@ -397,12 +397,18 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 		if sub != nil {
 			entitlement = sub.Entitlement
 		}
-		limits := model.TierLimits[entitlement]
+		limits, ok := model.TierLimits[entitlement]
+		if !ok {
+			limits = model.TierLimits["free"]
+		}
 		if limits.PantryScans >= 0 {
 			count, err := h.userRepo.CountUserScansThisMonth(ctx, user.ID)
 			if err != nil {
-				logger.Warn("Failed to count monthly scans", "error", err)
-			} else if count >= limits.PantryScans {
+				logger.Error("Failed to count monthly scans", "error", err)
+				response.InternalError(w)
+				return
+			}
+			if count >= limits.PantryScans {
 				response.ErrorJSON(w, http.StatusTooManyRequests, "QUOTA_EXCEEDED",
 					fmt.Sprintf("Monthly scan limit reached (%d/%d). Upgrade to Pro for unlimited scans.",
 						count, limits.PantryScans), nil)

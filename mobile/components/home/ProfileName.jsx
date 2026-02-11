@@ -6,6 +6,7 @@ import {
   Image,
   Pressable,
   Modal,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useClerk, useUser } from "@clerk/clerk-expo";
@@ -181,8 +182,12 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
             style={styles.logoutRow}
             onPress={async () => {
               setOpen(false);
-              await signOut();
-              router.replace("/");
+              try {
+                await signOut();
+                router.replace("/");
+              } catch {
+                Alert.alert("Sign out failed", "Please try again.");
+              }
             }}
           >
             <View style={styles.logoutIconWrap}>

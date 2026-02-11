@@ -74,7 +74,7 @@ export default function RecipiesScreen() {
 
   const handleSheetClose = () => {
     setSheetOpen(false);
-    refresh({ getToken });
+    refresh({ getToken }).catch(() => {});
   };
 
   const handleClearAll = useCallback(() => {

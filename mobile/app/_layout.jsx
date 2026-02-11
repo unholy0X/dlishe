@@ -40,9 +40,7 @@ const tokenCache = {
     try {
       await SecureStore.setItemAsync(key, value);
     } catch (err) {
-      // SecureStore can fail on Android production (keystore issues, value too large)
       console.error("SecureStore save error:", err);
-      Alert.alert("Token Error", `Token save failed: ${err?.message}`);
     }
   },
 };

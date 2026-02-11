@@ -12,6 +12,7 @@ import (
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/model"
 	"github.com/dishflow/backend/internal/pkg/response"
+	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/service/ai"
 )
 
@@ -665,7 +666,7 @@ func (h *ShoppingHandler) AddFromRecipe(w http.ResponseWriter, r *http.Request) 
 
 	// Get the recipe
 	recipe, err := h.recipeRepo.GetByID(ctx, req.RecipeID)
-	if err == model.ErrNotFound {
+	if err == postgres.ErrRecipeNotFound {
 		response.NotFound(w, "Recipe")
 		return
 	}

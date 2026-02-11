@@ -52,18 +52,18 @@ export default function RecipiesScreen() {
   const hasMore = recipes.length < total;
 
   useEffect(() => {
-    loadRecipes({ getToken });
+    loadRecipes({ getToken }).catch(() => {});
   }, []);
 
   // Refresh when navigating back to this screen
   useEffect(() => {
     if (pathname === "/recipies") {
-      refresh({ getToken });
+      refresh({ getToken }).catch(() => {});
     }
   }, [pathname]);
 
   const onRefresh = useCallback(() => {
-    refresh({ getToken });
+    refresh({ getToken }).catch(() => {});
   }, [getToken]);
 
   const onEndReached = useCallback(() => {
@@ -103,7 +103,7 @@ export default function RecipiesScreen() {
   }, [getToken, total]);
 
   const handleToggleFavorite = useCallback((recipeId) => {
-    toggleFavorite({ recipeId, getToken });
+    toggleFavorite({ recipeId, getToken }).catch(() => {});
   }, [getToken]);
 
   const handleEnterSelect = useCallback(() => {

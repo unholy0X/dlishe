@@ -714,7 +714,7 @@ export default function RecipeDetailScreen() {
               }}
             />
           )}
-          {cookingPhase === "steps" && sortedSteps[currentStep] && (
+          {cookingPhase === "steps" && sortedSteps.length > 0 && sortedSteps[currentStep] && (
             <StepTimerSheet
               step={sortedSteps[currentStep]}
               currentStep={currentStep}
@@ -722,6 +722,16 @@ export default function RecipeDetailScreen() {
               onQuit={() => setCookingOpen(false)}
               onPrev={handlePrevStep}
               onNext={handleNextStep}
+            />
+          )}
+          {cookingPhase === "steps" && (!sortedSteps.length || !sortedSteps[currentStep]) && (
+            <DoneSheet
+              title={recipe?.title}
+              imageUri={recipe?.thumbnailUrl}
+              totalSteps={0}
+              totalTime={totalTime}
+              onBack={() => setCookingOpen(false)}
+              onServe={() => setCookingOpen(false)}
             />
           )}
           {cookingPhase === "done" && (

@@ -157,18 +157,18 @@ export default function PantryScreen() {
   const { groups, total, isLoading, error, loadPantry, removeItem, clearPantry } = usePantryStore();
 
   useEffect(() => {
-    loadPantry({ getToken });
+    loadPantry({ getToken }).catch(() => {});
   }, []);
 
   // Refresh when navigating back to this screen
   useEffect(() => {
     if (pathname === "/pantry") {
-      loadPantry({ getToken });
+      loadPantry({ getToken }).catch(() => {});
     }
   }, [pathname]);
 
   const onRefresh = useCallback(() => {
-    loadPantry({ getToken });
+    loadPantry({ getToken }).catch(() => {});
   }, [getToken]);
 
   const handleDelete = useCallback(

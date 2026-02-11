@@ -151,7 +151,7 @@ export const useShoppingStore = create((set, get) => ({
             set({
                 activeList: {
                     ...prevList,
-                    items: prevList.items.filter((i) => i.id !== itemId),
+                    items: (prevList.items || []).filter((i) => i.id !== itemId),
                 },
             });
             get()._syncListCounts();
@@ -172,7 +172,7 @@ export const useShoppingStore = create((set, get) => ({
             set({
                 activeList: {
                     ...prevList,
-                    items: prevList.items.map((i) =>
+                    items: (prevList.items || []).map((i) =>
                         i.id === itemId ? { ...i, isChecked: !i.isChecked } : i
                     ),
                 },

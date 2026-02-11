@@ -98,7 +98,7 @@ func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.IsPublic = true
 	}
 
-	// Auto-featured for inspirator users (not public — exclusive to featured endpoint)
+	// Auto-featured for inspirator users (kept separate from public/suggested pool)
 	if model.IsInspiratorEmail(user.Email, h.inspiratorEmails) {
 		req.IsFeatured = true
 		now := time.Now().UTC()
@@ -203,6 +203,56 @@ type SearchResult struct {
 	ThumbnailURL string `json:"thumbnailUrl,omitempty"`
 	Difficulty   string `json:"difficulty,omitempty"`
 	IsFavorite   bool   `json:"isFavorite"`
+}
+
+// SearchPublic handles GET /api/v1/recipes/search/public — no auth required
+func (h *RecipeHandler) SearchPublic(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		response.BadRequest(w, "Search query 'q' is required")
+		return
+	}
+
+	limit := 15
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 50 {
+			limit = val
+		}
+	}
+
+	recipes, err := h.repo.SearchPublic(r.Context(), query, limit)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	if recipes == nil {
+		recipes = []*model.Recipe{}
+	}
+
+	results := make([]SearchResult, 0, len(recipes))
+	for _, r := range recipes {
+		result := SearchResult{
+			ID:    r.ID.String(),
+			Title: r.Title,
+		}
+		if r.Cuisine != nil {
+			result.Cuisine = *r.Cuisine
+		}
+		if r.ThumbnailURL != nil {
+			result.ThumbnailURL = *r.ThumbnailURL
+		}
+		if r.Difficulty != nil {
+			result.Difficulty = *r.Difficulty
+		}
+		results = append(results, result)
+	}
+
+	response.OK(w, SearchResponse{
+		Query:   query,
+		Results: results,
+		Count:   len(results),
+	})
 }
 
 // ListSuggested handles GET /api/v1/recipes/suggested
@@ -390,8 +440,8 @@ func (h *RecipeHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check ownership or public access
-	if recipe.UserID != user.ID && !recipe.IsPublic {
+	// Check ownership, public, or featured access
+	if recipe.UserID != user.ID && !recipe.IsPublic && !recipe.IsFeatured {
 		response.Forbidden(w, "Access denied")
 		return
 	}
@@ -649,10 +699,8 @@ func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
 
 	// Check access:
 	// - User can clone their own recipes (useful for creating variants)
-	// - User can clone public/suggested recipes
-	// - Future: User can clone recipes shared with them
-	if source.UserID != user.ID && !source.IsPublic {
-		// Recipe is not owned by user and not public
+	// - User can clone public/suggested or featured recipes
+	if source.UserID != user.ID && !source.IsPublic && !source.IsFeatured {
 		response.Forbidden(w, "Access denied - recipe not accessible")
 		return
 	}

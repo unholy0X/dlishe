@@ -62,7 +62,19 @@ function shuffle(arr) {
 
 const recipeKeyExtractor = (item) => item.id;
 
+const PAGE_SIZE = 10;
+
 function RecipeGrid({ data, onPressRecipe, savedPublicIds, savingIds, onSave, renderBadge, scrollProps }) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Reset visible count when data changes (new sheet opened)
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [data]);
+
+  const visibleData = useMemo(() => data.slice(0, visibleCount), [data, visibleCount]);
+  const hasMore = visibleCount < data.length;
+
   const renderItem = useCallback(({ item: recipe }) => {
     const imageSource = recipe.thumbnailUrl ? { uri: recipe.thumbnailUrl } : null;
     const isSaved = savedPublicIds?.has(recipe.id);
@@ -105,19 +117,34 @@ function RecipeGrid({ data, onPressRecipe, savedPublicIds, savingIds, onSave, re
     );
   }, [savedPublicIds, savingIds, onPressRecipe, onSave, renderBadge]);
 
+  const renderFooter = useCallback(() => {
+    if (!hasMore) return null;
+    return (
+      <Pressable
+        style={styles.showMoreBtn}
+        onPress={() => setVisibleCount((c) => c + PAGE_SIZE)}
+      >
+        <Text style={styles.showMoreText}>
+          Show more ({data.length - visibleCount} remaining)
+        </Text>
+      </Pressable>
+    );
+  }, [hasMore, data.length, visibleCount]);
+
   return (
     <FlatList
-      data={data}
+      data={visibleData}
       renderItem={renderItem}
       keyExtractor={recipeKeyExtractor}
       numColumns={2}
       columnWrapperStyle={styles.masonryRow}
       showsVerticalScrollIndicator={false}
-      initialNumToRender={8}
+      initialNumToRender={PAGE_SIZE}
       maxToRenderPerBatch={8}
       windowSize={5}
       contentContainerStyle={styles.masonryListContent}
       scrollEventThrottle={16}
+      ListFooterComponent={renderFooter}
       {...scrollProps}
     />
   );
@@ -874,5 +901,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#ffffff",
+  },
+  showMoreBtn: {
+    marginTop: 6,
+    marginBottom: 10,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#EAEAEA",
+  },
+  showMoreText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#385225",
   },
 });

@@ -29,6 +29,7 @@ type RecipeRepository interface {
 	ListFeatured(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
 	ListForRecommendations(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error)
 	Search(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*model.Recipe, error)
+	SearchPublic(ctx context.Context, query string, limit int) ([]*model.Recipe, error)
 	Update(ctx context.Context, recipe *model.Recipe) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
 	SetFavorite(ctx context.Context, id uuid.UUID, isFavorite bool) error

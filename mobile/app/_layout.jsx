@@ -1,18 +1,21 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
+import { View, Text, StyleSheet, Alert, Platform } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
 import * as Sentry from "@sentry/react-native";
 import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
+import Purchases from "react-native-purchases";
 import {
   useFonts,
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
 } from "@expo-google-fonts/inter";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import UserSync from "../components/UserSync";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { useSubscriptionStore } from "../store";
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (SENTRY_DSN) {
@@ -47,7 +50,8 @@ const tokenCache = {
 function AuthGate() {
   const router = useRouter();
   const segments = useSegments();
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded, getToken } = useAuth();
+  const { user } = useUser();
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -60,6 +64,34 @@ function AuthGate() {
       router.replace("/home");
     }
   }, [isSignedIn, isLoaded, segments, router]);
+
+  // Initialize RevenueCat after auth
+  useEffect(() => {
+    if (!isSignedIn || !isLoaded || !user?.id) return;
+
+    const initRC = async () => {
+      try {
+        // RevenueCat native SDK doesn't work in Expo Go
+        if (Constants.appOwnership === "expo") return;
+
+        const apiKey = Platform.OS === "ios"
+          ? process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS
+          : process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID;
+
+        if (!apiKey) return;
+
+        Purchases.configure({ apiKey });
+        await Purchases.logIn(user.id);
+
+        useSubscriptionStore.getState().loadSubscription({ getToken });
+        useSubscriptionStore.getState().loadOfferings();
+      } catch (err) {
+        console.warn("RevenueCat init failed:", err);
+      }
+    };
+
+    initRC();
+  }, [isSignedIn, isLoaded, user?.id]);
 
   return (
     <Stack

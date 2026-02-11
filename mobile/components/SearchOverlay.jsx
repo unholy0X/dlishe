@@ -15,14 +15,49 @@ import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SearchIcon from "./icons/SearchIcon";
 import RecipePlaceholder from "./RecipePlaceholder";
-import { searchRecipes } from "../services/recipes";
+import { searchRecipes, searchPublicRecipes } from "../services/recipes";
 
 const DEBOUNCE_MS = 300;
+
+function renderResultCard(recipe, onSelect) {
+  const imageSource = recipe.thumbnailUrl ? { uri: recipe.thumbnailUrl } : null;
+  return (
+    <Pressable
+      key={recipe.id}
+      style={styles.resultCard}
+      onPress={() => onSelect(recipe)}
+    >
+      {imageSource ? (
+        <Image source={imageSource} style={styles.resultImage} transition={200} />
+      ) : (
+        <RecipePlaceholder title={recipe.title} variant="small" style={styles.resultImage} />
+      )}
+      <View style={styles.resultInfo}>
+        <Text style={styles.resultTitle} numberOfLines={2}>
+          {recipe.title}
+        </Text>
+        <View style={styles.resultMeta}>
+          {recipe.cuisine ? (
+            <View style={styles.resultTag}>
+              <Text style={styles.resultTagText}>{recipe.cuisine}</Text>
+            </View>
+          ) : null}
+          {recipe.difficulty ? (
+            <View style={styles.resultTag}>
+              <Text style={styles.resultTagText}>{recipe.difficulty}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
 
 export default function SearchOverlay({ visible, onClose, getToken, onSelectRecipe }) {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [publicResults, setPublicResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef(null);
@@ -43,24 +78,38 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
       fadeAnim.setValue(0);
       setQuery("");
       setResults([]);
+      setPublicResults([]);
       setHasSearched(false);
     }
   }, [visible]);
 
   const doSearch = useCallback(
     async (q) => {
-      if (!q.trim() || !getToken) {
+      const trimmed = q.trim();
+      if (!trimmed) {
         setResults([]);
+        setPublicResults([]);
         setHasSearched(false);
         return;
       }
       setIsSearching(true);
       setHasSearched(true);
       try {
-        const data = await searchRecipes({ getToken, query: q.trim(), limit: 15 });
-        setResults(data.results || []);
+        const [userRes, publicRes] = await Promise.all([
+          getToken
+            ? searchRecipes({ getToken, query: trimmed, limit: 15 }).catch(() => ({ results: [] }))
+            : Promise.resolve({ results: [] }),
+          searchPublicRecipes({ query: trimmed, limit: 15 }).catch(() => ({ results: [] })),
+        ]);
+        const userResults = userRes.results || [];
+        const userIds = new Set(userResults.map((r) => r.id));
+        // Deduplicate: don't show public results already in user results
+        const filteredPublic = (publicRes.results || []).filter((r) => !userIds.has(r.id));
+        setResults(userResults);
+        setPublicResults(filteredPublic);
       } catch {
         setResults([]);
+        setPublicResults([]);
       } finally {
         setIsSearching(false);
       }
@@ -74,6 +123,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (!text.trim()) {
         setResults([]);
+        setPublicResults([]);
         setHasSearched(false);
         setIsSearching(false);
         return;
@@ -98,6 +148,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
   const handleClear = useCallback(() => {
     setQuery("");
     setResults([]);
+    setPublicResults([]);
     setHasSearched(false);
     inputRef.current?.focus();
   }, []);
@@ -119,7 +170,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
               <TextInput
                 ref={inputRef}
                 style={styles.input}
-                placeholder="Search your recipes..."
+                placeholder="Search recipes..."
                 placeholderTextColor="#B4B4B4"
                 value={query}
                 onChangeText={handleChangeText}
@@ -154,7 +205,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
             )}
 
             {/* No results */}
-            {!isSearching && hasSearched && results.length === 0 && (
+            {!isSearching && hasSearched && results.length === 0 && publicResults.length === 0 && (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyTitle}>No recipes found</Text>
                 <Text style={styles.emptySubtitle}>
@@ -173,43 +224,23 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
               </View>
             )}
 
-            {/* Results list */}
-            {results.map((recipe) => {
-              const imageSource = recipe.thumbnailUrl
-                ? { uri: recipe.thumbnailUrl }
-                : null;
+            {/* User's saved recipes */}
+            {results.length > 0 && (
+              <>
+                {publicResults.length > 0 && (
+                  <Text style={styles.sectionTitle}>Your recipes</Text>
+                )}
+                {results.map((recipe) => renderResultCard(recipe, handleSelect))}
+              </>
+            )}
 
-              return (
-                <Pressable
-                  key={recipe.id}
-                  style={styles.resultCard}
-                  onPress={() => handleSelect(recipe)}
-                >
-                  {imageSource ? (
-                    <Image source={imageSource} style={styles.resultImage} transition={200} />
-                  ) : (
-                    <RecipePlaceholder title={recipe.title} variant="small" style={styles.resultImage} />
-                  )}
-                  <View style={styles.resultInfo}>
-                    <Text style={styles.resultTitle} numberOfLines={2}>
-                      {recipe.title}
-                    </Text>
-                    <View style={styles.resultMeta}>
-                      {recipe.cuisine ? (
-                        <View style={styles.resultTag}>
-                          <Text style={styles.resultTagText}>{recipe.cuisine}</Text>
-                        </View>
-                      ) : null}
-                      {recipe.difficulty ? (
-                        <View style={styles.resultTag}>
-                          <Text style={styles.resultTagText}>{recipe.difficulty}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })}
+            {/* Public / suggested recipes */}
+            {publicResults.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Suggested recipes</Text>
+                {publicResults.map((recipe) => renderResultCard(recipe, handleSelect))}
+              </>
+            )}
           </ScrollView>
         </View>
       </Animated.View>
@@ -316,6 +347,16 @@ const styles = StyleSheet.create({
   hintText: {
     fontSize: 14,
     color: "#B4B4B4",
+  },
+  // Section title
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#999999",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 8,
+    marginBottom: 10,
   },
   // Results
   resultCard: {

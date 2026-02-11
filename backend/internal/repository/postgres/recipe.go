@@ -1265,6 +1265,122 @@ func (r *RecipeRepository) Search(ctx context.Context, userID uuid.UUID, query s
 	return recipes, nil
 }
 
+// SearchPublic searches public (suggested) recipes by title, cuisine, description, and tags.
+func (r *RecipeRepository) SearchPublic(ctx context.Context, query string, limit int) ([]*model.Recipe, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []*model.Recipe{}, nil
+	}
+
+	searchPattern := "%" + query + "%"
+
+	sqlQuery := `
+		SELECT r.id, r.user_id, r.title, r.description, r.servings, r.prep_time, r.cook_time,
+		       r.difficulty, r.cuisine, r.thumbnail_url, r.source_type, r.source_url,
+		       r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
+		       r.is_featured, r.featured_at,
+		       r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
+		       COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
+		       COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
+		FROM recipes r
+		WHERE (r.is_public = TRUE OR r.is_featured = TRUE)
+		  AND r.deleted_at IS NULL
+		  AND (
+		      r.title ILIKE $1
+		      OR r.cuisine ILIKE $1
+		      OR r.description ILIKE $1
+		      OR EXISTS (SELECT 1 FROM unnest(r.tags) AS tag WHERE tag ILIKE $1)
+		  )
+		ORDER BY
+		    CASE
+		        WHEN r.title ILIKE $2 || '%' THEN 0
+		        WHEN r.title ILIKE $1 THEN 1
+		        ELSE 2
+		    END,
+		    r.is_featured DESC,
+		    r.title
+		LIMIT $3
+	`
+
+	rows, err := r.db.QueryContext(ctx, sqlQuery, searchPattern, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	recipes := make([]*model.Recipe, 0, limit)
+
+	for rows.Next() {
+		recipe := &model.Recipe{}
+		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
+		var tags TextArray
+
+		err := rows.Scan(
+			&recipe.ID,
+			&recipe.UserID,
+			&recipe.Title,
+			&recipe.Description,
+			&recipe.Servings,
+			&recipe.PrepTime,
+			&recipe.CookTime,
+			&recipe.Difficulty,
+			&recipe.Cuisine,
+			&recipe.ThumbnailURL,
+			&recipe.SourceType,
+			&recipe.SourceURL,
+			&recipe.SourceRecipeID,
+			&sourceMetadata,
+			&tags,
+			&recipe.IsPublic,
+			&recipe.IsFavorite,
+			&recipe.IsFeatured,
+			&recipe.FeaturedAt,
+			&nutritionJSON,
+			&dietaryInfoJSON,
+			&recipe.SyncVersion,
+			&recipe.CreatedAt,
+			&recipe.UpdatedAt,
+			&recipe.IngredientCount,
+			&recipe.StepCount,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		recipe.Tags = []string(tags)
+
+		if sourceMetadata != nil {
+			unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
+		}
+		if nutritionJSON != nil {
+			recipe.Nutrition = &model.RecipeNutrition{}
+			unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
+		}
+		if dietaryInfoJSON != nil {
+			recipe.DietaryInfo = &model.DietaryInfo{}
+			unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
+		}
+
+		recipes = append(recipes, recipe)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return recipes, nil
+}
+
 // ListFeatured retrieves all featured recipes with ingredient/step counts
 func (r *RecipeRepository) ListFeatured(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
 	// Get total count

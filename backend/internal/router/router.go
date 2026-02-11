@@ -139,6 +139,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 		// Public recipes endpoint (suggested/curated recipes for all users)
 		r.With(rateLimiter.Public()).Get("/recipes/suggested", recipeHandler.ListSuggested)
 		r.With(rateLimiter.Public()).Get("/recipes/featured", recipeHandler.ListFeatured)
+		r.With(rateLimiter.Public()).Get("/recipes/search/public", recipeHandler.SearchPublic)
 
 		// Auth routes
 		// Deprecated: Login/Register handled by Clerk frontend

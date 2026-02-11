@@ -46,7 +46,7 @@ export default function BottomSheetModal({
         panY.flattenOffset();
         isDragging.current = false;
         setScrollEnabled(true);
-        if (gs.dy > 120 || gs.vy > 0.5) {
+        if (gs.dy > 60 || gs.vy > 0.3) {
           Animated.timing(panY, {
             toValue: SLIDE_OFFSET,
             duration: 200,
@@ -114,12 +114,14 @@ export default function BottomSheetModal({
         <Animated.View
           style={[
             styles.sheet,
-            customScroll && { height: SCREEN_HEIGHT * 0.9 },
+            customScroll && { height: SCREEN_HEIGHT * 0.8 },
             { transform: [{ translateY: combinedTranslateY }] },
           ]}
           {...panResponder.panHandlers}
         >
-          <View style={styles.grabber} />
+          <Pressable onPress={onClose} style={styles.grabberZone} hitSlop={{ top: 10, bottom: 10 }}>
+            <View style={styles.grabber} />
+          </Pressable>
           {customScroll ? (
             <View style={[styles.customScrollWrap, { paddingBottom: insets.bottom + 16 }]}>
               {typeof children === "function"
@@ -162,16 +164,19 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 10,
-    maxHeight: SCREEN_HEIGHT * 0.9,
+    paddingTop: 0,
+    maxHeight: SCREEN_HEIGHT * 0.8,
+  },
+  grabberZone: {
+    paddingTop: 12,
+    paddingBottom: 8,
+    alignItems: "center",
   },
   grabber: {
-    alignSelf: "center",
     width: 44,
     height: 4,
     borderRadius: 2,
     backgroundColor: "#d9d9d9",
-    marginBottom: 10,
   },
   content: {
     paddingBottom: 0,

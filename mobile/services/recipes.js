@@ -32,6 +32,11 @@ export async function searchRecipes({ getToken, query, limit = 10 }) {
   return authFetch(`/recipes/search?${params}`, getToken);
 }
 
+export async function searchPublicRecipes({ query, limit = 15 }) {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return apiFetch(`/recipes/search/public?${params}`, {});
+}
+
 export async function toggleFavorite({ recipeId, isFavorite, getToken }) {
   return authFetch(`/recipes/${recipeId}/favorite`, getToken, {
     method: "POST",

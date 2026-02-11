@@ -10,6 +10,8 @@ let currentExtractionId = 0;
 
 function friendlyError(raw) {
   const msg = (raw || "").toLowerCase();
+  if (msg.includes("quota_exceeded") || msg.includes("monthly extraction limit") || msg.includes("monthly scan limit"))
+    return "QUOTA_EXCEEDED";
   if (msg.includes("download") || msg.includes("yt-dlp") || msg.includes("ytdl"))
     return "We couldn't download this video. The link may be private, region-locked, or unsupported.";
   if (msg.includes("instagram"))
@@ -156,7 +158,7 @@ export const useExtractStore = create((set, get) => ({
     } catch (err) {
       if (extractionId !== currentExtractionId) return;
       set({
-        error: err?.message || "Something went wrong. Give it another try.",
+        error: friendlyError(err?.message),
         isRunning: false,
       });
     }
@@ -194,7 +196,7 @@ export const useExtractStore = create((set, get) => ({
     } catch (err) {
       if (extractionId !== currentExtractionId) return;
       set({
-        error: err?.message || "Something went wrong. Give it another try.",
+        error: friendlyError(err?.message),
         isRunning: false,
       });
     }

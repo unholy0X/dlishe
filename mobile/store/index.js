@@ -5,3 +5,4 @@ export { useSuggestedStore } from "./suggestedStore";
 export { useFeaturedStore } from "./featuredStore";
 export { usePantryStore } from "./pantryStore";
 export { useShoppingStore } from "./shoppingStore";
+export { useSubscriptionStore } from "./subscriptionStore";

@@ -121,6 +121,9 @@ func (m *mockRecipeRepository) Search(ctx context.Context, userID uuid.UUID, que
 	}
 	return m.SearchFunc(ctx, userID, query, limit)
 }
+func (m *mockRecipeRepository) SearchPublic(ctx context.Context, query string, limit int) ([]*model.Recipe, error) {
+	return []*model.Recipe{}, nil
+}
 func (m *mockRecipeRepository) Update(ctx context.Context, recipe *model.Recipe) error {
 	if m.UpdateFunc == nil {
 		return nil

@@ -15,6 +15,7 @@ import ExtractionProgress from "./ExtractionProgress";
 import ImageCapture from "../ImageCapture";
 import { useAuth } from "@clerk/clerk-expo";
 import { useExtractStore } from "../../store";
+import PaywallSheet from "../paywall/PaywallSheet";
 
 export default function AddRecipeSheetContent({ onPressBack }) {
   const { getToken } = useAuth();
@@ -32,6 +33,7 @@ export default function AddRecipeSheetContent({ onPressBack }) {
   } = useExtractStore();
 
   const [capturedImages, setCapturedImages] = useState([]);
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
   const handleBack = () => {
     setCapturedImages([]);
@@ -54,6 +56,52 @@ export default function AddRecipeSheetContent({ onPressBack }) {
       getToken,
     });
   }, [capturedImages, getToken, startImageExtraction]);
+
+  // Quota exceeded view
+  if (error === "QUOTA_EXCEEDED") {
+    return (
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
+          <Pressable onPress={handleBack}>
+            <BlurView intensity={100} tint="light" style={styles.backPill}>
+              <ArrowLeftIcon width={9} height={8} color="#555555" />
+              <Text style={styles.backText}>Back</Text>
+            </BlurView>
+          </Pressable>
+          <Text style={styles.headerTitle}>Add a recipe</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <View style={styles.quotaIconWrap}>
+          <Text style={styles.quotaIcon}>🔒</Text>
+        </View>
+
+        <Text style={styles.quotaTitle}>Monthly limit reached</Text>
+        <Text style={styles.quotaSubtitle}>
+          You've used all your free extractions this month.
+        </Text>
+
+        <Pressable
+          style={styles.upgradeButton}
+          onPress={() => setPaywallVisible(true)}
+        >
+          <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+        </Pressable>
+
+        <Text style={styles.quotaHint}>
+          Unlimited extractions, pantry scans & more
+        </Text>
+
+        <Text style={styles.quotaReset}>Resets next month</Text>
+
+        <PaywallSheet
+          visible={paywallVisible}
+          onClose={() => setPaywallVisible(false)}
+          reason="extraction_limit"
+        />
+      </View>
+    );
+  }
 
   // Success preview after completion
   if (recipe && status === "completed") {
@@ -493,5 +541,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#6b6b6b",
+  },
+  // Quota exceeded styles
+  quotaIconWrap: {
+    alignSelf: "center",
+    marginTop: 40,
+    marginBottom: 16,
+  },
+  quotaIcon: {
+    fontSize: 48,
+  },
+  quotaTitle: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: "#111111",
+    textAlign: "center",
+    letterSpacing: -0.2,
+  },
+  quotaSubtitle: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#6b6b6b",
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: 20,
+  },
+  upgradeButton: {
+    marginTop: 24,
+    backgroundColor: "#385225",
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  quotaHint: {
+    marginTop: 12,
+    fontSize: 13,
+    color: "#6b6b6b",
+    textAlign: "center",
+  },
+  quotaReset: {
+    marginTop: 24,
+    fontSize: 12,
+    color: "#B4B4B4",
+    textAlign: "center",
   },
 });

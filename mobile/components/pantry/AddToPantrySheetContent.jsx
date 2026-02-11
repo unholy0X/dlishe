@@ -19,6 +19,7 @@ import ArrowLeftIcon from "../icons/ArrowLeftIcon";
 import ScanWithAiIcon from "../icons/ScanWithAiIcon";
 import ImageCapture from "../ImageCapture";
 import { usePantryStore } from "../../store";
+import PaywallSheet from "../paywall/PaywallSheet";
 
 // Categories with predefined common items
 const CATEGORIES = [
@@ -103,6 +104,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
   const [isAdding, setIsAdding] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [capturedImages, setCapturedImages] = useState([]);
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
   const handleCategoryTap = (category) => {
     setSelectedCategory(category);
@@ -163,7 +165,12 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
         onItemAdded?.();
       }
     } catch (err) {
-      Alert.alert("Oops", err?.message || "Something went wrong. Try again?");
+      const msg = (err?.message || "").toLowerCase();
+      if (msg.includes("quota_exceeded") || msg.includes("monthly scan limit")) {
+        setPaywallVisible(true);
+      } else {
+        Alert.alert("Oops", err?.message || "Something went wrong. Try again?");
+      }
     }
   }, [capturedImages, getToken, scanImage, onItemAdded]);
 
@@ -223,6 +230,12 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
           <Text style={styles.scanningText}>Spotting items…</Text>
         </View>
       )}
+
+      <PaywallSheet
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        reason="scan_limit"
+      />
 
       {/* Category Items Modal */}
       <Modal

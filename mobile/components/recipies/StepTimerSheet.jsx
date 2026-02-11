@@ -29,13 +29,6 @@ const STEP_GRADIENTS = [
   ["#FFF5F0", "#FFE4D6"], // peach
 ];
 
-function formatDurationHint(seconds) {
-  if (!seconds || seconds <= 0) return null;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (m === 0) return `${s}s`;
-  return s ? `${m}m ${s}s` : `${m} min`;
-}
 
 export default function StepTimerSheet({
   step,
@@ -48,17 +41,11 @@ export default function StepTimerSheet({
   const insets = useSafeAreaInsets();
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
-  const hasDuration = step?.durationSeconds > 0;
 
   // Build info chips
   const chips = [];
   if (step?.technique) chips.push({ label: step.technique, type: "default" });
   if (step?.temperature) chips.push({ label: step.temperature, type: "default" });
-  if (hasDuration)
-    chips.push({
-      label: `\u23F1 ${formatDurationHint(step.durationSeconds)}`,
-      type: "duration",
-    });
 
   // Gradient for this step
   const gradient = STEP_GRADIENTS[currentStep % STEP_GRADIENTS.length];
@@ -144,21 +131,8 @@ export default function StepTimerSheet({
           {chips.length > 0 ? (
             <View style={s.chipsRow}>
               {chips.map((chip, i) => (
-                <View
-                  key={i}
-                  style={[
-                    s.chip,
-                    chip.type === "duration" && s.chipDuration,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      s.chipText,
-                      chip.type === "duration" && s.chipDurationText,
-                    ]}
-                  >
-                    {chip.label}
-                  </Text>
+                <View key={i} style={s.chip}>
+                  <Text style={s.chipText}>{chip.label}</Text>
                 </View>
               ))}
             </View>
@@ -298,15 +272,6 @@ const s = StyleSheet.create({
     textTransform: "capitalize",
     letterSpacing: -0.05,
   },
-  chipDuration: {
-    backgroundColor: C.greenLight,
-  },
-  chipDurationText: {
-    color: C.greenDark,
-    fontFamily: FONT.semibold,
-    textTransform: "none",
-  },
-
   // ─── Tip banner ───────────────────────────────
   tipBanner: {
     backgroundColor: "rgba(253,197,151,0.18)",

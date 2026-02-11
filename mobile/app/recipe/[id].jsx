@@ -282,7 +282,13 @@ export default function RecipeDetailScreen() {
       setError("");
       try {
         const data = await fetchRecipeById({ recipeId: id, getToken });
-        if (!cancelled) setRecipe(data);
+        if (!cancelled) {
+          setRecipe(data);
+          // Prefetch thumbnail so it's ready when the hero renders
+          if (data?.thumbnailUrl) {
+            Image.prefetch(data.thumbnailUrl);
+          }
+        }
       } catch (err) {
         if (!cancelled) setError(err?.message || "Failed to load recipe");
       } finally {
@@ -393,6 +399,8 @@ export default function RecipeDetailScreen() {
                 source={{ uri: recipe.thumbnailUrl }}
                 style={s.heroImage}
                 transition={200}
+                cachePolicy="memory-disk"
+                placeholder={null}
               />
               {/* <View style={s.heroGradient} /> */}
               <LinearGradient

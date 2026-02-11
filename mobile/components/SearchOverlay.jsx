@@ -6,12 +6,12 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  Image,
   ActivityIndicator,
   ScrollView,
   Keyboard,
   Animated,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SearchIcon from "./icons/SearchIcon";
 import RecipePlaceholder from "./RecipePlaceholder";
@@ -186,7 +186,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
                   onPress={() => handleSelect(recipe)}
                 >
                   {imageSource ? (
-                    <Image source={imageSource} style={styles.resultImage} />
+                    <Image source={imageSource} style={styles.resultImage} transition={200} />
                   ) : (
                     <RecipePlaceholder title={recipe.title} variant="small" style={styles.resultImage} />
                   )}

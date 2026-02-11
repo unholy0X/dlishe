@@ -27,16 +27,25 @@ export async function deletePantryItem({ getToken, itemId }) {
 }
 
 /**
- * Scan an image with AI to detect pantry items
+ * Scan image(s) with AI to detect pantry items
  * @param {Object} options
  * @param {Function} options.getToken - Clerk getToken function
- * @param {string} options.imageBase64 - Base64-encoded image data
- * @param {string} options.mimeType - MIME type (image/jpeg, image/png, etc.)
+ * @param {Array} options.images - [{base64, mimeType}]
  * @param {boolean} [options.autoAdd=true] - Auto-add high-confidence items to pantry
  */
-export async function scanPantryImage({ getToken, imageBase64, mimeType, autoAdd = true }) {
+export async function scanPantryImage({ getToken, images, autoAdd = true }) {
+    const payload = {
+        images: images.map((img) => ({
+            base64: img.base64,
+            mimeType: img.mimeType || "image/jpeg",
+        })),
+        // Legacy fields for older backend versions
+        imageBase64: images[0]?.base64,
+        mimeType: images[0]?.mimeType || "image/jpeg",
+        autoAdd,
+    };
     return authFetch("/pantry/scan", getToken, {
         method: "POST",
-        body: JSON.stringify({ imageBase64, mimeType, autoAdd }),
+        body: JSON.stringify(payload),
     });
 }

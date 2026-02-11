@@ -12,17 +12,24 @@ export async function extractRecipeFromUrl({ url, getToken }) {
   });
 }
 
-export async function extractRecipeFromImage({ imageBase64, mimeType, getToken }) {
+export async function extractRecipeFromImage({ images, getToken }) {
+  // Build request with new images[] array + legacy fields for backward compat
+  const payload = {
+    type: "image",
+    images: images.map((img) => ({
+      base64: img.base64,
+      mimeType: img.mimeType || "image/jpeg",
+    })),
+    // Legacy fields for older backend versions
+    imageBase64: images[0]?.base64,
+    mimeType: images[0]?.mimeType || "image/jpeg",
+    saveAuto: true,
+    detailLevel: "detailed",
+    language: "auto",
+  };
   return authFetch("/recipes/extract", getToken, {
     method: "POST",
-    body: JSON.stringify({
-      type: "image",
-      imageBase64,
-      mimeType: mimeType || "image/jpeg",
-      saveAuto: true,
-      detailLevel: "detailed",
-      language: "auto",
-    }),
+    body: JSON.stringify(payload),
   });
 }
 

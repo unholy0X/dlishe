@@ -162,8 +162,8 @@ export const useExtractStore = create((set, get) => ({
     }
   },
 
-  startImageExtraction: async ({ imageBase64, mimeType, getToken }) => {
-    if (!imageBase64) {
+  startImageExtraction: async ({ images, getToken }) => {
+    if (!images || images.length === 0) {
       set({ error: "No photo selected." });
       return;
     }
@@ -181,7 +181,7 @@ export const useExtractStore = create((set, get) => ({
     });
 
     try {
-      const job = await extractRecipeFromImage({ imageBase64, mimeType, getToken });
+      const job = await extractRecipeFromImage({ images, getToken });
       if (extractionId !== currentExtractionId) return;
       const jobId = job.jobId || job.jobID || job.id;
 

@@ -6,11 +6,11 @@ import {
   ScrollView,
   RefreshControl,
   Pressable,
-  Image,
   ActivityIndicator,
   Dimensions,
   Alert,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
@@ -423,7 +423,7 @@ export default function HomeScreen() {
                     }}
                   >
                     {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} />
+                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
                     ) : (
                       <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
                     )}
@@ -505,7 +505,7 @@ export default function HomeScreen() {
                     }}
                   >
                     {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} />
+                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
                     ) : (
                       <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
                     )}
@@ -583,7 +583,7 @@ export default function HomeScreen() {
                     }}
                   >
                     {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} />
+                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
                     ) : (
                       <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
                     )}
@@ -669,7 +669,7 @@ export default function HomeScreen() {
                     }}
                   >
                     {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} />
+                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
                     ) : (
                       <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
                     )}
@@ -788,7 +788,7 @@ export default function HomeScreen() {
                     }}
                   >
                     {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} />
+                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
                     ) : (
                       <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
                     )}

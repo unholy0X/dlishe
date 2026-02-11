@@ -61,10 +61,10 @@ export const usePantryStore = create((set, get) => ({
         }
     },
 
-    scanImage: async ({ getToken, imageBase64, mimeType }) => {
+    scanImage: async ({ getToken, images }) => {
         set({ isScanning: true, error: "", scanResult: null });
         try {
-            const result = await scanPantryImage({ getToken, imageBase64, mimeType, autoAdd: true });
+            const result = await scanPantryImage({ getToken, images, autoAdd: true });
             set({ scanResult: result, isScanning: false });
             // Refresh pantry to show newly added items
             await get().loadPantry({ getToken });

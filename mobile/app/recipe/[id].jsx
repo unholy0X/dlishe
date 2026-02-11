@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  Image,
   Pressable,
   ActivityIndicator,
   Alert,
@@ -13,6 +12,7 @@ import {
   StatusBar,
   Linking,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
@@ -426,6 +426,7 @@ export default function RecipeDetailScreen() {
               <Image
                 source={{ uri: recipe.thumbnailUrl }}
                 style={s.heroImage}
+                transition={200}
               />
               {/* <View style={s.heroGradient} /> */}
               <LinearGradient

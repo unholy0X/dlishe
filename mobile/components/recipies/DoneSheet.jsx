@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, Image, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { Image } from "expo-image";
 import RecipePlaceholder from "../RecipePlaceholder";
 
 const C = {
@@ -49,7 +50,7 @@ export default function DoneSheet({
         <View style={s.heroCard}>
           <View style={s.imageWrap}>
             {imageUri ? (
-              <Image source={{ uri: imageUri }} style={s.image} />
+              <Image source={{ uri: imageUri }} style={s.image} transition={200} />
             ) : (
               <RecipePlaceholder title={title} variant="hero" style={s.image} />
             )}

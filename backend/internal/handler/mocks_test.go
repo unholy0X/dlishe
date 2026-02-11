@@ -417,6 +417,15 @@ func (m *mockRecipeExtractor) ExtractFromImage(ctx context.Context, imageData []
 	}
 	return m.ExtractFromImageFunc(ctx, imageData, mimeType)
 }
+func (m *mockRecipeExtractor) ExtractFromImages(ctx context.Context, imageDataList [][]byte, mimeTypes []string) (*ai.ExtractionResult, error) {
+	if m.ExtractFromImageFunc == nil {
+		return &ai.ExtractionResult{}, nil
+	}
+	if len(imageDataList) > 0 {
+		return m.ExtractFromImageFunc(ctx, imageDataList[0], mimeTypes[0])
+	}
+	return &ai.ExtractionResult{}, nil
+}
 func (m *mockRecipeExtractor) ValidateURL(url string) error {
 	if m.ValidateURLFunc == nil {
 		return nil

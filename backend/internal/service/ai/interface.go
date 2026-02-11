@@ -123,6 +123,9 @@ type RecipeExtractor interface {
 	// ExtractFromImage extracts a recipe from an image (cookbook photo, screenshot)
 	ExtractFromImage(ctx context.Context, imageData []byte, mimeType string) (*ExtractionResult, error)
 
+	// ExtractFromImages extracts a recipe from multiple images (multi-page cookbook spreads)
+	ExtractFromImages(ctx context.Context, imageDataList [][]byte, mimeTypes []string) (*ExtractionResult, error)
+
 	// RefineRecipe reviews and improves an extracted recipe (deduplication, standardization, etc.)
 	RefineRecipe(ctx context.Context, rawRecipe *ExtractionResult) (*ExtractionResult, error)
 
@@ -143,6 +146,9 @@ type ShoppingListAnalyzer interface {
 type PantryScanner interface {
 	// ScanPantry detects pantry items from an image (photo of fridge, pantry shelf, etc.)
 	ScanPantry(ctx context.Context, imageData []byte, mimeType string) (*PantryScanResult, error)
+
+	// ScanPantryMulti detects pantry items from multiple images
+	ScanPantryMulti(ctx context.Context, imageDataList [][]byte, mimeTypes []string) (*PantryScanResult, error)
 }
 
 // PantryScanResult contains the detected pantry items from an image

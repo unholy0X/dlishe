@@ -36,22 +36,28 @@ export const useSubscriptionStore = create((set, get) => ({
   },
 
   purchasePackage: async ({ pkg, getToken }) => {
-    const result = await Purchases.purchasePackage(pkg);
-    if (result.customerInfo.entitlements.active["pro"]) {
-      // Sync purchase with backend
-      await refreshSubscription({ getToken });
-      await get().loadSubscription({ getToken });
+    try {
+      const result = await Purchases.purchasePackage(pkg);
+      if (result?.customerInfo?.entitlements?.active?.["pro"]) {
+        await refreshSubscription({ getToken });
+        await get().loadSubscription({ getToken });
+      }
+      return result;
+    } catch (err) {
+      if (err.userCancelled) return null;
+      throw err;
     }
-    return result;
   },
 
   restorePurchases: async ({ getToken }) => {
-    const customerInfo = await Purchases.restorePurchases();
-    // Sync with backend regardless of result
-    await refreshSubscription({ getToken });
-    await get().loadSubscription({ getToken });
-    return customerInfo;
+    try {
+      const customerInfo = await Purchases.restorePurchases();
+      await refreshSubscription({ getToken });
+      await get().loadSubscription({ getToken });
+      return customerInfo;
+    } catch (err) {
+      if (err.userCancelled) return null;
+      throw err;
+    }
   },
-
-  isPro: () => get().entitlement === "pro",
 }));

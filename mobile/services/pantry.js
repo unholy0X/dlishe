@@ -47,5 +47,6 @@ export async function scanPantryImage({ getToken, images, autoAdd = true }) {
     return authFetch("/pantry/scan", getToken, {
         method: "POST",
         body: JSON.stringify(payload),
+        timeout: 120000,
     });
 }

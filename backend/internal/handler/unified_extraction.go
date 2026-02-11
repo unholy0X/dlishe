@@ -193,14 +193,20 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		if sub != nil {
 			entitlement = sub.Entitlement
 		}
-		limits := model.TierLimits[entitlement]
+		limits, ok := model.TierLimits[entitlement]
+		if !ok {
+			limits = model.TierLimits["free"]
+		}
 		if limits.Extractions < 0 {
 			// Unlimited — skip check
 		} else {
 			count, err := h.jobRepo.CountUsedThisMonth(r.Context(), user.ID)
 			if err != nil {
-				h.logger.Warn("Failed to count monthly extractions", "error", err)
-			} else if count >= limits.Extractions {
+				h.logger.Error("Failed to count monthly extractions", "error", err)
+				response.InternalError(w)
+				return
+			}
+			if count >= limits.Extractions {
 				response.ErrorJSON(w, http.StatusTooManyRequests, "QUOTA_EXCEEDED",
 					fmt.Sprintf("Monthly extraction limit reached (%d/%d). Upgrade to Pro for unlimited extractions.",
 						count, limits.Extractions), nil)
@@ -414,8 +420,8 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Double-Click Prevention: check if this user already has an active job for this URL.
-	// Uses a deterministic idempotency key so concurrent requests match.
+	// Duplicate Prevention: check if this user already has an active OR completed job for this content.
+	// Uses a deterministic idempotency key so concurrent/repeat requests match.
 	var idempotencyKey string
 	if jobType == model.JobTypeVideo || jobType == model.JobTypeURL {
 		idempotencyKey = fmt.Sprintf("%s|%s", user.ID.String(), sourceURL)
@@ -427,6 +433,15 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 				existingJob.Status == model.JobStatusExtracting {
 
 				h.logger.Info("Returning existing active job (idempotency hit)", "jobID", existingJob.ID)
+				response.Created(w, map[string]string{
+					"jobId":  existingJob.ID.String(),
+					"status": string(existingJob.Status),
+				})
+				return
+			}
+			// Completed job with result — skip re-extraction (unless force refresh)
+			if !forceRefresh && existingJob.Status == model.JobStatusCompleted && existingJob.ResultRecipeID != nil {
+				h.logger.Info("Returning existing completed job (duplicate prevention)", "jobID", existingJob.ID)
 				response.Created(w, map[string]string{
 					"jobId":  existingJob.ID.String(),
 					"status": string(existingJob.Status),
@@ -472,9 +487,20 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 				})
 				return
 			}
+			// Completed job with result — skip re-extraction (unless force refresh)
+			if !forceRefresh && existingJob.Status == model.JobStatusCompleted && existingJob.ResultRecipeID != nil {
+				h.logger.Info("Returning existing completed job (image duplicate prevention)", "jobID", existingJob.ID)
+				response.Created(w, map[string]string{
+					"jobId":  existingJob.ID.String(),
+					"status": string(existingJob.Status),
+				})
+				return
+			}
 		}
 
 		job.IdempotencyKey = &imgIdempotencyKey
+		// Store content hash as source URL so recipe-level dedup (GetBySourceURL) also catches re-scans
+		job.SourceURL = "image-hash://" + hashStr
 	}
 
 	// For image jobs, save image(s) to temp file(s)
@@ -1551,8 +1577,10 @@ func (h *UnifiedExtractionHandler) DeleteJob(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Cancel if active (just in case, though usually users delete finished jobs)
-	if cancel, ok := h.activeJobs.Load(jobID); ok {
-		cancel.(context.CancelFunc)()
+	if cancelFn, ok := h.activeJobs.Load(jobID); ok {
+		if cancel, ok := cancelFn.(context.CancelFunc); ok {
+			cancel()
+		}
 		h.activeJobs.Delete(jobID)
 	}
 

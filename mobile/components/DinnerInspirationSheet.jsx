@@ -26,7 +26,7 @@ function buildMeta(recipe) {
 }
 
 export default function DinnerInspirationSheet({
-  recipes,
+  recipes = [],
   onSave,
   onCook,
   savedIds,

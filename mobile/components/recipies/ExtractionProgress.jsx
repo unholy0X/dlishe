@@ -142,7 +142,7 @@ export default function ExtractionProgress({ progress = 0 }) {
       </View>
 
       <Text style={styles.title}>Cooking up your recipe</Text>
-      <Text style={styles.subtitle}>This usually takes about a minute</Text>
+      <Text style={styles.subtitle}>This usually takes 2–3 minutes</Text>
 
       {/* Progress bar */}
       <View style={styles.progressBarTrack}>

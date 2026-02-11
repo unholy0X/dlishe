@@ -28,7 +28,6 @@ export default function PantryEmptyState({
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    marginTop: 44,
   },
   image: {
     width: 150,

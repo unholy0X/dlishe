@@ -30,6 +30,7 @@ export async function extractRecipeFromImage({ images, getToken }) {
   return authFetch("/recipes/extract", getToken, {
     method: "POST",
     body: JSON.stringify(payload),
+    timeout: 120000,
   });
 }
 

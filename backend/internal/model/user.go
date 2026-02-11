@@ -94,8 +94,8 @@ type QuotaLimits struct {
 // RevenueCat entitlement ID: "pro"
 var TierLimits = map[string]QuotaLimits{
 	"free": {
-		Extractions:      10,
-		PantryScans:      5,
+		Extractions:      20,
+		PantryScans:      25,
 		MaxRecipes:       25,
 		MaxShoppingLists: -1, // Unlimited
 		MultiDeviceSync:  false,

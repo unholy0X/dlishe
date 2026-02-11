@@ -36,8 +36,10 @@ export default function BottomSheetModal({
       onPanResponderGrant: () => {
         isDragging.current = true;
         setScrollEnabled(false);
-        panY.setOffset(panY._value);
-        panY.setValue(0);
+        panY.stopAnimation((value) => {
+          panY.setOffset(value);
+          panY.setValue(0);
+        });
       },
       onPanResponderMove: (_, gs) => {
         if (gs.dy > 0) panY.setValue(gs.dy);

@@ -12,9 +12,9 @@ import BottomSheetModal from "../BottomSheetModal";
 import { useSubscriptionStore } from "../../store";
 
 const REASON_MESSAGES = {
-  extraction_limit: "You've used all your free extractions this month",
-  scan_limit: "You've used all your free pantry scans this month",
-  recipe_limit: "You've reached the saved recipe limit",
+  extraction_limit: "You've used all 20 free extractions this month",
+  scan_limit: "You've used all 25 free pantry scans this month",
+  recipe_limit: "You've reached the 25 saved recipe limit",
 };
 
 export default function PaywallSheet({ visible, onClose, reason }) {
@@ -93,8 +93,8 @@ export default function PaywallSheet({ visible, onClose, reason }) {
             </View>
           )}
         </View>
-        <Text style={styles.tierFeature}>10 recipe extractions/mo</Text>
-        <Text style={styles.tierFeature}>5 pantry scans/mo</Text>
+        <Text style={styles.tierFeature}>20 recipe extractions/mo</Text>
+        <Text style={styles.tierFeature}>25 pantry scans/mo</Text>
         <Text style={styles.tierFeature}>25 saved recipes</Text>
       </View>
 
@@ -121,7 +121,7 @@ export default function PaywallSheet({ visible, onClose, reason }) {
         <>
           {/* Monthly button */}
           <Pressable
-            style={styles.purchaseButton}
+            style={[styles.purchaseButton, (!!purchasing || restoring) && { opacity: 0.5 }]}
             onPress={() => handlePurchase(monthlyPkg, "monthly")}
             disabled={!!purchasing || restoring}
           >
@@ -134,7 +134,7 @@ export default function PaywallSheet({ visible, onClose, reason }) {
 
           {/* Annual button */}
           <Pressable
-            style={[styles.purchaseButton, styles.annualButton]}
+            style={[styles.purchaseButton, styles.annualButton, (!!purchasing || restoring) && { opacity: 0.5 }]}
             onPress={() => handlePurchase(annualPkg, "annual")}
             disabled={!!purchasing || restoring}
           >

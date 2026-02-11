@@ -353,9 +353,9 @@ export default function ShoppingScreen() {
             <View style={styles.emptyIconWrap}>
               <ShoppingIcon width={32} height={28} color="#6b6b6b" />
             </View>
-            <Text style={styles.emptyTitle}>No shopping lists yet</Text>
+            <Text style={styles.emptyTitle}>A Fresh Start</Text>
             <Text style={styles.emptySubtitle}>
-              Create your first list to start organizing{"\n"}your grocery shopping
+              Create a list and never forget an{"\n"}ingredient at the store again
             </Text>
             <Pressable style={styles.emptyBtn} onPress={() => setSheetOpen(true)}>
               <Text style={styles.emptyBtnText}>Create List</Text>

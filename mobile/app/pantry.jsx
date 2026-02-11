@@ -192,7 +192,7 @@ export default function PantryScreen() {
 
   const handleSheetClose = () => {
     setSheetOpen(false);
-    loadPantry({ getToken });
+    loadPantry({ getToken }).catch(() => {});
   };
 
   const handleClearPantry = useCallback(() => {
@@ -227,12 +227,7 @@ export default function PantryScreen() {
       <SwipeNavigator>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         {isEmpty ? (
-          <View style={styles.paddedContainer}>
-            <PantryHeader
-              subtitle="No items yet"
-              onPressMore={() => setMenuOpen(true)}
-              onPressAdd={() => setSheetOpen(true)}
-            />
+          <View style={styles.emptyWrapper}>
             <PantryEmptyState onPressAdd={() => setSheetOpen(true)} />
           </View>
         ) : (
@@ -270,7 +265,7 @@ export default function PantryScreen() {
                   <CategoryFolder
                     key={group.category}
                     category={group.category}
-                    items={group.items}
+                    items={group.items || []}
                     isExpanded={expandedCategories[group.category]}
                     onToggle={() => toggleCategory(group.category)}
                     onDeleteItem={handleDelete}
@@ -348,6 +343,12 @@ const styles = StyleSheet.create({
   },
   paddedContainer: {
     paddingHorizontal: 20,
+  },
+  emptyWrapper: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
   },
   scrollContent: {
     paddingBottom: 140,

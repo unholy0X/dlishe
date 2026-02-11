@@ -550,7 +550,7 @@ export default function RecipeDetailScreen() {
                               itemCount: addedCount,
                               checkedCount: 0,
                             },
-                            ...state.lists,
+                            ...(state.lists || []),
                           ],
                         }));
                         Alert.alert(
@@ -637,6 +637,7 @@ export default function RecipeDetailScreen() {
           <View style={s.actionsZone}>
             {isOwn ? (
               <>
+                {sortedSteps.length > 0 && (
                 <Pressable
                   style={s.primaryBtn}
                   onPress={() => {
@@ -650,6 +651,7 @@ export default function RecipeDetailScreen() {
                     <PlayIcon size={12} /> Start cooking
                   </Text>
                 </Pressable>
+                )}
                 <Pressable
                   style={s.deleteBtn}
                   onPress={handleDelete}

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
+  FlatList,
   Pressable,
   ActivityIndicator,
   Dimensions,
@@ -39,8 +40,7 @@ import { filterByMealCategory, CATEGORIES } from "../utils/mealCategories";
 const { width: SCREEN_W } = Dimensions.get("window");
 const MASONRY_GAP = 10;
 const MASONRY_COL = (SCREEN_W - 40 - MASONRY_GAP) / 2;
-const MASONRY_TALL = MASONRY_COL * 1.45;
-const MASONRY_SHORT = MASONRY_COL * 1.1;
+const MASONRY_HEIGHT = MASONRY_COL * 1.25;
 
 function buildMeta(recipe) {
   const parts = [];
@@ -58,6 +58,69 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+const recipeKeyExtractor = (item) => item.id;
+
+function RecipeGrid({ data, onPressRecipe, savedPublicIds, savingIds, onSave, renderBadge, scrollProps }) {
+  const renderItem = useCallback(({ item: recipe }) => {
+    const imageSource = recipe.thumbnailUrl ? { uri: recipe.thumbnailUrl } : null;
+    const isSaved = savedPublicIds?.has(recipe.id);
+    const isSaving = savingIds?.has(recipe.id);
+
+    return (
+      <Pressable
+        style={styles.masonryCard}
+        onPress={() => onPressRecipe(recipe)}
+      >
+        <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
+        {imageSource ? (
+          <Image source={imageSource} style={styles.masonryImage} transition={200} recyclingKey={recipe.id} cachePolicy="memory-disk" />
+        ) : null}
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.6)"]}
+          style={styles.masonryGradient}
+        />
+        {renderBadge ? renderBadge(recipe) : null}
+        <Pressable
+          style={styles.favHeartBtn}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            if (onSave && !isSaved && !isSaving) onSave(recipe.id);
+          }}
+          hitSlop={10}
+        >
+          {isSaving ? (
+            <ActivityIndicator size="small" color="#E84057" />
+          ) : (
+            <HeartIcon width={18} height={18} color="#E84057" filled={isSaved} />
+          )}
+        </Pressable>
+        <View style={styles.masonryOverlay}>
+          <Text style={styles.masonryTitle} numberOfLines={2}>
+            {recipe.title}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }, [savedPublicIds, savingIds, onPressRecipe, onSave, renderBadge]);
+
+  return (
+    <FlatList
+      data={data}
+      renderItem={renderItem}
+      keyExtractor={recipeKeyExtractor}
+      numColumns={2}
+      columnWrapperStyle={styles.masonryRow}
+      showsVerticalScrollIndicator={false}
+      initialNumToRender={8}
+      maxToRenderPerBatch={8}
+      windowSize={5}
+      contentContainerStyle={styles.masonryListContent}
+      scrollEventThrottle={16}
+      {...scrollProps}
+    />
+  );
 }
 
 /** Tokenize a pantry item name into match tokens (words > 2 chars + full phrase) */
@@ -125,12 +188,23 @@ export default function HomeScreen() {
   const { groups: pantryGroups, loadPantry } = usePantryStore();
   const favoriteRecipes = userRecipes.filter((r) => r.isFavorite);
   const favoriteCount = favoriteRecipes.length;
+  const favoriteIds = useMemo(() => new Set(favoriteRecipes.map((r) => r.id)), [favoriteRecipes]);
 
   useEffect(() => {
     loadSuggested({ limit: 20 });
     loadFeatured({ limit: 30 });
     loadRecipes({ getToken });
   }, []);
+
+  // Prefetch suggested recipe thumbnails for smooth carousel
+  useEffect(() => {
+    const urls = suggested
+      .map((r) => r.thumbnailUrl)
+      .filter(Boolean);
+    if (urls.length > 0) {
+      Image.prefetch(urls);
+    }
+  }, [suggested]);
 
   // Refresh user recipes when navigating back to this screen
   useEffect(() => {
@@ -389,92 +463,73 @@ export default function HomeScreen() {
       <BottomSheetModal
         visible={isRecipesSheetOpen}
         onClose={() => setRecipesSheetOpen(false)}
+        customScroll
       >
-        <View style={styles.recipesSheet}>
-          <Text style={styles.recipesSheetTitle}>Suggested For You</Text>
-          <Text style={styles.recipesSheetSubtitle}>
-            {(allRecipes.length || suggested.length)} suggestion{(allRecipes.length || suggested.length) !== 1 ? "s" : ""}
-          </Text>
-
-          {isLoadingAll ? (
-            <View style={styles.recipesSheetLoading}>
-              <ActivityIndicator size="large" color="#385225" />
-            </View>
-          ) : (
-            <View style={styles.masonryGrid}>
-              {(allRecipes.length > 0 ? allRecipes : suggested).map((recipe, index) => {
-                const imageSource = recipe.thumbnailUrl
-                  ? { uri: recipe.thumbnailUrl }
-                  : null;
-                const isTall = index % 3 === 0;
-                const isSaved = savedPublicIds.has(recipe.id);
-                const isSaving = savingIds.has(recipe.id);
-
-                return (
-                  <Pressable
-                    key={recipe.id}
-                    style={[
-                      styles.masonryCard,
-                      { height: isTall ? MASONRY_TALL : MASONRY_SHORT },
-                    ]}
-                    onPress={() => {
-                      setRecipesSheetOpen(false);
-                      router.push(`/recipe/${recipe.id}`);
-                    }}
-                  >
-                    {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
-                    ) : (
-                      <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
-                    )}
-                    <LinearGradient
-                      colors={["transparent", "rgba(0,0,0,0.6)"]}
-                      style={styles.masonryGradient}
-                    />
-                    <Pressable
-                      style={styles.favHeartBtn}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        if (!isSaved && !isSaving) {
-                          handleSaveAndFavorite(recipe.id);
-                        }
-                      }}
-                      hitSlop={10}
-                    >
-                      {isSaving ? (
-                        <ActivityIndicator size="small" color="#E84057" />
-                      ) : (
-                        <HeartIcon width={18} height={18} color="#E84057" filled={isSaved} />
-                      )}
-                    </Pressable>
-                    <View style={styles.masonryOverlay}>
-                      <Text style={styles.masonryTitle} numberOfLines={2}>
-                        {recipe.title}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-        </View>
+        {({ onScroll, scrollEnabled }) => (
+          <>
+            <Text style={styles.recipesSheetTitle}>Suggested For You</Text>
+            <Text style={styles.recipesSheetSubtitle}>
+              {(allRecipes.length || suggested.length)} suggestion{(allRecipes.length || suggested.length) !== 1 ? "s" : ""}
+            </Text>
+            {isLoadingAll ? (
+              <View style={styles.recipesSheetLoading}>
+                <ActivityIndicator size="large" color="#385225" />
+              </View>
+            ) : (
+              <RecipeGrid
+                data={allRecipes.length > 0 ? allRecipes : suggested}
+                savedPublicIds={savedPublicIds}
+                savingIds={savingIds}
+                onSave={handleSaveAndFavorite}
+                onPressRecipe={(recipe) => {
+                  setRecipesSheetOpen(false);
+                  router.push(`/recipe/${recipe.id}`);
+                }}
+                scrollProps={{ onScroll, scrollEnabled, scrollEventThrottle: 16 }}
+              />
+            )}
+          </>
+        )}
       </BottomSheetModal>
 
       {/* Favorites Sheet */}
       <BottomSheetModal
         visible={isFavoritesOpen}
         onClose={() => setFavoritesOpen(false)}
+        customScroll={favoriteCount > 0}
       >
-        <View style={styles.recipesSheet}>
-          <View style={styles.favoritesHeader}>
-            <HeartIcon width={22} height={22} color="#E84057" filled />
-            <Text style={styles.favoritesTitle}>My Favorites</Text>
-          </View>
-          <Text style={styles.recipesSheetSubtitle}>
-            {favoriteCount} recipe{favoriteCount !== 1 ? "s" : ""} saved
-          </Text>
-
-          {favoriteCount === 0 ? (
+        {favoriteCount > 0 ? (
+          ({ onScroll, scrollEnabled }) => (
+            <>
+              <View style={styles.favoritesHeader}>
+                <HeartIcon width={22} height={22} color="#E84057" filled />
+                <Text style={styles.favoritesTitle}>My Favorites</Text>
+              </View>
+              <Text style={styles.recipesSheetSubtitle}>
+                {favoriteCount} recipe{favoriteCount !== 1 ? "s" : ""} saved
+              </Text>
+              <RecipeGrid
+                data={favoriteRecipes}
+                savedPublicIds={favoriteIds}
+                savingIds={savingIds}
+                onSave={(id) => toggleFavorite({ recipeId: id, getToken }).catch(() => {})}
+                onPressRecipe={(recipe) => {
+                  setFavoritesOpen(false);
+                  router.push(`/recipe/${recipe.id}`);
+                }}
+                scrollProps={{ onScroll, scrollEnabled, scrollEventThrottle: 16 }}
+              />
+            </>
+          )
+        ) : (
+          <View style={styles.recipesSheet}>
+            <View style={styles.favoritesHeader}>
+              <HeartIcon width={22} height={22} color="#E84057" filled />
+              <Text style={styles.favoritesTitle}>My Favorites</Text>
+            </View>
+            <Text style={styles.recipesSheetSubtitle}>
+              {favoriteCount} recipe{favoriteCount !== 1 ? "s" : ""} saved
+            </Text>
             <View style={styles.emptyFavorites}>
               <View style={styles.emptyHeartCircle}>
                 <HeartIcon width={32} height={32} color="#F9BABA" />
@@ -484,226 +539,94 @@ export default function HomeScreen() {
                 Tap the heart on any recipe to save it here
               </Text>
             </View>
-          ) : (
-            <View style={styles.masonryGrid}>
-              {favoriteRecipes.map((recipe, index) => {
-                const imageSource = recipe.thumbnailUrl
-                  ? { uri: recipe.thumbnailUrl }
-                  : null;
-                const isTall = index % 3 === 0;
-
-                return (
-                  <Pressable
-                    key={recipe.id}
-                    style={[
-                      styles.masonryCard,
-                      { height: isTall ? MASONRY_TALL : MASONRY_SHORT },
-                    ]}
-                    onPress={() => {
-                      setFavoritesOpen(false);
-                      router.push(`/recipe/${recipe.id}`);
-                    }}
-                  >
-                    {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
-                    ) : (
-                      <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
-                    )}
-                    <LinearGradient
-                      colors={["transparent", "rgba(0,0,0,0.6)"]}
-                      style={styles.masonryGradient}
-                    />
-                    <Pressable
-                      style={styles.favHeartBtn}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        toggleFavorite({ recipeId: recipe.id, getToken }).catch(() => {});
-                      }}
-                      hitSlop={10}
-                    >
-                      <HeartIcon width={18} height={18} color="#E84057" filled />
-                    </Pressable>
-                    <View style={styles.masonryOverlay}>
-                      <Text style={styles.masonryTitle} numberOfLines={2}>
-                        {recipe.title}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-        </View>
+          </View>
+        )}
       </BottomSheetModal>
 
       {/* Recommendations Sheet */}
       <BottomSheetModal
         visible={recoSheetOpen}
         onClose={() => setRecoSheetOpen(false)}
+        customScroll
       >
-        <View style={styles.recipesSheet}>
-          <Text style={styles.recipesSheetTitle}>
-            {recoFilter === "high-protein" ? "High Protein" : "Quick Meals"}
-          </Text>
-          <Text style={styles.recipesSheetSubtitle}>
-            {isLoadingAll ? "Loading..." : `${recoResults.length} recipe${recoResults.length !== 1 ? "s" : ""}`}
-          </Text>
-
-          {isLoadingAll ? (
-            <View style={styles.recipesSheetLoading}>
-              <ActivityIndicator size="large" color="#385225" />
-            </View>
-          ) : recoResults.length === 0 ? (
-            <View style={styles.emptyFavorites}>
-              <Text style={styles.emptyTitle}>No recipes found</Text>
-              <Text style={styles.emptySubtitle}>
-                We couldn't find any recipes for this category right now
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.masonryGrid}>
-              {recoResults.map((recipe, index) => {
-                const imageSource = recipe.thumbnailUrl
-                  ? { uri: recipe.thumbnailUrl }
-                  : null;
-                const isTall = index % 3 === 0;
-                const isSaved = savedPublicIds.has(recipe.id);
-                const isSaving = savingIds.has(recipe.id);
-
-                return (
-                  <Pressable
-                    key={recipe.id}
-                    style={[
-                      styles.masonryCard,
-                      { height: isTall ? MASONRY_TALL : MASONRY_SHORT },
-                    ]}
-                    onPress={() => {
-                      setRecoSheetOpen(false);
-                      router.push(`/recipe/${recipe.id}`);
-                    }}
-                  >
-                    {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
-                    ) : (
-                      <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
-                    )}
-                    <LinearGradient
-                      colors={["transparent", "rgba(0,0,0,0.6)"]}
-                      style={styles.masonryGradient}
-                    />
-                    <Pressable
-                      style={styles.favHeartBtn}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        if (!isSaved && !isSaving) {
-                          handleSaveAndFavorite(recipe.id);
-                        }
-                      }}
-                      hitSlop={10}
-                    >
-                      {isSaving ? (
-                        <ActivityIndicator size="small" color="#E84057" />
-                      ) : (
-                        <HeartIcon width={18} height={18} color="#E84057" filled={isSaved} />
-                      )}
-                    </Pressable>
-                    <View style={styles.masonryOverlay}>
-                      <Text style={styles.masonryTitle} numberOfLines={2}>
-                        {recipe.title}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-        </View>
+        {({ onScroll, scrollEnabled }) => (
+          <>
+            <Text style={styles.recipesSheetTitle}>
+              {recoFilter === "high-protein" ? "High Protein" : "Quick Meals"}
+            </Text>
+            <Text style={styles.recipesSheetSubtitle}>
+              {isLoadingAll ? "Loading..." : `${recoResults.length} recipe${recoResults.length !== 1 ? "s" : ""}`}
+            </Text>
+            {isLoadingAll ? (
+              <View style={styles.recipesSheetLoading}>
+                <ActivityIndicator size="large" color="#385225" />
+              </View>
+            ) : recoResults.length === 0 ? (
+              <View style={styles.emptyFavorites}>
+                <Text style={styles.emptyTitle}>No recipes found</Text>
+                <Text style={styles.emptySubtitle}>
+                  We couldn't find any recipes for this category right now
+                </Text>
+              </View>
+            ) : (
+              <RecipeGrid
+                data={recoResults}
+                savedPublicIds={savedPublicIds}
+                savingIds={savingIds}
+                onSave={handleSaveAndFavorite}
+                onPressRecipe={(recipe) => {
+                  setRecoSheetOpen(false);
+                  router.push(`/recipe/${recipe.id}`);
+                }}
+                scrollProps={{ onScroll, scrollEnabled, scrollEventThrottle: 16 }}
+              />
+            )}
+          </>
+        )}
       </BottomSheetModal>
 
       {/* Meal Category Sheet */}
       <BottomSheetModal
         visible={mealCatOpen}
         onClose={() => setMealCatOpen(false)}
+        customScroll
       >
-        <View style={styles.recipesSheet}>
-          <Text style={styles.recipesSheetTitle}>
-            {mealCatKey ? CATEGORIES[mealCatKey]?.label : ""}
-          </Text>
-          <Text style={styles.recipesSheetSubtitle}>
-            {isLoadingAll
-              ? "Loading..."
-              : `${mealCatShuffled.length} recipe${mealCatShuffled.length !== 1 ? "s" : ""}`}
-          </Text>
-
-          {isLoadingAll ? (
-            <View style={styles.recipesSheetLoading}>
-              <ActivityIndicator size="large" color="#385225" />
-            </View>
-          ) : mealCatShuffled.length === 0 ? (
-            <View style={styles.emptyFavorites}>
-              <Text style={styles.emptyTitle}>No recipes found</Text>
-              <Text style={styles.emptySubtitle}>
-                We couldn't find any recipes for this category right now
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.masonryGrid}>
-              {mealCatShuffled.map((recipe, index) => {
-                const imageSource = recipe.thumbnailUrl
-                  ? { uri: recipe.thumbnailUrl }
-                  : null;
-                const isTall = index % 3 === 0;
-                const isSaved = savedPublicIds.has(recipe.id);
-                const isSaving = savingIds.has(recipe.id);
-
-                return (
-                  <Pressable
-                    key={recipe.id}
-                    style={[
-                      styles.masonryCard,
-                      { height: isTall ? MASONRY_TALL : MASONRY_SHORT },
-                    ]}
-                    onPress={() => {
-                      setMealCatOpen(false);
-                      router.push(`/recipe/${recipe.id}`);
-                    }}
-                  >
-                    {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
-                    ) : (
-                      <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
-                    )}
-                    <LinearGradient
-                      colors={["transparent", "rgba(0,0,0,0.6)"]}
-                      style={styles.masonryGradient}
-                    />
-                    <Pressable
-                      style={styles.favHeartBtn}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        if (!isSaved && !isSaving) {
-                          handleSaveAndFavorite(recipe.id);
-                        }
-                      }}
-                      hitSlop={10}
-                    >
-                      {isSaving ? (
-                        <ActivityIndicator size="small" color="#E84057" />
-                      ) : (
-                        <HeartIcon width={18} height={18} color="#E84057" filled={isSaved} />
-                      )}
-                    </Pressable>
-                    <View style={styles.masonryOverlay}>
-                      <Text style={styles.masonryTitle} numberOfLines={2}>
-                        {recipe.title}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-        </View>
+        {({ onScroll, scrollEnabled }) => (
+          <>
+            <Text style={styles.recipesSheetTitle}>
+              {mealCatKey ? CATEGORIES[mealCatKey]?.label : ""}
+            </Text>
+            <Text style={styles.recipesSheetSubtitle}>
+              {isLoadingAll
+                ? "Loading..."
+                : `${mealCatShuffled.length} recipe${mealCatShuffled.length !== 1 ? "s" : ""}`}
+            </Text>
+            {isLoadingAll ? (
+              <View style={styles.recipesSheetLoading}>
+                <ActivityIndicator size="large" color="#385225" />
+              </View>
+            ) : mealCatShuffled.length === 0 ? (
+              <View style={styles.emptyFavorites}>
+                <Text style={styles.emptyTitle}>No recipes found</Text>
+                <Text style={styles.emptySubtitle}>
+                  We couldn't find any recipes for this category right now
+                </Text>
+              </View>
+            ) : (
+              <RecipeGrid
+                data={mealCatShuffled}
+                savedPublicIds={savedPublicIds}
+                savingIds={savingIds}
+                onSave={handleSaveAndFavorite}
+                onPressRecipe={(recipe) => {
+                  setMealCatOpen(false);
+                  router.push(`/recipe/${recipe.id}`);
+                }}
+                scrollProps={{ onScroll, scrollEnabled, scrollEventThrottle: 16 }}
+              />
+            )}
+          </>
+        )}
       </BottomSheetModal>
 
       {/* Dinner Inspiration Sheet */}
@@ -730,104 +653,64 @@ export default function HomeScreen() {
       <BottomSheetModal
         visible={pantryMatchOpen}
         onClose={() => setPantryMatchOpen(false)}
+        customScroll
       >
-        <View style={styles.recipesSheet}>
-          <View style={styles.favoritesHeader}>
-            <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
-              <SparkleBadgeIcon width={22} height={22} />
-            </View>
-            <Text style={styles.favoritesTitle}>What Can I Make?</Text>
-          </View>
-          <Text style={styles.recipesSheetSubtitle}>
-            {pantryMatchLoading
-              ? "Matching your pantry..."
-              : `${pantryMatchResults.length} recipe${pantryMatchResults.length !== 1 ? "s" : ""} matched`}
-          </Text>
-
-          {pantryMatchLoading ? (
-            <View style={styles.recipesSheetLoading}>
-              <ActivityIndicator size="large" color="#385225" />
-            </View>
-          ) : pantryGroups.flatMap((g) => g.items || []).length === 0 ? (
-            <View style={styles.emptyFavorites}>
-              <View style={[styles.emptyHeartCircle, { backgroundColor: "#EAF4E0" }]}>
-                <SparkleBadgeIcon width={32} height={32} />
+        {({ onScroll, scrollEnabled }) => (
+          <>
+            <View style={styles.favoritesHeader}>
+              <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
+                <SparkleBadgeIcon width={22} height={22} />
               </View>
-              <Text style={styles.emptyTitle}>Pantry is empty</Text>
-              <Text style={styles.emptySubtitle}>
-                Add items to your pantry to see what you can cook
-              </Text>
+              <Text style={styles.favoritesTitle}>What Can I Make?</Text>
             </View>
-          ) : pantryMatchResults.length === 0 ? (
-            <View style={styles.emptyFavorites}>
-              <Text style={styles.emptyTitle}>No matches found</Text>
-              <Text style={styles.emptySubtitle}>
-                Try adding more items to your pantry
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.masonryGrid}>
-              {pantryMatchResults.map((recipe, index) => {
-                const imageSource = recipe.thumbnailUrl
-                  ? { uri: recipe.thumbnailUrl }
-                  : null;
-                const isTall = index % 3 === 0;
-                const isSaved = savedPublicIds.has(recipe.id);
-                const isSaving = savingIds.has(recipe.id);
-
-                return (
-                  <Pressable
-                    key={recipe.id}
-                    style={[
-                      styles.masonryCard,
-                      { height: isTall ? MASONRY_TALL : MASONRY_SHORT },
-                    ]}
-                    onPress={() => {
-                      setPantryMatchOpen(false);
-                      router.push(`/recipe/${recipe.id}`);
-                    }}
-                  >
-                    {imageSource ? (
-                      <Image source={imageSource} style={styles.masonryImage} transition={200} />
-                    ) : (
-                      <RecipePlaceholder title={recipe.title} variant="large" style={styles.masonryImage} />
-                    )}
-                    <LinearGradient
-                      colors={["transparent", "rgba(0,0,0,0.6)"]}
-                      style={styles.masonryGradient}
-                    />
-                    <View style={styles.matchBadge}>
-                      <Text style={styles.matchBadgeText}>
-                        {recipe._matchCount} match{recipe._matchCount !== 1 ? "es" : ""}
-                      </Text>
-                    </View>
-                    <Pressable
-                      style={styles.favHeartBtn}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        if (!isSaved && !isSaving) {
-                          handleSaveAndFavorite(recipe.id);
-                        }
-                      }}
-                      hitSlop={10}
-                    >
-                      {isSaving ? (
-                        <ActivityIndicator size="small" color="#E84057" />
-                      ) : (
-                        <HeartIcon width={18} height={18} color="#E84057" filled={isSaved} />
-                      )}
-                    </Pressable>
-                    <View style={styles.masonryOverlay}>
-                      <Text style={styles.masonryTitle} numberOfLines={2}>
-                        {recipe.title}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-        </View>
+            <Text style={styles.recipesSheetSubtitle}>
+              {pantryMatchLoading
+                ? "Matching your pantry..."
+                : `${pantryMatchResults.length} recipe${pantryMatchResults.length !== 1 ? "s" : ""} matched`}
+            </Text>
+            {pantryMatchLoading ? (
+              <View style={styles.recipesSheetLoading}>
+                <ActivityIndicator size="large" color="#385225" />
+              </View>
+            ) : pantryGroups.flatMap((g) => g.items || []).length === 0 ? (
+              <View style={styles.emptyFavorites}>
+                <View style={[styles.emptyHeartCircle, { backgroundColor: "#EAF4E0" }]}>
+                  <SparkleBadgeIcon width={32} height={32} />
+                </View>
+                <Text style={styles.emptyTitle}>Pantry is empty</Text>
+                <Text style={styles.emptySubtitle}>
+                  Add items to your pantry to see what you can cook
+                </Text>
+              </View>
+            ) : pantryMatchResults.length === 0 ? (
+              <View style={styles.emptyFavorites}>
+                <Text style={styles.emptyTitle}>No matches found</Text>
+                <Text style={styles.emptySubtitle}>
+                  Try adding more items to your pantry
+                </Text>
+              </View>
+            ) : (
+              <RecipeGrid
+                data={pantryMatchResults}
+                savedPublicIds={savedPublicIds}
+                savingIds={savingIds}
+                onSave={handleSaveAndFavorite}
+                onPressRecipe={(recipe) => {
+                  setPantryMatchOpen(false);
+                  router.push(`/recipe/${recipe.id}`);
+                }}
+                renderBadge={(recipe) => (
+                  <View style={styles.matchBadge}>
+                    <Text style={styles.matchBadgeText}>
+                      {recipe._matchCount} match{recipe._matchCount !== 1 ? "es" : ""}
+                    </Text>
+                  </View>
+                )}
+                scrollProps={{ onScroll, scrollEnabled, scrollEventThrottle: 16 }}
+              />
+            )}
+          </>
+        )}
       </BottomSheetModal>
 
       {/* Search overlay */}
@@ -887,15 +770,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 40,
   },
-  // Masonry grid
-  masonryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  // Masonry grid (FlatList)
+  masonryRow: {
     gap: MASONRY_GAP,
+  },
+  masonryListContent: {
     paddingBottom: 10,
+    gap: MASONRY_GAP,
   },
   masonryCard: {
     width: MASONRY_COL,
+    height: MASONRY_HEIGHT,
     borderRadius: 20,
     overflow: "hidden",
   },

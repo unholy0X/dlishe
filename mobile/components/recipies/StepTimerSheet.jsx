@@ -1,16 +1,15 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
-import Svg, { Circle } from "react-native-svg";
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Pressable, Animated, Alert } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const C = {
-  bg: "#F4F5F7",
-  card: "#ffffff",
   text: "#111111",
   muted: "#B4B4B4",
   green: "#7FEF80",
   greenDark: "#385225",
   greenLight: "#DFF7C4",
-  border: "#EAEAEA",
 };
 
 const FONT = {
@@ -19,12 +18,16 @@ const FONT = {
   semibold: "Inter_600SemiBold",
 };
 
-function formatTimer(seconds) {
-  if (seconds == null || seconds < 0) return "00:00";
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
+const STEP_GRADIENTS = [
+  ["#FFF8F0", "#FFEEDD"], // warm cream
+  ["#F0FFF4", "#DDEFDD"], // soft sage
+  ["#F5F0FF", "#E8E0FF"], // lavender
+  ["#FFF9E6", "#FFF0CC"], // golden
+  ["#F0F7FF", "#DCE8FF"], // sky
+  ["#FFF0F3", "#FFDDE4"], // rose
+  ["#F0FFFA", "#D8F5EB"], // mint
+  ["#FFF5F0", "#FFE4D6"], // peach
+];
 
 function formatDurationHint(seconds) {
   if (!seconds || seconds <= 0) return null;
@@ -34,195 +37,168 @@ function formatDurationHint(seconds) {
   return s ? `${m}m ${s}s` : `${m} min`;
 }
 
-function getTimerButtonLabel(timerRunning, timerSeconds) {
-  if (timerRunning) return "Pause";
-  if (timerSeconds != null && timerSeconds > 0) return "Resume";
-  return "Start timer";
-}
-
 export default function StepTimerSheet({
   step,
   currentStep,
   totalSteps,
-  timerSeconds,
-  timerRunning,
-  onBack,
-  onStartTimer,
+  onQuit,
   onPrev,
   onNext,
 }) {
-  const hasDuration = step?.durationSeconds > 0;
+  const insets = useSafeAreaInsets();
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
+  const hasDuration = step?.durationSeconds > 0;
 
-  // Build chips
+  // Build info chips
   const chips = [];
-  if (step?.technique) chips.push(step.technique);
-  if (step?.temperature) chips.push(step.temperature);
+  if (step?.technique) chips.push({ label: step.technique, type: "default" });
+  if (step?.temperature) chips.push({ label: step.temperature, type: "default" });
+  if (hasDuration)
+    chips.push({
+      label: `\u23F1 ${formatDurationHint(step.durationSeconds)}`,
+      type: "duration",
+    });
 
-  // Timer display value: show initial duration before start, then live countdown
-  const displaySeconds = timerSeconds ?? (hasDuration ? step.durationSeconds : 0);
+  // Gradient for this step
+  const gradient = STEP_GRADIENTS[currentStep % STEP_GRADIENTS.length];
 
-  // Timer progress
-  const progress =
-    hasDuration && displaySeconds != null
-      ? displaySeconds / step.durationSeconds
-      : 1;
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(20);
+
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [currentStep]);
+
+  const handleQuit = () => {
+    Alert.alert(
+      "Leave cooking mode?",
+      "Your progress won\u2019t be saved.",
+      [
+        { text: "Keep cooking" },
+        { text: "Leave", style: "destructive", onPress: onQuit },
+      ],
+    );
+  };
 
   return (
-    <View style={s.container}>
-      {/* Top bar */}
-      <View style={s.topBar}>
-        <Pressable style={s.backBtn} onPress={onBack}>
-          <Text style={s.backIcon}>←</Text>
-          <Text style={s.backText}>Back</Text>
+    <LinearGradient colors={gradient} style={s.container}>
+      {/* ─── Top bar ─────────────────────────────── */}
+      <View style={[s.topBar, { paddingTop: insets.top + 10 }]}>
+        <Pressable onPress={handleQuit}>
+          <BlurView intensity={40} tint="light" style={s.quitPill}>
+            <Text style={s.quitText}>{"\u2715"}</Text>
+          </BlurView>
         </Pressable>
-        <View style={s.stepPill}>
+        <BlurView intensity={40} tint="light" style={s.stepPill}>
           <Text style={s.stepPillText}>
             Step {currentStep + 1} of {totalSteps}
           </Text>
-        </View>
+        </BlurView>
       </View>
 
-      {/* Center content */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          s.scrollContent,
-          !hasDuration && s.scrollContentCentered,
-        ]}
-        style={s.scrollView}
-      >
-        {/* Instruction card */}
-        <View style={s.instructionCard}>
-          <View style={s.stepBadge}>
-            <Text style={s.stepBadgeText}>{currentStep + 1}</Text>
-          </View>
+      {/* ─── Segmented progress bar ──────────────── */}
+      <View style={s.progressBar}>
+        {Array.from({ length: totalSteps }).map((_, i) => (
+          <View
+            key={i}
+            style={[
+              s.progressSegment,
+              i < currentStep && s.progressCompleted,
+              i === currentStep && s.progressCurrent,
+              i > currentStep && s.progressUpcoming,
+            ]}
+          />
+        ))}
+      </View>
 
+      {/* ─── Center content ──────────────────────── */}
+      <View style={s.centerContent}>
+        {/* Instruction + chips + tip */}
+        <Animated.View
+          style={[
+            s.instructionWrap,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           <Text style={s.instructionText}>{step?.instruction}</Text>
 
-          {(chips.length > 0 || hasDuration) ? (
+          {chips.length > 0 ? (
             <View style={s.chipsRow}>
               {chips.map((chip, i) => (
-                <View key={i} style={s.chip}>
-                  <Text style={s.chipText}>{chip}</Text>
-                </View>
-              ))}
-              {hasDuration ? (
-                <View style={s.chipDuration}>
-                  <Text style={s.chipDurationText}>
-                    ⏱ {formatDurationHint(step.durationSeconds)}
+                <View
+                  key={i}
+                  style={[
+                    s.chip,
+                    chip.type === "duration" && s.chipDuration,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      s.chipText,
+                      chip.type === "duration" && s.chipDurationText,
+                    ]}
+                  >
+                    {chip.label}
                   </Text>
                 </View>
-              ) : null}
+              ))}
             </View>
           ) : null}
 
           {step?.tip ? (
             <View style={s.tipBanner}>
+              <Text style={s.tipLabel}>{"\uD83D\uDCA1"} Tip</Text>
               <Text style={s.tipText}>{step.tip}</Text>
             </View>
           ) : null}
-        </View>
+        </Animated.View>
+      </View>
 
-        {/* Timer section — only if step has a real duration */}
-        {hasDuration ? (
-          <View style={s.timerCard}>
-            <View style={s.timerRow}>
-              <View style={s.timerRingWrap}>
-                <ProgressRing progress={progress} running={timerRunning} />
-                <Text style={s.timerRingTime}>{formatTimer(displaySeconds)}</Text>
-              </View>
-              <View style={s.timerInfo}>
-                <Text style={s.timerLabel}>
-                  {timerRunning
-                    ? "Counting down…"
-                    : timerSeconds === 0
-                    ? "Timer done!"
-                    : `${formatDurationHint(step.durationSeconds)} for this step`}
-                </Text>
-                <Pressable
-                  style={[
-                    s.timerBtn,
-                    timerRunning && s.timerBtnPause,
-                    timerSeconds === 0 && !timerRunning && s.timerBtnReset,
-                  ]}
-                  onPress={onStartTimer}
-                >
-                  <Text
-                    style={[
-                      s.timerBtnText,
-                      timerRunning && s.timerBtnTextPause,
-                    ]}
-                  >
-                    {getTimerButtonLabel(timerRunning, timerSeconds)}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        ) : null}
-      </ScrollView>
-
-      {/* Bottom nav — pinned */}
-      <View style={s.bottomNav}>
+      {/* ─── Bottom nav ──────────────────────────── */}
+      <View style={[s.bottomNav, { paddingBottom: insets.bottom + 8 }]}>
         <Pressable
           style={[s.navBtn, s.navBtnPrev, isFirstStep && s.navBtnDisabled]}
           onPress={onPrev}
           disabled={isFirstStep}
         >
-          <Text style={[s.navBtnPrevText, isFirstStep && s.navBtnTextDisabled]}>
-            ‹  Previous
+          <Text
+            style={[s.navBtnPrevText, isFirstStep && s.navBtnTextDisabled]}
+          >
+            {"\u2039"}  Previous
           </Text>
         </Pressable>
         <Pressable style={[s.navBtn, s.navBtnNext]} onPress={onNext}>
           <Text style={s.navBtnNextText}>
-            {isLastStep ? "Finish" : "Next  ›"}
+            {isLastStep ? "Finish" : "Next  \u203A"}
           </Text>
         </Pressable>
       </View>
-    </View>
-  );
-}
-
-function ProgressRing({ progress = 1, running }) {
-  const size = 80;
-  const strokeWidth = 6;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference * (1 - progress);
-
-  return (
-    <Svg width={size} height={size}>
-      <Circle
-        stroke="#EFEFEF"
-        fill="none"
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        strokeWidth={strokeWidth}
-      />
-      <Circle
-        stroke={running ? C.green : C.greenLight}
-        fill="none"
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        strokeWidth={strokeWidth}
-        strokeDasharray={`${circumference} ${circumference}`}
-        strokeDashoffset={dashOffset}
-        strokeLinecap="round"
-        rotation="-90"
-        origin={`${size / 2}, ${size / 2}`}
-      />
-    </Svg>
+    </LinearGradient>
   );
 }
 
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.bg,
   },
 
   // ─── Top bar ──────────────────────────────────
@@ -231,120 +207,121 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 10,
     paddingBottom: 4,
   },
-  backBtn: {
-    flexDirection: "row",
+  quitPill: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
-    backgroundColor: C.card,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    justifyContent: "center",
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.5)",
   },
-  backIcon: {
-    fontSize: 14,
-    color: C.muted,
-    marginRight: 6,
-  },
-  backText: {
-    fontSize: 13,
+  quitText: {
+    fontSize: 16,
     fontFamily: FONT.medium,
-    color: C.muted,
+    color: C.text,
   },
   stepPill: {
-    backgroundColor: C.card,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.5)",
   },
   stepPillText: {
     fontSize: 13,
     fontFamily: FONT.medium,
-    color: C.muted,
+    color: C.text,
     letterSpacing: -0.05,
   },
 
-  // ─── Scroll content ───────────────────────────
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
+  // ─── Segmented progress bar ───────────────────
+  progressBar: {
+    flexDirection: "row",
     paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 20,
+    gap: 4,
+    marginTop: 12,
   },
-  scrollContentCentered: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingTop: 0,
+  progressSegment: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+  },
+  progressCompleted: {
+    backgroundColor: C.green,
+  },
+  progressCurrent: {
+    backgroundColor: C.greenDark,
+  },
+  progressUpcoming: {
+    backgroundColor: "rgba(0,0,0,0.08)",
   },
 
-  // ─── Instruction card ─────────────────────────
-  instructionCard: {
-    backgroundColor: C.card,
-    borderRadius: 24,
-    padding: 24,
-  },
-  stepBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: C.greenLight,
-    alignItems: "center",
+  // ─── Center content ───────────────────────────
+  centerContent: {
+    flex: 1,
     justifyContent: "center",
-    marginBottom: 16,
+    alignItems: "center",
+    paddingHorizontal: 28,
   },
-  stepBadgeText: {
-    fontSize: 15,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
+  instructionWrap: {
+    alignItems: "center",
+    maxWidth: "100%",
   },
   instructionText: {
-    fontSize: 17,
+    fontSize: 20,
     fontFamily: FONT.regular,
     color: C.text,
-    lineHeight: 26,
-    letterSpacing: -0.1,
+    lineHeight: 30,
+    textAlign: "center",
+    letterSpacing: -0.2,
   },
   chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "center",
     gap: 8,
-    marginTop: 18,
+    marginTop: 20,
   },
   chip: {
-    backgroundColor: C.bg,
+    backgroundColor: "rgba(0,0,0,0.05)",
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
   chipText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONT.medium,
-    color: C.muted,
+    color: C.text,
     textTransform: "capitalize",
     letterSpacing: -0.05,
   },
   chipDuration: {
     backgroundColor: C.greenLight,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
   },
   chipDurationText: {
-    fontSize: 12,
-    fontFamily: FONT.semibold,
     color: C.greenDark,
-    letterSpacing: -0.05,
+    fontFamily: FONT.semibold,
+    textTransform: "none",
   },
+
+  // ─── Tip banner ───────────────────────────────
   tipBanner: {
-    backgroundColor: "#FFF9F0",
+    backgroundColor: "rgba(253,197,151,0.18)",
     borderLeftWidth: 3,
     borderLeftColor: "#FDC597",
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 24,
+    alignSelf: "stretch",
+  },
+  tipLabel: {
+    fontSize: 13,
+    fontFamily: FONT.semibold,
+    color: "#7A4A21",
+    marginBottom: 4,
   },
   tipText: {
     fontSize: 13,
@@ -354,68 +331,10 @@ const s = StyleSheet.create({
     lineHeight: 19,
   },
 
-  // ─── Timer card ───────────────────────────────
-  timerCard: {
-    backgroundColor: C.card,
-    borderRadius: 24,
-    padding: 20,
-    marginTop: 16,
-  },
-  timerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  timerRingWrap: {
-    width: 80,
-    height: 80,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 18,
-  },
-  timerRingTime: {
-    position: "absolute",
-    fontSize: 16,
-    fontFamily: FONT.semibold,
-    color: C.text,
-  },
-  timerInfo: {
-    flex: 1,
-  },
-  timerLabel: {
-    fontSize: 13,
-    fontFamily: FONT.regular,
-    color: C.muted,
-    marginBottom: 10,
-    lineHeight: 18,
-  },
-  timerBtn: {
-    backgroundColor: C.greenLight,
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    alignSelf: "flex-start",
-    alignItems: "center",
-  },
-  timerBtnPause: {
-    backgroundColor: "#FFF3E0",
-  },
-  timerBtnReset: {
-    backgroundColor: C.greenLight,
-  },
-  timerBtnText: {
-    fontSize: 14,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-  },
-  timerBtnTextPause: {
-    color: "#C17A4E",
-  },
-
   // ─── Bottom nav ───────────────────────────────
   bottomNav: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 8,
     flexDirection: "row",
     gap: 12,
   },
@@ -426,7 +345,7 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   navBtnPrev: {
-    backgroundColor: C.card,
+    backgroundColor: "rgba(255,255,255,0.7)",
   },
   navBtnNext: {
     backgroundColor: C.green,

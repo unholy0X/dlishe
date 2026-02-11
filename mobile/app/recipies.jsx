@@ -148,11 +148,17 @@ export default function RecipiesScreen() {
           onPress: async () => {
             setIsDeleting(true);
             try {
-              await Promise.allSettled(
+              const results = await Promise.allSettled(
                 [...selectedIds].map((id) => deleteRecipe({ recipeId: id, getToken }))
               );
+              const failCount = results.filter((r) => r.status === "rejected").length;
               exitSelectMode();
-              refresh({ getToken });
+              await refresh({ getToken });
+              if (failCount > 0) {
+                Alert.alert("Partial Failure", `Failed to delete ${failCount} recipe${failCount !== 1 ? "s" : ""}. Please try again.`);
+              }
+            } catch (err) {
+              Alert.alert("Error", err?.message || "Failed to delete recipes");
             } finally {
               setIsDeleting(false);
             }

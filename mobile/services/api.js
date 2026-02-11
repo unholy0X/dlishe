@@ -1,29 +1,44 @@
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL || "https://api.dlishe.com/api/v1";
 
-export async function apiFetch(path, { token, ...options } = {}) {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
+const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
-  if (!res.ok) {
-    let message = `Request failed (${res.status})`;
-    try {
-      const body = await res.json();
-      message = body?.error?.message || body?.message || message;
-    } catch {
-      // ignore JSON parse errors
+export async function apiFetch(path, { token, timeout = DEFAULT_TIMEOUT, ...options } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
+
+    if (!res.ok) {
+      let message = `Request failed (${res.status})`;
+      try {
+        const body = await res.json();
+        message = body?.error?.message || body?.message || message;
+      } catch {
+        // ignore JSON parse errors
+      }
+      throw new Error(message);
     }
-    throw new Error(message);
-  }
 
-  if (res.status === 204) return undefined;
-  return res.json();
+    if (res.status === 204) return undefined;
+    return res.json();
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("Request timed out. Please check your connection and try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**

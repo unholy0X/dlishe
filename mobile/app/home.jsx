@@ -517,7 +517,7 @@ export default function HomeScreen() {
                       style={styles.favHeartBtn}
                       onPress={(e) => {
                         e.stopPropagation?.();
-                        toggleFavorite({ recipeId: recipe.id, getToken });
+                        toggleFavorite({ recipeId: recipe.id, getToken }).catch(() => {});
                       }}
                       hitSlop={10}
                     >

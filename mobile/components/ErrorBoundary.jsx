@@ -1,16 +1,21 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Sentry from "@sentry/react-native";
+
+const MAX_RETRIES = 2;
 
 export default class ErrorBoundary extends React.Component {
-  state = { hasError: false };
+  state = { hasError: false, crashCount: 0 };
 
-  static getDerivedStateFromError() {
+  static getDerivedStateFromError(error) {
     return { hasError: true };
   }
 
   componentDidCatch(error, info) {
     console.error("ErrorBoundary caught:", error, info?.componentStack);
+    Sentry.captureException(error, { extra: { componentStack: info?.componentStack } });
+    this.setState((prev) => ({ crashCount: prev.crashCount + 1 }));
   }
 
   handleReload = () => {
@@ -19,6 +24,7 @@ export default class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
+      const canRetry = this.state.crashCount <= MAX_RETRIES;
       return (
         <View style={styles.screen}>
           <SafeAreaView style={styles.container}>
@@ -27,11 +33,15 @@ export default class ErrorBoundary extends React.Component {
             </View>
             <Text style={styles.title}>Something went wrong</Text>
             <Text style={styles.subtitle}>
-              The app ran into an unexpected error.{"\n"}Please try reloading.
+              {canRetry
+                ? "The app ran into an unexpected error.\nPlease try reloading."
+                : "The app keeps crashing.\nPlease close and reopen it."}
             </Text>
-            <Pressable style={styles.button} onPress={this.handleReload}>
-              <Text style={styles.buttonText}>Reload App</Text>
-            </Pressable>
+            {canRetry && (
+              <Pressable style={styles.button} onPress={this.handleReload}>
+                <Text style={styles.buttonText}>Reload App</Text>
+              </Pressable>
+            )}
           </SafeAreaView>
         </View>
       );

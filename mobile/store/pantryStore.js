@@ -87,14 +87,26 @@ export const usePantryStore = create((set, get) => ({
         // Optimistic: clear immediately
         set({ groups: [], total: 0 });
 
-        const results = await Promise.allSettled(
-            allIds.map((itemId) => deletePantryItem({ getToken, itemId }))
-        );
-        const failCount = results.filter((r) => r.status === "rejected").length;
-        if (failCount > 0) {
-            // Reload to show what actually remains
-            await get().loadPantry({ getToken });
-            set({ error: `Failed to remove ${failCount} item(s)` });
+        try {
+            const results = await Promise.allSettled(
+                allIds.map((itemId) => deletePantryItem({ getToken, itemId }))
+            );
+            const failCount = results.filter((r) => r.status === "rejected").length;
+            if (failCount > 0) {
+                try {
+                    await get().loadPantry({ getToken });
+                } catch {
+                    // reload failed — UI stays empty, error below will inform user
+                }
+                set({ error: `Failed to remove ${failCount} item(s)` });
+            }
+        } catch (err) {
+            try {
+                await get().loadPantry({ getToken });
+            } catch {
+                // Can't recover — leave error message
+            }
+            set({ error: err?.message || "Failed to clear pantry" });
         }
     },
 

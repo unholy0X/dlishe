@@ -584,14 +584,18 @@ export default function ShoppingListScreen() {
 
     useEffect(() => {
         if (listId) {
-            loadListDetails({ getToken, listId });
+            loadListDetails({ getToken, listId }).catch(() => {
+                // Error state is set in the store; prevents unhandled rejection
+            });
         }
         return () => clearActiveList();
     }, [listId]);
 
     const onRefresh = useCallback(() => {
         if (listId) {
-            loadListDetails({ getToken, listId });
+            loadListDetails({ getToken, listId }).catch(() => {
+                // Error state is set in the store
+            });
         }
     }, [getToken, listId]);
 

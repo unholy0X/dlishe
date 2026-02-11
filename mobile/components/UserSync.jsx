@@ -12,6 +12,8 @@ export default function UserSync() {
 
   useEffect(() => {
     if (!isLoaded) return;
+    let cancelled = false;
+
     if (user) {
       const firstName = user.firstName ?? "";
       const lastName = user.lastName ?? "";
@@ -21,14 +23,18 @@ export default function UserSync() {
       // Fetch backend preferences
       getMe({ getToken })
         .then((res) => {
-          if (res?.user?.preferredUnitSystem) {
+          if (!cancelled && res?.user?.preferredUnitSystem) {
             setPreferredUnitSystem(res.user.preferredUnitSystem);
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.warn("UserSync: failed to fetch preferences", err?.message);
+        });
     } else {
       clearUser();
     }
+
+    return () => { cancelled = true; };
   }, [user, isLoaded]);
 
   return null;

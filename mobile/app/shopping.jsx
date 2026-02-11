@@ -167,9 +167,9 @@ export default function ShoppingScreen() {
 
   // Load lists on mount + when app comes back to foreground
   useEffect(() => {
-    loadLists({ getToken });
+    loadLists({ getToken }).catch(() => {});
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") loadLists({ getToken });
+      if (state === "active") loadLists({ getToken }).catch(() => {});
     });
     return () => sub.remove();
   }, []);
@@ -177,12 +177,12 @@ export default function ShoppingScreen() {
   // Also reload when pathname changes back to shopping (returning from detail)
   useEffect(() => {
     if (pathname === "/shopping") {
-      loadLists({ getToken });
+      loadLists({ getToken }).catch(() => {});
     }
   }, [pathname]);
 
   const onRefresh = useCallback(() => {
-    loadLists({ getToken });
+    loadLists({ getToken }).catch(() => {});
   }, [getToken]);
 
   const handleCreateList = async (name) => {
@@ -238,10 +238,10 @@ export default function ShoppingScreen() {
           onPress: async () => {
             try {
               await deleteLists({ getToken, listIds: selectedIds });
+              exitSelectMode();
             } catch (err) {
               Alert.alert("Error", err?.message || "Failed to delete lists");
             }
-            exitSelectMode();
           },
         },
       ]

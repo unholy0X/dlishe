@@ -46,8 +46,8 @@ export const usePantryStore = create((set, get) => ({
                 const newGroups = state.groups
                     .map((g) => ({
                         ...g,
-                        items: g.items.filter((i) => i.id !== itemId),
-                        count: g.items.filter((i) => i.id !== itemId).length,
+                        items: (g.items || []).filter((i) => i.id !== itemId),
+                        count: (g.items || []).filter((i) => i.id !== itemId).length,
                     }))
                     .filter((g) => g.count > 0);
                 return {
@@ -81,7 +81,7 @@ export const usePantryStore = create((set, get) => ({
     // Clear all pantry items (delete every item across all groups)
     clearPantry: async ({ getToken }) => {
         const { groups } = get();
-        const allIds = groups.flatMap((g) => g.items.map((i) => i.id));
+        const allIds = groups.flatMap((g) => (g.items || []).map((i) => i.id));
         if (allIds.length === 0) return;
 
         // Optimistic: clear immediately

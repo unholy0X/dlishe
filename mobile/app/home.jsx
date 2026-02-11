@@ -236,7 +236,7 @@ export default function HomeScreen() {
   // Refresh user recipes when navigating back to this screen
   useEffect(() => {
     if (pathname === "/home") {
-      loadRecipes({ getToken });
+      loadRecipes({ getToken }).catch(() => {});
     }
   }, [pathname]);
 

@@ -38,7 +38,7 @@ export const useRecipeStore = create((set, get) => ({
       const data = await fetchRecipes({ getToken, limit: PAGE_SIZE, offset });
       const newItems = data.items || [];
       set({
-        recipes: [...recipes, ...newItems],
+        recipes: [...get().recipes, ...newItems],
         total: data.total || total,
         offset: offset + PAGE_SIZE,
         isLoadingMore: false,
@@ -94,6 +94,7 @@ export const useRecipeStore = create((set, get) => ({
         recipes: get().recipes.map((r) =>
           r.id === recipeId ? { ...r, isFavorite: !newValue } : r
         ),
+        error: "Couldn't update favorite. Please try again.",
       });
     }
   },
@@ -106,13 +107,26 @@ export const useRecipeStore = create((set, get) => ({
     // Optimistic: clear immediately
     set({ recipes: [], total: 0, offset: 0 });
 
-    const results = await Promise.allSettled(
-      allIds.map((recipeId) => deleteRecipe({ recipeId, getToken }))
-    );
-    const failCount = results.filter((r) => r.status === "rejected").length;
-    if (failCount > 0) {
-      await get().refresh({ getToken });
-      set({ error: `Failed to remove ${failCount} recipe(s)` });
+    try {
+      const results = await Promise.allSettled(
+        allIds.map((recipeId) => deleteRecipe({ recipeId, getToken }))
+      );
+      const failCount = results.filter((r) => r.status === "rejected").length;
+      if (failCount > 0) {
+        try {
+          await get().refresh({ getToken });
+        } catch {
+          // refresh failed — UI stays empty, error below will inform user
+        }
+        set({ error: `Failed to remove ${failCount} recipe(s)` });
+      }
+    } catch (err) {
+      try {
+        await get().refresh({ getToken });
+      } catch {
+        // Can't recover — leave error message
+      }
+      set({ error: err?.message || "Failed to clear recipes" });
     }
   },
 }));

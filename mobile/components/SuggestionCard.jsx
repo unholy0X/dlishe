@@ -1,15 +1,18 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 
-export default function SuggestionCard({ title, subtitle, Icon }) {
+export default function SuggestionCard({ title, subtitle, Icon, onPress }) {
   return (
-    <View style={styles.card}>
+    <Pressable
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.75, transform: [{ scale: 0.97 }] }]}
+      onPress={onPress}
+    >
       <View style={styles.iconWrap}>{Icon ? <Icon /> : null}</View>
       <View style={styles.textBlock}>
         <Text style={styles.title}>{title}</Text>
         <Text style={[styles.subtitle, {color: subtitle.color}]}>{subtitle.txt}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -39,7 +42,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 10,
     fontWeight: "normal",
-    // color: "#6b6b6b",
     letterSpacing: -0.05,
   },
 });

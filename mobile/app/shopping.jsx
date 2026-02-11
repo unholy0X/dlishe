@@ -16,6 +16,7 @@ import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { BlurView } from "expo-blur";
 import FloatingNav from "../components/FloatingNav";
+import SwipeNavigator from "../components/SwipeNavigator";
 import BottomSheetModal from "../components/BottomSheetModal";
 import ShoppingIcon from "../components/icons/ShoppingIcon";
 import CheckIcon from "../components/icons/CheckIcon";
@@ -194,7 +195,11 @@ export default function ShoppingScreen() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => deleteList({ getToken, listId: list.id }),
+        onPress: () => {
+          deleteList({ getToken, listId: list.id }).catch((err) => {
+            Alert.alert("Error", err?.message || "Failed to delete list");
+          });
+        },
       },
     ]);
   };
@@ -233,7 +238,9 @@ export default function ShoppingScreen() {
           onPress: async () => {
             try {
               await deleteLists({ getToken, listIds: selectedIds });
-            } catch { /* error set in store */ }
+            } catch (err) {
+              Alert.alert("Error", err?.message || "Failed to delete lists");
+            }
             exitSelectMode();
           },
         },
@@ -290,8 +297,8 @@ export default function ShoppingScreen() {
             try {
               const allIds = safeListsArray.map((l) => l.id);
               await deleteLists({ getToken, listIds: allIds });
-            } catch {
-              // error set in store
+            } catch (err) {
+              Alert.alert("Error", err?.message || "Failed to clear lists");
             } finally {
               setIsClearing(false);
             }
@@ -303,6 +310,7 @@ export default function ShoppingScreen() {
 
   return (
     <View style={styles.screen}>
+      <SwipeNavigator>
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={styles.header}>
           <View>
@@ -403,6 +411,7 @@ export default function ShoppingScreen() {
           </View>
         )}
       </SafeAreaView>
+      </SwipeNavigator>
 
       {!isSelecting && (
         <FloatingNav

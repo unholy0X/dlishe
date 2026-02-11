@@ -18,12 +18,13 @@ import (
 )
 
 type RecipeHandler struct {
-	repo        RecipeRepository
-	adminEmails []string
+	repo             RecipeRepository
+	adminEmails      []string
+	inspiratorEmails []string
 }
 
-func NewRecipeHandler(repo RecipeRepository, adminEmails []string) *RecipeHandler {
-	return &RecipeHandler{repo: repo, adminEmails: adminEmails}
+func NewRecipeHandler(repo RecipeRepository, adminEmails []string, inspiratorEmails []string) *RecipeHandler {
+	return &RecipeHandler{repo: repo, adminEmails: adminEmails, inspiratorEmails: inspiratorEmails}
 }
 
 // Create handles POST /api/v1/recipes
@@ -95,6 +96,13 @@ func (h *RecipeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Auto-public for admin users
 	if model.IsAdminEmail(user.Email, h.adminEmails) {
 		req.IsPublic = true
+	}
+
+	// Auto-featured for inspirator users (kept separate from public/suggested pool)
+	if model.IsInspiratorEmail(user.Email, h.inspiratorEmails) {
+		req.IsFeatured = true
+		now := time.Now().UTC()
+		req.FeaturedAt = &now
 	}
 
 	if err := h.repo.Create(r.Context(), &req); err != nil {
@@ -197,6 +205,56 @@ type SearchResult struct {
 	IsFavorite   bool   `json:"isFavorite"`
 }
 
+// SearchPublic handles GET /api/v1/recipes/search/public — no auth required
+func (h *RecipeHandler) SearchPublic(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		response.BadRequest(w, "Search query 'q' is required")
+		return
+	}
+
+	limit := 15
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 50 {
+			limit = val
+		}
+	}
+
+	recipes, err := h.repo.SearchPublic(r.Context(), query, limit)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	if recipes == nil {
+		recipes = []*model.Recipe{}
+	}
+
+	results := make([]SearchResult, 0, len(recipes))
+	for _, r := range recipes {
+		result := SearchResult{
+			ID:    r.ID.String(),
+			Title: r.Title,
+		}
+		if r.Cuisine != nil {
+			result.Cuisine = *r.Cuisine
+		}
+		if r.ThumbnailURL != nil {
+			result.ThumbnailURL = *r.ThumbnailURL
+		}
+		if r.Difficulty != nil {
+			result.Difficulty = *r.Difficulty
+		}
+		results = append(results, result)
+	}
+
+	response.OK(w, SearchResponse{
+		Query:   query,
+		Results: results,
+		Count:   len(results),
+	})
+}
+
 // ListSuggested handles GET /api/v1/recipes/suggested
 // @Summary List suggested/public recipes
 // @Description Get paginated list of curated public recipes available to all users
@@ -227,6 +285,53 @@ func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
 	}
 
 	recipes, total, err := h.repo.ListPublic(r.Context(), limit, offset)
+	if err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	if recipes == nil {
+		recipes = []*model.Recipe{}
+	}
+
+	response.OK(w, map[string]interface{}{
+		"items":  recipes,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+// ListFeatured handles GET /api/v1/recipes/featured
+// @Summary List featured/curated recipes
+// @Description Get paginated list of featured recipes from inspirator creators
+// @Tags Recipes
+// @Produce json
+// @Param limit query int false "Items per page (max 50)" default(30)
+// @Param offset query int false "Pagination offset" default(0)
+// @Success 200 {object} SwaggerRecipeListResponse "List of featured recipes"
+// @Failure 500 {object} SwaggerErrorResponse "Internal server error"
+// @Router /recipes/featured [get]
+func (h *RecipeHandler) ListFeatured(w http.ResponseWriter, r *http.Request) {
+	// No auth required - public endpoint
+
+	// Pagination
+	limit := 30
+	offset := 0
+
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 50 {
+			limit = val
+		}
+	}
+
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if val, err := strconv.Atoi(o); err == nil && val >= 0 {
+			offset = val
+		}
+	}
+
+	recipes, total, err := h.repo.ListFeatured(r.Context(), limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -335,8 +440,8 @@ func (h *RecipeHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check ownership or public access
-	if recipe.UserID != user.ID && !recipe.IsPublic {
+	// Check ownership, public, or featured access
+	if recipe.UserID != user.ID && !recipe.IsPublic && !recipe.IsFeatured {
 		response.Forbidden(w, "Access denied")
 		return
 	}
@@ -594,10 +699,8 @@ func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
 
 	// Check access:
 	// - User can clone their own recipes (useful for creating variants)
-	// - User can clone public/suggested recipes
-	// - Future: User can clone recipes shared with them
-	if source.UserID != user.ID && !source.IsPublic {
-		// Recipe is not owned by user and not public
+	// - User can clone public/suggested or featured recipes
+	if source.UserID != user.ID && !source.IsPublic && !source.IsFeatured {
 		response.Forbidden(w, "Access denied - recipe not accessible")
 		return
 	}

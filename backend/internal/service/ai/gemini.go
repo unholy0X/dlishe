@@ -421,10 +421,10 @@ func NewGeminiClient(ctx context.Context, apiKey string) (*GeminiClient, error) 
 	}
 
 	// Use the pro model for advanced analysis
-	// verified: gemini-3.0-pro (best for reasoning/cost)
+	// verified: gemini-2.5-pro (best for reasoning/cost)
 	return &GeminiClient{
 		client: client,
-		model:  "gemini-3.0-pro",
+		model:  "gemini-2.5-pro",
 	}, nil
 }
 
@@ -894,39 +894,56 @@ Return ONLY the JSON, no markdown or explanations.`, sanitizePromptString(url), 
 
 // ScanPantry detects pantry items from an image
 func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeType string) (*PantryScanResult, error) {
-	if len(imageData) == 0 {
-		return nil, fmt.Errorf("empty image data")
+	return g.ScanPantryMulti(ctx, [][]byte{imageData}, []string{mimeType})
+}
+
+// ScanPantryMulti detects pantry items from multiple images
+func (g *GeminiClient) ScanPantryMulti(ctx context.Context, imageDataList [][]byte, mimeTypes []string) (*PantryScanResult, error) {
+	if len(imageDataList) == 0 {
+		return nil, fmt.Errorf("no images provided")
 	}
 
-	// Validate mime type
 	validMimeTypes := map[string]bool{
 		"image/jpeg": true,
 		"image/png":  true,
 		"image/webp": true,
 		"image/gif":  true,
 	}
-	if !validMimeTypes[mimeType] {
-		return nil, fmt.Errorf("unsupported image type: %s", mimeType)
+
+	var parts []genai.Part
+	for i, data := range imageDataList {
+		if len(data) == 0 {
+			return nil, fmt.Errorf("empty image data at index %d", i)
+		}
+		mt := "image/jpeg"
+		if i < len(mimeTypes) {
+			mt = mimeTypes[i]
+		}
+		if !validMimeTypes[mt] {
+			return nil, fmt.Errorf("unsupported image type: %s", mt)
+		}
+		parts = append(parts, genai.Blob{MIMEType: mt, Data: data})
 	}
 
 	genModel := g.client.GenerativeModel(g.model)
 	genModel.ResponseMIMEType = "application/json"
 
-	prompt := `You are an expert at identifying food and pantry items. Analyze this image and detect all visible food/pantry items.
+	prompt := `You are an expert at identifying food and pantry items. Analyze the provided image(s) and detect all visible food/pantry items.
 
 **Instructions**:
-1. **CRITICAL**: If this image is clearly **NOT a pantry, fridge, food storage, or grocery receipt/haul** (e.g. a selfie, landscape, car, pet, random object),
+1. **CRITICAL**: If the image(s) clearly do **NOT show a pantry, fridge, food storage, or grocery receipt/haul** (e.g. a selfie, landscape, car, pet, random object),
    return a JSON with: {"non_pantry": true, "reason": "Image appears to be [description]"}.
    DO NOT invent food items from random text/shapes.
-2. Identify ALL visible food items, ingredients, and pantry staples
-3. For each item, determine:
+2. If multiple images are provided, combine items from ALL images into a single list.
+3. Identify ALL visible food items, ingredients, and pantry staples
+4. For each item, determine:
    - Name (be specific: "Roma tomatoes" not just "tomatoes")
    - Category (MUST be one of the exact values below)
    - Estimated quantity and unit if visible
    - Your confidence level (0-1)
-4. Include items even if partially visible
-5. If you see containers/packages, identify the contents
-6. Note the general condition of items (fresh, wilting, etc.)
+5. Include items even if partially visible
+6. If you see containers/packages, identify the contents
+7. Note the general condition of items (fresh, wilting, etc.)
 
 **Categories** (use ONLY these exact values): dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
 
@@ -954,13 +971,10 @@ func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeTyp
 
 Return ONLY the JSON, no markdown or explanations. If no food items are detected, return empty items array.`
 
-	imagePart := genai.Blob{
-		MIMEType: mimeType,
-		Data:     imageData,
-	}
+	parts = append(parts, genai.Text(prompt))
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, imagePart, genai.Text(prompt))
+		return genModel.GenerateContent(ctx, parts...)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generation failed: %w", err)
@@ -1116,29 +1130,52 @@ func getServingsEstimateGuideline(needEstimate bool) string {
 
 // ExtractFromImage extracts a recipe from an image (cookbook photo, screenshot)
 func (g *GeminiClient) ExtractFromImage(ctx context.Context, imageData []byte, mimeType string) (*ExtractionResult, error) {
-	if len(imageData) == 0 {
-		return nil, fmt.Errorf("empty image data")
+	return g.ExtractFromImages(ctx, [][]byte{imageData}, []string{mimeType})
+}
+
+// ExtractFromImages extracts a recipe from multiple images (multi-page cookbook spreads)
+func (g *GeminiClient) ExtractFromImages(ctx context.Context, imageDataList [][]byte, mimeTypes []string) (*ExtractionResult, error) {
+	if len(imageDataList) == 0 {
+		return nil, fmt.Errorf("no images provided")
 	}
 
-	// Validate mime type
 	validMimeTypes := map[string]bool{
 		"image/jpeg": true,
 		"image/png":  true,
 		"image/webp": true,
 		"image/gif":  true,
 	}
-	if !validMimeTypes[mimeType] {
-		return nil, fmt.Errorf("unsupported image type: %s", mimeType)
+
+	var parts []genai.Part
+	for i, data := range imageDataList {
+		if len(data) == 0 {
+			return nil, fmt.Errorf("empty image data at index %d", i)
+		}
+		mt := "image/jpeg"
+		if i < len(mimeTypes) {
+			mt = mimeTypes[i]
+		}
+		if !validMimeTypes[mt] {
+			return nil, fmt.Errorf("unsupported image type: %s", mt)
+		}
+		parts = append(parts, genai.Blob{MIMEType: mt, Data: data})
 	}
 
 	genModel := g.client.GenerativeModel(g.model)
 	genModel.ResponseMIMEType = "application/json"
 
-	prompt := `You are an expert chef and OCR specialist. Extract the recipe from this image.
+	multiImageNote := ""
+	if len(imageDataList) > 1 {
+		multiImageNote = `
+**MULTI-IMAGE NOTE**: Multiple images have been provided. They are pages of the SAME recipe.
+Combine all content from all images into one complete recipe. Do not create separate recipes.`
+	}
 
+	prompt := fmt.Sprintf(`You are an expert chef and OCR specialist. Extract the recipe from the provided image(s).
+%s
 **Instructions**:
-1. Read all text visible in the image (cookbook page, recipe card, screenshot)
-2. **CRITICAL**: If this image is clearly **NOT a cooking recipe or food preparation** (e.g. a selfie, landscape, random object, non-food text),
+1. Read all text visible in the image(s) (cookbook page, recipe card, screenshot)
+2. **CRITICAL**: If the image(s) clearly do **NOT contain a cooking recipe or food preparation** (e.g. a selfie, landscape, random object, non-food text),
    return a JSON with: {"non_recipe": true, "reason": "Image appears to be [description]"}.
    DO NOT invent a recipe from random text.
 3. Identify the recipe title
@@ -1167,15 +1204,12 @@ func (g *GeminiClient) ExtractFromImage(ctx context.Context, imageData []byte, m
 
 Categories for ingredients: dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
 
-Return ONLY the JSON, no markdown or explanations.`
+Return ONLY the JSON, no markdown or explanations.`, multiImageNote)
 
-	imagePart := genai.Blob{
-		MIMEType: mimeType,
-		Data:     imageData,
-	}
+	parts = append(parts, genai.Text(prompt))
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, imagePart, genai.Text(prompt))
+		return genModel.GenerateContent(ctx, parts...)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generation failed: %w", err)

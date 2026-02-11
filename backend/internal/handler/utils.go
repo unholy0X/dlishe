@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -90,6 +91,21 @@ func parseQuantity(s string) *float64 {
 	}
 
 	return nil
+}
+
+// decodeBase64Flexible decodes base64 data, trying standard, URL-safe, and raw variants.
+// Mobile clients often send URL-safe or unpadded base64.
+func decodeBase64Flexible(s string) ([]byte, error) {
+	if decoded, err := base64.StdEncoding.DecodeString(s); err == nil {
+		return decoded, nil
+	}
+	if decoded, err := base64.URLEncoding.DecodeString(s); err == nil {
+		return decoded, nil
+	}
+	if decoded, err := base64.RawStdEncoding.DecodeString(s); err == nil {
+		return decoded, nil
+	}
+	return nil, fmt.Errorf("invalid base64 encoding")
 }
 
 // youtubeHosts lists all YouTube hostname variations.

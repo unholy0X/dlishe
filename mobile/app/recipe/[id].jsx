@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  Image,
+  RefreshControl,
   Pressable,
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   StatusBar,
   Linking,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
@@ -211,13 +212,13 @@ export default function RecipeDetailScreen() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Cooking mode state
   const [cookingOpen, setCookingOpen] = useState(false);
   const [cookingPhase, setCookingPhase] = useState("prep");
   const [currentStep, setCurrentStep] = useState(0);
   const [checkedIngredients, setCheckedIngredients] = useState({});
-  const [timerSeconds, setTimerSeconds] = useState(null);
-  const [timerRunning, setTimerRunning] = useState(false);
 
   const refreshList = useRecipeStore((state) => state.refresh);
   const myRecipes = useRecipeStore((state) => state.recipes);
@@ -281,7 +282,13 @@ export default function RecipeDetailScreen() {
       setError("");
       try {
         const data = await fetchRecipeById({ recipeId: id, getToken });
-        if (!cancelled) setRecipe(data);
+        if (!cancelled) {
+          setRecipe(data);
+          // Prefetch thumbnail so it's ready when the hero renders
+          if (data?.thumbnailUrl) {
+            Image.prefetch(data.thumbnailUrl);
+          }
+        }
       } catch (err) {
         if (!cancelled) setError(err?.message || "Failed to load recipe");
       } finally {
@@ -293,20 +300,18 @@ export default function RecipeDetailScreen() {
     };
   }, [id]);
 
-  // Cooking timer
-  useEffect(() => {
-    if (!timerRunning || timerSeconds <= 0) return;
-    const interval = setInterval(() => {
-      setTimerSeconds((s) => {
-        if (s <= 1) {
-          setTimerRunning(false);
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [timerRunning]);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await fetchRecipeById({ recipeId: id, getToken });
+      setRecipe(data);
+    } catch {
+      // Keep existing data on refresh failure
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [id, getToken]);
+
 
   if (isLoading) {
     return (
@@ -362,8 +367,6 @@ export default function RecipeDetailScreen() {
   const sortedSteps = steps.slice().sort((a, b) => a.stepNumber - b.stepNumber);
 
   const handleNextStep = () => {
-    setTimerRunning(false);
-    setTimerSeconds(null);
     if (currentStep >= sortedSteps.length - 1) {
       setCookingPhase("done");
     } else {
@@ -372,23 +375,7 @@ export default function RecipeDetailScreen() {
   };
 
   const handlePrevStep = () => {
-    setTimerRunning(false);
-    setTimerSeconds(null);
     if (currentStep > 0) setCurrentStep((s) => s - 1);
-  };
-
-  const handleStartTimer = () => {
-    const step = sortedSteps[currentStep];
-    if (step?.durationSeconds) {
-      if (timerRunning) {
-        setTimerRunning(false); // pause
-      } else {
-        if (timerSeconds === null || timerSeconds === 0) {
-          setTimerSeconds(step.durationSeconds); // reset
-        }
-        setTimerRunning(true); // start/resume
-      }
-    }
   };
 
   return (
@@ -396,6 +383,13 @@ export default function RecipeDetailScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={C.greenDark}
+          />
+        }
       >
         {/* Hero */}
         <View style={s.heroWrap}>
@@ -404,6 +398,9 @@ export default function RecipeDetailScreen() {
               <Image
                 source={{ uri: recipe.thumbnailUrl }}
                 style={s.heroImage}
+                transition={200}
+                cachePolicy="memory-disk"
+                placeholder={null}
               />
               {/* <View style={s.heroGradient} /> */}
               <LinearGradient
@@ -646,8 +643,6 @@ export default function RecipeDetailScreen() {
                     setCookingPhase("prep");
                     setCurrentStep(0);
                     setCheckedIngredients({});
-                    setTimerSeconds(null);
-                    setTimerRunning(false);
                     setCookingOpen(true);
                   }}
                 >
@@ -702,7 +697,7 @@ export default function RecipeDetailScreen() {
         onRequestClose={() => setCookingOpen(false)}
       >
         <StatusBar barStyle="dark-content" />
-        <SafeAreaView style={s.cookingModal} edges={["top", "bottom"]}>
+        <View style={s.cookingModal}>
           {cookingPhase === "prep" && (
             <PrepChecklistSheet
               ingredients={ingredients}
@@ -722,10 +717,7 @@ export default function RecipeDetailScreen() {
               step={sortedSteps[currentStep]}
               currentStep={currentStep}
               totalSteps={sortedSteps.length}
-              timerSeconds={timerSeconds}
-              timerRunning={timerRunning}
-              onBack={() => setCookingOpen(false)}
-              onStartTimer={handleStartTimer}
+              onQuit={() => setCookingOpen(false)}
               onPrev={handlePrevStep}
               onNext={handleNextStep}
             />
@@ -740,7 +732,7 @@ export default function RecipeDetailScreen() {
               onServe={() => setCookingOpen(false)}
             />
           )}
-        </SafeAreaView>
+        </View>
       </Modal>
     </View>
   );

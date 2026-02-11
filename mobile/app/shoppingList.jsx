@@ -584,20 +584,28 @@ export default function ShoppingListScreen() {
 
     useEffect(() => {
         if (listId) {
-            loadListDetails({ getToken, listId });
+            loadListDetails({ getToken, listId }).catch(() => {
+                // Error state is set in the store; prevents unhandled rejection
+            });
         }
         return () => clearActiveList();
     }, [listId]);
 
     const onRefresh = useCallback(() => {
         if (listId) {
-            loadListDetails({ getToken, listId });
+            loadListDetails({ getToken, listId }).catch(() => {
+                // Error state is set in the store
+            });
         }
     }, [getToken, listId]);
 
     const handleToggleItem = useCallback(
         async (itemId) => {
-            await toggleChecked({ getToken, listId, itemId });
+            try {
+                await toggleChecked({ getToken, listId, itemId });
+            } catch (err) {
+                Alert.alert("Error", err?.message || "Failed to update item");
+            }
         },
         [getToken, listId]
     );
@@ -609,7 +617,13 @@ export default function ShoppingListScreen() {
                 {
                     text: "Delete",
                     style: "destructive",
-                    onPress: () => removeItem({ getToken, listId, itemId }),
+                    onPress: async () => {
+                        try {
+                            await removeItem({ getToken, listId, itemId });
+                        } catch (err) {
+                            Alert.alert("Error", err?.message || "Failed to remove item");
+                        }
+                    },
                 },
             ]);
         },
@@ -628,9 +642,13 @@ export default function ShoppingListScreen() {
     }, []);
 
     const handleStockPantry = useCallback(async () => {
-        await completeActiveList({ getToken, listId });
-        setStockSheetOpen(false);
-        router.back();
+        try {
+            await completeActiveList({ getToken, listId });
+            setStockSheetOpen(false);
+            router.back();
+        } catch (err) {
+            Alert.alert("Error", err?.message || "Failed to complete list");
+        }
     }, [getToken, listId]);
 
     const toggleCategory = useCallback((category) => {

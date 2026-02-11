@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
-import { View, Text, StyleSheet, Image, Pressable, Animated } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
+import { Image } from "expo-image";
 import HeartIcon from "../icons/HeartIcon";
 import RecipePlaceholder from "../RecipePlaceholder";
 
@@ -36,7 +37,7 @@ export default function RecipeCard({
   return (
     <Pressable style={styles.card} onPress={onPress}>
       {imageSource ? (
-        <Image source={imageSource} style={styles.image} />
+        <Image source={imageSource} style={styles.image} transition={200} />
       ) : (
         <RecipePlaceholder title={title} variant="medium" style={styles.image} />
       )}

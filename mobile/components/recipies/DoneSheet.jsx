@@ -1,5 +1,7 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable, Image, ScrollView } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView, Animated } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 import RecipePlaceholder from "../RecipePlaceholder";
 
 const C = {
@@ -26,14 +28,47 @@ export default function DoneSheet({
   onBack,
   onServe,
 }) {
+  const insets = useSafeAreaInsets();
+
   const metaParts = [];
   if (totalSteps) metaParts.push(`${totalSteps} steps completed`);
-  if (totalTime > 0) metaParts.push(`≈${totalTime} min`);
+  if (totalTime > 0) metaParts.push(`\u2248${totalTime} min`);
+
+  // Entrance animation
+  const cardScale = useRef(new Animated.Value(0.95)).current;
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardScale, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Delayed text fade-in
+    const timeout = setTimeout(() => {
+      Animated.timing(textOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    }, 200);
+
+    return () => clearTimeout(timeout);
+  }, []);
 
   return (
     <View style={s.container}>
       {/* Top bar */}
-      <View style={s.topBar}>
+      <View style={[s.topBar, { paddingTop: insets.top + 10 }]}>
         <Pressable style={s.backBtn} onPress={onBack}>
           <Text style={s.backIcon}>←</Text>
           <Text style={s.backText}>Back</Text>
@@ -46,17 +81,27 @@ export default function DoneSheet({
         style={s.scrollView}
       >
         {/* Hero card */}
-        <View style={s.heroCard}>
+        <Animated.View
+          style={[
+            s.heroCard,
+            {
+              opacity: cardOpacity,
+              transform: [{ scale: cardScale }],
+            },
+          ]}
+        >
           <View style={s.imageWrap}>
             {imageUri ? (
-              <Image source={{ uri: imageUri }} style={s.image} />
+              <Image source={{ uri: imageUri }} style={s.image} transition={200} />
             ) : (
               <RecipePlaceholder title={title} variant="hero" style={s.image} />
             )}
           </View>
 
           <View style={s.heroBody}>
-            <Text style={s.doneLabel}>All done!</Text>
+            <Animated.Text style={[s.doneLabel, { opacity: textOpacity }]}>
+              All done!
+            </Animated.Text>
             {title ? (
               <Text style={s.recipeTitle} numberOfLines={2}>{title}</Text>
             ) : null}
@@ -72,11 +117,11 @@ export default function DoneSheet({
               </View>
             ) : null}
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Primary — pinned bottom */}
-      <View style={s.bottomAction}>
+      <View style={[s.bottomAction, { paddingBottom: insets.bottom + 8 }]}>
         <Pressable style={s.primaryBtn} onPress={onServe}>
           <Text style={s.primaryText}>Serve & enjoy</Text>
         </Pressable>
@@ -92,7 +137,6 @@ const s = StyleSheet.create({
   },
   topBar: {
     paddingHorizontal: 20,
-    paddingTop: 10,
     paddingBottom: 4,
   },
   backBtn: {
@@ -184,7 +228,6 @@ const s = StyleSheet.create({
   bottomAction: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 8,
   },
   primaryBtn: {
     backgroundColor: C.green,

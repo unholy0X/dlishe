@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/dishflow/backend/internal/model"
 	"github.com/dishflow/backend/internal/service/video"
@@ -16,6 +17,11 @@ type UserRepository interface {
 	GetSubscription(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
 	CountUserScansThisMonth(ctx context.Context, userID uuid.UUID) (int, error)
 	TrackScanUsage(ctx context.Context, userID uuid.UUID) error
+	// Webhook-specific methods
+	GetByClerkID(ctx context.Context, clerkID string) (*model.User, error)
+	UpsertSubscription(ctx context.Context, sub *model.UserSubscription) error
+	IsEventProcessed(ctx context.Context, eventID string) (bool, error)
+	LogEvent(ctx context.Context, eventID, eventType, appUserID string, payload json.RawMessage) error
 }
 
 // RecipeRepository defines the interface for recipe persistence

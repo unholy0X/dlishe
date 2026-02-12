@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Alert, Platform } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Alert, Platform, AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
 import * as Sentry from "@sentry/react-native";
@@ -63,6 +63,11 @@ function AuthGate() {
     }
   }, [isSignedIn, isLoaded, segments, router]);
 
+  // Hydrate cached subscription state immediately (before network)
+  useEffect(() => {
+    useSubscriptionStore.getState().hydrate();
+  }, []);
+
   // Initialize RevenueCat after auth
   useEffect(() => {
     if (!isSignedIn || !isLoaded || !user?.id) return;
@@ -90,6 +95,21 @@ function AuthGate() {
 
     initRC();
   }, [isSignedIn, isLoaded, user?.id]);
+
+  // Reload subscription when app returns to foreground
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    if (!isSignedIn || !isLoaded) return;
+
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === "active") {
+        useSubscriptionStore.getState().loadSubscription({ getToken });
+      }
+      appState.current = nextState;
+    });
+
+    return () => sub.remove();
+  }, [isSignedIn, isLoaded, getToken]);
 
   return (
     <Stack

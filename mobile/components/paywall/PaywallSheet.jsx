@@ -45,8 +45,20 @@ export default function PaywallSheet({ visible, onClose, reason }) {
     setPurchasing(label);
     try {
       await purchasePackage({ pkg, getToken });
-      onClose();
-      Alert.alert("Welcome to Pro!", "You now have unlimited access.");
+      // Verify entitlement was actually activated before celebrating
+      const current = useSubscriptionStore.getState().entitlement;
+      if (current === "pro" || current === "admin") {
+        onClose();
+        Alert.alert("Welcome to Pro!", "You now have unlimited access.");
+      } else {
+        // Purchase went through on Apple/Google side but backend hasn't confirmed yet.
+        // This can happen if the webhook is delayed.
+        onClose();
+        Alert.alert(
+          "Almost there!",
+          "Your purchase is being processed. It may take a moment to activate."
+        );
+      }
     } catch (err) {
       if (err.userCancelled) return;
       Alert.alert("Purchase failed", err?.message || "Something went wrong. Please try again.");

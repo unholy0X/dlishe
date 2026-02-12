@@ -75,9 +75,15 @@ export const useSubscriptionStore = create((set, get) => ({
   purchasePackage: async ({ pkg, getToken }) => {
     try {
       const result = await Purchases.purchasePackage(pkg);
-      if (result?.customerInfo?.entitlements?.active?.["pro"]) {
+      // Purchase succeeded on Apple/Google side.
+      // Sync with backend — wrapped in its own try/catch because
+      // the purchase already went through. If sync fails, the state
+      // will catch up on next app open via loadSubscription or webhook.
+      try {
         await refreshSubscription({ getToken });
         await get().loadSubscription({ getToken });
+      } catch {
+        // Sync failed but purchase succeeded — don't throw
       }
       return result;
     } catch (err) {

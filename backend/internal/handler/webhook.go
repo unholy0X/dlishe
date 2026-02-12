@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
-	"strings"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dishflow/backend/internal/config"
@@ -15,6 +15,11 @@ import (
 	"github.com/dishflow/backend/internal/service/revenuecat"
 	"github.com/google/uuid"
 )
+
+// maxReasonableExpiry is the maximum expiration date we accept from RevenueCat.
+// Anything beyond this is treated as a lifetime purchase (stored as nil).
+// RevenueCat sometimes sends sandbox/lifetime subs with expiry dates decades in the future.
+const maxExpiryYears = 3
 
 // WebhookHandler handles external webhooks
 type WebhookHandler struct {
@@ -156,7 +161,14 @@ func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// 5. Resolve User ID — try all available identifiers from the event
+	// 5. For TRANSFER events, handle sender and receiver separately
+	if event.Type == "TRANSFER" {
+		h.handleTransferEvent(ctx, &event, rawBody)
+		response.OK(w, map[string]string{"status": "processed"})
+		return
+	}
+
+	// 6. Resolve User ID — try all available identifiers from the event
 	userID, found := h.resolveUserID(ctx, &event)
 	if !found {
 		h.logger.Warn("Webhook for unknown user, ignoring",
@@ -170,20 +182,20 @@ func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// 6. Build subscription update from event
+	// 7. Build subscription update from event
 	subUpdate := h.buildSubscriptionUpdate(userID, &event)
 
-	// 7. Apply event-specific logic
+	// 8. Apply event-specific logic
 	h.applyEventLogic(subUpdate, &event)
 
-	// 8. Persist subscription state
+	// 9. Persist subscription state
 	if err := h.userRepo.UpsertSubscription(ctx, subUpdate); err != nil {
 		h.logger.Error("Failed to upsert subscription", "error", err, "user_id", userID)
 		response.InternalError(w)
 		return
 	}
 
-	// 9. Log event for idempotency
+	// 10. Log event for idempotency
 	if event.ID != "" {
 		if err := h.userRepo.LogEvent(ctx, event.ID, event.Type, event.AppUserID, json.RawMessage(rawBody)); err != nil {
 			h.logger.Error("Failed to log event", "error", err, "event_id", event.ID)
@@ -191,7 +203,7 @@ func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// 10. Optionally sync definitive state from RevenueCat API (best practice)
+	// 11. Optionally sync definitive state from RevenueCat API (best practice)
 	// This runs async so we can respond 200 quickly.
 	if h.rcClient != nil {
 		go func() {
@@ -207,8 +219,130 @@ func (h *WebhookHandler) HandleRevenueCat(w http.ResponseWriter, r *http.Request
 	response.OK(w, map[string]string{"status": "processed"})
 }
 
+// handleTransferEvent processes TRANSFER events by explicitly handling the
+// recipient (activate pro) and sender (deactivate to free) as separate operations.
+// This prevents the bug where both sender and receiver get upgraded.
+func (h *WebhookHandler) handleTransferEvent(ctx context.Context, event *RevenueCatEventBody, rawBody []byte) {
+	h.logger.Info("Processing TRANSFER event",
+		"transferred_from", event.TransferredFrom,
+		"transferred_to", event.TransferredTo,
+		"app_user_id", event.AppUserID,
+	)
+
+	// 1. Deactivate subscription for the SENDER (transferred_from)
+	for _, fromID := range event.TransferredFrom {
+		senderID, found := h.resolveCandidate(ctx, fromID)
+		if !found {
+			h.logger.Warn("TRANSFER sender not found in DB, skipping deactivation",
+				"transferred_from_id", fromID)
+			continue
+		}
+
+		senderSub := &model.UserSubscription{
+			UserID:              senderID,
+			IsActive:            false,
+			Entitlement:         "free",
+			WillRenew:           false,
+			HasBillingIssue:     false,
+			LastSyncedAt:        time.Now().UTC(),
+			RevenueCatUpdatedAt: ptr(time.Now().UTC()),
+			IsSandbox:           event.Environment == "SANDBOX",
+		}
+
+		if err := h.userRepo.UpsertSubscription(ctx, senderSub); err != nil {
+			h.logger.Error("Failed to deactivate TRANSFER sender",
+				"error", err, "sender_id", senderID)
+		} else {
+			h.logger.Info("TRANSFER: deactivated sender",
+				"sender_id", senderID, "transferred_from_id", fromID)
+		}
+	}
+
+	// 2. Activate subscription for the RECEIVER (transferred_to)
+	for _, toID := range event.TransferredTo {
+		receiverID, found := h.resolveCandidate(ctx, toID)
+		if !found {
+			h.logger.Warn("TRANSFER receiver not found in DB, skipping activation",
+				"transferred_to_id", toID)
+			continue
+		}
+
+		receiverSub := h.buildSubscriptionUpdate(receiverID, event)
+		receiverSub.IsActive = true
+		receiverSub.Entitlement = "pro"
+		receiverSub.WillRenew = true
+		receiverSub.HasBillingIssue = false
+
+		if err := h.userRepo.UpsertSubscription(ctx, receiverSub); err != nil {
+			h.logger.Error("Failed to activate TRANSFER receiver",
+				"error", err, "receiver_id", receiverID)
+		} else {
+			h.logger.Info("TRANSFER: activated receiver",
+				"receiver_id", receiverID, "transferred_to_id", toID)
+		}
+
+		// Sync receiver from API for definitive state
+		if h.rcClient != nil {
+			go func(uid uuid.UUID, appID string) {
+				defer func() {
+					if r := recover(); r != nil {
+						h.logger.Error("Panic in syncFromAPI", "error", r, "user_id", uid)
+					}
+				}()
+				h.syncFromAPI(uid, appID)
+			}(receiverID, toID)
+		}
+	}
+
+	// 3. If neither sender nor receiver found, try app_user_id as fallback
+	// (RC sometimes puts the recipient in app_user_id for TRANSFER events)
+	if len(event.TransferredTo) == 0 {
+		userID, found := h.resolveUserID(ctx, event)
+		if found {
+			h.logger.Warn("TRANSFER event with no transferred_to, falling back to app_user_id",
+				"user_id", userID, "app_user_id", event.AppUserID)
+			sub := h.buildSubscriptionUpdate(userID, event)
+			sub.IsActive = true
+			sub.Entitlement = "pro"
+			sub.WillRenew = true
+			if err := h.userRepo.UpsertSubscription(ctx, sub); err != nil {
+				h.logger.Error("Failed to upsert TRANSFER fallback", "error", err, "user_id", userID)
+			}
+		}
+	}
+
+	// 4. Log event for idempotency
+	if event.ID != "" {
+		if err := h.userRepo.LogEvent(ctx, event.ID, event.Type, event.AppUserID, json.RawMessage(rawBody)); err != nil {
+			h.logger.Error("Failed to log TRANSFER event", "error", err, "event_id", event.ID)
+		}
+	}
+}
+
+// resolveCandidate resolves a single candidate ID to a user UUID.
+// It tries parsing as UUID first, then looks up by Clerk ID.
+func (h *WebhookHandler) resolveCandidate(ctx context.Context, candidate string) (uuid.UUID, bool) {
+	if candidate == "" || strings.HasPrefix(candidate, "$RCAnonymousID:") {
+		return uuid.UUID{}, false
+	}
+
+	// Try as UUID
+	if uid, err := uuid.Parse(candidate); err == nil {
+		return uid, true
+	}
+
+	// Try as Clerk ID
+	if user, err := h.userRepo.GetByClerkID(ctx, candidate); err == nil {
+		return user.ID, true
+	}
+
+	return uuid.UUID{}, false
+}
+
 // resolveUserID tries all available identifiers from a webhook event to find the user.
-// It checks app_user_id, original_app_user_id, aliases, and transfer arrays.
+// It checks app_user_id, original_app_user_id, and aliases.
+// TRANSFER event fields (transferred_to/from) are NOT included here —
+// they are handled separately in handleTransferEvent to avoid upgrading the sender.
 func (h *WebhookHandler) resolveUserID(ctx context.Context, event *RevenueCatEventBody) (uuid.UUID, bool) {
 	// Collect all candidate IDs to try, in priority order
 	candidates := make([]string, 0, 8)
@@ -228,14 +362,6 @@ func (h *WebhookHandler) resolveUserID(ctx context.Context, event *RevenueCatEve
 		candidates = append(candidates, alias)
 	}
 
-	// For TRANSFER events: try transferred_to first (recipient), then transferred_from
-	for _, id := range event.TransferredTo {
-		candidates = append(candidates, id)
-	}
-	for _, id := range event.TransferredFrom {
-		candidates = append(candidates, id)
-	}
-
 	// Try each candidate: first as UUID, then as Clerk ID
 	seen := make(map[string]bool, len(candidates))
 	for _, candidate := range candidates {
@@ -244,19 +370,8 @@ func (h *WebhookHandler) resolveUserID(ctx context.Context, event *RevenueCatEve
 		}
 		seen[candidate] = true
 
-		// Skip RevenueCat anonymous IDs — they're never in our DB
-		if strings.HasPrefix(candidate, "$RCAnonymousID:") {
-			continue
-		}
-
-		// Try as UUID
-		if uid, err := uuid.Parse(candidate); err == nil {
+		if uid, found := h.resolveCandidate(ctx, candidate); found {
 			return uid, true
-		}
-
-		// Try as Clerk ID
-		if user, err := h.userRepo.GetByClerkID(ctx, candidate); err == nil {
-			return user.ID, true
 		}
 	}
 
@@ -264,6 +379,8 @@ func (h *WebhookHandler) resolveUserID(ctx context.Context, event *RevenueCatEve
 }
 
 // buildSubscriptionUpdate creates the base UserSubscription from event metadata.
+// Expiry dates are validated — dates more than maxExpiryYears in the future are
+// treated as lifetime purchases and stored as nil.
 func (h *WebhookHandler) buildSubscriptionUpdate(userID uuid.UUID, event *RevenueCatEventBody) *model.UserSubscription {
 	sub := &model.UserSubscription{
 		UserID:              userID,
@@ -287,13 +404,32 @@ func (h *WebhookHandler) buildSubscriptionUpdate(userID uuid.UUID, event *Revenu
 	}
 	if event.ExpirationAtMs != nil && *event.ExpirationAtMs > 0 {
 		t := time.UnixMilli(*event.ExpirationAtMs).UTC()
-		sub.ExpiresAt = &t
+		sub.ExpiresAt = h.sanitizeExpiryDate(t)
 	}
 
 	return sub
 }
 
+// sanitizeExpiryDate validates an expiration date.
+// Returns nil for dates unreasonably far in the future (lifetime/sandbox artifacts).
+// Returns a pointer to the date if it's within the acceptable range.
+func (h *WebhookHandler) sanitizeExpiryDate(t time.Time) *time.Time {
+	now := time.Now().UTC()
+
+	maxExpiry := now.AddDate(maxExpiryYears, 0, 0)
+	if t.After(maxExpiry) {
+		h.logger.Warn("Expiry date too far in future, treating as lifetime (nil)",
+			"raw_expiry", t.Format(time.RFC3339),
+			"max_allowed", maxExpiry.Format(time.RFC3339),
+		)
+		return nil
+	}
+
+	return &t
+}
+
 // applyEventLogic sets IsActive, Entitlement, WillRenew, etc. based on event type.
+// TRANSFER events are handled separately in handleTransferEvent and never reach here.
 func (h *WebhookHandler) applyEventLogic(sub *model.UserSubscription, event *RevenueCatEventBody) {
 	switch event.Type {
 
@@ -356,18 +492,6 @@ func (h *WebhookHandler) applyEventLogic(sub *model.UserSubscription, event *Rev
 		sub.IsActive = true
 		sub.Entitlement = h.resolveEntitlement(event)
 
-	case "TRANSFER":
-		// Subscription transferred between users.
-		// Activate for the resolved user and let the API sync confirm definitive state.
-		sub.IsActive = true
-		sub.Entitlement = "pro"
-		sub.WillRenew = true
-		sub.HasBillingIssue = false
-		h.logger.Info("Received TRANSFER event",
-			"from", event.TransferredFrom,
-			"to", event.TransferredTo,
-		)
-
 	default:
 		// Unknown or new event type — log and accept (don't cause retries)
 		h.logger.Warn("Unhandled RevenueCat event type", "type", event.Type)
@@ -381,7 +505,8 @@ func (h *WebhookHandler) resolveEntitlement(event *RevenueCatEventBody) string {
 			return "pro"
 		}
 	}
-	// If the event has entitlement_ids but none match "pro", stay safe
+	// If the event has entitlement_ids but none match "pro", use what RC sent.
+	// This handles future tiers gracefully.
 	if len(event.EntitlementIDs) > 0 {
 		return event.EntitlementIDs[0]
 	}
@@ -391,6 +516,7 @@ func (h *WebhookHandler) resolveEntitlement(event *RevenueCatEventBody) string {
 
 // syncFromAPI fetches the definitive subscriber state from RevenueCat API
 // and updates the local database. This is the recommended approach per RC docs.
+// Expiry dates from the API are also validated.
 func (h *WebhookHandler) syncFromAPI(userID uuid.UUID, appUserID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -430,7 +556,7 @@ func (h *WebhookHandler) syncFromAPI(userID uuid.UUID, appUserID string) {
 
 		if activeSub.ExpiresDate != nil {
 			if t, err := time.Parse(time.RFC3339, *activeSub.ExpiresDate); err == nil {
-				sub.ExpiresAt = &t
+				sub.ExpiresAt = h.sanitizeExpiryDate(t)
 			}
 		}
 	}
@@ -441,10 +567,11 @@ func (h *WebhookHandler) syncFromAPI(userID uuid.UUID, appUserID string) {
 			"user_id", userID,
 		)
 	} else {
-		h.logger.Debug("Synced subscription from RevenueCat API",
+		h.logger.Info("Synced subscription from RevenueCat API",
 			"user_id", userID,
 			"entitlement", sub.Entitlement,
 			"is_active", sub.IsActive,
+			"expires_at", sub.ExpiresAt,
 		)
 	}
 }

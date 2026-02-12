@@ -160,7 +160,7 @@ func (h *SubscriptionHandler) RefreshSubscription(w http.ResponseWriter, r *http
 
 		if activeSub.ExpiresDate != nil {
 			if t, err := time.Parse(time.RFC3339, *activeSub.ExpiresDate); err == nil {
-				sub.ExpiresAt = &t
+				sub.ExpiresAt = sanitizeExpiryDate(t)
 			}
 		}
 	}
@@ -215,4 +215,15 @@ func toSubscriptionResponse(sub *model.UserSubscription) SubscriptionResponse {
 	}
 
 	return resp
+}
+
+// sanitizeExpiryDate caps expiry dates that are unreasonably far in the future.
+// RevenueCat sometimes sends sandbox/lifetime subs with dates decades out.
+// Returns nil for dates beyond 3 years (treated as lifetime).
+func sanitizeExpiryDate(t time.Time) *time.Time {
+	maxExpiry := time.Now().UTC().AddDate(3, 0, 0)
+	if t.After(maxExpiry) {
+		return nil
+	}
+	return &t
 }

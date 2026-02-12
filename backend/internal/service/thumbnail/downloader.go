@@ -4,18 +4,33 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
 
-const (
-	maxSize     = 5 << 20 // 5MB
-	httpTimeout = 10      // seconds
-)
+const maxSize = 5 << 20 // 5MB
+
+// httpClient is a dedicated client with strict timeouts for thumbnail downloads.
+var httpClient = &http.Client{
+	Timeout: 15 * time.Second,
+	Transport: &http.Transport{
+		DialContext:           (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
+		ResponseHeaderTimeout: 5 * time.Second,
+		TLSHandshakeTimeout:  5 * time.Second,
+	},
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 3 {
+			return fmt.Errorf("too many redirects")
+		}
+		return nil
+	},
+}
 
 // Downloader downloads remote thumbnails to local disk.
 type Downloader struct {
@@ -47,7 +62,7 @@ func (d *Downloader) Download(ctx context.Context, url string) (string, error) {
 		url = "https://" + url[7:]
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, httpTimeout*1e9) // 10s in nanoseconds
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -55,7 +70,7 @@ func (d *Downloader) Download(ctx context.Context, url string) (string, error) {
 		return "", fmt.Errorf("create request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("fetch thumbnail: %w", err)
 	}
@@ -70,6 +85,11 @@ func (d *Downloader) Download(ctx context.Context, url string) (string, error) {
 		return "", fmt.Errorf("not an image: %s", ct)
 	}
 
+	// Early rejection if Content-Length is provided and too large
+	if resp.ContentLength > maxSize {
+		return "", fmt.Errorf("image too large (%d bytes)", resp.ContentLength)
+	}
+
 	ext := extensionFromContentType(ct)
 	filename := uuid.New().String() + ext
 
@@ -81,11 +101,16 @@ func (d *Downloader) Download(ctx context.Context, url string) (string, error) {
 		return "", fmt.Errorf("create file: %w", err)
 	}
 
-	n, err := io.Copy(f, limited)
-	f.Close()
-	if err != nil {
+	n, copyErr := io.Copy(f, limited)
+	closeErr := f.Close()
+
+	if copyErr != nil {
 		os.Remove(outPath)
-		return "", fmt.Errorf("write file: %w", err)
+		return "", fmt.Errorf("write file: %w", copyErr)
+	}
+	if closeErr != nil {
+		os.Remove(outPath)
+		return "", fmt.Errorf("close file: %w", closeErr)
 	}
 	if n > maxSize {
 		os.Remove(outPath)

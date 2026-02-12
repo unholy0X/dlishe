@@ -97,6 +97,11 @@ type JobRepository interface {
 	CountUsedThisMonth(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
+// ThumbnailDownloader downloads remote thumbnails to local disk.
+type ThumbnailDownloader interface {
+	Download(ctx context.Context, url string) (string, error)
+}
+
 // VideoDownloader defines the interface for video downloading
 type VideoDownloader interface {
 	// Download downloads a video and returns (videoPath, thumbnailURL, error)

@@ -2,7 +2,8 @@ import { create } from "zustand";
 import { extractRecipeFromUrl, extractRecipeFromImage, getJobStatus, getRecipe, isTerminalStatus } from "../services/extract";
 
 const MAX_POLL_TIME = 300000; // 5 minutes
-const POLL_INTERVAL = 1000; // 1 second
+const INITIAL_POLL_INTERVAL = 1000; // 1 second
+const MAX_POLL_INTERVAL = 5000; // 5 seconds
 const MAX_POLL_RETRIES = 3; // retries per poll failure
 
 // Cancellation token — incremented on each new extraction or reset
@@ -45,12 +46,18 @@ const initialState = {
 async function pollJob({ jobId, getToken, set, extractionId }) {
   const startTime = Date.now();
   let consecutiveFailures = 0;
+  let pollCount = 0;
 
   while (Date.now() - startTime < MAX_POLL_TIME) {
     // Check cancellation before each poll
     if (extractionId !== currentExtractionId) return;
 
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+    // Progressive backoff: 1s for first 10 polls, then ramp up to 5s
+    const interval = pollCount < 10
+      ? INITIAL_POLL_INTERVAL
+      : Math.min(INITIAL_POLL_INTERVAL + (pollCount - 10) * 500, MAX_POLL_INTERVAL);
+    await new Promise((r) => setTimeout(r, interval));
+    pollCount++;
 
     // Check cancellation after sleep
     if (extractionId !== currentExtractionId) return;
@@ -69,7 +76,7 @@ async function pollJob({ jobId, getToken, set, extractionId }) {
         return;
       }
       // Wait a bit longer before retrying
-      await new Promise((r) => setTimeout(r, POLL_INTERVAL * 2));
+      await new Promise((r) => setTimeout(r, MAX_POLL_INTERVAL));
       continue;
     }
 

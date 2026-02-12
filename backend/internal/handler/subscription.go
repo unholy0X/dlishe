@@ -118,8 +118,14 @@ func (h *SubscriptionHandler) RefreshSubscription(w http.ResponseWriter, r *http
 	}
 
 	// Fetch from RevenueCat API
+	// Mobile calls Purchases.logIn(user.id) with the Clerk ID, so RC knows
+	// the subscriber by Clerk ID — not by our internal UUID.
 	ctx := r.Context()
-	subscriber, err := h.rcClient.GetSubscriber(ctx, user.ID.String())
+	rcAppUserID := user.ID.String() // fallback
+	if user.ClerkID != nil && *user.ClerkID != "" {
+		rcAppUserID = *user.ClerkID
+	}
+	subscriber, err := h.rcClient.GetSubscriber(ctx, rcAppUserID)
 	if err != nil {
 		h.logger.Error("Failed to fetch subscriber from RevenueCat",
 			"error", err,

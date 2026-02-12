@@ -1,6 +1,22 @@
 import { create } from "zustand";
+import * as SecureStore from "expo-secure-store";
 import Purchases from "react-native-purchases";
 import { getSubscription, refreshSubscription } from "../services/subscription";
+
+const STORAGE_KEY = "dlishe_subscription";
+
+// Persist subscription state to survive app restarts
+async function persistState(state) {
+  try {
+    await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify({
+      entitlement: state.entitlement,
+      isActive: state.isActive,
+      limits: state.limits,
+    }));
+  } catch {
+    // Non-fatal — cache miss on next cold start is acceptable
+  }
+}
 
 export const useSubscriptionStore = create((set, get) => ({
   entitlement: "free",
@@ -9,17 +25,38 @@ export const useSubscriptionStore = create((set, get) => ({
   isLoading: false,
   offerings: null,
 
+  // Hydrate from SecureStore on cold start (before network call)
+  hydrate: async () => {
+    try {
+      const raw = await SecureStore.getItemAsync(STORAGE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        set({
+          entitlement: cached.entitlement || "free",
+          isActive: cached.isActive || false,
+          limits: cached.limits || null,
+        });
+      }
+    } catch {
+      // Corrupted cache — ignore, will be overwritten on next load
+    }
+  },
+
   loadSubscription: async ({ getToken }) => {
     set({ isLoading: true });
     try {
       const data = await getSubscription({ getToken });
-      set({
+      const newState = {
         entitlement: data.entitlement || "free",
         isActive: data.isActive || false,
         limits: data.limits || null,
         isLoading: false,
-      });
+      };
+      set(newState);
+      persistState(newState);
     } catch {
+      // Keep existing entitlement on error — never downgrade to "free"
+      // just because of a transient network failure
       set({ isLoading: false });
     }
   },

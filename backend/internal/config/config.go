@@ -68,6 +68,10 @@ type Config struct {
 
 	// Inspirator configuration — comma-separated list of inspirator emails
 	InspiratorEmails []string
+
+	// Thumbnails
+	ThumbnailDir string // Local directory for downloaded thumbnails
+	BaseURL      string // Public base URL for constructing thumbnail URLs
 }
 
 // Load creates a Config from environment variables
@@ -130,6 +134,10 @@ func Load() *Config {
 		AdminEmails:      parseEmailList(getEnv("ADMIN_EMAILS", "")),
 		AdminAPIKey:      getEnv("ADMIN_API_KEY", ""),
 		InspiratorEmails: parseEmailList(getEnv("INSPIRATOR_EMAILS", "")),
+
+		// Thumbnails
+		ThumbnailDir: getEnv("THUMBNAIL_DIR", "/data/thumbnails"),
+		BaseURL:      getEnv("BASE_URL", "https://api.dlishe.com"),
 	}
 }
 

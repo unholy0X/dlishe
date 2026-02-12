@@ -57,6 +57,9 @@ type UnifiedExtractionHandler struct {
 	adminEmails []string
 	// inspiratorEmails whitelist for auto-featured + unlimited extractions
 	inspiratorEmails []string
+
+	// thumbDownloader downloads remote thumbnails to local disk
+	thumbDownloader ThumbnailDownloader
 }
 
 // NewUnifiedExtractionHandler creates a new unified extraction handler
@@ -68,6 +71,7 @@ func NewUnifiedExtractionHandler(
 	enricher ai.RecipeEnricher,
 	cacheRepo *postgres.ExtractionCacheRepository,
 	downloader VideoDownloader,
+	thumbDownloader ThumbnailDownloader,
 	redisClient *redis.Client,
 	logger *slog.Logger,
 	adminEmails []string,
@@ -76,17 +80,18 @@ func NewUnifiedExtractionHandler(
 	maxLightJobs int,
 ) *UnifiedExtractionHandler {
 	h := &UnifiedExtractionHandler{
-		jobRepo:        jobRepo,
-		recipeRepo:     recipeRepo,
-		userRepo:       userRepo,
-		extractor:      extractor,
-		enricher:       enricher,
-		cacheRepo:      cacheRepo,
-		downloader:     downloader,
-		redis:          redisClient,
-		logger:         logger,
-		videoSemaphore: make(chan struct{}, maxVideoJobs),
-		lightSemaphore: make(chan struct{}, maxLightJobs),
+		jobRepo:          jobRepo,
+		recipeRepo:       recipeRepo,
+		userRepo:         userRepo,
+		extractor:        extractor,
+		enricher:         enricher,
+		cacheRepo:        cacheRepo,
+		downloader:       downloader,
+		thumbDownloader:  thumbDownloader,
+		redis:            redisClient,
+		logger:           logger,
+		videoSemaphore:   make(chan struct{}, maxVideoJobs),
+		lightSemaphore:   make(chan struct{}, maxLightJobs),
 		tempDir:          os.TempDir(),
 		adminEmails:      adminEmails,
 		inspiratorEmails: inspiratorEmails,
@@ -1197,6 +1202,17 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 		// If err is ErrRecipeNotFound, continue with creation
 	}
 
+	// Download thumbnail to local disk so it doesn't expire
+	thumbnailForDB := result.Thumbnail
+	if thumbnailForDB != "" && h.thumbDownloader != nil {
+		if localURL, err := h.thumbDownloader.Download(ctx, thumbnailForDB); err != nil {
+			h.logger.Warn("Failed to download thumbnail, keeping original URL",
+				"url", thumbnailForDB, "error", err)
+		} else {
+			thumbnailForDB = localURL
+		}
+	}
+
 	recipe := &model.Recipe{
 		ID:           uuid.New(),
 		UserID:       job.UserID,
@@ -1209,7 +1225,7 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 		Cuisine:      stringPtr(result.Cuisine),
 		SourceType:   sourceType,
 		SourceURL:    stringPtr(job.SourceURL),
-		ThumbnailURL: stringPtr(result.Thumbnail),
+		ThumbnailURL: stringPtr(thumbnailForDB),
 		Tags:         result.Tags,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),

@@ -13,6 +13,8 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - GEMINI_MOCK_MODE=false
       - ENABLE_SWAGGER=false
+    volumes:
+      - dlishe-prod-thumbnails:/data/thumbnails
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,6 +74,7 @@ services:
 volumes:
   dlishe-prod-pgdata:
   dlishe-prod-redis:
+  dlishe-prod-thumbnails:
 
 networks:
   dlishe:

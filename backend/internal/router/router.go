@@ -18,6 +18,7 @@ import (
 	"github.com/dishflow/backend/internal/service/ai"
 	"github.com/dishflow/backend/internal/service/revenuecat"
 	"github.com/dishflow/backend/internal/service/sync"
+	"github.com/dishflow/backend/internal/service/thumbnail"
 	"github.com/dishflow/backend/internal/service/video"
 
 	_ "github.com/dishflow/backend/docs" // Swagger docs
@@ -103,13 +104,20 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	// Initialize recommendations handler
 	recommendationsHandler := handler.NewRecommendationsHandler(recipeRepo, pantryRepo, recommender)
 
+	// Thumbnail downloader + handler
+	thumbDownloader := thumbnail.NewDownloader(cfg.ThumbnailDir, cfg.BaseURL)
+	if err := thumbDownloader.EnsureDir(); err != nil {
+		logger.Error("Failed to create thumbnail directory", "error", err)
+	}
+	thumbnailHandler := handler.NewThumbnailHandler(cfg.ThumbnailDir)
+
 	jobRepo := postgres.NewJobRepository(db)
 	downloader := video.NewDownloader(os.TempDir())
 
 	// Unified extraction handler (handles url, image, video extraction with async jobs)
 	// Also handles job listing, status, and cancellation
 	// Now includes enrichment and caching support
-	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, userRepo, extractor, enricher, extractionCacheRepo, downloader, redis, logger, cfg.AdminEmails, cfg.InspiratorEmails, cfg.MaxConcurrentVideoJobs, cfg.MaxConcurrentLightJobs)
+	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, userRepo, extractor, enricher, extractionCacheRepo, downloader, thumbDownloader, redis, logger, cfg.AdminEmails, cfg.InspiratorEmails, cfg.MaxConcurrentVideoJobs, cfg.MaxConcurrentLightJobs)
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(redis)
@@ -135,6 +143,9 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public info endpoint
 		r.With(rateLimiter.Public()).Get("/info", healthHandler.Info)
+
+		// Public thumbnail serving
+		r.Get("/thumbnails/*", thumbnailHandler.Serve)
 
 		// Public recipes endpoint (suggested/curated recipes for all users)
 		r.With(rateLimiter.Public()).Get("/recipes/suggested", recipeHandler.ListSuggested)

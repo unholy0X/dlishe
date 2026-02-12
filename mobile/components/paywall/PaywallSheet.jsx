@@ -44,7 +44,8 @@ export default function PaywallSheet({ visible, onClose, reason }) {
     }
     setPurchasing(label);
     try {
-      await purchasePackage({ pkg, getToken });
+      const result = await purchasePackage({ pkg, getToken });
+      if (!result) return; // User cancelled — don't show any success message
       // Verify entitlement was actually activated before celebrating
       const current = useSubscriptionStore.getState().entitlement;
       if (current === "pro" || current === "admin") {

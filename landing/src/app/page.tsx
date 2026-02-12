@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect } from "react";
 
 /* ─── Scroll reveal observer ────────────────────────────────── */
 function useScrollReveal() {
@@ -27,12 +27,6 @@ function useScrollReveal() {
 /* ─── Page ──────────────────────────────────────────────────── */
 export default function LandingPage() {
   useScrollReveal();
-  const [comingSoon, setComingSoon] = useState(false);
-
-  const showComingSoon = useCallback(() => {
-    setComingSoon(true);
-    setTimeout(() => setComingSoon(false), 3000);
-  }, []);
 
   return (
     <main className="min-h-screen overflow-hidden">
@@ -55,9 +49,9 @@ export default function LandingPage() {
             <Link href="/privacy" className="text-sm font-medium text-text-muted hover:text-green-primary transition-colors hidden sm:block">
               Privacy
             </Link>
-            <button onClick={showComingSoon} className="bg-green-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:shadow-glow-green transition-all hover:scale-[1.03] active:scale-[0.98] cursor-pointer">
+            <a href="https://testflight.apple.com/join/JvGNz2au" target="_blank" rel="noopener noreferrer" className="bg-green-primary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:shadow-glow-green transition-all hover:scale-[1.03] active:scale-[0.98] cursor-pointer">
               Get the app
-            </button>
+            </a>
           </div>
         </div>
       </nav>
@@ -76,22 +70,22 @@ export default function LandingPage() {
             <div className="text-center lg:text-left order-2 lg:order-1">
               <div className="inline-flex items-center gap-2.5 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full mb-8 shadow-soft border border-white/60">
                 <span className="w-2 h-2 bg-green-bright rounded-full animate-pulse" />
-                <span className="text-sm text-text-muted font-medium">Soon available on iOS & Android</span>
+                <span className="text-sm text-text-muted font-medium">Now available on iOS & Android</span>
               </div>
 
               <h1 className="text-5xl sm:text-6xl lg:text-[4.5rem] font-display font-semibold text-text-dark leading-[1.08] mb-7 tracking-tight">
-                Your recipes,<br />
-                <span className="gradient-text">all in one place</span>
+                Where inspiration<br />
+                <span className="gradient-text">becomes execution.</span>
               </h1>
 
               <p className="text-lg sm:text-xl text-text-muted leading-relaxed mb-10 max-w-lg mx-auto lg:mx-0">
-                Save recipes from <span className="text-text-dark font-semibold">TikTok</span>, <span className="text-text-dark font-semibold">YouTube</span>, any website, or snap a cookbook page.
-                Dlishe turns any recipe into your personal cookbook, instantly.
+                From videos, links, and snapshots to meals made for you.
+                Dlishe turns &ldquo;I saw this&rdquo; into &ldquo;It&apos;s on the table.&rdquo;
               </p>
 
               {/* Store buttons */}
               <div id="download" className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4">
-                <button onClick={showComingSoon} className="group inline-flex items-center gap-3 bg-text-dark text-white px-6 py-4 rounded-2xl hover:bg-black transition-all hover:shadow-float active:scale-[0.97] cursor-pointer">
+                <a href="https://testflight.apple.com/join/JvGNz2au" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-3 bg-text-dark text-white px-6 py-4 rounded-2xl hover:bg-black transition-all hover:shadow-float active:scale-[0.97] cursor-pointer">
                   <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                   </svg>
@@ -99,8 +93,8 @@ export default function LandingPage() {
                     <div className="text-[11px] opacity-60 leading-tight">Download on the</div>
                     <div className="text-lg font-semibold leading-tight">App Store</div>
                   </div>
-                </button>
-                <button onClick={showComingSoon} className="group inline-flex items-center gap-3 bg-text-dark text-white px-6 py-4 rounded-2xl hover:bg-black transition-all hover:shadow-float active:scale-[0.97] cursor-pointer">
+                </a>
+                <a href="https://play.google.com/apps/testing/com.dlishe.app" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-3 bg-text-dark text-white px-6 py-4 rounded-2xl hover:bg-black transition-all hover:shadow-float active:scale-[0.97] cursor-pointer">
                   <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 010 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z" />
                   </svg>
@@ -108,7 +102,7 @@ export default function LandingPage() {
                     <div className="text-[11px] opacity-60 leading-tight">Get it on</div>
                     <div className="text-lg font-semibold leading-tight">Google Play</div>
                   </div>
-                </button>
+                </a>
               </div>
             </div>
 
@@ -266,6 +260,34 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ════════ Demo Video ════════ */}
+      <section className="bg-white py-24 sm:py-32 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16 reveal">
+            <div className="inline-flex items-center gap-2 bg-green-light/60 px-4 py-1.5 rounded-full mb-5">
+              <span className="text-xs font-semibold text-green-primary tracking-wide uppercase">See it in action</span>
+            </div>
+            <h2 className="text-4xl sm:text-5xl font-display font-semibold text-text-dark mb-5 tracking-tight">
+              Watch Dlishe in action
+            </h2>
+          </div>
+
+          <div className="flex justify-center reveal reveal-delay-1">
+            <div className="phone-frame w-[280px] sm:w-[310px]">
+              <div className="phone-screen aspect-[9/19.5] relative overflow-hidden">
+                <div className="phone-notch" />
+                <iframe
+                  className="absolute inset-0 w-full h-full rounded-[inherit]"
+                  src="https://www.youtube.com/embed/3GBDdT9az9A?autoplay=0&controls=1"
+                  title="Dlishe demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ════════ Features ════════ */}
       <section id="features" className="bg-white py-24 sm:py-32 px-6">
@@ -448,15 +470,17 @@ export default function LandingPage() {
             Join home cooks who spend less time scrolling and more time savoring what they love.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 reveal reveal-delay-2">
-            <button
-              onClick={showComingSoon}
+            <a
+              href="https://testflight.apple.com/join/JvGNz2au"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2.5 bg-white text-green-primary px-8 py-4 rounded-full font-semibold hover:shadow-float transition-all hover:scale-105 active:scale-[0.98] cursor-pointer"
             >
               Get early access
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
-            </button>
+            </a>
             <a
               href="#features"
               className="inline-flex items-center gap-2 text-white/70 px-6 py-4 rounded-full font-medium hover:text-white transition-colors"
@@ -517,24 +541,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-      {/* ════════ Coming Soon Toast ════════ */}
-      <div
-        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 ${
-          comingSoon
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-4 pointer-events-none"
-        }`}
-      >
-        <div className="bg-white/95 backdrop-blur-xl rounded-2xl px-6 py-4 shadow-elevated border border-white/60 flex items-center gap-4 max-w-sm">
-          <div className="w-10 h-10 bg-green-light rounded-xl flex items-center justify-center flex-shrink-0">
-            <Image src="/logo-mark.png" alt="" width={28} height={28} className="w-7 h-7" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-text-dark">Something delicious is cooking</div>
-            <div className="text-xs text-text-muted mt-0.5">Dlishe is launching soon — stay hungry!</div>
-          </div>
-        </div>
-      </div>
     </main>
   );
 }

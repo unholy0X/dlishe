@@ -3,7 +3,7 @@
     "scheme": "dlishe",
     "name": "Dlishe",
     "slug": "dlishe",
-    "version": "3.0.0",
+    "version": "8.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

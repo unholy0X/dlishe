@@ -34,6 +34,7 @@ import StepTimerSheet from "../../components/recipies/StepTimerSheet";
 import DoneSheet from "../../components/recipies/DoneSheet";
 import Svg, { Path } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
+import { useCookingVoice } from "../../hooks/useCookingVoice";
 
 // ─── Design tokens ───────────────────────────────────────────────
 const C = {
@@ -365,6 +366,13 @@ export default function RecipeDetailScreen() {
 
   // Cooking mode helpers
   const sortedSteps = steps.slice().sort((a, b) => a.stepNumber - b.stepNumber);
+
+  const { isMuted, toggleMute, isLoading: voiceLoading } = useCookingVoice({
+    steps: sortedSteps,
+    currentStep,
+    isActive: cookingOpen && cookingPhase === "steps",
+    getToken,
+  });
 
   const handleNextStep = () => {
     if (currentStep >= sortedSteps.length - 1) {
@@ -722,6 +730,9 @@ export default function RecipeDetailScreen() {
               onQuit={() => setCookingOpen(false)}
               onPrev={handlePrevStep}
               onNext={handleNextStep}
+              isMuted={isMuted}
+              onToggleMute={toggleMute}
+              isVoiceLoading={voiceLoading}
             />
           )}
           {cookingPhase === "steps" && (!sortedSteps.length || !sortedSteps[currentStep]) && (

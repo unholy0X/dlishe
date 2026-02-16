@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Pressable, Animated, Alert } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated, Alert, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import SpeakerIcon from "../icons/SpeakerIcon";
 
 const C = {
   text: "#111111",
@@ -37,6 +38,9 @@ export default function StepTimerSheet({
   onQuit,
   onPrev,
   onNext,
+  isMuted,
+  onToggleMute,
+  isVoiceLoading,
 }) {
   const insets = useSafeAreaInsets();
   const isFirstStep = currentStep === 0;
@@ -92,6 +96,17 @@ export default function StepTimerSheet({
             <Text style={s.quitText}>{"\u2715"}</Text>
           </BlurView>
         </Pressable>
+        {onToggleMute && (
+          <Pressable onPress={onToggleMute} hitSlop={8}>
+            <BlurView intensity={40} tint="light" style={s.voicePill}>
+              {isVoiceLoading ? (
+                <ActivityIndicator size="small" color={C.text} />
+              ) : (
+                <SpeakerIcon width={18} height={18} color={C.text} muted={isMuted} />
+              )}
+            </BlurView>
+          </Pressable>
+        )}
         <BlurView intensity={40} tint="light" style={s.stepPill}>
           <Text style={s.stepPillText}>
             Step {currentStep + 1} of {totalSteps}
@@ -196,6 +211,15 @@ const s = StyleSheet.create({
     fontSize: 16,
     fontFamily: FONT.medium,
     color: C.text,
+  },
+  voicePill: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.5)",
   },
   stepPill: {
     borderRadius: 999,

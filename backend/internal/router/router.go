@@ -138,6 +138,9 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	// Initialize subscription handler
 	subscriptionHandler := handler.NewSubscriptionHandler(userRepo, rcClient, logger, cfg.AdminEmails)
 
+	// Initialize TTS handler
+	ttsHandler := handler.NewTTSHandler(cfg.OpenAIAPIKey)
+
 	// Public endpoints with rate limiting
 	r.With(rateLimiter.Public()).Get("/health", healthHandler.Health)
 	r.With(rateLimiter.Public()).Get("/ready", healthHandler.Ready)
@@ -250,6 +253,9 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 				r.Get("/", subscriptionHandler.GetSubscription)
 				r.Post("/refresh", subscriptionHandler.RefreshSubscription)
 			})
+
+			// TTS routes
+			r.Post("/tts/synthesize", ttsHandler.Synthesize)
 		})
 
 		// Admin routes (API key auth)

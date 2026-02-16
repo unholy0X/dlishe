@@ -72,6 +72,9 @@ type Config struct {
 	// Thumbnails
 	ThumbnailDir string // Local directory for downloaded thumbnails
 	BaseURL      string // Public base URL for constructing thumbnail URLs
+
+	// OpenAI (TTS)
+	OpenAIAPIKey string
 }
 
 // Load creates a Config from environment variables
@@ -138,6 +141,9 @@ func Load() *Config {
 		// Thumbnails
 		ThumbnailDir: getEnv("THUMBNAIL_DIR", "/data/thumbnails"),
 		BaseURL:      getEnv("BASE_URL", "https://api.dlishe.com"),
+
+		// OpenAI
+		OpenAIAPIKey: getEnv("OPENAI_API_KEY", ""),
 	}
 }
 

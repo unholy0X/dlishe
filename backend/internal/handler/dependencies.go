@@ -111,3 +111,12 @@ type VideoDownloader interface {
 	GetMetadata(ctx context.Context, url string) (*video.VideoMetadata, error)
 	Cleanup(path string) error
 }
+
+// InstagramVideoDownloader defines the interface for Instagram-specific downloading.
+// Separated from VideoDownloader because Instagram requires cookies for authentication.
+type InstagramVideoDownloader interface {
+	Download(ctx context.Context, url string) (string, string, error)
+	GetMetadata(ctx context.Context, url string) (*video.VideoMetadata, error)
+	Cleanup(path string) error
+	IsConfigured() bool
+}

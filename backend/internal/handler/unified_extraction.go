@@ -37,9 +37,10 @@ type UnifiedExtractionHandler struct {
 	extractor  ai.RecipeExtractor
 	enricher   ai.RecipeEnricher
 	cacheRepo  *postgres.ExtractionCacheRepository
-	downloader VideoDownloader
-	redis      *redis.Client
-	logger     *slog.Logger
+	downloader            VideoDownloader
+	instagramDownloader   InstagramVideoDownloader
+	redis                 *redis.Client
+	logger                *slog.Logger
 
 	// activeJobs stores cancel functions for running jobs
 	activeJobs sync.Map // map[uuid.UUID]context.CancelFunc
@@ -71,6 +72,7 @@ func NewUnifiedExtractionHandler(
 	enricher ai.RecipeEnricher,
 	cacheRepo *postgres.ExtractionCacheRepository,
 	downloader VideoDownloader,
+	instagramDownloader InstagramVideoDownloader,
 	thumbDownloader ThumbnailDownloader,
 	redisClient *redis.Client,
 	logger *slog.Logger,
@@ -80,21 +82,22 @@ func NewUnifiedExtractionHandler(
 	maxLightJobs int,
 ) *UnifiedExtractionHandler {
 	h := &UnifiedExtractionHandler{
-		jobRepo:          jobRepo,
-		recipeRepo:       recipeRepo,
-		userRepo:         userRepo,
-		extractor:        extractor,
-		enricher:         enricher,
-		cacheRepo:        cacheRepo,
-		downloader:       downloader,
-		thumbDownloader:  thumbDownloader,
-		redis:            redisClient,
-		logger:           logger,
-		videoSemaphore:   make(chan struct{}, maxVideoJobs),
-		lightSemaphore:   make(chan struct{}, maxLightJobs),
-		tempDir:          os.TempDir(),
-		adminEmails:      adminEmails,
-		inspiratorEmails: inspiratorEmails,
+		jobRepo:             jobRepo,
+		recipeRepo:          recipeRepo,
+		userRepo:            userRepo,
+		extractor:           extractor,
+		enricher:            enricher,
+		cacheRepo:           cacheRepo,
+		downloader:          downloader,
+		instagramDownloader: instagramDownloader,
+		thumbDownloader:     thumbDownloader,
+		redis:               redisClient,
+		logger:              logger,
+		videoSemaphore:      make(chan struct{}, maxVideoJobs),
+		lightSemaphore:      make(chan struct{}, maxLightJobs),
+		tempDir:             os.TempDir(),
+		adminEmails:         adminEmails,
+		inspiratorEmails:    inspiratorEmails,
 	}
 
 	// Cleanup orphaned temp files from previous crashes
@@ -394,11 +397,10 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 			response.ValidationFailed(w, "url", "URL too long (max 2083 characters)")
 			return
 		}
-		// Instagram blocks all server-side access to video content.
-		// Even public Reels require authentication from Meta's servers.
-		if isInstagramURL(req.URL) {
+		// Instagram: requires cookies to be configured on the server.
+		if isInstagramURL(req.URL) && !h.instagramDownloader.IsConfigured() {
 			response.ErrorJSON(w, http.StatusUnprocessableEntity, "PLATFORM_NOT_SUPPORTED",
-				"Instagram video extraction is not currently supported. Instagram restricts automated access to their content. Try sharing a YouTube or TikTok link instead, or save the video to your device and upload it directly.", nil)
+				"Instagram video extraction is not currently available. Please try sharing a YouTube or TikTok link instead, or save the video to your device and upload it directly.", nil)
 			return
 		}
 	}
@@ -907,6 +909,11 @@ func (h *UnifiedExtractionHandler) processVideoExtraction(ctx context.Context, j
 		return h.processYouTubeExtraction(ctx, job, updateProgress)
 	}
 
+	// Instagram: use dedicated GraphQL downloader instead of yt-dlp.
+	if isInstagramURL(job.SourceURL) {
+		return h.processInstagramExtraction(ctx, job, updateProgress)
+	}
+
 	// Other platforms: download with yt-dlp, then upload to Gemini.
 	return h.processYtDlpExtraction(ctx, job, updateProgress)
 }
@@ -945,6 +952,73 @@ func (h *UnifiedExtractionHandler) processYouTubeExtraction(ctx context.Context,
 	}
 
 	// Use oEmbed thumbnail if Gemini didn't provide one
+	if result != nil && result.Thumbnail == "" && thumbnailURL != "" {
+		result.Thumbnail = thumbnailURL
+	}
+
+	return result, nil
+}
+
+// processInstagramExtraction handles Instagram reels/videos by downloading via
+// the GraphQL API, then uploading to Gemini for recipe extraction.
+func (h *UnifiedExtractionHandler) processInstagramExtraction(ctx context.Context, job *model.ExtractionJob, updateProgress func(model.JobStatus, int, string)) (*ai.ExtractionResult, error) {
+	updateProgress(model.JobStatusDownloading, 10, "Downloading Instagram reel...")
+
+	localPath, thumbnailURL, err := h.instagramDownloader.Download(ctx, job.SourceURL)
+	if err != nil {
+		// Provide user-friendly error messages for common failures
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "not a video") {
+			return nil, fmt.Errorf("this Instagram post is not a video — only Reels and video posts are supported")
+		}
+		if strings.Contains(errMsg, "private or deleted") {
+			return nil, fmt.Errorf("this Instagram post is private or has been deleted")
+		}
+		if strings.Contains(errMsg, "429") {
+			return nil, fmt.Errorf("429: Instagram rate limited — please try again in a few minutes")
+		}
+		if strings.Contains(errMsg, "doc_id may be expired") {
+			h.logger.Error("Instagram doc_id appears expired — update INSTAGRAM_DOC_ID env var", "error", err)
+			return nil, fmt.Errorf("Instagram extraction is temporarily unavailable — please try again later")
+		}
+		return nil, fmt.Errorf("failed to download Instagram video: %w", err)
+	}
+	defer h.instagramDownloader.Cleanup(localPath)
+
+	if thumbnailURL != "" {
+		h.logger.Info("Instagram thumbnail URL extracted", "url", thumbnailURL)
+	}
+
+	// Fetch metadata for context
+	var metadataStr string
+	meta, err := h.instagramDownloader.GetMetadata(ctx, job.SourceURL)
+	if err != nil {
+		h.logger.Warn("Failed to fetch Instagram metadata", "error", err, "url", job.SourceURL)
+	} else {
+		h.logger.Info("Instagram metadata fetched", "title", meta.Title, "description_len", len(meta.Description))
+		metadataStr = fmt.Sprintf("Video Title: %s\nVideo Description:\n%s", meta.Title, meta.Description)
+		updateProgress(model.JobStatusExtracting, 40, fmt.Sprintf("Analyzing: %s...", meta.Title))
+	}
+
+	if metadataStr == "" {
+		updateProgress(model.JobStatusExtracting, 40, "Extracting recipe from Instagram reel...")
+	}
+
+	extractReq := ai.ExtractionRequest{
+		VideoURL:    localPath,
+		Language:    job.Language,
+		DetailLevel: job.DetailLevel,
+		Metadata:    metadataStr,
+	}
+
+	result, err := h.extractor.ExtractRecipe(ctx, extractReq, func(status model.JobStatus, progress int, msg string) {
+		updateProgress(status, progress, msg)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract from Instagram video: %w", err)
+	}
+
+	// Use Instagram thumbnail if Gemini didn't provide one
 	if result != nil && result.Thumbnail == "" && thumbnailURL != "" {
 		result.Thumbnail = thumbnailURL
 	}

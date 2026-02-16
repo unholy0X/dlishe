@@ -72,6 +72,9 @@ type Config struct {
 	// Thumbnails
 	ThumbnailDir string // Local directory for downloaded thumbnails
 	BaseURL      string // Public base URL for constructing thumbnail URLs
+
+	// Instagram
+	InstagramCookiesPath string // Path to Netscape-format cookies.txt for Instagram auth
 }
 
 // Load creates a Config from environment variables
@@ -138,6 +141,9 @@ func Load() *Config {
 		// Thumbnails
 		ThumbnailDir: getEnv("THUMBNAIL_DIR", "/data/thumbnails"),
 		BaseURL:      getEnv("BASE_URL", "https://api.dlishe.com"),
+
+		// Instagram
+		InstagramCookiesPath: getEnv("INSTAGRAM_COOKIES_PATH", "/data/instagram_cookies.txt"),
 	}
 }
 

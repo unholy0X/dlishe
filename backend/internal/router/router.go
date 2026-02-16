@@ -113,11 +113,17 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 
 	jobRepo := postgres.NewJobRepository(db)
 	downloader := video.NewDownloader(os.TempDir())
+	instagramDownloader := video.NewInstagramDownloader(os.TempDir(), cfg.InstagramCookiesPath)
+	if instagramDownloader.IsConfigured() {
+		logger.Info("Instagram downloader configured", "cookies_path", cfg.InstagramCookiesPath)
+	} else {
+		logger.Warn("Instagram downloader not configured — Instagram extraction will be unavailable. Set INSTAGRAM_COOKIES_PATH to enable.")
+	}
 
 	// Unified extraction handler (handles url, image, video extraction with async jobs)
 	// Also handles job listing, status, and cancellation
 	// Now includes enrichment and caching support
-	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, userRepo, extractor, enricher, extractionCacheRepo, downloader, thumbDownloader, redis, logger, cfg.AdminEmails, cfg.InspiratorEmails, cfg.MaxConcurrentVideoJobs, cfg.MaxConcurrentLightJobs)
+	unifiedExtractionHandler := handler.NewUnifiedExtractionHandler(jobRepo, recipeRepo, userRepo, extractor, enricher, extractionCacheRepo, downloader, instagramDownloader, thumbDownloader, redis, logger, cfg.AdminEmails, cfg.InspiratorEmails, cfg.MaxConcurrentVideoJobs, cfg.MaxConcurrentLightJobs)
 
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(redis)

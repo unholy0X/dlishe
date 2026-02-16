@@ -45,6 +45,10 @@ backend/tmp/main
 backend/tmp/build-errors.log
 backend/logs/dlishe-backend.jsonl
 
+# Backend credentials (never commit)
+backend/instagram_cookies.txt
+backend/*.cookies.txt
+
 # Backend test artifacts
 backend/e2e_output/
 backend/e2e_results.json

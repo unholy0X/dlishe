@@ -420,11 +420,10 @@ func NewGeminiClient(ctx context.Context, apiKey string) (*GeminiClient, error) 
 		return nil, err
 	}
 
-	// Use the pro model for advanced analysis
-	// verified: gemini-2.5-pro (best for reasoning/cost)
+	// Gemini 3 Flash: frontier-level reasoning at Flash speed and pricing
 	return &GeminiClient{
 		client: client,
-		model:  "gemini-2.5-pro",
+		model:  "gemini-3-flash-preview",
 	}, nil
 }
 

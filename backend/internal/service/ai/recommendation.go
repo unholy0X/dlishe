@@ -22,7 +22,7 @@ type RecommendationService struct {
 func NewRecommendationService(client *genai.Client) *RecommendationService {
 	return &RecommendationService{
 		client: client,
-		model:  "gemini-2.0-flash",
+		model:  "gemini-3-flash-preview",
 	}
 }
 

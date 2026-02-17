@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,10 +10,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useSignUp, useOAuth } from "@clerk/clerk-expo";
+import { useAuth, useSignUp, useOAuth, useSignInWithApple } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import Svg, { Path } from "react-native-svg";
@@ -50,8 +51,19 @@ function GoogleIcon({ size = 18 }) {
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { isSignedIn, signOut } = useAuth();
   const { signUp, setActive, isLoaded } = useSignUp();
-  const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+  const { startOAuthFlow: startGoogleOAuth } = useOAuth({ strategy: "oauth_google" });
+  const { startAppleAuthenticationFlow } = useSignInWithApple();
+
+  const signingUp = useRef(false);
+
+  // If already signed in and NOT because we just signed up, sign out
+  useEffect(() => {
+    if (isSignedIn && !signingUp.current) {
+      signOut();
+    }
+  }, [isSignedIn]);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -62,6 +74,7 @@ export default function SignUpScreen() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   /* ── Google OAuth ── */
   const handleGoogleSignUp = useCallback(async () => {
@@ -70,8 +83,9 @@ export default function SignUpScreen() {
     setGoogleLoading(true);
     try {
       const { createdSessionId, setActive: setActiveSession } =
-        await startOAuthFlow({ redirectUrl: Linking.createURL("oauth-native-callback") });
+        await startGoogleOAuth({ redirectUrl: Linking.createURL("oauth-native-callback") });
       if (createdSessionId) {
+        signingUp.current = true;
         await setActiveSession({ session: createdSessionId });
       }
     } catch (err) {
@@ -85,22 +99,67 @@ export default function SignUpScreen() {
     } finally {
       setGoogleLoading(false);
     }
-  }, [startOAuthFlow, googleLoading]);
+  }, [startGoogleOAuth, googleLoading]);
+
+  /* ── Apple (native) ── */
+  const handleAppleSignUp = useCallback(async () => {
+    if (appleLoading) return;
+    setError("");
+    setAppleLoading(true);
+    try {
+      const { createdSessionId, setActive: setActiveSession } =
+        await startAppleAuthenticationFlow();
+      if (createdSessionId && setActiveSession) {
+        signingUp.current = true;
+        await setActiveSession({ session: createdSessionId });
+      }
+    } catch (err) {
+      if (err?.code === "ERR_REQUEST_CANCELED") return;
+      if (err?.message?.includes("cancelled")) return;
+      const message =
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        err?.message ??
+        "Apple sign-up failed";
+      setError(message);
+    } finally {
+      setAppleLoading(false);
+    }
+  }, [startAppleAuthenticationFlow, appleLoading]);
 
   /* ── Email sign-up ── */
   const onSignUp = async () => {
     if (!isLoaded) return;
     setError("");
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setError("Please fill in your email and password.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await signUp.create({
-        firstName,
-        lastName,
-        emailAddress: email,
+      const result = await signUp.create({
+        firstName: firstName.trim() || undefined,
+        lastName: lastName.trim() || undefined,
+        emailAddress: trimmedEmail,
         password,
       });
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setPendingVerification(true);
+
+      if (result.status === "complete") {
+        // Email verification not required — activate session directly
+        signingUp.current = true;
+        await setActive?.({ session: result.createdSessionId });
+        Alert.alert("Welcome to DLISHE!", "Your account has been created.");
+        router.replace("/home");
+      } else if (result.status === "missing_requirements") {
+        // Email verification needed
+        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+        setPendingVerification(true);
+      } else {
+        setError(`Unexpected signup status: ${result.status}`);
+      }
     } catch (err) {
       const message =
         err?.errors?.[0]?.longMessage ??
@@ -121,7 +180,9 @@ export default function SignUpScreen() {
     try {
       const result = await signUp.attemptEmailAddressVerification({ code });
       if (result.status === "complete") {
+        signingUp.current = true;
         await setActive?.({ session: result.createdSessionId });
+        Alert.alert("Welcome to DLISHE!", "Your account has been created.");
         router.replace("/home");
       }
     } catch (err) {
@@ -140,13 +201,15 @@ export default function SignUpScreen() {
     <View style={styles.screen}>
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
           >
             {/* ── Logo + Brand ── */}
             <View style={styles.brandSection}>
@@ -165,6 +228,29 @@ export default function SignUpScreen() {
 
               {!pendingVerification ? (
                 <>
+                  {/* Apple */}
+                  {Platform.OS === "ios" && (
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.appleButton,
+                        pressed && { opacity: 0.8 },
+                      ]}
+                      onPress={handleAppleSignUp}
+                      disabled={appleLoading}
+                    >
+                      {appleLoading ? (
+                        <ActivityIndicator color={C.bg} size="small" />
+                      ) : (
+                        <View style={styles.googleInner}>
+                          <Svg width={18} height={18} viewBox="0 0 24 24" fill={C.bg}>
+                            <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+                          </Svg>
+                          <Text style={styles.appleText}>Continue with Apple</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  )}
+
                   {/* Google */}
                   <Pressable
                     style={({ pressed }) => [
@@ -265,6 +351,17 @@ export default function SignUpScreen() {
                       <Text style={styles.linkAccent}>Sign in</Text>
                     </Text>
                   </Pressable>
+
+                  {/* Legal links */}
+                  <View style={styles.legalRow}>
+                    <Pressable onPress={() => Linking.openURL("https://dlishe.com/terms")}>
+                      <Text style={styles.legalText}>Terms of Use</Text>
+                    </Pressable>
+                    <Text style={styles.legalDot}> · </Text>
+                    <Pressable onPress={() => Linking.openURL("https://dlishe.com/privacy")}>
+                      <Text style={styles.legalText}>Privacy Policy</Text>
+                    </Pressable>
+                  </View>
                 </>
               ) : (
                 /* ── Email verification ── */
@@ -336,9 +433,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 28,
-    paddingBottom: 40,
+    paddingTop: "20%",
+    paddingBottom: 80,
     flexGrow: 1,
-    justifyContent: "center",
   },
 
   /* ── brand ── */
@@ -373,6 +470,21 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     marginBottom: 16,
     textAlign: "center",
+  },
+
+  /* ── apple ── */
+  appleButton: {
+    backgroundColor: C.white,
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  appleText: {
+    color: C.bg,
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
   },
 
   /* ── google ── */
@@ -464,6 +576,22 @@ const styles = StyleSheet.create({
   linkAccent: {
     color: C.green,
     fontFamily: "Inter_600SemiBold",
+  },
+  legalRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 24,
+  },
+  legalText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: C.textSecondary,
+    textDecorationLine: "underline",
+  },
+  legalDot: {
+    fontSize: 12,
+    color: C.textSecondary,
   },
 
   /* ── verify ── */

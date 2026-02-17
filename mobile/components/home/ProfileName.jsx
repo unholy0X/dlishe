@@ -7,6 +7,7 @@ import {
   Pressable,
   Modal,
   Alert,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useClerk, useUser } from "@clerk/clerk-expo";
@@ -195,6 +196,17 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
             </View>
             <Text style={styles.logoutText}>Log out</Text>
           </Pressable>
+
+          {/* Legal links */}
+          <View style={styles.legalRow}>
+            <Pressable onPress={() => Linking.openURL("https://dlishe.com/terms")}>
+              <Text style={styles.legalLink}>Terms of Use</Text>
+            </Pressable>
+            <Text style={styles.legalDot}> · </Text>
+            <Pressable onPress={() => Linking.openURL("https://dlishe.com/privacy")}>
+              <Text style={styles.legalLink}>Privacy Policy</Text>
+            </Pressable>
+          </View>
         </View>
       </Modal>
 
@@ -367,5 +379,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     color: "#cc3b3b",
+  },
+  legalRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 20,
+    paddingTop: 4,
+  },
+  legalLink: {
+    fontSize: 11,
+    fontWeight: "400",
+    color: "#C8C8C8",
+    letterSpacing: 0.2,
+  },
+  legalDot: {
+    fontSize: 11,
+    color: "#D9D9D9",
+    marginHorizontal: 6,
   },
 });

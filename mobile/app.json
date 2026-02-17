@@ -17,6 +17,7 @@
       "bundleIdentifier": "com.dlishe.app",
       "buildNumber": "1",
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "DLISHE uses the camera to scan recipes from photos and pantry items",
         "NSPhotoLibraryUsageDescription": "DLISHE lets you extract recipes from photos in your library",
@@ -53,6 +54,7 @@
           "cameraPermission": "DLISHE uses the camera to scan recipes and pantry items"
         }
       ],
+      "expo-apple-authentication",
       "@sentry/react-native"
     ],
     "extra": {

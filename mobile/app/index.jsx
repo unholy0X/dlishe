@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useAuth, useSignIn, useOAuth } from "@clerk/clerk-expo";
+import { useAuth, useSignIn, useOAuth, useSignInWithApple } from "@clerk/clerk-expo";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import Svg, { Path } from "react-native-svg";
@@ -52,15 +52,18 @@ export default function LoginScreen() {
   const router = useRouter();
   const { isSignedIn } = useAuth();
   const { signIn, setActive, isLoaded } = useSignIn();
-  const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+  const { startOAuthFlow: startGoogleOAuth } = useOAuth({ strategy: "oauth_google" });
+  const { startAppleAuthenticationFlow } = useSignInWithApple();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verifyCode, setVerifyCode] = useState("");
   const [verifyStrategy, setVerifyStrategy] = useState(null);
+  const [verifyFactor, setVerifyFactor] = useState(null); // "first" or "second"
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   useEffect(() => {
     if (isSignedIn) {
@@ -76,7 +79,7 @@ export default function LoginScreen() {
     try {
       const redirectUrl = Linking.createURL("oauth-native-callback");
       const { createdSessionId, setActive: setActiveSession } =
-        await startOAuthFlow({ redirectUrl });
+        await startGoogleOAuth({ redirectUrl });
       if (createdSessionId) {
         await setActiveSession({ session: createdSessionId });
       }
@@ -91,18 +94,65 @@ export default function LoginScreen() {
     } finally {
       setGoogleLoading(false);
     }
-  }, [startOAuthFlow, googleLoading]);
+  }, [startGoogleOAuth, googleLoading]);
+
+  /* ── Apple (native) ── */
+  const handleAppleSignIn = useCallback(async () => {
+    if (appleLoading) return;
+    setError("");
+    setAppleLoading(true);
+    try {
+      const { createdSessionId, setActive: setActiveSession } =
+        await startAppleAuthenticationFlow();
+      if (createdSessionId && setActiveSession) {
+        await setActiveSession({ session: createdSessionId });
+      }
+    } catch (err) {
+      if (err?.code === "ERR_REQUEST_CANCELED") return;
+      if (err?.message?.includes("cancelled")) return;
+      const message =
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        err?.message ??
+        "Apple sign-in failed";
+      setError(message);
+    } finally {
+      setAppleLoading(false);
+    }
+  }, [startAppleAuthenticationFlow, appleLoading]);
 
   /* ── Email / password ── */
   const handleEmailSignIn = async () => {
     if (!isLoaded) return;
     setError("");
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setError("Please enter your email and password.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const result = await signIn.create({ identifier: email, password });
+      const result = await signIn.create({ identifier: trimmedEmail, password });
 
       if (result.status === "complete") {
         await setActive?.({ session: result.createdSessionId });
+      } else if (result.status === "needs_first_factor") {
+        // Clerk requires first-factor verification (e.g. email on new device)
+        const factors = result.supportedFirstFactors;
+        const strategy =
+          factors?.find((f) => f.strategy === "email_code")?.strategy ??
+          factors?.find((f) => f.strategy === "phone_code")?.strategy ??
+          null;
+
+        if (!strategy) {
+          setError("Verification required but no supported method found.");
+          return;
+        }
+        await signIn.prepareFirstFactor({ strategy });
+        setVerifyFactor("first");
+        setVerifyStrategy(strategy);
       } else if (result.status === "needs_second_factor") {
         const factors = result.supportedSecondFactors;
         const strategy =
@@ -118,6 +168,7 @@ export default function LoginScreen() {
         if (strategy === "email_code" || strategy === "phone_code") {
           await signIn.prepareSecondFactor({ strategy });
         }
+        setVerifyFactor("second");
         setVerifyStrategy(strategy);
       } else {
         setError(`Unexpected status: ${result.status}`);
@@ -134,18 +185,39 @@ export default function LoginScreen() {
     }
   };
 
-  /* ── 2FA verify ── */
+  /* ── Verify (first-factor or second-factor) ── */
   const handleVerify = async () => {
-    if (!isLoaded || !verifyStrategy) return;
+    if (!isLoaded || !verifyStrategy || !verifyFactor) return;
     setError("");
     setLoading(true);
     try {
-      const result = await signIn.attemptSecondFactor({
-        strategy: verifyStrategy,
-        code: verifyCode,
-      });
+      const attempt = verifyFactor === "first"
+        ? signIn.attemptFirstFactor({ strategy: verifyStrategy, code: verifyCode })
+        : signIn.attemptSecondFactor({ strategy: verifyStrategy, code: verifyCode });
+
+      const result = await attempt;
+
       if (result.status === "complete") {
         await setActive?.({ session: result.createdSessionId });
+      } else if (result.status === "needs_second_factor") {
+        // First factor passed, now need 2FA
+        const factors = result.supportedSecondFactors;
+        const strategy =
+          factors?.find((f) => f.strategy === "email_code")?.strategy ??
+          factors?.find((f) => f.strategy === "phone_code")?.strategy ??
+          factors?.find((f) => f.strategy === "totp")?.strategy ??
+          null;
+
+        if (!strategy) {
+          setError("2FA required but no supported method found.");
+          return;
+        }
+        if (strategy === "email_code" || strategy === "phone_code") {
+          await signIn.prepareSecondFactor({ strategy });
+        }
+        setVerifyCode("");
+        setVerifyFactor("second");
+        setVerifyStrategy(strategy);
       } else {
         setError(`Unexpected status: ${result.status}`);
       }
@@ -172,13 +244,15 @@ export default function LoginScreen() {
     <View style={styles.screen}>
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
           >
             {/* ── Logo + Brand ── */}
             <View style={styles.brandSection}>
@@ -197,6 +271,29 @@ export default function LoginScreen() {
 
               {!verifyStrategy ? (
                 <>
+                  {/* Apple */}
+                  {Platform.OS === "ios" && (
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.appleButton,
+                        pressed && { opacity: 0.8 },
+                      ]}
+                      onPress={handleAppleSignIn}
+                      disabled={appleLoading}
+                    >
+                      {appleLoading ? (
+                        <ActivityIndicator color={C.bg} size="small" />
+                      ) : (
+                        <View style={styles.googleInner}>
+                          <Svg width={18} height={18} viewBox="0 0 24 24" fill={C.bg}>
+                            <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+                          </Svg>
+                          <Text style={styles.appleText}>Continue with Apple</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  )}
+
                   {/* Google */}
                   <Pressable
                     style={({ pressed }) => [
@@ -275,6 +372,17 @@ export default function LoginScreen() {
                       <Text style={styles.linkAccent}>Create account</Text>
                     </Text>
                   </Pressable>
+
+                  {/* Legal links */}
+                  <View style={styles.legalRow}>
+                    <Pressable onPress={() => Linking.openURL("https://dlishe.com/terms")}>
+                      <Text style={styles.legalText}>Terms of Use</Text>
+                    </Pressable>
+                    <Text style={styles.legalDot}> · </Text>
+                    <Pressable onPress={() => Linking.openURL("https://dlishe.com/privacy")}>
+                      <Text style={styles.legalText}>Privacy Policy</Text>
+                    </Pressable>
+                  </View>
                 </>
               ) : (
                 /* ── 2FA verification ── */
@@ -320,6 +428,7 @@ export default function LoginScreen() {
                     style={styles.link}
                     onPress={() => {
                       setVerifyStrategy(null);
+                      setVerifyFactor(null);
                       setVerifyCode("");
                       setError("");
                     }}
@@ -346,9 +455,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 28,
-    paddingBottom: 40,
+    paddingTop: "25%",
+    paddingBottom: 80,
     flexGrow: 1,
-    justifyContent: "center",
   },
 
   /* ── brand ── */
@@ -382,6 +491,21 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     marginBottom: 16,
     textAlign: "center",
+  },
+
+  /* ── apple ── */
+  appleButton: {
+    backgroundColor: C.white,
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  appleText: {
+    color: C.bg,
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
   },
 
   /* ── google ── */
@@ -469,6 +593,22 @@ const styles = StyleSheet.create({
   linkAccent: {
     color: C.green,
     fontFamily: "Inter_600SemiBold",
+  },
+  legalRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 24,
+  },
+  legalText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: C.textSecondary,
+    textDecorationLine: "underline",
+  },
+  legalDot: {
+    fontSize: 12,
+    color: C.textSecondary,
   },
 
   /* ── verify ── */

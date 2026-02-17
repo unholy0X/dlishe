@@ -6,6 +6,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Linking,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import BottomSheetModal from "../BottomSheetModal";
@@ -174,6 +175,17 @@ export default function PaywallSheet({ visible, onClose, reason }) {
           </Pressable>
         </>
       )}
+
+      {/* Legal links */}
+      <View style={styles.legalRow}>
+        <Pressable onPress={() => Linking.openURL("https://dlishe.com/terms")}>
+          <Text style={styles.legalText}>Terms of Use</Text>
+        </Pressable>
+        <Text style={styles.legalDot}> · </Text>
+        <Pressable onPress={() => Linking.openURL("https://dlishe.com/privacy")}>
+          <Text style={styles.legalText}>Privacy Policy</Text>
+        </Pressable>
+      </View>
     </BottomSheetModal>
   );
 }
@@ -275,5 +287,21 @@ const styles = StyleSheet.create({
   restoreText: {
     fontSize: 14,
     color: "#6b6b6b",
+  },
+  legalRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  legalText: {
+    fontSize: 12,
+    color: "#B4B4B4",
+    textDecorationLine: "underline",
+  },
+  legalDot: {
+    fontSize: 12,
+    color: "#B4B4B4",
   },
 });

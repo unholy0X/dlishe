@@ -75,9 +75,13 @@ func (h *SubscriptionHandler) GetSubscription(w http.ResponseWriter, r *http.Req
 
 	sub, err := h.userRepo.GetSubscription(r.Context(), user.ID)
 	if err != nil {
-		h.logger.Error("Failed to get subscription", "error", err, "user_id", user.ID)
-		response.InternalError(w)
-		return
+		h.logger.Warn("Failed to get subscription, returning default free tier", "error", err, "user_id", user.ID)
+		sub = &model.UserSubscription{
+			UserID:       user.ID,
+			Entitlement:  "free",
+			IsActive:     true,
+			LastSyncedAt: time.Now().UTC(),
+		}
 	}
 
 	// Admin emails get admin tier regardless of subscription state

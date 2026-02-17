@@ -229,6 +229,23 @@ func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	return nil
 }
 
+// UpdateClerkID updates only the clerk_id for a user (used when a Clerk account is re-created)
+func (r *UserRepository) UpdateClerkID(ctx context.Context, userID uuid.UUID, clerkID string) error {
+	query := `UPDATE users SET clerk_id = $2, updated_at = $3 WHERE id = $1 AND deleted_at IS NULL`
+	result, err := r.db.ExecContext(ctx, query, userID, clerkID, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
 // SoftDelete soft deletes a user
 func (r *UserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	query := `

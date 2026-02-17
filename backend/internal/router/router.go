@@ -97,6 +97,9 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	}
 	shoppingHandler := handler.NewShoppingHandler(shoppingRepo, recipeRepo, userRepo, shoppingAnalyzer)
 
+	mealPlanRepo := postgres.NewMealPlanRepository(db)
+	mealPlanHandler := handler.NewMealPlanHandler(mealPlanRepo, shoppingRepo, pantryRepo)
+
 	// Initialize sync service
 	syncService := sync.NewService(recipeRepo, pantryRepo, shoppingRepo)
 	syncHandler := handler.NewSyncHandler(syncService)
@@ -229,6 +232,19 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 					r.Delete("/items/{itemId}", shoppingHandler.DeleteItem)
 					r.Post("/items/{itemId}/check", shoppingHandler.ToggleItemChecked)
 					r.Post("/complete", shoppingHandler.CompleteList)
+				})
+			})
+
+			// Meal plan routes
+			r.Route("/meal-plans", func(r chi.Router) {
+				r.Get("/current", mealPlanHandler.GetCurrentWeek)
+				r.Get("/week/{date}", mealPlanHandler.GetByWeek)
+
+				r.Route("/{id}", func(r chi.Router) {
+					r.Put("/", mealPlanHandler.UpdatePlan)
+					r.Post("/entries", mealPlanHandler.AddEntry)
+					r.Delete("/entries/{entryId}", mealPlanHandler.RemoveEntry)
+					r.Post("/generate-list", mealPlanHandler.GenerateShoppingList)
 				})
 			})
 

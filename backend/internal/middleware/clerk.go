@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -24,8 +25,10 @@ type ClerkMiddleware struct {
 // UserRepository interface defines required user operations
 type UserRepository interface {
 	GetByClerkID(ctx context.Context, clerkID string) (*model.User, error)
+	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	Create(ctx context.Context, user *model.User) error
 	Update(ctx context.Context, user *model.User) error
+	UpdateClerkID(ctx context.Context, userID uuid.UUID, clerkID string) error
 	CreateSubscription(ctx context.Context, userID uuid.UUID) error
 }
 
@@ -65,11 +68,14 @@ func (m *ClerkMiddleware) RequireAuth(next http.Handler) http.Handler {
 		}
 
 		// 3. Sync User (Lazy Sync)
+		// Never return 500 — fall back to a temporary free-tier user if DB sync fails.
 		user, err := m.syncUser(ctx, claims)
 		if err != nil {
-			m.logger.Error("Failed to sync user", "error", err, "clerk_id", claims.Subject)
-			response.InternalError(w)
-			return
+			m.logger.Error("Failed to sync user, falling back to ephemeral free-tier user",
+				"error", err,
+				"clerk_id", claims.Subject,
+			)
+			user = m.fallbackUser(claims.Subject)
 		}
 
 		// 4. Inject into Context
@@ -120,6 +126,25 @@ func (m *ClerkMiddleware) syncUser(ctx context.Context, claims *clerk.SessionCla
 		if existing, fetchErr := m.userRepo.GetByClerkID(ctx, clerkID); fetchErr == nil {
 			return existing, nil
 		}
+
+		// User exists with same email but different clerk_id (e.g. Clerk account
+		// was deleted and re-created). Look up by email and re-link.
+		if newUser.Email != nil {
+			if existing, fetchErr := m.userRepo.GetByEmail(ctx, *newUser.Email); fetchErr == nil {
+				if updateErr := m.userRepo.UpdateClerkID(ctx, existing.ID, clerkID); updateErr != nil {
+					m.logger.Error("Failed to re-link clerk_id", "error", updateErr, "user_id", existing.ID, "clerk_id", clerkID)
+					return nil, updateErr
+				}
+				existing.ClerkID = &clerkID
+				m.logger.Info("Re-linked user to new Clerk account",
+					"user_id", existing.ID,
+					"clerk_id", clerkID,
+					"email", newUser.Email,
+				)
+				return existing, nil
+			}
+		}
+
 		return nil, err
 	}
 
@@ -174,6 +199,23 @@ func (m *ClerkMiddleware) populateFromClerk(ctx context.Context, user *model.Use
 	if len(parts) > 0 {
 		name := strings.Join(parts, " ")
 		user.Name = &name
+	}
+}
+
+// fallbackUser creates a deterministic ephemeral user from the clerk_id.
+// This user won't exist in the DB, so queries will return empty results,
+// and the subscription handler will default to free tier — but no 500.
+func (m *ClerkMiddleware) fallbackUser(clerkID string) *model.User {
+	// Deterministic UUID from clerk_id so the same token always gets the same user ID
+	hash := sha256.Sum256([]byte(clerkID))
+	deterministicID, _ := uuid.FromBytes(hash[:16])
+
+	return &model.User{
+		ID:                  deterministicID,
+		ClerkID:             &clerkID,
+		CreatedAt:           time.Now().UTC(),
+		UpdatedAt:           time.Now().UTC(),
+		PreferredUnitSystem: "metric",
 	}
 }
 

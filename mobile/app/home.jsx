@@ -32,7 +32,8 @@ import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent"
 import HeartIcon from "../components/icons/HeartIcon";
 import RecipePlaceholder from "../components/RecipePlaceholder";
 import DinnerInspirationSheet from "../components/DinnerInspirationSheet";
-import { useSuggestedStore, useFeaturedStore, useRecipeStore, usePantryStore } from "../store";
+import { useSuggestedStore, useFeaturedStore, useRecipeStore, usePantryStore, useMealPlanStore } from "../store";
+import MealPlanCard from "../components/mealPlan/MealPlanCard";
 import { useAuth } from "@clerk/clerk-expo";
 import { cloneRecipe, toggleFavorite as toggleFavoriteApi } from "../services/recipes";
 import { filterByMealCategory, CATEGORIES } from "../utils/mealCategories";
@@ -213,6 +214,7 @@ export default function HomeScreen() {
   const { recipes: featuredRecipes, loadFeatured } = useFeaturedStore();
   const { recipes: userRecipes, loadRecipes, toggleFavorite } = useRecipeStore();
   const { groups: pantryGroups, loadPantry } = usePantryStore();
+  const { plan: mealPlan, loadCurrentWeek: loadMealPlan } = useMealPlanStore();
   const favoriteRecipes = userRecipes.filter((r) => r.isFavorite);
   const favoriteCount = favoriteRecipes.length;
   const favoriteIds = useMemo(() => new Set(favoriteRecipes.map((r) => r.id)), [favoriteRecipes]);
@@ -221,6 +223,7 @@ export default function HomeScreen() {
     loadSuggested({ limit: 20 }).catch(() => {});
     loadFeatured({ limit: 30 }).catch(() => {});
     loadRecipes({ getToken }).catch(() => {});
+    loadMealPlan({ getToken }).catch(() => {});
   }, []);
 
   // Prefetch suggested recipe thumbnails for smooth carousel
@@ -237,6 +240,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (pathname === "/home") {
       loadRecipes({ getToken }).catch(() => {});
+      loadMealPlan({ getToken }).catch(() => {});
     }
   }, [pathname]);
 
@@ -246,6 +250,7 @@ export default function HomeScreen() {
       loadSuggested({ limit: 20 }),
       loadFeatured({ limit: 30 }),
       loadRecipes({ getToken }),
+      loadMealPlan({ getToken }),
     ])
       .catch(() => {})
       .finally(() => setRefreshing(false));
@@ -393,6 +398,16 @@ export default function HomeScreen() {
     }
   }, [allRecipes.length]);
 
+  const mealPlanEntries = mealPlan?.entries || [];
+  const mealPlanPerDay = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    mealPlanEntries.forEach((e) => {
+      if (e.dayIndex >= 0 && e.dayIndex <= 6) counts[e.dayIndex]++;
+    });
+    return counts;
+  }, [mealPlanEntries]);
+  const mealPlanTotal = mealPlanEntries.length;
+
   const carouselItems = suggested.map((r) => ({
     id: r.id,
     title: r.title,
@@ -455,6 +470,12 @@ export default function HomeScreen() {
               onPressFavorites={() => { closeAllSheets(); setFavoritesOpen(true); }}
               onPressHighProtein={() => handleRecommendation("high-protein")}
               onPressQuickMeals={() => handleRecommendation("quick-meals")}
+            />
+
+            <MealPlanCard
+              mealsPerDay={mealPlanPerDay}
+              totalMeals={mealPlanTotal}
+              onPress={() => router.push("/mealPlan")}
             />
 
             <RecentRecipesHeader

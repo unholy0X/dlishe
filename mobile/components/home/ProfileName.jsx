@@ -155,7 +155,7 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
               </View>
               <View style={styles.menuRowContent}>
                 <Text style={styles.menuRowTitle}>Pro Member</Text>
-                <Text style={styles.menuRowValue}>Unlimited access</Text>
+                <Text style={styles.menuRowValue}>All limits removed</Text>
               </View>
             </View>
           ) : (
@@ -171,7 +171,7 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
               </View>
               <View style={styles.menuRowContent}>
                 <Text style={styles.menuRowTitle}>Upgrade to Pro</Text>
-                <Text style={styles.menuRowValue}>Unlimited recipes & more</Text>
+                <Text style={styles.menuRowValue}>No limits on recipes & more</Text>
               </View>
             </Pressable>
           )}
@@ -199,11 +199,17 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
 
           {/* Legal links */}
           <View style={styles.legalRow}>
-            <Pressable onPress={() => Linking.openURL("https://dlishe.com/terms")}>
-              <Text style={styles.legalLink}>Terms of Use</Text>
+            <Pressable
+              style={styles.legalLinkWrap}
+              onPress={() => Linking.openURL("https://dlishe.com/terms")}
+            >
+              <Text style={styles.legalLink}>Terms of Use (EULA)</Text>
             </Pressable>
             <Text style={styles.legalDot}> · </Text>
-            <Pressable onPress={() => Linking.openURL("https://dlishe.com/privacy")}>
+            <Pressable
+              style={styles.legalLinkWrap}
+              onPress={() => Linking.openURL("https://dlishe.com/privacy")}
+            >
               <Text style={styles.legalLink}>Privacy Policy</Text>
             </Pressable>
           </View>
@@ -384,18 +390,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
-    paddingTop: 4,
+    marginTop: 16,
+    paddingVertical: 6,
+  },
+  legalLinkWrap: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
   },
   legalLink: {
-    fontSize: 11,
-    fontWeight: "400",
-    color: "#C8C8C8",
-    letterSpacing: 0.2,
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#6b6b6b",
+    textDecorationLine: "underline",
   },
   legalDot: {
-    fontSize: 11,
-    color: "#D9D9D9",
-    marginHorizontal: 6,
+    fontSize: 13,
+    color: "#6b6b6b",
+    marginHorizontal: 4,
   },
 });

@@ -89,7 +89,7 @@ export default function AddRecipeSheetContent({ onPressBack }) {
         </Pressable>
 
         <Text style={styles.quotaHint}>
-          Unlimited extractions, pantry scans & more
+          No limits on extractions, pantry scans & more
         </Text>
 
         <Text style={styles.quotaReset}>Resets next month</Text>

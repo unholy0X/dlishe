@@ -36,6 +36,7 @@ import { useSuggestedStore, useFeaturedStore, useRecipeStore, usePantryStore, us
 import MealPlanCard from "../components/mealPlan/MealPlanCard";
 import { useAuth } from "@clerk/clerk-expo";
 import { cloneRecipe, toggleFavorite as toggleFavoriteApi } from "../services/recipes";
+import { useTranslation } from "react-i18next";
 import { filterByMealCategory, CATEGORIES } from "../utils/mealCategories";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -61,18 +62,18 @@ function shuffle(arr) {
   return a;
 }
 
-function friendlySaveError(err) {
+function friendlySaveError(err, t) {
   const msg = (err?.message || "").toLowerCase();
   if (msg.includes("network request failed") || msg.includes("failed to fetch"))
-    return "No internet connection. Check your network and try again.";
+    return t("noInternet", { ns: "common" });
   if (
     msg.includes("token") ||
     msg.includes("unauthorized") ||
     msg.includes("not authenticated") ||
     msg.includes("sign-in session")
   )
-    return "Your session needs a refresh. Please sign out and back in.";
-  return "Couldn't save this recipe. Please try again.";
+    return t("sessionExpired", { ns: "common" });
+  return t("errors:recipe.saveMessage");
 }
 
 const recipeKeyExtractor = (item) => item.id;
@@ -81,6 +82,7 @@ const PAGE_SIZE = 10;
 
 function RecipeGrid({ data, onPressRecipe, savedPublicIds, savingIds, onSave, renderBadge, scrollProps }) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const { t } = useTranslation("home");
 
   // Reset visible count when data changes (new sheet opened)
   useEffect(() => {
@@ -140,7 +142,7 @@ function RecipeGrid({ data, onPressRecipe, savedPublicIds, savingIds, onSave, re
         onPress={() => setVisibleCount((c) => c + PAGE_SIZE)}
       >
         <Text style={styles.showMoreText}>
-          Show more ({data.length - visibleCount} remaining)
+          {t("showMore", { count: data.length - visibleCount })}
         </Text>
       </Pressable>
     );
@@ -193,6 +195,7 @@ function countPantryMatches(recipe, pantryTokens) {
 export default function HomeScreen() {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useTranslation("home");
   const activeKey = pathname.replace("/", "") || "home";
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [isRecipesSheetOpen, setRecipesSheetOpen] = useState(false);
@@ -416,7 +419,7 @@ export default function HomeScreen() {
         return next;
       });
       // Show a non-blocking friendly toast — no jarring alert dialogs
-      const msg = friendlySaveError(err);
+      const msg = friendlySaveError(err, t);
       setSaveError(msg);
       if (saveErrorTimer.current) clearTimeout(saveErrorTimer.current);
       saveErrorTimer.current = setTimeout(() => setSaveError(""), 4000);
@@ -469,23 +472,23 @@ export default function HomeScreen() {
           }
         >
           <View style={styles.padded}>
-            <ProfileName subtitle="Your kitchen awaits" />
+            <ProfileName subtitle={t("tagline")} />
 
             <SearchBar
-              placeholder="Search for a recipe"
+              placeholder={t("searchPlaceholder")}
               onPress={() => { closeAllSheets(); setSearchOpen(true); }}
             />
 
             <MealCategoryGrid onPress={handleMealCategory} />
 
-            <Text style={styles.title}>What Shall we cook today?</Text>
+            <Text style={styles.title}>{t("sectionTitle")}</Text>
           </View>
           <View style={{ marginHorizontal: 20 }}>
             <SuggestionRow
               items={[
                 {
-                  title: "What can I make ?",
-                  subtitle: { txt: "Match your pantry", color: "#385225" },
+                  title: t("suggestions.whatCanIMake"),
+                  subtitle: { txt: t("suggestions.matchPantry"), color: "#385225" },
                   Icon: () => (
                     <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
                       <SparkleBadgeIcon width={40} height={40} />
@@ -494,8 +497,8 @@ export default function HomeScreen() {
                   onPress: handlePantryMatch,
                 },
                 {
-                  title: "Get Inspired",
-                  subtitle: { txt: "Curated picks for you", color: "#5A1F33" },
+                  title: t("suggestions.getInspired"),
+                  subtitle: { txt: t("suggestions.curatedPicks"), color: "#5A1F33" },
                   Icon: () => <HeartBadgeIcon width={40} height={40} />,
                   onPress: handleDinnerInspiration,
                 },
@@ -554,9 +557,9 @@ export default function HomeScreen() {
       >
         {({ onScroll, scrollEnabled }) => (
           <>
-            <Text style={styles.recipesSheetTitle}>Suggested For You</Text>
+            <Text style={styles.recipesSheetTitle}>{t("sheets.suggestedTitle")}</Text>
             <Text style={styles.recipesSheetSubtitle}>
-              {(allRecipes.length || suggested.length)} suggestion{(allRecipes.length || suggested.length) !== 1 ? "s" : ""}
+              {t("sheets.suggestions", { count: allRecipes.length || suggested.length })}
             </Text>
             {isLoadingAll ? (
               <View style={styles.recipesSheetLoading}>
@@ -590,10 +593,10 @@ export default function HomeScreen() {
             <>
               <View style={styles.favoritesHeader}>
                 <HeartIcon width={22} height={22} color="#E84057" filled />
-                <Text style={styles.favoritesTitle}>My Favorites</Text>
+                <Text style={styles.favoritesTitle}>{t("sheets.favoritesTitle")}</Text>
               </View>
               <Text style={styles.recipesSheetSubtitle}>
-                {favoriteCount} recipe{favoriteCount !== 1 ? "s" : ""} saved
+                {t("sheets.favoritesSaved", { count: favoriteCount })}
               </Text>
               <RecipeGrid
                 data={favoriteRecipes}
@@ -612,18 +615,18 @@ export default function HomeScreen() {
           <View style={styles.recipesSheet}>
             <View style={styles.favoritesHeader}>
               <HeartIcon width={22} height={22} color="#E84057" filled />
-              <Text style={styles.favoritesTitle}>My Favorites</Text>
+              <Text style={styles.favoritesTitle}>{t("sheets.favoritesTitle")}</Text>
             </View>
             <Text style={styles.recipesSheetSubtitle}>
-              {favoriteCount} recipe{favoriteCount !== 1 ? "s" : ""} saved
+              {t("sheets.favoritesSaved", { count: favoriteCount })}
             </Text>
             <View style={styles.emptyFavorites}>
               <View style={styles.emptyHeartCircle}>
                 <HeartIcon width={32} height={32} color="#F9BABA" />
               </View>
-              <Text style={styles.emptyTitle}>No favorites yet</Text>
+              <Text style={styles.emptyTitle}>{t("empty.noFavorites")}</Text>
               <Text style={styles.emptySubtitle}>
-                Tap the heart on any recipe to save it here
+                {t("empty.noFavoritesSubtitle")}
               </Text>
             </View>
           </View>
@@ -639,10 +642,10 @@ export default function HomeScreen() {
         {({ onScroll, scrollEnabled }) => (
           <>
             <Text style={styles.recipesSheetTitle}>
-              {recoFilter === "high-protein" ? "High Protein" : "Quick Meals"}
+              {recoFilter === "high-protein" ? t("sheets.highProtein") : t("sheets.quickMeals")}
             </Text>
             <Text style={styles.recipesSheetSubtitle}>
-              {isLoadingAll ? "Loading..." : `${recoResults.length} recipe${recoResults.length !== 1 ? "s" : ""}`}
+              {isLoadingAll ? t("loading", { ns: "common" }) : t("sheets.recipes", { count: recoResults.length })}
             </Text>
             {isLoadingAll ? (
               <View style={styles.recipesSheetLoading}>
@@ -650,9 +653,9 @@ export default function HomeScreen() {
               </View>
             ) : recoResults.length === 0 ? (
               <View style={styles.emptyFavorites}>
-                <Text style={styles.emptyTitle}>No recipes found</Text>
+                <Text style={styles.emptyTitle}>{t("empty.noRecipes")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  We couldn't find any recipes for this category right now
+                  {t("empty.noRecipesSubtitle")}
                 </Text>
               </View>
             ) : (
@@ -685,8 +688,8 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.recipesSheetSubtitle}>
               {isLoadingAll
-                ? "Loading..."
-                : `${mealCatShuffled.length} recipe${mealCatShuffled.length !== 1 ? "s" : ""}`}
+                ? t("loading", { ns: "common" })
+                : t("sheets.recipes", { count: mealCatShuffled.length })}
             </Text>
             {isLoadingAll ? (
               <View style={styles.recipesSheetLoading}>
@@ -694,9 +697,9 @@ export default function HomeScreen() {
               </View>
             ) : mealCatShuffled.length === 0 ? (
               <View style={styles.emptyFavorites}>
-                <Text style={styles.emptyTitle}>No recipes found</Text>
+                <Text style={styles.emptyTitle}>{t("empty.noRecipes")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  We couldn't find any recipes for this category right now
+                  {t("empty.noRecipesSubtitle")}
                 </Text>
               </View>
             ) : (
@@ -752,12 +755,12 @@ export default function HomeScreen() {
               <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
                 <SparkleBadgeIcon width={22} height={22} />
               </View>
-              <Text style={styles.favoritesTitle}>What Can I Make?</Text>
+              <Text style={styles.favoritesTitle}>{t("sheets.whatCanIMake")}</Text>
             </View>
             <Text style={styles.recipesSheetSubtitle}>
               {pantryMatchLoading
-                ? "Matching your pantry..."
-                : `${pantryMatchResults.length} recipe${pantryMatchResults.length !== 1 ? "s" : ""} matched`}
+                ? t("sheets.matching")
+                : t("sheets.matched", { count: pantryMatchResults.length })}
             </Text>
             {pantryMatchLoading ? (
               <View style={styles.recipesSheetLoading}>
@@ -768,16 +771,16 @@ export default function HomeScreen() {
                 <View style={[styles.emptyHeartCircle, { backgroundColor: "#EAF4E0" }]}>
                   <SparkleBadgeIcon width={32} height={32} />
                 </View>
-                <Text style={styles.emptyTitle}>Pantry is empty</Text>
+                <Text style={styles.emptyTitle}>{t("empty.pantryEmpty")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  Add items to your pantry to see what you can cook
+                  {t("empty.pantryEmptySubtitle")}
                 </Text>
               </View>
             ) : pantryMatchResults.length === 0 ? (
               <View style={styles.emptyFavorites}>
-                <Text style={styles.emptyTitle}>No matches found</Text>
+                <Text style={styles.emptyTitle}>{t("empty.noMatches")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  Try adding more items to your pantry
+                  {t("empty.noMatchesSubtitle")}
                 </Text>
               </View>
             ) : (
@@ -793,7 +796,7 @@ export default function HomeScreen() {
                 renderBadge={(recipe) => (
                   <View style={styles.matchBadge}>
                     <Text style={styles.matchBadgeText}>
-                      {recipe._matchCount} match{recipe._matchCount !== 1 ? "es" : ""}
+                      {t("badge.matches", { count: recipe._matchCount })}
                     </Text>
                   </View>
                 )}

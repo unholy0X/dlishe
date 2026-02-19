@@ -17,6 +17,7 @@ import { useAuth, useSignIn, useOAuth, useSignInWithApple } from "@clerk/clerk-e
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import Svg, { Path } from "react-native-svg";
+import { useTranslation } from "react-i18next";
 import { useDemoStore } from "../store/demoStore";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -38,10 +39,10 @@ const C = {
 };
 
 /* ─── parse auth errors into user-friendly messages ─── */
-function parseAuthError(err, fallback) {
+function parseAuthError(err, fallback, t) {
   const raw = (err?.message ?? "").toLowerCase();
   if (raw.includes("network request failed") || raw.includes("failed to fetch")) {
-    return "No internet connection. Please check your network and try again.";
+    return t("errors.noInternet");
   }
   if (
     raw.includes("cannot read") ||
@@ -51,7 +52,7 @@ function parseAuthError(err, fallback) {
     err?.status === 503 ||
     err?.status === 500
   ) {
-    return "Sign-in services are temporarily unavailable. Please try again shortly.";
+    return t("errors.unavailable");
   }
   return (
     err?.errors?.[0]?.longMessage ??
@@ -79,6 +80,7 @@ export default function LoginScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const { startOAuthFlow: startGoogleOAuth } = useOAuth({ strategy: "oauth_google" });
   const { startAppleAuthenticationFlow } = useSignInWithApple();
+  const { t } = useTranslation("auth");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -92,7 +94,7 @@ export default function LoginScreen() {
   const [serviceWarning, setServiceWarning] = useState("");
 
   // Forgot password flow
-  const [forgotStep, setForgotStep] = useState(null); // null | "email" | "verify" | "new"
+  const [forgotStep, setForgotStep] = useState(null); // null | "email" | "verify"
   const [resetEmail, setResetEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -114,9 +116,7 @@ export default function LoginScreen() {
         .then((r) => r.json())
         .then((data) => {
           if (data?.status?.indicator && data.status.indicator !== "none") {
-            setServiceWarning(
-              "Our sign-in provider is experiencing issues. Authentication may be temporarily slow or unavailable — please try again shortly."
-            );
+            setServiceWarning(t("login.serviceWarning"));
           } else {
             setServiceWarning("");
           }
@@ -128,7 +128,7 @@ export default function LoginScreen() {
     checkStatus();
     interval = setInterval(checkStatus, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [t]);
 
   /* ── Google OAuth ── */
   const handleGoogleSignIn = useCallback(async () => {
@@ -144,11 +144,11 @@ export default function LoginScreen() {
       }
     } catch (err) {
       if (err?.message?.includes("cancelled")) return;
-      setError(parseAuthError(err, "Google sign-in failed"));
+      setError(parseAuthError(err, t("errors.googleFailed"), t));
     } finally {
       setGoogleLoading(false);
     }
-  }, [startGoogleOAuth, googleLoading]);
+  }, [startGoogleOAuth, googleLoading, t]);
 
   /* ── Apple (native) ── */
   const handleAppleSignIn = useCallback(async () => {
@@ -162,29 +162,29 @@ export default function LoginScreen() {
         const activate = setActiveSession ?? setActive;
         await activate({ session: createdSessionId });
       } else {
-        setError("Apple sign-in failed. Please try again.");
+        setError(t("errors.appleFailed"));
       }
     } catch (err) {
       if (err?.code === "ERR_REQUEST_CANCELED") return;
       if (err?.message?.includes("cancelled")) return;
-      setError(parseAuthError(err, "Apple sign-in failed"));
+      setError(parseAuthError(err, t("errors.appleFailed"), t));
     } finally {
       setAppleLoading(false);
     }
-  }, [startAppleAuthenticationFlow, setActive, appleLoading]);
+  }, [startAppleAuthenticationFlow, setActive, appleLoading, t]);
 
   /* ── Forgot password ── */
   const handleForgotSend = async () => {
     if (!isLoaded) return;
     setError("");
     const trimmed = resetEmail.trim();
-    if (!trimmed) { setError("Please enter your email address."); return; }
+    if (!trimmed) { setError(t("errors.enterEmail")); return; }
     setLoading(true);
     try {
       await signIn.create({ strategy: "reset_password_email_code", identifier: trimmed });
       setForgotStep("verify");
     } catch (err) {
-      setError(parseAuthError(err, "Could not send reset email. Check the address and try again."));
+      setError(parseAuthError(err, t("errors.resetEmailFailed"), t));
     } finally {
       setLoading(false);
     }
@@ -193,8 +193,8 @@ export default function LoginScreen() {
   const handleForgotVerify = async () => {
     if (!isLoaded) return;
     setError("");
-    if (!resetCode) { setError("Please enter the code from your email."); return; }
-    if (!newPassword || newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (!resetCode) { setError(t("errors.enterCode")); return; }
+    if (!newPassword || newPassword.length < 8) { setError(t("errors.passwordTooShort")); return; }
     setLoading(true);
     try {
       const result = await signIn.attemptFirstFactor({
@@ -205,10 +205,10 @@ export default function LoginScreen() {
       if (result.status === "complete") {
         await setActive?.({ session: result.createdSessionId });
       } else {
-        setError("Reset failed. Please try again.");
+        setError(t("forgot.resetFailed"));
       }
     } catch (err) {
-      setError(parseAuthError(err, "Invalid code or password. Please try again."));
+      setError(parseAuthError(err, t("errors.invalidCodeOrPassword"), t));
     } finally {
       setLoading(false);
     }
@@ -228,7 +228,7 @@ export default function LoginScreen() {
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      setError("Please enter your email and password.");
+      setError(t("errors.enterCredentials"));
       return;
     }
 
@@ -247,7 +247,7 @@ export default function LoginScreen() {
         await useDemoStore.getState().activate();
         router.replace("/home");
       } catch {
-        setError("Demo login failed. Please try again.");
+        setError(t("errors.demoFailed"));
       } finally {
         setLoading(false);
       }
@@ -261,7 +261,6 @@ export default function LoginScreen() {
       if (result.status === "complete") {
         await setActive?.({ session: result.createdSessionId });
       } else if (result.status === "needs_first_factor") {
-        // Clerk requires first-factor verification (e.g. email on new device)
         const factors = result.supportedFirstFactors;
         const strategy =
           factors?.find((f) => f.strategy === "email_code")?.strategy ??
@@ -269,7 +268,7 @@ export default function LoginScreen() {
           null;
 
         if (!strategy) {
-          setError("Verification required but no supported method found.");
+          setError(t("errors.noVerificationMethod"));
           return;
         }
         await signIn.prepareFirstFactor({ strategy });
@@ -284,7 +283,7 @@ export default function LoginScreen() {
           null;
 
         if (!strategy) {
-          setError("Verification required but no supported method found.");
+          setError(t("errors.noVerificationMethod"));
           return;
         }
         if (strategy === "email_code" || strategy === "phone_code") {
@@ -293,7 +292,7 @@ export default function LoginScreen() {
         setVerifyFactor("second");
         setVerifyStrategy(strategy);
       } else {
-        setError("Sign in failed. Please try again or use another method.");
+        setError(t("errors.signInFailed"));
       }
     } catch (err) {
       // Clerk fires "identifier_already_signed_in" when a valid session already
@@ -316,7 +315,7 @@ export default function LoginScreen() {
         router.replace("/home");
         return;
       }
-      setError(parseAuthError(err, "Incorrect email or password"));
+      setError(parseAuthError(err, t("errors.incorrectCredentials"), t));
     } finally {
       setLoading(false);
     }
@@ -337,7 +336,6 @@ export default function LoginScreen() {
       if (result.status === "complete") {
         await setActive?.({ session: result.createdSessionId });
       } else if (result.status === "needs_second_factor") {
-        // First factor passed, now need 2FA
         const factors = result.supportedSecondFactors;
         const strategy =
           factors?.find((f) => f.strategy === "email_code")?.strategy ??
@@ -346,7 +344,7 @@ export default function LoginScreen() {
           null;
 
         if (!strategy) {
-          setError("2FA required but no supported method found.");
+          setError(t("errors.noVerificationMethod"));
           return;
         }
         if (strategy === "email_code" || strategy === "phone_code") {
@@ -356,10 +354,10 @@ export default function LoginScreen() {
         setVerifyFactor("second");
         setVerifyStrategy(strategy);
       } else {
-        setError("Verification failed. Please try again.");
+        setError(t("errors.verificationFailed"));
       }
     } catch (err) {
-      setError(parseAuthError(err, "Invalid code"));
+      setError(parseAuthError(err, t("errors.invalidCode"), t));
     } finally {
       setLoading(false);
     }
@@ -367,10 +365,10 @@ export default function LoginScreen() {
 
   const verifyLabel =
     verifyStrategy === "email_code"
-      ? "We sent a code to your email"
+      ? t("verify.sentEmail")
       : verifyStrategy === "phone_code"
-      ? "We sent a code to your phone"
-      : "Enter code from your authenticator app";
+      ? t("verify.sentPhone")
+      : t("verify.authenticatorApp");
 
   return (
     <View style={styles.screen}>
@@ -394,7 +392,7 @@ export default function LoginScreen() {
                 resizeMode="contain"
               />
               <Text style={styles.brandName}>DLISHE</Text>
-              <Text style={styles.brandTagline}>Your kitchen awaits</Text>
+              <Text style={styles.brandTagline}>{t("login.tagline")}</Text>
             </View>
 
             {/* ── Form area ── */}
@@ -414,20 +412,16 @@ export default function LoginScreen() {
                 <>
                   <View style={styles.verifyHeader}>
                     <Text style={styles.verifyTitle}>
-                      {forgotStep === "verify" ? "Check your email" : forgotStep === "new" ? "New password" : "Reset password"}
+                      {forgotStep === "verify" ? t("forgot.verifyTitle") : t("forgot.title")}
                     </Text>
                     <Text style={styles.verifyHint}>
-                      {forgotStep === "email"
-                        ? "Enter your email and we'll send a reset code"
-                        : forgotStep === "verify"
-                        ? "Enter the 6-digit code we sent, then choose a new password"
-                        : ""}
+                      {forgotStep === "email" ? t("forgot.hint") : t("forgot.verifyHint")}
                     </Text>
                   </View>
 
                   {forgotStep === "email" && (
                     <TextInput
-                      placeholder="Email address"
+                      placeholder={t("login.emailPlaceholder")}
                       placeholderTextColor={C.textTertiary}
                       style={styles.input}
                       value={resetEmail}
@@ -454,7 +448,7 @@ export default function LoginScreen() {
                         textAlign="center"
                       />
                       <TextInput
-                        placeholder="New password"
+                        placeholder={t("forgot.newPasswordPlaceholder")}
                         placeholderTextColor={C.textTertiary}
                         style={[styles.input, { marginTop: 12 }]}
                         value={newPassword}
@@ -475,7 +469,7 @@ export default function LoginScreen() {
                       <ActivityIndicator color={C.bg} />
                     ) : (
                       <Text style={styles.primaryText}>
-                        {forgotStep === "email" ? "Send reset code" : "Reset password"}
+                        {forgotStep === "email" ? t("forgot.sendCode") : t("forgot.resetPassword")}
                       </Text>
                     )}
                   </Pressable>
@@ -484,7 +478,7 @@ export default function LoginScreen() {
                     style={styles.link}
                     onPress={() => { setForgotStep(null); setResetCode(""); setNewPassword(""); setError(""); }}
                   >
-                    <Text style={styles.linkText}>Back to sign in</Text>
+                    <Text style={styles.linkText}>{t("forgot.backToSignIn")}</Text>
                   </Pressable>
                 </>
               ) : !verifyStrategy ? (
@@ -506,7 +500,7 @@ export default function LoginScreen() {
                           <Svg width={18} height={18} viewBox="0 0 24 24" fill={C.bg}>
                             <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
                           </Svg>
-                          <Text style={styles.appleText}>Continue with Apple</Text>
+                          <Text style={styles.appleText}>{t("login.continueWithApple")}</Text>
                         </View>
                       )}
                     </Pressable>
@@ -526,7 +520,7 @@ export default function LoginScreen() {
                     ) : (
                       <View style={styles.googleInner}>
                         <GoogleIcon />
-                        <Text style={styles.googleText}>Continue with Google</Text>
+                        <Text style={styles.googleText}>{t("login.continueWithGoogle")}</Text>
                       </View>
                     )}
                   </Pressable>
@@ -534,13 +528,13 @@ export default function LoginScreen() {
                   {/* Divider */}
                   <View style={styles.dividerRow}>
                     <View style={styles.divider} />
-                    <Text style={styles.dividerText}>or sign in with email</Text>
+                    <Text style={styles.dividerText}>{t("login.orSignInWithEmail")}</Text>
                     <View style={styles.divider} />
                   </View>
 
                   {/* Email */}
                   <TextInput
-                    placeholder="Email address"
+                    placeholder={t("login.emailPlaceholder")}
                     placeholderTextColor={C.textTertiary}
                     style={styles.input}
                     value={email}
@@ -553,7 +547,7 @@ export default function LoginScreen() {
 
                   {/* Password */}
                   <TextInput
-                    placeholder="Password"
+                    placeholder={t("login.passwordPlaceholder")}
                     placeholderTextColor={C.textTertiary}
                     style={[styles.input, { marginTop: 12 }]}
                     value={password}
@@ -576,7 +570,7 @@ export default function LoginScreen() {
                     {loading ? (
                       <ActivityIndicator color={C.bg} />
                     ) : (
-                      <Text style={styles.primaryText}>Sign in</Text>
+                      <Text style={styles.primaryText}>{t("login.signIn")}</Text>
                     )}
                   </Pressable>
 
@@ -586,7 +580,7 @@ export default function LoginScreen() {
                     onPress={() => { setError(""); setResetEmail(email.trim()); setForgotStep("email"); }}
                   >
                     <Text style={styles.linkText}>
-                      <Text style={styles.linkAccent}>Forgot password?</Text>
+                      <Text style={styles.linkAccent}>{t("login.forgotPassword")}</Text>
                     </Text>
                   </Pressable>
 
@@ -596,19 +590,19 @@ export default function LoginScreen() {
                     onPress={() => router.push("/sign-up")}
                   >
                     <Text style={styles.linkText}>
-                      New to DLISHE?{" "}
-                      <Text style={styles.linkAccent}>Create account</Text>
+                      {t("login.newUser")}{" "}
+                      <Text style={styles.linkAccent}>{t("login.createAccount")}</Text>
                     </Text>
                   </Pressable>
 
                   {/* Legal links */}
                   <View style={styles.legalRow}>
                     <Pressable onPress={() => Linking.openURL("https://dlishe.com/terms")}>
-                      <Text style={styles.legalText}>Terms of Use</Text>
+                      <Text style={styles.legalText}>{t("termsOfUse", { ns: "common" })}</Text>
                     </Pressable>
                     <Text style={styles.legalDot}> · </Text>
                     <Pressable onPress={() => Linking.openURL("https://dlishe.com/privacy")}>
-                      <Text style={styles.legalText}>Privacy Policy</Text>
+                      <Text style={styles.legalText}>{t("privacyPolicy", { ns: "common" })}</Text>
                     </Pressable>
                   </View>
                 </>
@@ -621,7 +615,7 @@ export default function LoginScreen() {
                         {verifyStrategy === "email_code" ? "\u2709\uFE0F" : verifyStrategy === "phone_code" ? "\uD83D\uDCF1" : "\uD83D\uDD10"}
                       </Text>
                     </View>
-                    <Text style={styles.verifyTitle}>Verification</Text>
+                    <Text style={styles.verifyTitle}>{t("verify.title")}</Text>
                     <Text style={styles.verifyHint}>{verifyLabel}</Text>
                   </View>
 
@@ -648,7 +642,7 @@ export default function LoginScreen() {
                     {loading ? (
                       <ActivityIndicator color={C.bg} />
                     ) : (
-                      <Text style={styles.primaryText}>Verify</Text>
+                      <Text style={styles.primaryText}>{t("verify.verify")}</Text>
                     )}
                   </Pressable>
 
@@ -661,7 +655,7 @@ export default function LoginScreen() {
                       setError("");
                     }}
                   >
-                    <Text style={styles.linkText}>Back to login</Text>
+                    <Text style={styles.linkText}>{t("verify.backToLogin")}</Text>
                   </Pressable>
                 </>
               )}

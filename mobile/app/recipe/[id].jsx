@@ -27,6 +27,7 @@ import {
   deleteShoppingList,
 } from "../../services/shopping";
 import { useRecipeStore, useShoppingStore } from "../../store";
+import { useTranslation } from "react-i18next";
 import ArrowLeftIcon from "../../components/icons/ArrowLeftIcon";
 import RecipePlaceholder from "../../components/RecipePlaceholder";
 import PrepChecklistSheet from "../../components/recipies/PrepShecklistSheet";
@@ -203,6 +204,7 @@ export default function RecipeDetailScreen() {
   const { id, cook } = useLocalSearchParams();
   const router = useRouter();
   const { getToken } = useAuth();
+  const { t } = useTranslation("recipe");
 
   const [recipe, setRecipe] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -234,12 +236,12 @@ export default function RecipeDetailScreen() {
 
   const handleDelete = () => {
     Alert.alert(
-      "Delete Recipe",
-      `Are you sure you want to delete "${recipe?.title}"? This action cannot be undone.`,
+      t("detail.deleteRecipe"),
+      t("detail.deleteConfirm", { title: recipe?.title }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("buttons.cancel", { ns: "common" }), style: "cancel" },
         {
-          text: "Delete",
+          text: t("buttons.delete", { ns: "common" }),
           style: "destructive",
           onPress: async () => {
             setIsDeleting(true);
@@ -249,7 +251,7 @@ export default function RecipeDetailScreen() {
               router.back();
             } catch (err) {
               setIsDeleting(false);
-              Alert.alert("Delete failed", "Couldn't delete the recipe. Please try again.");
+              Alert.alert(t("errors:recipe.deleteFailed"), t("errors:recipe.deleteMessage"));
             }
           },
         },
@@ -268,7 +270,7 @@ export default function RecipeDetailScreen() {
       if (msg.includes("already")) {
         setSaved(true);
       } else {
-        Alert.alert("Save failed", "Couldn't save this recipe. Please try again.");
+        Alert.alert(t("errors:recipe.saveFailed"), t("errors:recipe.saveMessage"));
       }
     } finally {
       setIsSaving(false);
@@ -290,7 +292,7 @@ export default function RecipeDetailScreen() {
           }
         }
       } catch (err) {
-        if (!cancelled) setError(err?.message || "Failed to load recipe");
+        if (!cancelled) setError(err?.message || t("errors:recipe.loadFailed"));
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -326,7 +328,7 @@ export default function RecipeDetailScreen() {
       <View style={s.screen}>
         <SafeAreaView style={s.centered}>
           <ActivityIndicator size="large" color={C.greenDark} />
-          <Text style={s.loadingText}>Loading recipe…</Text>
+          <Text style={s.loadingText}>{t("detail.loading")}</Text>
         </SafeAreaView>
       </View>
     );
@@ -338,7 +340,7 @@ export default function RecipeDetailScreen() {
         <SafeAreaView style={s.safeTop} edges={["top"]}>
           <BackButton onPress={() => router.back()} />
           <View style={s.centered}>
-            <Text style={s.errorText}>{error || "Recipe not found"}</Text>
+            <Text style={s.errorText}>{error || t("detail.notFound")}</Text>
           </View>
         </SafeAreaView>
       </View>
@@ -495,7 +497,7 @@ export default function RecipeDetailScreen() {
             nutrition.carbs ||
             nutrition.fat) ? (
             <View style={s.card}>
-              <SectionTitle>Nutrition</SectionTitle>
+              <SectionTitle>{t("detail.nutrition")}</SectionTitle>
               <View style={s.nutritionGrid}>
                 <NutritionItem
                   label="Calories"
@@ -519,8 +521,8 @@ export default function RecipeDetailScreen() {
             <View style={s.card}>
               <View style={s.ingredientsHeader}>
                 <View>
-                  <SectionTitle>Ingredients</SectionTitle>
-                  <Text style={s.countText}>{ingredients.length} items</Text>
+                  <SectionTitle>{t("detail.ingredients")}</SectionTitle>
+                  <Text style={s.countText}>{t("units.items", { count: ingredients.length, ns: "common" })}</Text>
                 </View>
                 <Pressable
                   style={s.addToListBtn}
@@ -547,8 +549,8 @@ export default function RecipeDetailScreen() {
                           });
                         } catch {}
                         Alert.alert(
-                          "No Ingredients",
-                          "This recipe has no ingredients to add.",
+                          t("detail.noIngredientsTitle"),
+                          t("detail.noIngredients"),
                         );
                       } else {
                         useShoppingStore.setState((state) => ({
@@ -562,16 +564,16 @@ export default function RecipeDetailScreen() {
                           ],
                         }));
                         Alert.alert(
-                          "Shopping List Created",
-                          `Added ${addedCount} ingredient${addedCount !== 1 ? "s" : ""} to "${recipe.title}"`,
+                          t("detail.shoppingListCreated"),
+                          t("detail.ingredientsAdded", { count: addedCount, title: recipe.title }),
                         );
                       }
                     } catch (err) {
                       const msg = err?.message || "";
                       if (msg.includes("already")) {
                         Alert.alert(
-                          "Already Added",
-                          "This recipe's ingredients are already in a shopping list.",
+                          t("detail.alreadyAdded"),
+                          t("detail.alreadyAddedMessage"),
                         );
                       } else {
                         if (createdList?.id) {
@@ -583,8 +585,8 @@ export default function RecipeDetailScreen() {
                           } catch {}
                         }
                         Alert.alert(
-                          "Something went wrong",
-                          "Couldn't create the shopping list. Please try again.",
+                          t("errors:shopping.shoppingListFailed"),
+                          t("errors:shopping.shoppingListMessage"),
                         );
                       }
                     } finally {
@@ -596,7 +598,7 @@ export default function RecipeDetailScreen() {
                   {isAddingToList ? (
                     <ActivityIndicator size="small" color={C.greenDark} />
                   ) : (
-                    <Text style={s.addToListBtnText}>+ Shop</Text>
+                    <Text style={s.addToListBtnText}>{t("detail.addToList")}</Text>
                   )}
                 </Pressable>
               </View>
@@ -620,10 +622,10 @@ export default function RecipeDetailScreen() {
 
           {/* Steps */}
           <View style={s.card}>
-            <SectionTitle>Instructions</SectionTitle>
+            <SectionTitle>{t("detail.instructions")}</SectionTitle>
             {steps.length > 0 ? (
               <>
-                <Text style={s.countText}>{steps.length} steps</Text>
+                <Text style={s.countText}>{t("detail.steps", { count: steps.length })}</Text>
                 {steps
                   .sort((a, b) => a.stepNumber - b.stepNumber)
                   .map((step, i) => (
@@ -636,7 +638,7 @@ export default function RecipeDetailScreen() {
                   ))}
               </>
             ) : (
-              <Text style={s.emptySteps}>No instructions available for this recipe.</Text>
+              <Text style={s.emptySteps}>{t("detail.noInstructions")}</Text>
             )}
           </View>
 
@@ -655,7 +657,7 @@ export default function RecipeDetailScreen() {
                   }}
                 >
                   <Text style={s.primaryBtnText}>
-                    <PlayIcon size={12} /> Start cooking
+                    <PlayIcon size={12} /> {t("detail.startCooking")}
                   </Text>
                 </Pressable>
                 )}
@@ -669,14 +671,14 @@ export default function RecipeDetailScreen() {
                   ) : (
                     <View style={s.deleteRow}>
                       <DeleteIcon />
-                      <Text style={s.deleteBtnText}>Delete recipe</Text>
+                      <Text style={s.deleteBtnText}>{t("detail.deleteRecipe")}</Text>
                     </View>
                   )}
                 </Pressable>
               </>
             ) : saved || alreadySaved ? (
               <View style={s.savedBanner}>
-                <Text style={s.savedText}>Saved to your collection</Text>
+                <Text style={s.savedText}>{t("detail.savedToCollection")}</Text>
               </View>
             ) : (
               <Pressable
@@ -690,7 +692,7 @@ export default function RecipeDetailScreen() {
                 {isSaving ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={s.saveButtonText}>Save to My Recipes</Text>
+                  <Text style={s.saveButtonText}>{t("detail.saveToCollection")}</Text>
                 )}
               </Pressable>
             )}
@@ -760,6 +762,7 @@ export default function RecipeDetailScreen() {
 // ─── Back Button ─────────────────────────────────────────────────
 
 function BackButton({ onPress, light }) {
+  const { t } = useTranslation("common");
   return (
     <Pressable
       onPress={onPress}
@@ -771,7 +774,7 @@ function BackButton({ onPress, light }) {
         color={light ? "#ffffff" : C.textSecondary}
       />
       <Text style={[s.backButtonText, light && s.backButtonTextLight]}>
-        Back
+        {t("buttons.back")}
       </Text>
     </Pressable>
   );

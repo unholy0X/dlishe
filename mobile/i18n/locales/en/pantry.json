@@ -37,6 +37,8 @@
   },
   "itemCount_one": "{{count}} item",
   "itemCount_other": "{{count}} items",
+  "removeAll_one": "Remove all {{count}} item",
+  "removeAll_other": "Remove all {{count}} items",
   "moreItems": "+{{count}} more",
   "addSheet": {
     "title": "Add to Pantry",

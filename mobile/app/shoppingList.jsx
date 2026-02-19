@@ -22,6 +22,7 @@ import BottomSheetModal from "../components/BottomSheetModal";
 import CheckIcon from "../components/icons/CheckIcon";
 import ShoppingIcon from "../components/icons/ShoppingIcon";
 import { useShoppingStore } from "../store";
+import { useTranslation } from "react-i18next";
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -225,6 +226,7 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
 
 // ─── AddItemSheet ────────────────────────────────────────────────────────────
 const AddItemSheet = ({ onClose, onAdd }) => {
+    const { t } = useTranslation("shopping");
     const [mode, setMode] = useState("quick"); // "quick" | "browse"
     const [name, setName] = useState("");
     const [quantity, setQuantity] = useState("");
@@ -245,7 +247,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
             setSelectedCategory(null);
             setShowCustomInput(false);
         } catch {
-            Alert.alert("Error", "Failed to add item");
+            Alert.alert(t("errors:shopping.updateItemFailed"), t("tryAgain", { ns: "common" }));
         } finally {
             setIsAdding(false);
         }
@@ -275,7 +277,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
 
     return (
         <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Add Item</Text>
+            <Text style={styles.sheetTitle}>{t("detail.addItemSheet")}</Text>
 
             {/* Mode toggle */}
             <View style={styles.modeToggle}>
@@ -283,23 +285,23 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                     style={[styles.modeTab, mode === "quick" && styles.modeTabActive]}
                     onPress={() => { setMode("quick"); resetBrowse(); }}
                 >
-                    <Text style={[styles.modeTabText, mode === "quick" && styles.modeTabTextActive]}>Quick Add</Text>
+                    <Text style={[styles.modeTabText, mode === "quick" && styles.modeTabTextActive]}>{t("detail.quickAdd")}</Text>
                 </Pressable>
                 <Pressable
                     style={[styles.modeTab, mode === "browse" && styles.modeTabActive]}
                     onPress={() => { setMode("browse"); setName(""); setQuantity(""); setUnit(""); }}
                 >
-                    <Text style={[styles.modeTabText, mode === "browse" && styles.modeTabTextActive]}>Browse</Text>
+                    <Text style={[styles.modeTabText, mode === "browse" && styles.modeTabTextActive]}>{t("detail.browse")}</Text>
                 </Pressable>
             </View>
 
             {/* Quick Add mode */}
             {mode === "quick" && (
                 <>
-                    <Text style={styles.inputLabel}>Item name</Text>
+                    <Text style={styles.inputLabel}>{t("detail.itemNameLabel")}</Text>
                     <TextInput
                         style={styles.textInput}
-                        placeholder="e.g. Milk"
+                        placeholder={t("detail.itemPlaceholder")}
                         placeholderTextColor="#B4B4B4"
                         value={name}
                         onChangeText={setName}
@@ -340,7 +342,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
 
                     <View style={styles.sheetButtons}>
                         <Pressable style={styles.cancelBtn} onPress={onClose}>
-                            <Text style={styles.cancelBtnText}>Cancel</Text>
+                            <Text style={styles.cancelBtnText}>{t("buttons.cancel", { ns: "common" })}</Text>
                         </Pressable>
                         <Pressable
                             style={[styles.addBtn, (!name.trim() || isAdding) && styles.addBtnDisabled]}
@@ -350,7 +352,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                             {isAdding ? (
                                 <ActivityIndicator size="small" color="#2a5a2a" />
                             ) : (
-                                <Text style={styles.addBtnText}>Add</Text>
+                                <Text style={styles.addBtnText}>{t("buttons.add", { ns: "common" })}</Text>
                             )}
                         </Pressable>
                     </View>
@@ -360,7 +362,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
             {/* Browse mode */}
             {mode === "browse" && !selectedCategory && (
                 <>
-                    <Text style={styles.browseSectionTitle}>Browse by category</Text>
+                    <Text style={styles.browseSectionTitle}>{t("detail.browseByCategory")}</Text>
                     <View style={styles.categoryGrid}>
                         {CATEGORIES.map((cat) => (
                             <Pressable
@@ -380,7 +382,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
             {mode === "browse" && selectedCategory && (
                 <>
                     <Pressable onPress={resetBrowse} style={styles.browseBackBtn}>
-                        <Text style={styles.browseBackText}>← All categories</Text>
+                        <Text style={styles.browseBackText}>{t("detail.allCategories")}</Text>
                     </Pressable>
 
                     <Text style={styles.browseCategoryTitle}>{selectedCategory.label}</Text>
@@ -409,7 +411,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                             </ScrollView>
 
                             <Pressable style={styles.customInputLink} onPress={() => setShowCustomInput(true)}>
-                                <Text style={styles.customInputLinkText}>+ Type custom item</Text>
+                                <Text style={styles.customInputLinkText}>{t("detail.customItem")}</Text>
                             </Pressable>
                         </>
                     )}
@@ -427,7 +429,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                                 autoFocus
                             />
                             <Pressable onPress={() => setShowCustomInput(false)} style={styles.browseBackBtn}>
-                                <Text style={styles.browseBackText}>← Back to quick pick</Text>
+                                <Text style={styles.browseBackText}>{t("detail.backToQuickPick")}</Text>
                             </Pressable>
                         </>
                     )}
@@ -467,7 +469,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
 
                     <View style={styles.sheetButtons}>
                         <Pressable style={styles.cancelBtn} onPress={onClose}>
-                            <Text style={styles.cancelBtnText}>Cancel</Text>
+                            <Text style={styles.cancelBtnText}>{t("buttons.cancel", { ns: "common" })}</Text>
                         </Pressable>
                         <Pressable
                             style={[styles.addBtn, (!name.trim() || isAdding) && styles.addBtnDisabled]}
@@ -477,7 +479,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                             {isAdding ? (
                                 <ActivityIndicator size="small" color="#2a5a2a" />
                             ) : (
-                                <Text style={styles.addBtnText}>Add</Text>
+                                <Text style={styles.addBtnText}>{t("buttons.add", { ns: "common" })}</Text>
                             )}
                         </Pressable>
                     </View>
@@ -489,6 +491,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
 
 // ─── StockPantrySheet ────────────────────────────────────────────────────────
 const StockPantrySheet = ({ items, onStock, onDismiss }) => {
+    const { t } = useTranslation("shopping");
     const [isStocking, setIsStocking] = useState(false);
 
     const categoryBreakdown = useMemo(() => {
@@ -513,17 +516,15 @@ const StockPantrySheet = ({ items, onStock, onDismiss }) => {
         try {
             await onStock();
         } catch {
-            Alert.alert("Error", "Failed to stock pantry");
+            Alert.alert(t("errors:shopping.completeListFailed"), t("tryAgain", { ns: "common" }));
             setIsStocking(false);
         }
     };
 
     return (
         <View style={styles.stockSheet}>
-            <Text style={styles.stockTitle}>Stock Your Pantry</Text>
-            <Text style={styles.stockSubtitle}>
-                {totalItems} item{totalItems !== 1 ? "s" : ""} will be added to your pantry
-            </Text>
+            <Text style={styles.stockTitle}>{t("detail.stockPantryTitle")}</Text>
+            <Text style={styles.stockSubtitle}>{t("detail.stockPantrySubtitle", { count: totalItems })}</Text>
 
             {/* Category breakdown horizontal scroll */}
             <ScrollView
@@ -549,12 +550,12 @@ const StockPantrySheet = ({ items, onStock, onDismiss }) => {
                 {isStocking ? (
                     <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                    <Text style={styles.stockButtonText}>Stock Pantry</Text>
+                    <Text style={styles.stockButtonText}>{t("detail.stockPantryBtn")}</Text>
                 )}
             </Pressable>
 
             <Pressable style={styles.stockDismiss} onPress={onDismiss} disabled={isStocking}>
-                <Text style={styles.stockDismissText}>Not yet</Text>
+                <Text style={styles.stockDismissText}>{t("detail.notYet")}</Text>
             </Pressable>
         </View>
     );
@@ -565,6 +566,7 @@ export default function ShoppingListScreen() {
     const router = useRouter();
     const { id: listId } = useLocalSearchParams();
     const { getToken } = useAuth();
+    const { t } = useTranslation("shopping");
 
     const [isAddSheetOpen, setAddSheetOpen] = useState(false);
     const [isStockSheetOpen, setStockSheetOpen] = useState(false);
@@ -604,7 +606,7 @@ export default function ShoppingListScreen() {
             try {
                 await toggleChecked({ getToken, listId, itemId });
             } catch (err) {
-                Alert.alert("Couldn't update item", "Please check your connection and try again.");
+                Alert.alert(t("errors:shopping.updateItemFailed"), t("tryAgain", { ns: "common" }));
             }
         },
         [getToken, listId]
@@ -612,16 +614,16 @@ export default function ShoppingListScreen() {
 
     const handleDeleteItem = useCallback(
         (itemId) => {
-            Alert.alert("Delete Item", "Remove this item?", [
-                { text: "Cancel", style: "cancel" },
+            Alert.alert(t("detail.deleteItem"), t("detail.deleteItemMessage"), [
+                { text: t("buttons.cancel", { ns: "common" }), style: "cancel" },
                 {
-                    text: "Delete",
+                    text: t("buttons.delete", { ns: "common" }),
                     style: "destructive",
                     onPress: async () => {
                         try {
                             await removeItem({ getToken, listId, itemId });
                         } catch (err) {
-                            Alert.alert("Couldn't remove item", "Please check your connection and try again.");
+                            Alert.alert(t("errors:shopping.removeItemFailed"), t("tryAgain", { ns: "common" }));
                         }
                     },
                 },
@@ -647,7 +649,7 @@ export default function ShoppingListScreen() {
             setStockSheetOpen(false);
             router.back();
         } catch (err) {
-            Alert.alert("Couldn't complete list", "Please check your connection and try again.");
+            Alert.alert(t("errors:shopping.completeListFailed"), t("tryAgain", { ns: "common" }));
         }
     }, [getToken, listId]);
 
@@ -687,7 +689,7 @@ export default function ShoppingListScreen() {
             <View style={styles.screen}>
                 <SafeAreaView style={styles.centered}>
                     <ActivityIndicator size="large" color="#385225" />
-                    <Text style={styles.loadingText}>Loading list…</Text>
+                    <Text style={styles.loadingText}>{t("listLoading")}</Text>
                 </SafeAreaView>
             </View>
         );
@@ -706,7 +708,7 @@ export default function ShoppingListScreen() {
                         </Pressable>
                         <View style={styles.headerCenter}>
                             <Text style={styles.listTitle} numberOfLines={1}>
-                                {activeList?.name || "Shopping List"}
+                                {activeList?.name || t("detail.shoppingList")}
                             </Text>
                         </View>
                         {totalItems > 0 && (
@@ -719,7 +721,7 @@ export default function ShoppingListScreen() {
                         <View style={styles.headerStats}>
                             <View style={styles.headerProgressRow}>
                                 <Text style={styles.headerProgressLabel}>
-                                    {checkedItems} of {totalItems} items
+                                    {t("detail.checked", { count: totalItems, checked: checkedItems, total: totalItems })}
                                 </Text>
                                 <Text style={styles.headerProgressPercent}>
                                     {Math.round(progress * 100)}%
@@ -729,7 +731,7 @@ export default function ShoppingListScreen() {
                                 <View style={[styles.headerProgressFill, { width: `${progress * 100}%` }]} />
                             </View>
                             <Text style={styles.headerCategoryCount}>
-                                {categoryCount} categor{categoryCount !== 1 ? "ies" : "y"}
+                                {t("detail.categories", { count: categoryCount })}
                             </Text>
                         </View>
                     )}
@@ -745,10 +747,10 @@ export default function ShoppingListScreen() {
                         <View style={styles.emptyIconWrap}>
                             <ShoppingIcon width={36} height={32} color="#385225" />
                         </View>
-                        <Text style={styles.emptyTitle}>This list is empty</Text>
-                        <Text style={styles.emptySubtitle}>Tap the button below to add your first item</Text>
+                        <Text style={styles.emptyTitle}>{t("detail.listEmpty")}</Text>
+                        <Text style={styles.emptySubtitle}>{t("detail.listEmptyHint")}</Text>
                         <Pressable style={styles.emptyBtn} onPress={() => setAddSheetOpen(true)}>
-                            <Text style={styles.emptyBtnText}>+ Add Item</Text>
+                            <Text style={styles.emptyBtnText}>{t("detail.addItemBtn")}</Text>
                         </Pressable>
                     </View>
                 ) : (

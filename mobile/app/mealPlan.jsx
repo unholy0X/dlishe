@@ -17,6 +17,7 @@ import { useMealPlanStore, useRecipeStore } from "../store";
 import DayPills from "../components/mealPlan/DayPills";
 import MealSlot from "../components/mealPlan/MealSlot";
 import AddRecipeSheet from "../components/mealPlan/AddRecipeSheet";
+import { useTranslation } from "react-i18next";
 import ArrowLeftIcon from "../components/icons/ArrowLeftIcon";
 
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
@@ -49,6 +50,7 @@ function formatWeekRange(weekStart) {
 export default function MealPlanScreen() {
   const router = useRouter();
   const { getToken } = useAuth();
+  const { t } = useTranslation("mealPlan");
   const { recipes: userRecipes, isLoading: recipesLoading, loadRecipes } = useRecipeStore();
 
   const {
@@ -114,7 +116,7 @@ export default function MealPlanScreen() {
         mealType: addMealType,
       });
     } catch {
-      Alert.alert("Couldn't add recipe", "Please check your connection and try again.");
+      Alert.alert(t("errors:mealPlan.addFailed"), t("tryAgain", { ns: "common" }));
     }
   }, [getToken, selectedDay, addMealType]);
 
@@ -135,7 +137,7 @@ export default function MealPlanScreen() {
         Alert.alert("Info", result.message);
       }
     } catch (err) {
-      Alert.alert("Error", err?.message || "Failed to generate shopping list");
+      Alert.alert(t("errors:shopping.generateFailed"), err?.message || t("tryAgain", { ns: "common" }));
     }
   }, [getToken]);
 
@@ -158,7 +160,7 @@ export default function MealPlanScreen() {
           >
             <ArrowLeftIcon width={18} height={18} color="#111111" />
           </Pressable>
-          <Text style={styles.headerTitle}>Meal Plan</Text>
+          <Text style={styles.headerTitle}>{t("title")}</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -237,9 +239,7 @@ export default function MealPlanScreen() {
                 {isGenerating ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.generateBtnText}>
-                    Generate Shopping List
-                  </Text>
+                  <Text style={styles.generateBtnText}>{t("generateList")}</Text>
                 )}
               </Pressable>
             )}
@@ -247,10 +247,8 @@ export default function MealPlanScreen() {
             {/* Empty state */}
             {totalMeals === 0 && !isLoading && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>No meals planned yet</Text>
-                <Text style={styles.emptySubtitle}>
-                  Tap "+ Add recipe" on any slot above to start building your week
-                </Text>
+                <Text style={styles.emptyTitle}>{t("empty.noMeals")}</Text>
+                <Text style={styles.emptySubtitle}>{t("empty.hint")}</Text>
               </View>
             )}
           </ScrollView>

@@ -21,6 +21,7 @@ import BottomSheetModal from "../components/BottomSheetModal";
 import SearchOverlay from "../components/SearchOverlay";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
 import CheckIcon from "../components/icons/CheckIcon";
+import { useTranslation } from "react-i18next";
 import { useRecipeStore } from "../store";
 import { deleteRecipe } from "../services/recipes";
 
@@ -37,6 +38,7 @@ export default function RecipiesScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const activeKey = pathname.replace("/", "") || "recipies";
+  const { t } = useTranslation("recipe");
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [isSearchOpen, setSearchOpen] = useState(false);
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -80,19 +82,19 @@ export default function RecipiesScreen() {
   const handleClearAll = useCallback(() => {
     setMenuOpen(false);
     Alert.alert(
-      "Reset Recipes",
-      `This will permanently delete all ${total} recipe${total !== 1 ? "s" : ""}. This can't be undone.`,
+      t("list.clearAll"),
+      t("list.clearConfirm", { count: total }),
       [
-        { text: "Keep Recipes", style: "cancel" },
+        { text: t("list.keepRecipes"), style: "cancel" },
         {
-          text: "Delete All",
+          text: t("list.deleteAll"),
           style: "destructive",
           onPress: async () => {
             setIsClearing(true);
             try {
               await clearAll({ getToken });
             } catch (err) {
-              Alert.alert("Couldn't clear recipes", "Please check your connection and try again.");
+              Alert.alert(t("errors:recipe.clearFailed"), t("tryAgain", { ns: "common" }));
             } finally {
               setIsClearing(false);
             }
@@ -138,12 +140,12 @@ export default function RecipiesScreen() {
     const count = selectedIds.size;
     if (count === 0) return;
     Alert.alert(
-      "Delete Recipes",
-      `Permanently delete ${count} recipe${count !== 1 ? "s" : ""}? This can't be undone.`,
+      t("list.bulkDeleteTitle"),
+      t("list.bulkDeleteConfirm", { count }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("buttons.cancel", { ns: "common" }), style: "cancel" },
         {
-          text: `Delete ${count}`,
+          text: t("list.deleteSelected", { count }),
           style: "destructive",
           onPress: async () => {
             setIsDeleting(true);
@@ -155,10 +157,10 @@ export default function RecipiesScreen() {
               exitSelectMode();
               await refresh({ getToken });
               if (failCount > 0) {
-                Alert.alert("Partial Failure", `Failed to delete ${failCount} recipe${failCount !== 1 ? "s" : ""}. Please try again.`);
+                Alert.alert(t("errors:recipe.deleteFailed"), t("errors:recipe.partialDelete", { count: failCount }));
               }
             } catch (err) {
-              Alert.alert("Couldn't delete recipes", "Please check your connection and try again.");
+              Alert.alert(t("errors:recipe.deleteBulkFailed"), t("tryAgain", { ns: "common" }));
             } finally {
               setIsDeleting(false);
             }
@@ -204,14 +206,14 @@ export default function RecipiesScreen() {
   const ListHeader = isSelectMode ? (
     <View style={styles.selectBar}>
       <Pressable onPress={exitSelectMode} hitSlop={8}>
-        <Text style={styles.selectBarCancel}>Cancel</Text>
+        <Text style={styles.selectBarCancel}>{t("buttons.cancel", { ns: "common" })}</Text>
       </Pressable>
       <Text style={styles.selectBarCount}>
-        {selectedIds.size} selected
+        {t("list.selected", { count: selectedIds.size })}
       </Text>
       <Pressable onPress={handleSelectAll} hitSlop={8}>
         <Text style={styles.selectAllBtn}>
-          {selectedIds.size === recipes.length ? "Deselect All" : "Select All"}
+          {selectedIds.size === recipes.length ? t("buttons.deselectAll", { ns: "common" }) : t("buttons.selectAll", { ns: "common" })}
         </Text>
       </Pressable>
       <Pressable
@@ -223,7 +225,7 @@ export default function RecipiesScreen() {
           <ActivityIndicator size="small" color="#fff" />
         ) : (
           <Text style={styles.deleteBtnText}>
-            Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+            {selectedIds.size > 0 ? t("list.deleteSelected", { count: selectedIds.size }) : t("buttons.delete", { ns: "common" })}
           </Text>
         )}
       </Pressable>
@@ -231,13 +233,13 @@ export default function RecipiesScreen() {
   ) : (
     <>
       <RecipesHeader
-        subtitle={`${total} recipe${total !== 1 ? "s" : ""} saved`}
+        subtitle={t("list.title", { count: total })}
         onPressMore={() => setMenuOpen(true)}
         onPressAdd={() => setSheetOpen(true)}
       />
       <View style={{ marginTop: 10, marginBottom: 10 }}>
         <SearchBar
-          placeholder="Search for a recipe"
+          placeholder={t("list.searchPlaceholder")}
           onPress={() => setSearchOpen(true)}
         />
       </View>
@@ -247,7 +249,7 @@ export default function RecipiesScreen() {
   const ListEmpty = isLoading ? (
     <View style={styles.centered}>
       <ActivityIndicator size="large" color="#385225" />
-      <Text style={styles.loadingText}>Loading recipes…</Text>
+      <Text style={styles.loadingText}>{t("list.loading")}</Text>
     </View>
   ) : error ? (
     <View style={styles.centered}>
@@ -255,17 +257,15 @@ export default function RecipiesScreen() {
     </View>
   ) : (
     <View style={styles.centered}>
-      <Text style={styles.emptyTitle}>No recipes yet</Text>
-      <Text style={styles.emptySubtitle}>
-        Tap + to add your first recipe
-      </Text>
+      <Text style={styles.emptyTitle}>{t("list.empty")}</Text>
+      <Text style={styles.emptySubtitle}>{t("list.emptySubtitle")}</Text>
     </View>
   );
 
   const ListFooter = isLoadingMore ? (
     <View style={styles.footerLoader}>
       <ActivityIndicator size="small" color="#385225" />
-      <Text style={styles.loadingText}>Loading more…</Text>
+      <Text style={styles.loadingText}>{t("list.loadingMore")}</Text>
     </View>
   ) : null;
 
@@ -313,7 +313,7 @@ export default function RecipiesScreen() {
       {/* Menu sheet */}
       <BottomSheetModal visible={isMenuOpen} onClose={() => setMenuOpen(false)}>
         <View style={styles.menuSheet}>
-          <Text style={styles.menuTitle}>Recipe Options</Text>
+          <Text style={styles.menuTitle}>{t("list.menuTitle")}</Text>
           <Pressable
             style={[styles.menuOption, styles.menuOptionGreen]}
             onPress={handleEnterSelect}
@@ -324,11 +324,9 @@ export default function RecipiesScreen() {
             </View>
             <View style={styles.menuOptionInfo}>
               <Text style={[styles.menuOptionLabel, styles.menuOptionLabelGreen, total === 0 && styles.menuOptionDisabled]}>
-                Select
+                {t("buttons.select", { ns: "common" })}
               </Text>
-              <Text style={styles.menuOptionDesc}>
-                Select recipes to delete
-              </Text>
+              <Text style={styles.menuOptionDesc}>{t("list.selectToDelete")}</Text>
             </View>
           </Pressable>
           <Pressable
@@ -345,15 +343,15 @@ export default function RecipiesScreen() {
             </View>
             <View style={styles.menuOptionInfo}>
               <Text style={[styles.menuOptionLabel, total === 0 && styles.menuOptionDisabled]}>
-                Reset Recipes
+                {t("list.clearAll")}
               </Text>
               <Text style={styles.menuOptionDesc}>
-                {total === 0 ? "No recipes to remove" : `Remove all ${total} recipe${total !== 1 ? "s" : ""}`}
+                {total === 0 ? t("list.noRecipesToRemove") : t("list.removeAll", { count: total })}
               </Text>
             </View>
           </Pressable>
           <Pressable style={styles.menuDismiss} onPress={() => setMenuOpen(false)}>
-            <Text style={styles.menuDismissText}>Cancel</Text>
+            <Text style={styles.menuDismissText}>{t("buttons.cancel", { ns: "common" })}</Text>
           </Pressable>
         </View>
       </BottomSheetModal>

@@ -3,6 +3,7 @@
   "listCount_one": "{{count}} list",
   "listCount_other": "{{count}} lists",
   "loading": "Loading lists\u2026",
+  "listLoading": "Loading list\u2026",
   "empty": {
     "title": "A Fresh Start",
     "subtitle": "Create a list and never forget an ingredient at the store again",
@@ -19,12 +20,14 @@
     "title_one": "Delete List",
     "title_other": "Delete {{count}} Lists",
     "message_one": "Delete this list?",
-    "message_other": "Delete {{count}} lists?"
+    "message_other": "Delete {{count}} lists?",
+    "messageNamed": "Delete \"{{name}}\"?"
   },
   "merge": {
     "selectMore": "Select More",
     "hint": "Select at least 2 lists to merge.",
     "title": "Smart Merge",
+    "merge": "Merge",
     "confirm": "Merge {{names}} into one list? Duplicates will be combined intelligently.",
     "successTitle": "Merged",
     "successMessage": "Lists merged successfully!"
@@ -32,19 +35,43 @@
   "clearAll": {
     "title": "Clear All Lists",
     "message_one": "This will permanently delete all {{count}} shopping list. This can't be undone.",
-    "message_other": "This will permanently delete all {{count}} shopping lists. This can't be undone."
+    "message_other": "This will permanently delete all {{count}} shopping lists. This can't be undone.",
+    "keepLists": "Keep Lists",
+    "clearAll": "Clear All"
   },
   "menu": {
     "title": "Shopping Options",
     "selectLists": "Select Lists",
-    "selectHint": "Merge or delete multiple lists"
+    "selectHint": "Merge or delete multiple lists",
+    "clearHint_one": "Remove all {{count}} list permanently",
+    "clearHint_other": "Remove all {{count}} lists permanently"
   },
   "detail": {
     "addItem": "Add item",
+    "addItemSheet": "Add Item",
+    "quickAdd": "Quick Add",
+    "browse": "Browse",
+    "itemNameLabel": "Item name",
+    "itemPlaceholder": "e.g. Milk",
+    "browseByCategory": "Browse by category",
+    "allCategories": "\u2190 All categories",
+    "customItem": "+ Type custom item",
+    "backToQuickPick": "\u2190 Back to quick pick",
     "complete": "Complete list",
     "stockPantry": "Stock pantry",
+    "stockPantryTitle": "Stock Your Pantry",
+    "stockPantrySubtitle_one": "{{count}} item will be added to your pantry",
+    "stockPantrySubtitle_other": "{{count}} items will be added to your pantry",
+    "stockPantryBtn": "Stock Pantry",
+    "notYet": "Not yet",
+    "shoppingList": "Shopping List",
+    "listEmpty": "This list is empty",
+    "listEmptyHint": "Tap the button below to add your first item",
+    "addItemBtn": "+ Add Item",
     "checked_one": "{{checked}} of {{total}} item",
     "checked_other": "{{checked}} of {{total}} items",
+    "categories_one": "{{count}} category",
+    "categories_other": "{{count}} categories",
     "deleteItem": "Delete Item",
     "deleteItemMessage": "Remove this item?",
     "generateFromPlan": "Generate from meal plan"

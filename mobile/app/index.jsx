@@ -683,23 +683,23 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 28,
-    paddingTop: "25%",
-    paddingBottom: 80,
+    paddingTop: 40,
+    paddingBottom: 36,
     flexGrow: 1,
   },
 
   /* ── brand ── */
   brandSection: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 24,
   },
   logo: {
-    width: 88,
-    height: 88,
+    width: 72,
+    height: 72,
   },
   brandName: {
-    marginTop: 16,
-    fontSize: 32,
+    marginTop: 12,
+    fontSize: 30,
     fontFamily: "Inter_600SemiBold",
     color: C.white,
     letterSpacing: 6,
@@ -750,10 +750,10 @@ const styles = StyleSheet.create({
   appleButton: {
     backgroundColor: C.white,
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   appleText: {
     color: C.bg,
@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
   googleButton: {
     backgroundColor: C.card,
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 24,
+    marginVertical: 16,
   },
   divider: {
     flex: 1,
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.inputBg,
     borderRadius: 14,
     paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingVertical: 13,
     color: C.textPrimary,
     fontSize: 16,
     fontFamily: "Inter_400Regular",
@@ -821,10 +821,10 @@ const styles = StyleSheet.create({
 
   /* ── primary ── */
   primaryButton: {
-    marginTop: 20,
+    marginTop: 16,
     backgroundColor: C.green,
     borderRadius: 14,
-    paddingVertical: 16,
+    paddingVertical: 15,
     alignItems: "center",
   },
   primaryText: {
@@ -835,7 +835,7 @@ const styles = StyleSheet.create({
 
   /* ── links ── */
   link: {
-    marginTop: 22,
+    marginTop: 14,
     alignItems: "center",
   },
   linkText: {
@@ -851,7 +851,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 24,
+    marginTop: 14,
   },
   legalText: {
     fontSize: 12,

@@ -1,5 +1,6 @@
+import "../i18n"; // initialize i18next before any component renders
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, Alert, Platform, AppState } from "react-native";
+import { View, Text, StyleSheet, Alert, Platform, AppState, I18nManager } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
 import * as Sentry from "@sentry/react-native";
@@ -17,6 +18,8 @@ import UserSync from "../components/UserSync";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { useSubscriptionStore } from "../store";
 import { useDemoStore } from "../store/demoStore";
+import { useLanguageStore } from "../store/languageStore";
+import { useArabicFonts } from "../utils/fonts";
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (SENTRY_DSN) {
@@ -154,9 +157,25 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
   });
+  const { arabicFontsLoaded, arabicFontsError } = useArabicFonts();
+  const [langHydrated, setLangHydrated] = useState(false);
+
+  // Hydrate language preference and apply RTL before first render.
+  useEffect(() => {
+    useLanguageStore.getState().hydrate().then(() => {
+      const { isRTL } = useLanguageStore.getState();
+      if (I18nManager.isRTL !== isRTL) {
+        I18nManager.allowRTL(isRTL);
+        I18nManager.forceRTL(isRTL);
+      }
+      setLangHydrated(true);
+    });
+  }, []);
 
   // Proceed if fonts loaded OR if font loading failed (use system fonts as fallback)
-  if (!fontsLoaded && !fontError) {
+  const interReady = fontsLoaded || !!fontError;
+  const arabicReady = arabicFontsLoaded || !!arabicFontsError;
+  if (!interReady || !arabicReady || !langHydrated) {
     return null;
   }
 

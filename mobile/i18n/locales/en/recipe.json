@@ -1,0 +1,67 @@
+{
+  "detail": {
+    "ingredients": "Ingredients",
+    "instructions": "Instructions",
+    "nutrition": "Nutrition",
+    "noInstructions": "No instructions available for this recipe.",
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "optional": "(optional)",
+    "startCooking": "Start cooking",
+    "addToList": "+ Shop",
+    "saveRecipe": "Save recipe",
+    "saved": "Saved",
+    "deleteRecipe": "Delete Recipe",
+    "deleteConfirm": "Are you sure you want to delete \"{{title}}\"? This action cannot be undone.",
+    "noIngredients": "This recipe has no ingredients to add.",
+    "shoppingListCreated": "Shopping List Created",
+    "ingredientsAdded_one": "Added {{count}} ingredient to \"{{title}}\"",
+    "ingredientsAdded_other": "Added {{count}} ingredients to \"{{title}}\"",
+    "alreadyAdded": "Already Added",
+    "alreadyAddedMessage": "This recipe's ingredients are already in a shopping list.",
+    "protein": "{{value}}g protein",
+    "calories": "{{value}} kcal / serving"
+  },
+  "add": {
+    "title": "Add Recipe",
+    "fromImage": "Extract from image",
+    "fromCamera": "Scan with camera",
+    "fromUrl": "Paste from URL",
+    "manual": "Manual entry",
+    "urlPlaceholder": "https://...",
+    "extract": "Extract",
+    "extracting": "Extracting recipe..."
+  },
+  "list": {
+    "title_one": "{{count}} recipe saved",
+    "title_other": "{{count}} recipes saved",
+    "loading": "Loading recipes\u2026",
+    "empty": "No recipes yet",
+    "emptySubtitle": "Tap + to add your first recipe",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "deleteSelected_one": "Delete ({{count}})",
+    "deleteSelected_other": "Delete ({{count}})",
+    "clearAll": "Reset Recipes",
+    "clearConfirm_one": "This will permanently delete all {{count}} recipe. This can't be undone.",
+    "clearConfirm_other": "This will permanently delete all {{count}} recipes. This can't be undone.",
+    "keepRecipes": "Keep Recipes",
+    "deleteAll": "Delete All",
+    "menuTitle": "Recipe Options",
+    "selectToDelete": "Select recipes to delete"
+  },
+  "cooking": {
+    "step": "Step {{current}} of {{total}}",
+    "previous": "Previous",
+    "next": "Next",
+    "repeat": "Repeat",
+    "pause": "Pause",
+    "quit": "Quit",
+    "done": "Done!"
+  },
+  "difficulty": {
+    "easy": "Easy",
+    "medium": "Medium",
+    "hard": "Hard"
+  }
+}

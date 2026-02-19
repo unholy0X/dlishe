@@ -1,0 +1,52 @@
+{
+  "header": "Shopping",
+  "listCount_one": "{{count}} list",
+  "listCount_other": "{{count}} lists",
+  "loading": "Loading lists\u2026",
+  "empty": {
+    "title": "A Fresh Start",
+    "subtitle": "Create a list and never forget an ingredient at the store again",
+    "createButton": "Create List"
+  },
+  "create": {
+    "sheetTitle": "New Shopping List",
+    "namePlaceholder": "e.g. Weekly Groceries",
+    "nameLabel": "Name",
+    "cancel": "Cancel",
+    "create": "Create"
+  },
+  "delete": {
+    "title_one": "Delete List",
+    "title_other": "Delete {{count}} Lists",
+    "message_one": "Delete this list?",
+    "message_other": "Delete {{count}} lists?"
+  },
+  "merge": {
+    "selectMore": "Select More",
+    "hint": "Select at least 2 lists to merge.",
+    "title": "Smart Merge",
+    "confirm": "Merge {{names}} into one list? Duplicates will be combined intelligently.",
+    "successTitle": "Merged",
+    "successMessage": "Lists merged successfully!"
+  },
+  "clearAll": {
+    "title": "Clear All Lists",
+    "message_one": "This will permanently delete all {{count}} shopping list. This can't be undone.",
+    "message_other": "This will permanently delete all {{count}} shopping lists. This can't be undone."
+  },
+  "menu": {
+    "title": "Shopping Options",
+    "selectLists": "Select Lists",
+    "selectHint": "Merge or delete multiple lists"
+  },
+  "detail": {
+    "addItem": "Add item",
+    "complete": "Complete list",
+    "stockPantry": "Stock pantry",
+    "checked_one": "{{checked}} of {{total}} item",
+    "checked_other": "{{checked}} of {{total}} items",
+    "deleteItem": "Delete Item",
+    "deleteItemMessage": "Remove this item?",
+    "generateFromPlan": "Generate from meal plan"
+  }
+}

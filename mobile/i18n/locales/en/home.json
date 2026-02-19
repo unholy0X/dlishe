@@ -1,0 +1,58 @@
+{
+  "tagline": "Your kitchen awaits",
+  "searchPlaceholder": "Search for a recipe",
+  "sectionTitle": "What Shall we cook today?",
+  "suggestions": {
+    "whatCanIMake": "What can I make ?",
+    "matchPantry": "Match your pantry",
+    "getInspired": "Get Inspired",
+    "curatedPicks": "Curated picks for you"
+  },
+  "stats": {
+    "favorites": "Favorites",
+    "highProtein": "High Protein",
+    "quickMeals": "Quick Meals",
+    "explore": "Explore"
+  },
+  "sheets": {
+    "suggestedTitle": "Suggested For You",
+    "suggestions_one": "{{count}} suggestion",
+    "suggestions_other": "{{count}} suggestions",
+    "highProtein": "High Protein",
+    "quickMeals": "Quick Meals",
+    "recipes_one": "{{count}} recipe",
+    "recipes_other": "{{count}} recipes",
+    "whatCanIMake": "What Can I Make?",
+    "matched_one": "{{count}} recipe matched",
+    "matched_other": "{{count}} recipes matched",
+    "matching": "Matching your pantry...",
+    "favoritesTitle": "My Favorites",
+    "favoritesSaved_one": "{{count}} recipe saved",
+    "favoritesSaved_other": "{{count}} recipes saved"
+  },
+  "inspiration": {
+    "counter": "{{current}} / {{total}}",
+    "notFeeling": "Not feeling it",
+    "letsCook": "Let's cook!",
+    "savedToFavorites": "Saved to your favorites",
+    "noIdeas": "No dinner ideas yet",
+    "addMore": "Add more recipes to get inspired"
+  },
+  "empty": {
+    "noRecipes": "No recipes found",
+    "noRecipesSubtitle": "We couldn't find any recipes for this category right now",
+    "noFavorites": "No favorites yet",
+    "noFavoritesSubtitle": "Tap the heart on any recipe to save it here",
+    "pantryEmpty": "Pantry is empty",
+    "pantryEmptySubtitle": "Add items to your pantry to see what you can cook",
+    "noMatches": "No matches found",
+    "noMatchesSubtitle": "Try adding more items to your pantry"
+  },
+  "badge": {
+    "matches_one": "{{count}} match",
+    "matches_other": "{{count}} matches"
+  },
+  "recentRecipes": "Recent Recipes",
+  "seeAll": "See All",
+  "showMore": "Show more ({{count}} remaining)"
+}

@@ -1,0 +1,39 @@
+{
+  "title": "Meal Plan",
+  "days": {
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun",
+    "monday": "Monday",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday",
+    "saturday": "Saturday",
+    "sunday": "Sunday"
+  },
+  "mealTypes": {
+    "breakfast": "Breakfast",
+    "lunch": "Lunch",
+    "dinner": "Dinner",
+    "snack": "Snack"
+  },
+  "empty": {
+    "noMeals": "No meals planned yet",
+    "hint": "Tap \u201c+ Add recipe\u201d on any slot above to start building your week"
+  },
+  "generateList": "Generate Shopping List",
+  "addRecipe": "+ Add recipe",
+  "addRecipeTitle": "Add recipe",
+  "searchRecipes": "Search recipes\u2026",
+  "card": {
+    "title": "Meal Plan",
+    "subtitle_zero": "No meals this week",
+    "subtitle_one": "{{count}} meal planned",
+    "subtitle_other": "{{count}} meals planned"
+  }
+}

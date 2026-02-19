@@ -1,0 +1,52 @@
+{
+  "buttons": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "retry": "Try Again",
+    "done": "Done",
+    "back": "Back",
+    "confirm": "Confirm",
+    "notNow": "Not now",
+    "ok": "OK",
+    "close": "Close",
+    "add": "Add",
+    "edit": "Edit",
+    "select": "Select",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "create": "Create",
+    "reset": "Reset",
+    "share": "Share"
+  },
+  "units": {
+    "min": "min",
+    "hour_one": "{{count}} hour",
+    "hour_other": "{{count}} hours",
+    "servings_one": "{{count}} serving",
+    "servings_other": "{{count}} servings",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items"
+  },
+  "time": {
+    "minOnly": "{{m}} min",
+    "hourMin": "{{h}}h {{m}}m",
+    "hourOnly": "{{h}}h",
+    "seconds_short": "{{s}}s",
+    "minutes_short": "{{m}}m"
+  },
+  "loading": "Loading...",
+  "loadingMore": "Loading more...",
+  "noResults": "No results found",
+  "noInternet": "No internet connection. Check your network and try again.",
+  "sessionExpired": "Your session needs a refresh. Please sign out and back in.",
+  "tryAgain": "Please check your connection and try again.",
+  "termsOfUse": "Terms of Use",
+  "privacyPolicy": "Privacy Policy",
+  "recipes_one": "{{count}} recipe",
+  "recipes_other": "{{count}} recipes",
+  "matches_one": "{{count}} match",
+  "matches_other": "{{count}} matches",
+  "selected_one": "{{count}} selected",
+  "selected_other": "{{count}} selected"
+}

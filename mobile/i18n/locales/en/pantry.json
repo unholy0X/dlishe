@@ -1,0 +1,46 @@
+{
+  "header": {
+    "title_one": "{{count}} item in pantry",
+    "title_other": "{{count}} items in pantry"
+  },
+  "loading": "Loading pantry\u2026",
+  "empty": {
+    "title": "A Peaceful Pantry",
+    "subtitle": "Add ingredients you have at home to discover what you can create",
+    "addButton": "Add Ingredients",
+    "alreadyEmpty": "Pantry is already empty"
+  },
+  "menu": {
+    "title": "Pantry Options",
+    "reset": "Reset Pantry"
+  },
+  "resetConfirm": {
+    "title": "Reset Pantry",
+    "message_one": "This will remove all {{count}} item from your pantry. This can't be undone.",
+    "message_other": "This will remove all {{count}} items from your pantry. This can't be undone.",
+    "keep": "Keep Items",
+    "reset": "Reset"
+  },
+  "categories": {
+    "dairy": "Dairy",
+    "produce": "Produce",
+    "proteins": "Proteins",
+    "bakery": "Bakery",
+    "spices": "Spices",
+    "pantry": "Pantry",
+    "beverages": "Beverages",
+    "condiments": "Condiments",
+    "snacks": "Snacks",
+    "frozen": "Frozen",
+    "household": "Household",
+    "other": "Other"
+  },
+  "itemCount_one": "{{count}} item",
+  "itemCount_other": "{{count}} items",
+  "moreItems": "+{{count}} more",
+  "addSheet": {
+    "title": "Add to Pantry",
+    "searchPlaceholder": "Search ingredients...",
+    "add": "Add to pantry"
+  }
+}

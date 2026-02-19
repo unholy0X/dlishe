@@ -1,3 +1,5 @@
+import { useDemoStore } from "../store/demoStore";
+
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL || "https://api.dlishe.com/api/v1";
 
@@ -43,11 +45,28 @@ export async function apiFetch(path, { token, timeout = DEFAULT_TIMEOUT, ...opti
 
 /**
  * Authenticated fetch that calls getToken fresh each time (prevents stale tokens).
+ * In demo mode the Clerk token is bypassed and the static demo token is used instead.
  */
 export async function authFetch(path, getToken, options = {}) {
-  const token = await getToken();
+  // Demo mode — bypass Clerk entirely and use the static demo token.
+  const demoState = useDemoStore.getState();
+  if (demoState.isDemoMode) {
+    const demoToken = demoState.getToken();
+    return apiFetch(path, { token: demoToken, ...options });
+  }
+
+  let token;
+  try {
+    token = await getToken();
+  } catch (err) {
+    const msg = (err?.message || "").toLowerCase();
+    if (msg.includes("network request failed") || msg.includes("failed to fetch")) {
+      throw new Error("Network request failed");
+    }
+    throw new Error("Sign-in session is temporarily unavailable. Please try again shortly.");
+  }
   if (!token) {
-    throw new Error("Not authenticated");
+    throw new Error("Sign-in session is temporarily unavailable. Please try again shortly.");
   }
   return apiFetch(path, { token, ...options });
 }

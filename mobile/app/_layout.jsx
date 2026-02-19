@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Alert, Platform, AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
@@ -16,6 +16,7 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import UserSync from "../components/UserSync";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { useSubscriptionStore } from "../store";
+import { useDemoStore } from "../store/demoStore";
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (SENTRY_DSN) {
@@ -50,27 +51,42 @@ function AuthGate() {
   const segments = useSegments();
   const { isSignedIn, isLoaded, getToken } = useAuth();
   const { user } = useUser();
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
+  const [demoHydrated, setDemoHydrated] = useState(false);
+
+  // Hydrate demo store before running the auth gate so we don't flash the
+  // sign-in screen when the user is already in demo mode.
+  useEffect(() => {
+    useDemoStore.getState().hydrate().then(() => setDemoHydrated(true));
+  }, []);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !demoHydrated) return;
     const path = `/${segments.join("/")}`;
     const isAuthRoute = path === "/" || path === "/sign-up";
+    const isAuthenticated = isSignedIn || isDemoMode;
 
-    if (!isSignedIn && !isAuthRoute) {
+    if (!isAuthenticated && !isAuthRoute) {
       router.replace("/");
-    } else if (isSignedIn && isAuthRoute) {
+    } else if (isAuthenticated && isAuthRoute) {
       router.replace("/home");
     }
-  }, [isSignedIn, isLoaded, segments, router]);
+  }, [isSignedIn, isLoaded, isDemoMode, demoHydrated, segments, router]);
 
   // Hydrate cached subscription state immediately (before network)
   useEffect(() => {
     useSubscriptionStore.getState().hydrate();
   }, []);
 
-  // Initialize RevenueCat after auth
+  // Demo mode — hardcode Pro subscription so all features are visible.
   useEffect(() => {
-    if (!isSignedIn || !isLoaded || !user?.id) return;
+    if (!isDemoMode) return;
+    useSubscriptionStore.setState({ entitlement: "pro", isActive: true });
+  }, [isDemoMode]);
+
+  // Initialize RevenueCat after auth (real users only)
+  useEffect(() => {
+    if (!isSignedIn || !isLoaded || !user?.id || isDemoMode) return;
 
     const initRC = async () => {
       try {
@@ -94,12 +110,12 @@ function AuthGate() {
     };
 
     initRC();
-  }, [isSignedIn, isLoaded, user?.id]);
+  }, [isSignedIn, isLoaded, user?.id, isDemoMode]);
 
-  // Reload subscription when app returns to foreground
+  // Reload subscription when app returns to foreground (real users only)
   const appState = useRef(AppState.currentState);
   useEffect(() => {
-    if (!isSignedIn || !isLoaded) return;
+    if (!isSignedIn || !isLoaded || isDemoMode) return;
 
     const sub = AppState.addEventListener("change", (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === "active") {
@@ -109,7 +125,7 @@ function AuthGate() {
     });
 
     return () => sub.remove();
-  }, [isSignedIn, isLoaded, getToken]);
+  }, [isSignedIn, isLoaded, getToken, isDemoMode]);
 
   return (
     <Stack

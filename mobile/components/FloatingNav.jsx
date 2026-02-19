@@ -188,9 +188,12 @@ const styles = StyleSheet.create({
     left: 15,
     right: 15,
     bottom: 0,
+    alignItems: "center",
   },
   navContainer: {
     position: "relative",
+    width: "100%",
+    maxWidth: 420,
   },
   // Ambient shadow — soft, wide depth glow
   ambientShadow: {

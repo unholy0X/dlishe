@@ -17,7 +17,7 @@ import RulerIcon from "../icons/RulerIcon";
 import LogoutIcon from "../icons/LogoutIcon";
 import CrownIcon from "../icons/CrownIcon";
 import { FOOD_AVATARS, AVATAR_COLORS } from "../avatars/FoodAvatars";
-import { useUserStore, useSubscriptionStore } from "../../store";
+import { useUserStore, useSubscriptionStore, useDemoStore } from "../../store";
 import PaywallSheet from "../paywall/PaywallSheet";
 
 function hashName(name) {
@@ -183,6 +183,12 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
             style={styles.logoutRow}
             onPress={async () => {
               setOpen(false);
+              // Demo mode — deactivate without calling Clerk
+              if (useDemoStore.getState().isDemoMode) {
+                await useDemoStore.getState().deactivate();
+                router.replace("/");
+                return;
+              }
               try {
                 await signOut();
                 router.replace("/");

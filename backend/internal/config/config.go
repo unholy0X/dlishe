@@ -75,6 +75,14 @@ type Config struct {
 
 	// Instagram
 	InstagramCookiesPath string // Path to Netscape-format cookies.txt for Instagram auth
+
+	// Demo account — bypasses Clerk JWT validation entirely.
+	// Used for Apple App Review and always-on test accounts.
+	// Set DEMO_TOKEN to a long random string and DEMO_USER_EMAIL to the
+	// email address of the pre-seeded demo user in the database.
+	// Leave both empty to disable demo mode.
+	DemoToken     string
+	DemoUserEmail string
 }
 
 // Load creates a Config from environment variables
@@ -144,6 +152,10 @@ func Load() *Config {
 
 		// Instagram
 		InstagramCookiesPath: getEnv("INSTAGRAM_COOKIES_PATH", "/data/instagram_cookies.txt"),
+
+		// Demo account
+		DemoToken:     getEnv("DEMO_TOKEN", ""),
+		DemoUserEmail: getEnv("DEMO_USER_EMAIL", ""),
 	}
 }
 

@@ -17,6 +17,7 @@ import { useAuth, useSignIn, useOAuth, useSignInWithApple } from "@clerk/clerk-e
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import Svg, { Path } from "react-native-svg";
+import { useDemoStore } from "../store/demoStore";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -35,6 +36,30 @@ const C = {
   border: "rgba(255,255,255,0.08)",
   error: "#ff5a5a",
 };
+
+/* ─── parse auth errors into user-friendly messages ─── */
+function parseAuthError(err, fallback) {
+  const raw = (err?.message ?? "").toLowerCase();
+  if (raw.includes("network request failed") || raw.includes("failed to fetch")) {
+    return "No internet connection. Please check your network and try again.";
+  }
+  if (
+    raw.includes("cannot read") ||
+    raw.includes("network") ||
+    raw.includes("timeout") ||
+    raw.includes("tostring") ||
+    err?.status === 503 ||
+    err?.status === 500
+  ) {
+    return "Sign-in services are temporarily unavailable. Please try again shortly.";
+  }
+  return (
+    err?.errors?.[0]?.longMessage ??
+    err?.errors?.[0]?.message ??
+    err?.message ??
+    fallback
+  );
+}
 
 /* ─── google "G" icon ─── */
 function GoogleIcon({ size = 18 }) {
@@ -64,12 +89,40 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
+  const [serviceWarning, setServiceWarning] = useState("");
 
   useEffect(() => {
     if (isSignedIn) {
       router.replace("/home");
     }
   }, [isSignedIn, router]);
+
+  /* ── Clerk status monitor — polls every 60s, clears when recovered ── */
+  useEffect(() => {
+    let interval;
+
+    function checkStatus() {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      fetch("https://status.clerk.com/api/v2/status.json", { signal: controller.signal })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.status?.indicator && data.status.indicator !== "none") {
+            setServiceWarning(
+              "Our sign-in provider is experiencing issues. Authentication may be temporarily slow or unavailable — please try again shortly."
+            );
+          } else {
+            setServiceWarning("");
+          }
+        })
+        .catch(() => {})
+        .finally(() => clearTimeout(timer));
+    }
+
+    checkStatus();
+    interval = setInterval(checkStatus, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   /* ── Google OAuth ── */
   const handleGoogleSignIn = useCallback(async () => {
@@ -85,12 +138,7 @@ export default function LoginScreen() {
       }
     } catch (err) {
       if (err?.message?.includes("cancelled")) return;
-      const message =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        err?.message ??
-        "Google sign-in failed";
-      setError(message);
+      setError(parseAuthError(err, "Google sign-in failed"));
     } finally {
       setGoogleLoading(false);
     }
@@ -104,22 +152,20 @@ export default function LoginScreen() {
     try {
       const { createdSessionId, setActive: setActiveSession } =
         await startAppleAuthenticationFlow();
-      if (createdSessionId && setActiveSession) {
-        await setActiveSession({ session: createdSessionId });
+      if (createdSessionId) {
+        const activate = setActiveSession ?? setActive;
+        await activate({ session: createdSessionId });
+      } else {
+        setError("Apple sign-in failed. Please try again.");
       }
     } catch (err) {
       if (err?.code === "ERR_REQUEST_CANCELED") return;
       if (err?.message?.includes("cancelled")) return;
-      const message =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        err?.message ??
-        "Apple sign-in failed";
-      setError(message);
+      setError(parseAuthError(err, "Apple sign-in failed"));
     } finally {
       setAppleLoading(false);
     }
-  }, [startAppleAuthenticationFlow, appleLoading]);
+  }, [startAppleAuthenticationFlow, setActive, appleLoading]);
 
   /* ── Email / password ── */
   const handleEmailSignIn = async () => {
@@ -129,6 +175,23 @@ export default function LoginScreen() {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
       setError("Please enter your email and password.");
+      return;
+    }
+
+    // Demo account — bypass Clerk entirely.
+    // Credentials are set via EXPO_PUBLIC_DEMO_EMAIL / EXPO_PUBLIC_DEMO_PASSWORD.
+    const demoEmail = process.env.EXPO_PUBLIC_DEMO_EMAIL;
+    const demoPassword = process.env.EXPO_PUBLIC_DEMO_PASSWORD;
+    if (demoEmail && demoPassword && trimmedEmail === demoEmail && password === demoPassword) {
+      setLoading(true);
+      try {
+        await useDemoStore.getState().activate();
+        router.replace("/home");
+      } catch {
+        setError("Demo login failed. Please try again.");
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -171,15 +234,10 @@ export default function LoginScreen() {
         setVerifyFactor("second");
         setVerifyStrategy(strategy);
       } else {
-        setError(`Unexpected status: ${result.status}`);
+        setError("Sign in failed. Please try again or use another method.");
       }
     } catch (err) {
-      const message =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        err?.message ??
-        "Incorrect email or password";
-      setError(message);
+      setError(parseAuthError(err, "Incorrect email or password"));
     } finally {
       setLoading(false);
     }
@@ -219,15 +277,10 @@ export default function LoginScreen() {
         setVerifyFactor("second");
         setVerifyStrategy(strategy);
       } else {
-        setError(`Unexpected status: ${result.status}`);
+        setError("Verification failed. Please try again.");
       }
     } catch (err) {
-      const message =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        err?.message ??
-        "Invalid code";
-      setError(message);
+      setError(parseAuthError(err, "Invalid code"));
     } finally {
       setLoading(false);
     }
@@ -267,6 +320,14 @@ export default function LoginScreen() {
 
             {/* ── Form area ── */}
             <View style={styles.formArea}>
+              {serviceWarning ? (
+                <View style={styles.warningBanner}>
+                  <Text style={styles.warningText}>⚠️  {serviceWarning}</Text>
+                  <Pressable onPress={() => setServiceWarning("")} hitSlop={12}>
+                    <Text style={styles.warningDismiss}>✕</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
               {!verifyStrategy ? (
@@ -485,6 +546,31 @@ const styles = StyleSheet.create({
 
   /* ── form ── */
   formArea: {},
+  warningBanner: {
+    backgroundColor: "rgba(255,184,0,0.12)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,184,0,0.28)",
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  warningText: {
+    color: "#FFB800",
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    flex: 1,
+  },
+  warningDismiss: {
+    color: "#FFB800",
+    fontSize: 14,
+    opacity: 0.7,
+    marginTop: 1,
+  },
   error: {
     color: C.error,
     fontSize: 13,

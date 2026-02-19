@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { fetchRecipes, deleteRecipe, toggleFavorite as toggleFavoriteApi } from "../services/recipes";
 
+function friendlyNetworkError(err, fallback) {
+  const msg = (err?.message || "").toLowerCase();
+  if (msg.includes("network request failed") || msg.includes("failed to fetch"))
+    return "No internet connection. Please check your network and try again.";
+  return err?.message || fallback;
+}
+
 const PAGE_SIZE = 20;
 
 export const useRecipeStore = create((set, get) => ({
@@ -23,7 +30,7 @@ export const useRecipeStore = create((set, get) => ({
       });
     } catch (err) {
       set({
-        error: err?.message || "Failed to load recipes",
+        error: friendlyNetworkError(err, "Failed to load recipes"),
         isLoading: false,
       });
     }
@@ -45,7 +52,7 @@ export const useRecipeStore = create((set, get) => ({
       });
     } catch (err) {
       set({
-        error: err?.message || "Failed to load more recipes",
+        error: friendlyNetworkError(err, "Failed to load more recipes"),
         isLoadingMore: false,
       });
     }
@@ -66,7 +73,7 @@ export const useRecipeStore = create((set, get) => ({
       });
     } catch (err) {
       set({
-        error: err?.message || "Failed to refresh recipes",
+        error: friendlyNetworkError(err, "Failed to refresh recipes"),
         isLoading: false,
       });
     }
@@ -126,7 +133,7 @@ export const useRecipeStore = create((set, get) => ({
       } catch {
         // Can't recover — leave error message
       }
-      set({ error: err?.message || "Failed to clear recipes" });
+      set({ error: friendlyNetworkError(err, "Failed to clear recipes") });
     }
   },
 }));

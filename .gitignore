@@ -56,3 +56,5 @@ backend/coverage.out
 backend/middleware_test_output.txtmobile/eas.json
 mobile/eas.json
 mobile/screens_bugs/Screenshot 2026-02-10 at 14.31.54.png
+specs/ink-forge-proposal.md
+specs/v1.1-roadmap.md

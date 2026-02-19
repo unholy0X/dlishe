@@ -49,7 +49,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	userRepo := postgres.NewUserRepository(db)
 
 	// Initialize middleware
-	clerkMiddleware := middleware.NewClerkMiddleware(userRepo, logger)
+	clerkMiddleware := middleware.NewClerkMiddleware(userRepo, logger, cfg.DemoToken, cfg.DemoUserEmail)
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db, redis)

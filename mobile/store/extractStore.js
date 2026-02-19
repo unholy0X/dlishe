@@ -11,6 +11,8 @@ let currentExtractionId = 0;
 
 function friendlyError(raw) {
   const msg = (raw || "").toLowerCase();
+  if (msg.includes("network request failed") || msg.includes("failed to fetch"))
+    return "No internet connection. Please check your network and try again.";
   if (msg.includes("quota_exceeded") || msg.includes("monthly extraction limit") || msg.includes("monthly scan limit"))
     return "QUOTA_EXCEEDED";
   if (msg.includes("download") || msg.includes("yt-dlp") || msg.includes("ytdl"))

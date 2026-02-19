@@ -21,6 +21,30 @@ import Svg, { Path } from "react-native-svg";
 
 WebBrowser.maybeCompleteAuthSession();
 
+/* ─── parse auth errors into user-friendly messages ─── */
+function parseAuthError(err, fallback) {
+  const raw = (err?.message ?? "").toLowerCase();
+  if (raw.includes("network request failed") || raw.includes("failed to fetch")) {
+    return "No internet connection. Please check your network and try again.";
+  }
+  if (
+    raw.includes("cannot read") ||
+    raw.includes("network") ||
+    raw.includes("timeout") ||
+    raw.includes("tostring") ||
+    err?.status === 503 ||
+    err?.status === 500
+  ) {
+    return "Sign-in services are temporarily unavailable. Please try again shortly.";
+  }
+  return (
+    err?.errors?.[0]?.longMessage ??
+    err?.errors?.[0]?.message ??
+    err?.message ??
+    fallback
+  );
+}
+
 /* ─── design tokens ─── */
 const C = {
   bg: "#111111",
@@ -75,6 +99,34 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
+  const [serviceWarning, setServiceWarning] = useState("");
+
+  /* ── Clerk status monitor — polls every 60s, clears when recovered ── */
+  useEffect(() => {
+    let interval;
+
+    function checkStatus() {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      fetch("https://status.clerk.com/api/v2/status.json", { signal: controller.signal })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.status?.indicator && data.status.indicator !== "none") {
+            setServiceWarning(
+              "Our sign-in provider is experiencing issues. Authentication may be temporarily slow or unavailable — please try again shortly."
+            );
+          } else {
+            setServiceWarning("");
+          }
+        })
+        .catch(() => {})
+        .finally(() => clearTimeout(timer));
+    }
+
+    checkStatus();
+    interval = setInterval(checkStatus, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   /* ── Google OAuth ── */
   const handleGoogleSignUp = useCallback(async () => {
@@ -90,12 +142,7 @@ export default function SignUpScreen() {
       }
     } catch (err) {
       if (err?.message?.includes("cancelled")) return;
-      const message =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        err?.message ??
-        "Google sign-up failed";
-      setError(message);
+      setError(parseAuthError(err, "Google sign-up failed"));
     } finally {
       setGoogleLoading(false);
     }
@@ -109,23 +156,21 @@ export default function SignUpScreen() {
     try {
       const { createdSessionId, setActive: setActiveSession } =
         await startAppleAuthenticationFlow();
-      if (createdSessionId && setActiveSession) {
+      if (createdSessionId) {
+        const activate = setActiveSession ?? setActive;
         signingUp.current = true;
-        await setActiveSession({ session: createdSessionId });
+        await activate({ session: createdSessionId });
+      } else {
+        setError("Apple sign-up failed. Please try again.");
       }
     } catch (err) {
       if (err?.code === "ERR_REQUEST_CANCELED") return;
       if (err?.message?.includes("cancelled")) return;
-      const message =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        err?.message ??
-        "Apple sign-up failed";
-      setError(message);
+      setError(parseAuthError(err, "Apple sign-up failed"));
     } finally {
       setAppleLoading(false);
     }
-  }, [startAppleAuthenticationFlow, appleLoading]);
+  }, [startAppleAuthenticationFlow, setActive, appleLoading]);
 
   /* ── Email sign-up ── */
   const onSignUp = async () => {
@@ -158,15 +203,10 @@ export default function SignUpScreen() {
         await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
         setPendingVerification(true);
       } else {
-        setError(`Unexpected signup status: ${result.status}`);
+        setError("Sign up failed. Please try again or use another method.");
       }
     } catch (err) {
-      const message =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        err?.message ??
-        "Something went wrong";
-      setError(message);
+      setError(parseAuthError(err, "Something went wrong"));
     } finally {
       setLoading(false);
     }
@@ -186,12 +226,7 @@ export default function SignUpScreen() {
         router.replace("/home");
       }
     } catch (err) {
-      const message =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        err?.message ??
-        "Invalid verification code";
-      setError(message);
+      setError(parseAuthError(err, "Invalid verification code"));
     } finally {
       setLoading(false);
     }
@@ -224,6 +259,14 @@ export default function SignUpScreen() {
 
             {/* ── Form area ── */}
             <View style={styles.formArea}>
+              {serviceWarning ? (
+                <View style={styles.warningBanner}>
+                  <Text style={styles.warningText}>⚠️  {serviceWarning}</Text>
+                  <Pressable onPress={() => setServiceWarning("")} hitSlop={12}>
+                    <Text style={styles.warningDismiss}>✕</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
               {!pendingVerification ? (
@@ -464,6 +507,31 @@ const styles = StyleSheet.create({
 
   /* ── form ── */
   formArea: {},
+  warningBanner: {
+    backgroundColor: "rgba(255,184,0,0.12)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,184,0,0.28)",
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  warningText: {
+    color: "#FFB800",
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    flex: 1,
+  },
+  warningDismiss: {
+    color: "#FFB800",
+    fontSize: 14,
+    opacity: 0.7,
+    marginTop: 1,
+  },
   error: {
     color: C.error,
     fontSize: 13,

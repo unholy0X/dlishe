@@ -18,8 +18,10 @@ import (
 
 // ClerkMiddleware handles Clerk authentication and user synchronization
 type ClerkMiddleware struct {
-	userRepo UserRepository
-	logger   *slog.Logger
+	userRepo      UserRepository
+	logger        *slog.Logger
+	demoToken     string // static token that bypasses Clerk JWT validation
+	demoUserEmail string // email of the pre-seeded demo user in the DB
 }
 
 // UserRepository interface defines required user operations
@@ -32,11 +34,15 @@ type UserRepository interface {
 	CreateSubscription(ctx context.Context, userID uuid.UUID) error
 }
 
-// NewClerkMiddleware creates a new Clerk middleware
-func NewClerkMiddleware(userRepo UserRepository, logger *slog.Logger) *ClerkMiddleware {
+// NewClerkMiddleware creates a new Clerk middleware.
+// Pass demoToken and demoUserEmail to enable the demo account bypass.
+// Set both to empty strings to disable demo mode.
+func NewClerkMiddleware(userRepo UserRepository, logger *slog.Logger, demoToken, demoUserEmail string) *ClerkMiddleware {
 	return &ClerkMiddleware{
-		userRepo: userRepo,
-		logger:   logger,
+		userRepo:      userRepo,
+		logger:        logger,
+		demoToken:     demoToken,
+		demoUserEmail: demoUserEmail,
 	}
 }
 
@@ -57,7 +63,23 @@ func (m *ClerkMiddleware) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// 2. Verify Token with Clerk
+		// 2. Demo account bypass — checked before Clerk JWT validation.
+		// If the incoming token matches the static DEMO_TOKEN, look up the
+		// pre-seeded demo user by email and inject it directly into the context.
+		if m.demoToken != "" && token == m.demoToken {
+			demoUser, err := m.userRepo.GetByEmail(ctx, m.demoUserEmail)
+			if err != nil {
+				m.logger.Warn("Demo token presented but demo user not found in DB",
+					"email", m.demoUserEmail, "error", err)
+				response.Unauthorized(w, "Demo account unavailable")
+				return
+			}
+			ctx = context.WithValue(ctx, userContextKey, demoUser)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		// 3. Verify Token with Clerk
 		claims, err := jwt.Verify(ctx, &jwt.VerifyParams{
 			Token: token,
 		})
@@ -67,7 +89,7 @@ func (m *ClerkMiddleware) RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// 3. Sync User (Lazy Sync)
+		// 4. Sync User (Lazy Sync)
 		// Never return 500 — fall back to a temporary free-tier user if DB sync fails.
 		user, err := m.syncUser(ctx, claims)
 		if err != nil {
@@ -78,7 +100,7 @@ func (m *ClerkMiddleware) RequireAuth(next http.Handler) http.Handler {
 			user = m.fallbackUser(claims.Subject)
 		}
 
-		// 4. Inject into Context
+		// 5. Inject into Context
 		ctx = context.WithValue(ctx, userContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

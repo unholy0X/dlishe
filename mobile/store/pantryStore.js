@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { fetchPantryItems, createPantryItem, deletePantryItem, scanPantryImage } from "../services/pantry";
 
+function friendlyNetworkError(err, fallback) {
+  const msg = (err?.message || "").toLowerCase();
+  if (msg.includes("network request failed") || msg.includes("failed to fetch"))
+    return "No internet connection. Please check your network and try again.";
+  return err?.message || fallback;
+}
+
 export const usePantryStore = create((set, get) => ({
     groups: [],
     total: 0,
@@ -20,7 +27,7 @@ export const usePantryStore = create((set, get) => ({
             });
         } catch (err) {
             set({
-                error: err?.message || "Failed to load pantry",
+                error: friendlyNetworkError(err, "Failed to load pantry"),
                 isLoading: false,
             });
         }
@@ -33,7 +40,7 @@ export const usePantryStore = create((set, get) => ({
             await get().loadPantry({ getToken });
             return item;
         } catch (err) {
-            set({ error: err?.message || "Failed to add item" });
+            set({ error: friendlyNetworkError(err, "Failed to add item") });
             throw err;
         }
     },
@@ -56,7 +63,7 @@ export const usePantryStore = create((set, get) => ({
                 };
             });
         } catch (err) {
-            set({ error: err?.message || "Failed to remove item" });
+            set({ error: friendlyNetworkError(err, "Failed to remove item") });
             throw err;
         }
     },
@@ -71,7 +78,7 @@ export const usePantryStore = create((set, get) => ({
             return result;
         } catch (err) {
             set({
-                error: err?.message || "Scan failed",
+                error: friendlyNetworkError(err, "Scan failed"),
                 isScanning: false,
             });
             throw err;
@@ -106,7 +113,7 @@ export const usePantryStore = create((set, get) => ({
             } catch {
                 // Can't recover — leave error message
             }
-            set({ error: err?.message || "Failed to clear pantry" });
+            set({ error: friendlyNetworkError(err, "Failed to clear pantry") });
         }
     },
 

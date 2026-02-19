@@ -1,18 +1,21 @@
 import { BlurView } from "expo-blur";
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 import ChevronRightIcon from "../icons/ChevronRightIcon";
 
 export default function RecentRecipesHeader({ onPressSeeAll }) {
+  const { t } = useTranslation("home");
+
   return (
     <View style={styles.row}>
       <View>
-        <Text style={styles.title}>Suggested For You</Text>
-        <Text style={styles.subtitle}>Based on your taste</Text>
+        <Text style={styles.title}>{t("sheets.suggestedTitle")}</Text>
+        <Text style={styles.subtitle}>{t("basedOnYourTaste")}</Text>
       </View>
       <Pressable onPress={onPressSeeAll}>
         <BlurView intensity={105} tint="extraLight" style={styles.blur}>
-          <Text style={styles.buttonText}>See all</Text>
+          <Text style={styles.buttonText}>{t("seeAll")}</Text>
           <View style={styles.arrow}>
             <ChevronRightIcon width={9} height={8} color="#555555" />
           </View>

@@ -48,5 +48,11 @@
   "matches_one": "{{count}} match",
   "matches_other": "{{count}} matches",
   "selected_one": "{{count}} selected",
-  "selected_other": "{{count}} selected"
+  "selected_other": "{{count}} selected",
+  "nav": {
+    "home": "Home",
+    "recipies": "Recipes",
+    "pantry": "Pantry",
+    "shopping": "Shopping"
+  }
 }

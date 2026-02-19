@@ -20,7 +20,8 @@
     "breakfast": "Petit-déjeuner",
     "lunch": "Déjeuner",
     "dinner": "Dîner",
-    "snack": "Collation"
+    "snack": "Collation",
+    "more": "Plus"
   },
   "empty": {
     "noMeals": "Aucun repas planifié",

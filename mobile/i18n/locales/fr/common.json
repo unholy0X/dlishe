@@ -48,5 +48,11 @@
   "matches_one": "{{count}} correspondance",
   "matches_other": "{{count}} correspondances",
   "selected_one": "{{count}} sélectionné",
-  "selected_other": "{{count}} sélectionnés"
+  "selected_other": "{{count}} sélectionnés",
+  "nav": {
+    "home": "Accueil",
+    "recipies": "Recettes",
+    "pantry": "Garde-manger",
+    "shopping": "Courses"
+  }
 }

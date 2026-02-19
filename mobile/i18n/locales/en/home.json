@@ -54,6 +54,7 @@
   },
   "recentRecipes": "Recent Recipes",
   "seeAll": "See All",
+  "basedOnYourTaste": "Based on your taste",
   "showMore": "Show more ({{count}} remaining)",
   "profile": {
     "welcome": "Welcome {{name}}!",

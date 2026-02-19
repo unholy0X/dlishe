@@ -55,7 +55,8 @@
         }
       ],
       "expo-apple-authentication",
-      "@sentry/react-native"
+      "@sentry/react-native",
+      "expo-localization"
     ],
     "extra": {
       "eas": {

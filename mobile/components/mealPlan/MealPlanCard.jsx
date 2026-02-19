@@ -1,9 +1,10 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import { useTranslation } from "react-i18next";
 import CalendarIcon from "../icons/CalendarIcon";
 import Svg, { Path } from "react-native-svg";
 
-const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 function ChevronRightSmall() {
   return (
@@ -14,6 +15,9 @@ function ChevronRightSmall() {
 }
 
 export default function MealPlanCard({ mealsPerDay = [], totalMeals = 0, onPress }) {
+  const { t } = useTranslation("mealPlan");
+  const dayLabels = DAY_KEYS.map((k) => t(`days.${k}`).charAt(0).toUpperCase());
+
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
@@ -28,11 +32,9 @@ export default function MealPlanCard({ mealsPerDay = [], totalMeals = 0, onPress
           <CalendarIcon width={16} height={16} color="#385225" />
         </View>
         <View style={styles.titleBlock}>
-          <Text style={styles.title}>Meal Plan</Text>
+          <Text style={styles.title}>{t("card.title")}</Text>
           <Text style={styles.subtitle}>
-            {totalMeals > 0
-              ? `${totalMeals} meal${totalMeals !== 1 ? "s" : ""} this week`
-              : "Plan your week"}
+            {t("card.subtitle", { count: totalMeals })}
           </Text>
         </View>
         <ChevronRightSmall />
@@ -40,7 +42,7 @@ export default function MealPlanCard({ mealsPerDay = [], totalMeals = 0, onPress
 
       {/* Mini week bar */}
       <View style={styles.weekBar}>
-        {DAYS.map((label, i) => {
+        {dayLabels.map((label, i) => {
           const count = mealsPerDay[i] || 0;
           const filled = count > 0;
           return (

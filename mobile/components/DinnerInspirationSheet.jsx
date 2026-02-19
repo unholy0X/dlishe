@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useTranslation } from "react-i18next";
 import HeartIcon from "./icons/HeartIcon";
 import RecipePlaceholder from "./RecipePlaceholder";
 
@@ -34,6 +35,7 @@ export default function DinnerInspirationSheet({
   savedIds,
   savingIds,
 }) {
+  const { t } = useTranslation("home");
   const [index, setIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -132,15 +134,15 @@ export default function DinnerInspirationSheet({
 
     onSave?.(id);
     pendingAutoAdvance.current = true;
-    showToast("Saved to your favorites");
+    showToast(t("inspiration.savedToFavorites"));
   }, [recipe, savedIds, savingIds, onSave, showToast]);
 
   if (!recipes.length) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>No dinner ideas yet</Text>
+        <Text style={styles.emptyTitle}>{t("inspiration.noIdeas")}</Text>
         <Text style={styles.emptySubtitle}>
-          Add more recipes to get inspired
+          {t("inspiration.addMore")}
         </Text>
       </View>
     );
@@ -166,7 +168,7 @@ export default function DinnerInspirationSheet({
       {/* Counter */}
       <View style={styles.counterRow}>
         <Text style={styles.counterText}>
-          {index + 1} / {recipes.length}
+          {t("inspiration.counter", { current: index + 1, total: recipes.length })}
         </Text>
       </View>
 
@@ -240,7 +242,7 @@ export default function DinnerInspirationSheet({
           style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.7 }]}
           onPress={animateNext}
         >
-          <Text style={styles.skipText}>Not feeling it</Text>
+          <Text style={styles.skipText}>{t("inspiration.notFeeling")}</Text>
         </Pressable>
 
         <Pressable
@@ -262,7 +264,7 @@ export default function DinnerInspirationSheet({
           style={({ pressed }) => [styles.cookBtn, pressed && { opacity: 0.85 }]}
           onPress={() => onCook?.(recipe)}
         >
-          <Text style={styles.cookText}>Let's cook!</Text>
+          <Text style={styles.cookText}>{t("inspiration.letsCook")}</Text>
         </Pressable>
       </View>
     </View>

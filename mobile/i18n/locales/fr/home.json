@@ -54,6 +54,7 @@
   },
   "recentRecipes": "Recettes récentes",
   "seeAll": "Tout voir",
+  "basedOnYourTaste": "Selon vos goûts",
   "showMore": "Voir plus ({{count}} restantes)",
   "profile": {
     "welcome": "Bonjour {{name}} !",

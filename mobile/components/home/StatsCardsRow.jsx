@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import Svg, { Path } from "react-native-svg";
+import { useTranslation } from "react-i18next";
 import HeartIcon from "../icons/HeartIcon";
 
 function FlameIcon({ width = 12, height = 12, color = "#4A2D73" }) {
@@ -24,7 +25,7 @@ function TimerIcon({ width = 12, height = 12, color = "#7A4A21" }) {
 const CARDS = [
   {
     key: "favorites",
-    title: "Favorites",
+    statKey: "favorites",
     bg: "#FDEEEE",
     accent: "#F9BABA",
     accent2: "#F9DEDE",
@@ -33,7 +34,7 @@ const CARDS = [
   },
   {
     key: "high-protein",
-    title: "High Protein",
+    statKey: "highProtein",
     bg: "#CCB7F9",
     accent: "#A896F0",
     accent2: "#BFAEFF",
@@ -41,7 +42,7 @@ const CARDS = [
   },
   {
     key: "quick-meals",
-    title: "Quick Meals",
+    statKey: "quickMeals",
     bg: "#FDC597",
     accent: "#F0A45E",
     accent2: "#F7BC85",
@@ -55,6 +56,7 @@ export default function StatsCardsRow({
   onPressHighProtein,
   onPressQuickMeals,
 }) {
+  const { t } = useTranslation("home");
   const handlers = {
     favorites: onPressFavorites,
     "high-protein": onPressHighProtein,
@@ -83,7 +85,7 @@ export default function StatsCardsRow({
                 <TimerIcon width={12} height={12} color={card.text} />
               )}
               <Text style={[styles.title, { color: card.text }, styles.titleWithIcon]}>
-                {card.title}
+                {t(`stats.${card.statKey}`)}
               </Text>
             </View>
             {card.key === "favorites" ? (
@@ -92,7 +94,7 @@ export default function StatsCardsRow({
               </Text>
             ) : (
               <Text style={[styles.explore, { color: card.text }]}>
-                Explore
+                {t("stats.explore")}
               </Text>
             )}
           </View>

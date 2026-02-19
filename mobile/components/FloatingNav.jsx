@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 import HomeIcon from "./icons/HomeIcon";
 import RecipiesIcon from "./icons/RecipiesIcon";
@@ -11,14 +12,15 @@ import ShoppingIcon from "./icons/ShoppingIcon";
 import PlusIcon from "./icons/PlusIcon";
 
 const NAV_ITEMS = [
-  { key: "home", label: "Home", Icon: HomeIcon },
-  { key: "recipies", label: "Recipies", Icon: RecipiesIcon },
-  { key: "pantry", label: "Pantry", Icon: PantryIcon },
-  { key: "shopping", label: "Shopping", Icon: ShoppingIcon },
+  { key: "home", Icon: HomeIcon },
+  { key: "recipies", Icon: RecipiesIcon },
+  { key: "pantry", Icon: PantryIcon },
+  { key: "shopping", Icon: ShoppingIcon },
 ];
 
 export default function FloatingNav({ onPressItem, onPressPlus, activeKey }) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation("common");
   const plusScale = useRef(new Animated.Value(1)).current;
 
   const handlePlusPressIn = () => {
@@ -74,7 +76,7 @@ export default function FloatingNav({ onPressItem, onPressPlus, activeKey }) {
           style={[styles.label, isActive && styles.labelActive]}
           numberOfLines={1}
         >
-          {item.label}
+          {t(`nav.${item.key}`)}
         </Text>
       </Pressable>
     );

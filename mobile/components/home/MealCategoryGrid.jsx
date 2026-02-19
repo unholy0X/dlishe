@@ -1,17 +1,13 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, Pressable } from "react-native";
+import { useTranslation } from "react-i18next";
 
 const ITEMS = [
-  {
-    key: "breakfast",
-    label: "Breakfast",
-    image: require("../../assets/Breakfast.png"),
-  },
-  { key: "lunch", label: "Lunch", image: require("../../assets/Lunch.png") },
-  { key: "dinner", label: "Dinner", image: require("../../assets/Dinner.png") },
+  { key: "breakfast", image: require("../../assets/Breakfast.png") },
+  { key: "lunch", image: require("../../assets/Lunch.png") },
+  { key: "dinner", image: require("../../assets/Dinner.png") },
   {
     key: "more",
-    label: "More",
     image: require("../../assets/More.png"),
     bgColor: "#7FEE7F",
     textColor: "#385225",
@@ -19,6 +15,8 @@ const ITEMS = [
 ];
 
 export default function MealCategoryGrid({ onPress }) {
+  const { t } = useTranslation("mealPlan");
+
   return (
     <View style={styles.grid}>
       {ITEMS.map((item) => (
@@ -41,7 +39,7 @@ export default function MealCategoryGrid({ onPress }) {
           <Text
             style={[styles.label, item.textColor && { color: item.textColor }]}
           >
-            {item.label}
+            {t(`mealTypes.${item.key}`)}
           </Text>
         </Pressable>
       ))}

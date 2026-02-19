@@ -20,7 +20,8 @@
     "breakfast": "Breakfast",
     "lunch": "Lunch",
     "dinner": "Dinner",
-    "snack": "Snack"
+    "snack": "Snack",
+    "more": "More"
   },
   "empty": {
     "noMeals": "No meals planned yet",
@@ -32,8 +33,8 @@
   "searchRecipes": "Search recipes\u2026",
   "card": {
     "title": "Meal Plan",
-    "subtitle_zero": "No meals this week",
-    "subtitle_one": "{{count}} meal planned",
-    "subtitle_other": "{{count}} meals planned"
+    "subtitle_zero": "Plan your week",
+    "subtitle_one": "{{count}} meal this week",
+    "subtitle_other": "{{count}} meals this week"
   }
 }

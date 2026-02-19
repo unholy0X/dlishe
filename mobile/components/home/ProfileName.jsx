@@ -13,11 +13,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useClerk, useUser } from "@clerk/clerk-expo";
 import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import RulerIcon from "../icons/RulerIcon";
+import GlobeIcon from "../icons/GlobeIcon";
 import LogoutIcon from "../icons/LogoutIcon";
 import CrownIcon from "../icons/CrownIcon";
 import { FOOD_AVATARS, AVATAR_COLORS } from "../avatars/FoodAvatars";
 import { useUserStore, useSubscriptionStore, useDemoStore } from "../../store";
+import { useLanguageStore } from "../../store/languageStore";
 import PaywallSheet from "../paywall/PaywallSheet";
 
 function hashName(name) {
@@ -61,6 +64,7 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
   const { user } = useUser();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation("home");
   const [open, setOpen] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
 
@@ -71,6 +75,9 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
   const imageUrl = useUserStore((s) => s.imageUrl);
   const preferredUnitSystem = useUserStore((s) => s.preferredUnitSystem);
   const updatePreferences = useUserStore((s) => s.updatePreferences);
+
+  const language = useLanguageStore((s) => s.language);
+  const setLanguage = useLanguageStore((s) => s.setLanguage);
 
   const displayName = firstName || lastName ? `${firstName} ${lastName}`.trim() : "Chef";
   const email = user?.primaryEmailAddress?.emailAddress || "";
@@ -91,7 +98,7 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
             size={50}
           />
           <View style={{ marginLeft: 12 }}>
-            <Text style={styles.welcomeTitle}>Welcome {displayName}!</Text>
+            <Text style={styles.welcomeTitle}>{t("profile.welcome", { name: displayName })}</Text>
             <Text style={styles.welcomeSubtitle}>{subtitle}</Text>
           </View>
         </View>
@@ -123,29 +130,50 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
           </View>
 
           {/* Preferences */}
-          <Text style={styles.sectionLabel}>Kitchen preferences</Text>
+          <Text style={styles.sectionLabel}>{t("profile.kitchenPrefs")}</Text>
 
           <Pressable style={styles.menuRow} onPress={toggleUnit}>
             <View style={styles.menuRowIconWrap}>
               <RulerIcon width={20} height={20} color="#385225" />
             </View>
             <View style={styles.menuRowContent}>
-              <Text style={styles.menuRowTitle}>Measurement units</Text>
+              <Text style={styles.menuRowTitle}>{t("profile.measurementUnits")}</Text>
               <Text style={styles.menuRowValue}>
-                {preferredUnitSystem === "metric" ? "Metric (g, ml)" : "Imperial (oz, cups)"}
+                {preferredUnitSystem === "metric" ? t("profile.metricLabel") : t("profile.imperialLabel")}
               </Text>
             </View>
             <View style={styles.unitToggle}>
               <Text style={[
                 styles.unitOption,
                 preferredUnitSystem === "metric" && styles.unitOptionActive,
-              ]}>Metric</Text>
+              ]}>{t("profile.metric")}</Text>
               <Text style={[
                 styles.unitOption,
                 preferredUnitSystem === "imperial" && styles.unitOptionActive,
-              ]}>Imperial</Text>
+              ]}>{t("profile.imperial")}</Text>
             </View>
           </Pressable>
+
+          {/* Language selector */}
+          <View style={[styles.menuRow, { marginTop: 8 }]}>
+            <View style={styles.menuRowIconWrap}>
+              <GlobeIcon width={20} height={20} color="#385225" />
+            </View>
+            <View style={styles.menuRowContent}>
+              <Text style={styles.menuRowTitle}>{t("profile.language")}</Text>
+              <Text style={styles.menuRowValue}>{t(`profile.languageValue_${language}`)}</Text>
+            </View>
+            <View style={styles.unitToggle}>
+              {["en", "fr", "ar"].map((lang) => (
+                <Pressable key={lang} onPress={() => setLanguage(lang)}>
+                  <Text style={[
+                    styles.unitOption,
+                    language === lang && styles.unitOptionActive,
+                  ]}>{lang.toUpperCase()}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
 
           {/* Subscription */}
           {entitlement === "pro" ? (
@@ -154,8 +182,8 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
                 <CrownIcon width={20} height={20} color="#385225" />
               </View>
               <View style={styles.menuRowContent}>
-                <Text style={styles.menuRowTitle}>Pro Member</Text>
-                <Text style={styles.menuRowValue}>All limits removed</Text>
+                <Text style={styles.menuRowTitle}>{t("profile.proPlan")}</Text>
+                <Text style={styles.menuRowValue}>{t("profile.proValue")}</Text>
               </View>
             </View>
           ) : (
@@ -170,8 +198,8 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
                 <CrownIcon width={20} height={20} color="#F9A825" />
               </View>
               <View style={styles.menuRowContent}>
-                <Text style={styles.menuRowTitle}>Upgrade to Pro</Text>
-                <Text style={styles.menuRowValue}>No limits on recipes & more</Text>
+                <Text style={styles.menuRowTitle}>{t("profile.upgradePro")}</Text>
+                <Text style={styles.menuRowValue}>{t("profile.upgradeValue")}</Text>
               </View>
             </Pressable>
           )}
@@ -193,14 +221,14 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
                 await signOut();
                 router.replace("/");
               } catch {
-                Alert.alert("Sign out failed", "Please try again.");
+                Alert.alert(t("profile.logoutFailed"), t("profile.logoutFailedMsg"));
               }
             }}
           >
             <View style={styles.logoutIconWrap}>
               <LogoutIcon width={20} height={20} color="#cc3b3b" />
             </View>
-            <Text style={styles.logoutText}>Log out</Text>
+            <Text style={styles.logoutText}>{t("profile.logout")}</Text>
           </Pressable>
 
           {/* Legal links */}
@@ -209,14 +237,14 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
               style={styles.legalLinkWrap}
               onPress={() => Linking.openURL("https://dlishe.com/terms")}
             >
-              <Text style={styles.legalLink}>Terms of Use (EULA)</Text>
+              <Text style={styles.legalLink}>{t("termsOfUse", { ns: "common" })}</Text>
             </Pressable>
             <Text style={styles.legalDot}> · </Text>
             <Pressable
               style={styles.legalLinkWrap}
               onPress={() => Linking.openURL("https://dlishe.com/privacy")}
             >
-              <Text style={styles.legalLink}>Privacy Policy</Text>
+              <Text style={styles.legalLink}>{t("privacyPolicy", { ns: "common" })}</Text>
             </Pressable>
           </View>
         </View>
@@ -351,9 +379,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F5F7",
     borderRadius: 10,
     overflow: "hidden",
+    marginLeft: 12,
   },
   unitOption: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     fontSize: 12,
     fontWeight: "500",

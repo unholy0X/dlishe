@@ -6,10 +6,10 @@ import { useFonts as useNotoSansArabic } from "@expo-google-fonts/noto-sans-arab
  */
 export function useArabicFonts() {
   const [loaded, error] = useNotoSansArabic({
-    NotoSansArabic_400Regular: require("@expo-google-fonts/noto-sans-arabic/NotoSansArabic_400Regular.ttf"),
-    NotoSansArabic_500Medium: require("@expo-google-fonts/noto-sans-arabic/NotoSansArabic_500Medium.ttf"),
-    NotoSansArabic_600SemiBold: require("@expo-google-fonts/noto-sans-arabic/NotoSansArabic_600SemiBold.ttf"),
-    NotoSansArabic_700Bold: require("@expo-google-fonts/noto-sans-arabic/NotoSansArabic_700Bold.ttf"),
+    NotoSansArabic_400Regular: require("@expo-google-fonts/noto-sans-arabic/400Regular/NotoSansArabic_400Regular.ttf"),
+    NotoSansArabic_500Medium: require("@expo-google-fonts/noto-sans-arabic/500Medium/NotoSansArabic_500Medium.ttf"),
+    NotoSansArabic_600SemiBold: require("@expo-google-fonts/noto-sans-arabic/600SemiBold/NotoSansArabic_600SemiBold.ttf"),
+    NotoSansArabic_700Bold: require("@expo-google-fonts/noto-sans-arabic/700Bold/NotoSansArabic_700Bold.ttf"),
   });
   return { arabicFontsLoaded: loaded, arabicFontsError: error };
 }

@@ -10,26 +10,17 @@ import {
   Platform,
 } from "react-native";
 import { useAuth } from "@clerk/clerk-expo";
+import { useTranslation } from "react-i18next";
 import BottomSheetModal from "../BottomSheetModal";
 import { useSubscriptionStore } from "../../store";
 
-const REASON_MESSAGES = {
-  extraction_limit: "You've reached your free extraction limit this month",
-  scan_limit: "You've reached your free pantry scan limit this month",
-  recipe_limit: "You've reached the saved recipe limit",
-};
-
-const PRO_FEATURES = [
-  "No limit on recipe extractions",
-  "No limit on pantry scans",
-  "No limit on saved recipes",
-  "Priority support",
-];
-
 const LOAD_TIMEOUT_MS = 8000;
+
+const PRO_FEATURE_KEYS = ["extractions", "scans", "savedRecipes", "support"];
 
 export default function PaywallSheet({ visible, onClose, reason }) {
   const { getToken } = useAuth();
+  const { t } = useTranslation("paywall");
   const offerings = useSubscriptionStore((s) => s.offerings);
   const entitlement = useSubscriptionStore((s) => s.entitlement);
   const purchasePackage = useSubscriptionStore((s) => s.purchasePackage);
@@ -104,7 +95,7 @@ export default function PaywallSheet({ visible, onClose, reason }) {
   const handlePurchase = async () => {
     const pkg = selectedPlan === "annual" ? annualPkg : monthlyPkg;
     if (!pkg) {
-      Alert.alert("Unavailable", "This plan isn't available right now. Please try again later.");
+      Alert.alert(t("unavailable.title"), t("unavailable.message"));
       return;
     }
     setPurchasing(selectedPlan);
@@ -114,17 +105,14 @@ export default function PaywallSheet({ visible, onClose, reason }) {
       const current = useSubscriptionStore.getState().entitlement;
       if (current === "pro" || current === "admin") {
         onClose();
-        Alert.alert("Welcome to Pro!", "All limits have been removed. Enjoy!");
+        Alert.alert(t("purchaseSuccess.title"), t("purchaseSuccess.message"));
       } else {
         onClose();
-        Alert.alert(
-          "Almost there!",
-          "Your purchase is being processed. It may take a moment to activate."
-        );
+        Alert.alert(t("purchasePending.title"), t("purchasePending.message"));
       }
     } catch (err) {
       if (err.userCancelled) return;
-      Alert.alert("Purchase failed", err?.message || "Something went wrong. Please try again.");
+      Alert.alert(t("purchaseFailed.title"), err?.message || t("purchaseFailed.message"));
     } finally {
       setPurchasing(null);
     }
@@ -137,12 +125,12 @@ export default function PaywallSheet({ visible, onClose, reason }) {
       const current = useSubscriptionStore.getState().entitlement;
       if (current === "pro") {
         onClose();
-        Alert.alert("Restored!", "Your Pro subscription has been restored.");
+        Alert.alert(t("restored.title"), t("restored.message"));
       } else {
-        Alert.alert("No subscription found", "We couldn't find an active subscription to restore.");
+        Alert.alert(t("notFound.title"), t("notFound.message"));
       }
     } catch (err) {
-      Alert.alert("Restore failed", err?.message || "Something went wrong.");
+      Alert.alert(t("restoreFailed.title"), err?.message || t("restoreFailed.message"));
     } finally {
       setRestoring(false);
     }
@@ -154,21 +142,21 @@ export default function PaywallSheet({ visible, onClose, reason }) {
     <BottomSheetModal visible={visible} onClose={onClose}>
       <View style={styles.container}>
         {/* Header */}
-        <Text style={styles.title}>Unlock Dlishe Pro</Text>
+        <Text style={styles.title}>{t("title")}</Text>
         <Text style={styles.subtitle}>
-          {reason && REASON_MESSAGES[reason]
-            ? REASON_MESSAGES[reason]
-            : "Unlock additional features and remove usage limits"}
+          {reason && t(`subtitle.${reason}`) !== `subtitle.${reason}`
+            ? t(`subtitle.${reason}`)
+            : t("subtitle.default")}
         </Text>
 
         {/* Pro features */}
         <View style={styles.featuresCard}>
-          {PRO_FEATURES.map((feat, i) => (
-            <View key={i} style={[styles.featureRow, i === PRO_FEATURES.length - 1 && { marginBottom: 0 }]}>
+          {PRO_FEATURE_KEYS.map((key, i) => (
+            <View key={key} style={[styles.featureRow, i === PRO_FEATURE_KEYS.length - 1 && { marginBottom: 0 }]}>
               <View style={styles.checkCircle}>
                 <Text style={styles.checkMark}>{"+"}</Text>
               </View>
-              <Text style={styles.featureText}>{feat}</Text>
+              <Text style={styles.featureText}>{t(`features.${key}`)}</Text>
             </View>
           ))}
         </View>
@@ -193,11 +181,11 @@ export default function PaywallSheet({ visible, onClose, reason }) {
                           selectedPlan === "annual" && styles.planLabelSelected,
                         ]}
                       >
-                        Annual
+                        {t("plans.annual")}
                       </Text>
                       {savingsPct ? (
                         <View style={styles.saveBadge}>
-                          <Text style={styles.saveBadgeText}>Save {savingsPct}%</Text>
+                          <Text style={styles.saveBadgeText}>{t("plans.save", { pct: savingsPct })}</Text>
                         </View>
                       ) : null}
                     </View>
@@ -208,7 +196,7 @@ export default function PaywallSheet({ visible, onClose, reason }) {
                       ]}
                     >
                       {annualPrice}
-                      <Text style={styles.planPeriod}>/year</Text>
+                      <Text style={styles.planPeriod}>{t("plans.perYear")}</Text>
                     </Text>
                   </Pressable>
                 )}
@@ -227,7 +215,7 @@ export default function PaywallSheet({ visible, onClose, reason }) {
                         selectedPlan === "monthly" && styles.planLabelSelected,
                       ]}
                     >
-                      Monthly
+                      {t("plans.monthly")}
                     </Text>
                     <Text
                       style={[
@@ -236,7 +224,7 @@ export default function PaywallSheet({ visible, onClose, reason }) {
                       ]}
                     >
                       {monthlyPrice}
-                      <Text style={styles.planPeriod}>/month</Text>
+                      <Text style={styles.planPeriod}>{t("plans.perMonth")}</Text>
                     </Text>
                   </Pressable>
                 )}
@@ -244,12 +232,10 @@ export default function PaywallSheet({ visible, onClose, reason }) {
             ) : loadFailed ? (
               /* Retry state — products failed to load */
               <View style={styles.failedContainer}>
-                <Text style={styles.failedText}>
-                  Unable to load subscription options.
-                </Text>
+                <Text style={styles.failedText}>{t("loadFailed")}</Text>
                 <View style={styles.failedButtons}>
                   <Pressable style={styles.retryButton} onPress={handleRetry}>
-                    <Text style={styles.retryButtonText}>Try Again</Text>
+                    <Text style={styles.retryButtonText}>{t("buttons.retry")}</Text>
                   </Pressable>
                   <Pressable
                     style={[
@@ -262,11 +248,11 @@ export default function PaywallSheet({ visible, onClose, reason }) {
                     {restoring ? (
                       <ActivityIndicator size="small" color="#385225" />
                     ) : (
-                      <Text style={styles.failedRestoreText}>Restore purchases</Text>
+                      <Text style={styles.failedRestoreText}>{t("buttons.restore")}</Text>
                     )}
                   </Pressable>
                   <Pressable style={styles.failedCancelButton} onPress={onClose}>
-                    <Text style={styles.failedCancelText}>Not now</Text>
+                    <Text style={styles.failedCancelText}>{t("buttons.notNow")}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -274,7 +260,7 @@ export default function PaywallSheet({ visible, onClose, reason }) {
               /* Loading state */
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="#385225" />
-                <Text style={styles.loadingText}>Loading subscription options...</Text>
+                <Text style={styles.loadingText}>{t("loading")}</Text>
               </View>
             )}
 
@@ -291,7 +277,7 @@ export default function PaywallSheet({ visible, onClose, reason }) {
                 {purchasing ? (
                   <ActivityIndicator size="small" color="#385225" />
                 ) : (
-                  <Text style={styles.subscribeButtonText}>Continue</Text>
+                  <Text style={styles.subscribeButtonText}>{t("buttons.continue")}</Text>
                 )}
               </Pressable>
             )}
@@ -309,16 +295,14 @@ export default function PaywallSheet({ visible, onClose, reason }) {
                 {restoring ? (
                   <ActivityIndicator size="small" color="#385225" />
                 ) : (
-                  <Text style={styles.restoreText}>Restore purchases</Text>
+                  <Text style={styles.restoreText}>{t("buttons.restore")}</Text>
                 )}
               </Pressable>
             )}
 
             {/* Store-required subscription terms */}
             <Text style={styles.subscriptionTerms}>
-              {Platform.OS === "ios"
-                ? "Payment will be charged to your Apple ID account at confirmation of purchase. Subscription automatically renews unless canceled at least 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings."
-                : "Payment will be charged to your Google Play account at confirmation of purchase. Subscription automatically renews unless canceled at least 24 hours before the end of the current period. You can manage and cancel your subscriptions in Google Play Store settings."}
+              {Platform.OS === "ios" ? t("terms.ios") : t("terms.android")}
             </Text>
           </>
         )}
@@ -329,14 +313,14 @@ export default function PaywallSheet({ visible, onClose, reason }) {
             style={styles.legalLink}
             onPress={() => Linking.openURL("https://dlishe.com/terms")}
           >
-            <Text style={styles.legalText}>Terms of Use (EULA)</Text>
+            <Text style={styles.legalText}>{t("termsOfUse", { ns: "common" })}</Text>
           </Pressable>
           <Text style={styles.legalDot}> · </Text>
           <Pressable
             style={styles.legalLink}
             onPress={() => Linking.openURL("https://dlishe.com/privacy")}
           >
-            <Text style={styles.legalText}>Privacy Policy</Text>
+            <Text style={styles.legalText}>{t("privacyPolicy", { ns: "common" })}</Text>
           </Pressable>
         </View>
       </View>

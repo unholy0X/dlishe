@@ -1,1 +1,48 @@
-{}
+{
+  "header": {
+    "title_one": "{{count}} article dans le garde-manger",
+    "title_other": "{{count}} articles dans le garde-manger"
+  },
+  "loading": "Chargement du garde-manger…",
+  "empty": {
+    "title": "Un garde-manger serein",
+    "subtitle": "Ajoutez les ingrédients que vous avez chez vous pour découvrir ce que vous pouvez cuisiner",
+    "addButton": "Ajouter des ingrédients",
+    "alreadyEmpty": "Le garde-manger est déjà vide"
+  },
+  "menu": {
+    "title": "Options du garde-manger",
+    "reset": "Réinitialiser le garde-manger"
+  },
+  "resetConfirm": {
+    "title": "Réinitialiser le garde-manger",
+    "message_one": "Cela supprimera {{count}} article de votre garde-manger. Cette action est irréversible.",
+    "message_other": "Cela supprimera {{count}} articles de votre garde-manger. Cette action est irréversible.",
+    "keep": "Conserver",
+    "reset": "Réinitialiser"
+  },
+  "categories": {
+    "dairy": "Produits laitiers",
+    "produce": "Fruits & légumes",
+    "proteins": "Protéines",
+    "bakery": "Boulangerie",
+    "spices": "Épices",
+    "pantry": "Épicerie",
+    "beverages": "Boissons",
+    "condiments": "Condiments",
+    "snacks": "Snacks",
+    "frozen": "Surgelés",
+    "household": "Maison",
+    "other": "Autre"
+  },
+  "itemCount_one": "{{count}} article",
+  "itemCount_other": "{{count}} articles",
+  "removeAll_one": "Supprimer {{count}} article",
+  "removeAll_other": "Supprimer {{count}} articles",
+  "moreItems": "+{{count}} de plus",
+  "addSheet": {
+    "title": "Ajouter au garde-manger",
+    "searchPlaceholder": "Rechercher des ingrédients...",
+    "add": "Ajouter au garde-manger"
+  }
+}

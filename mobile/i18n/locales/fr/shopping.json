@@ -1,1 +1,79 @@
-{}
+{
+  "header": "Courses",
+  "listCount_one": "{{count}} liste",
+  "listCount_other": "{{count}} listes",
+  "loading": "Chargement des listes…",
+  "listLoading": "Chargement de la liste…",
+  "empty": {
+    "title": "Un nouveau départ",
+    "subtitle": "Créez une liste et n'oubliez plus jamais un ingrédient au magasin",
+    "createButton": "Créer une liste"
+  },
+  "create": {
+    "sheetTitle": "Nouvelle liste de courses",
+    "namePlaceholder": "ex. Courses de la semaine",
+    "nameLabel": "Nom",
+    "cancel": "Annuler",
+    "create": "Créer"
+  },
+  "delete": {
+    "title_one": "Supprimer la liste",
+    "title_other": "Supprimer {{count}} listes",
+    "message_one": "Supprimer cette liste ?",
+    "message_other": "Supprimer {{count}} listes ?",
+    "messageNamed": "Supprimer « {{name}} » ?"
+  },
+  "merge": {
+    "selectMore": "Sélectionner plus",
+    "hint": "Sélectionnez au moins 2 listes à fusionner.",
+    "title": "Fusion intelligente",
+    "merge": "Fusionner",
+    "confirm": "Fusionner {{names}} en une seule liste ? Les doublons seront combinés intelligemment.",
+    "successTitle": "Fusionnées",
+    "successMessage": "Listes fusionnées avec succès !"
+  },
+  "clearAll": {
+    "title": "Effacer toutes les listes",
+    "message_one": "Cela supprimera définitivement {{count}} liste de courses. Cette action est irréversible.",
+    "message_other": "Cela supprimera définitivement {{count}} listes de courses. Cette action est irréversible.",
+    "keepLists": "Conserver les listes",
+    "clearAll": "Tout effacer"
+  },
+  "menu": {
+    "title": "Options courses",
+    "selectLists": "Sélectionner des listes",
+    "selectHint": "Fusionner ou supprimer plusieurs listes",
+    "clearHint_one": "Supprimer définitivement {{count}} liste",
+    "clearHint_other": "Supprimer définitivement {{count}} listes"
+  },
+  "detail": {
+    "addItem": "Ajouter un article",
+    "addItemSheet": "Ajouter un article",
+    "quickAdd": "Ajout rapide",
+    "browse": "Parcourir",
+    "itemNameLabel": "Nom de l'article",
+    "itemPlaceholder": "ex. Lait",
+    "browseByCategory": "Parcourir par catégorie",
+    "allCategories": "← Toutes les catégories",
+    "customItem": "+ Saisir un article personnalisé",
+    "backToQuickPick": "← Retour à la sélection rapide",
+    "complete": "Terminer la liste",
+    "stockPantry": "Approvisionner le garde-manger",
+    "stockPantryTitle": "Approvisionner votre garde-manger",
+    "stockPantrySubtitle_one": "{{count}} article sera ajouté à votre garde-manger",
+    "stockPantrySubtitle_other": "{{count}} articles seront ajoutés à votre garde-manger",
+    "stockPantryBtn": "Approvisionner",
+    "notYet": "Pas maintenant",
+    "shoppingList": "Liste de courses",
+    "listEmpty": "Cette liste est vide",
+    "listEmptyHint": "Appuyez sur le bouton ci-dessous pour ajouter votre premier article",
+    "addItemBtn": "+ Ajouter un article",
+    "checked_one": "{{checked}} sur {{total}} article",
+    "checked_other": "{{checked}} sur {{total}} articles",
+    "categories_one": "{{count}} catégorie",
+    "categories_other": "{{count}} catégories",
+    "deleteItem": "Supprimer l'article",
+    "deleteItemMessage": "Retirer cet article ?",
+    "generateFromPlan": "Générer depuis le plan de repas"
+  }
+}

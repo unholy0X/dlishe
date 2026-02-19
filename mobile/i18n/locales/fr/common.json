@@ -1,1 +1,52 @@
-{}
+{
+  "buttons": {
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "retry": "Réessayer",
+    "done": "Terminé",
+    "back": "Retour",
+    "confirm": "Confirmer",
+    "notNow": "Pas maintenant",
+    "ok": "OK",
+    "close": "Fermer",
+    "add": "Ajouter",
+    "edit": "Modifier",
+    "select": "Sélectionner",
+    "selectAll": "Tout sélectionner",
+    "deselectAll": "Tout désélectionner",
+    "create": "Créer",
+    "reset": "Réinitialiser",
+    "share": "Partager"
+  },
+  "units": {
+    "min": "min",
+    "hour_one": "{{count}} heure",
+    "hour_other": "{{count}} heures",
+    "servings_one": "{{count}} portion",
+    "servings_other": "{{count}} portions",
+    "items_one": "{{count}} élément",
+    "items_other": "{{count}} éléments"
+  },
+  "time": {
+    "minOnly": "{{m}} min",
+    "hourMin": "{{h}}h {{m}}m",
+    "hourOnly": "{{h}}h",
+    "seconds_short": "{{s}}s",
+    "minutes_short": "{{m}}m"
+  },
+  "loading": "Chargement...",
+  "loadingMore": "Chargement...",
+  "noResults": "Aucun résultat",
+  "noInternet": "Pas de connexion internet. Vérifiez votre réseau et réessayez.",
+  "sessionExpired": "Votre session doit être actualisée. Veuillez vous déconnecter et vous reconnecter.",
+  "tryAgain": "Veuillez vérifier votre connexion et réessayer.",
+  "termsOfUse": "Conditions d'utilisation",
+  "privacyPolicy": "Politique de confidentialité",
+  "recipes_one": "{{count}} recette",
+  "recipes_other": "{{count}} recettes",
+  "matches_one": "{{count}} correspondance",
+  "matches_other": "{{count}} correspondances",
+  "selected_one": "{{count}} sélectionné",
+  "selected_other": "{{count}} sélectionnés"
+}

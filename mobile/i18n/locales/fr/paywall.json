@@ -1,1 +1,62 @@
-{}
+{
+  "title": "Débloquer Dlishe Pro",
+  "subtitle": {
+    "default": "Débloquez des fonctionnalités supplémentaires et supprimez les limites d'utilisation",
+    "extraction_limit": "Vous avez atteint votre limite d'extractions gratuites ce mois-ci",
+    "scan_limit": "Vous avez atteint votre limite de scans de garde-manger ce mois-ci",
+    "recipe_limit": "Vous avez atteint la limite de recettes enregistrées"
+  },
+  "features": {
+    "extractions": "Extractions de recettes illimitées",
+    "scans": "Scans de garde-manger illimités",
+    "savedRecipes": "Recettes enregistrées illimitées",
+    "support": "Support prioritaire"
+  },
+  "plans": {
+    "annual": "Annuel",
+    "monthly": "Mensuel",
+    "save": "Économisez {{pct}}%",
+    "perYear": "/an",
+    "perMonth": "/mois"
+  },
+  "buttons": {
+    "continue": "Continuer",
+    "restore": "Restaurer les achats",
+    "notNow": "Pas maintenant",
+    "retry": "Réessayer"
+  },
+  "loading": "Chargement des options d'abonnement...",
+  "loadFailed": "Impossible de charger les options d'abonnement.",
+  "purchaseSuccess": {
+    "title": "Bienvenue dans Pro !",
+    "message": "Toutes les limites ont été supprimées. Profitez-en !"
+  },
+  "purchasePending": {
+    "title": "Presque là !",
+    "message": "Votre achat est en cours de traitement. L'activation peut prendre un moment."
+  },
+  "restored": {
+    "title": "Restauré !",
+    "message": "Votre abonnement Pro a été restauré."
+  },
+  "notFound": {
+    "title": "Aucun abonnement trouvé",
+    "message": "Nous n'avons pas trouvé d'abonnement actif à restaurer."
+  },
+  "unavailable": {
+    "title": "Indisponible",
+    "message": "Ce forfait n'est pas disponible pour le moment. Veuillez réessayer plus tard."
+  },
+  "purchaseFailed": {
+    "title": "Échec de l'achat",
+    "message": "Une erreur s'est produite. Veuillez réessayer."
+  },
+  "restoreFailed": {
+    "title": "Échec de la restauration",
+    "message": "Une erreur s'est produite."
+  },
+  "terms": {
+    "ios": "Le paiement sera débité de votre compte Apple ID lors de la confirmation d'achat. L'abonnement se renouvelle automatiquement sauf annulation au moins 24 heures avant la fin de la période en cours. Vous pouvez gérer et annuler vos abonnements dans les paramètres de votre compte App Store.",
+    "android": "Le paiement sera débité de votre compte Google Play lors de la confirmation d'achat. L'abonnement se renouvelle automatiquement sauf annulation au moins 24 heures avant la fin de la période en cours. Vous pouvez gérer et annuler vos abonnements dans les paramètres Google Play Store."
+  }
+}

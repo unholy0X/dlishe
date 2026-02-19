@@ -47,6 +47,14 @@
     "title": "Unavailable",
     "message": "This plan isn't available right now. Please try again later."
   },
+  "purchaseFailed": {
+    "title": "Purchase failed",
+    "message": "Something went wrong. Please try again."
+  },
+  "restoreFailed": {
+    "title": "Restore failed",
+    "message": "Something went wrong."
+  },
   "terms": {
     "ios": "Payment will be charged to your Apple ID account at confirmation of purchase. Subscription automatically renews unless canceled at least 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings.",
     "android": "Payment will be charged to your Google Play account at confirmation of purchase. Subscription automatically renews unless canceled at least 24 hours before the end of the current period. You can manage and cancel your subscriptions in Google Play Store settings."

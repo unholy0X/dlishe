@@ -1,1 +1,39 @@
-{}
+{
+  "title": "Plan de repas",
+  "days": {
+    "mon": "Lun",
+    "tue": "Mar",
+    "wed": "Mer",
+    "thu": "Jeu",
+    "fri": "Ven",
+    "sat": "Sam",
+    "sun": "Dim",
+    "monday": "Lundi",
+    "tuesday": "Mardi",
+    "wednesday": "Mercredi",
+    "thursday": "Jeudi",
+    "friday": "Vendredi",
+    "saturday": "Samedi",
+    "sunday": "Dimanche"
+  },
+  "mealTypes": {
+    "breakfast": "Petit-déjeuner",
+    "lunch": "Déjeuner",
+    "dinner": "Dîner",
+    "snack": "Collation"
+  },
+  "empty": {
+    "noMeals": "Aucun repas planifié",
+    "hint": "Appuyez sur « + Ajouter une recette » sur un créneau pour commencer votre semaine"
+  },
+  "generateList": "Générer la liste de courses",
+  "addRecipe": "+ Ajouter une recette",
+  "addRecipeTitle": "Ajouter une recette",
+  "searchRecipes": "Rechercher des recettes…",
+  "card": {
+    "title": "Plan de repas",
+    "subtitle_zero": "Aucun repas cette semaine",
+    "subtitle_one": "{{count}} repas planifié",
+    "subtitle_other": "{{count}} repas planifiés"
+  }
+}

@@ -54,5 +54,25 @@
   },
   "recentRecipes": "Recent Recipes",
   "seeAll": "See All",
-  "showMore": "Show more ({{count}} remaining)"
+  "showMore": "Show more ({{count}} remaining)",
+  "profile": {
+    "welcome": "Welcome {{name}}!",
+    "kitchenPrefs": "Kitchen preferences",
+    "measurementUnits": "Measurement units",
+    "metric": "Metric",
+    "imperial": "Imperial",
+    "metricLabel": "Metric (g, ml)",
+    "imperialLabel": "Imperial (oz, cups)",
+    "language": "Language",
+    "languageValue_en": "English",
+    "languageValue_fr": "Français",
+    "languageValue_ar": "العربية",
+    "proPlan": "Pro Member",
+    "proValue": "All limits removed",
+    "upgradePro": "Upgrade to Pro",
+    "upgradeValue": "No limits on recipes & more",
+    "logout": "Log out",
+    "logoutFailed": "Sign out failed",
+    "logoutFailedMsg": "Please try again."
+  }
 }

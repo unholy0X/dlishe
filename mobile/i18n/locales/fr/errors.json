@@ -1,1 +1,23 @@
-{}
+{
+  "recipe": {
+    "loadFailed": "Impossible de charger la recette",
+    "saveFailed": "Impossible d'enregistrer la recette",
+    "saveMessage": "Veuillez réessayer.",
+    "deleteFailed": "Impossible de supprimer la recette",
+    "clearFailed": "Impossible de réinitialiser les recettes"
+  },
+  "pantry": {
+    "removeItemFailed": "Impossible de supprimer l'article",
+    "clearFailed": "Impossible de réinitialiser le garde-manger"
+  },
+  "shopping": {
+    "generateFailed": "Impossible de générer la liste",
+    "toggleFailed": "Impossible de mettre à jour l'article",
+    "deleteItemFailed": "Impossible de supprimer l'article",
+    "completeFailed": "Impossible de terminer la liste",
+    "stockFailed": "Impossible d'approvisionner le garde-manger"
+  },
+  "mealPlan": {
+    "addFailed": "Impossible d'ajouter le repas"
+  }
+}

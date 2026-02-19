@@ -821,16 +821,20 @@ func (r *RecipeRepository) Update(ctx context.Context, recipe *model.Recipe) err
 	return tx.Commit()
 }
 
-// SoftDelete soft deletes a recipe
+// SoftDelete soft deletes a recipe and removes it from any meal plans atomically.
 func (r *RecipeRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	query := `
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UTC()
+	result, err := tx.ExecContext(ctx, `
 		UPDATE recipes
 		SET deleted_at = $2, updated_at = $2
 		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	now := time.Now().UTC()
-	result, err := r.db.ExecContext(ctx, query, id, now)
+	`, id, now)
 	if err != nil {
 		return err
 	}
@@ -843,7 +847,13 @@ func (r *RecipeRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 		return ErrRecipeNotFound
 	}
 
-	return nil
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM meal_plan_entries WHERE recipe_id = $1
+	`, id); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // SetFavorite sets the favorite status of a recipe

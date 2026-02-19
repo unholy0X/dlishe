@@ -81,6 +81,11 @@ export const useMealPlanStore = create((set, get) => ({
   addEntry: async ({ getToken, recipeId, dayIndex, mealType }) => {
     const { plan } = get();
     if (!plan) return;
+    if (!plan.id) {
+      const err = new Error("Meal plan not synced yet. Pull down to refresh.");
+      set({ error: err.message });
+      throw err;
+    }
     try {
       const entry = await addPlanEntry({
         getToken,

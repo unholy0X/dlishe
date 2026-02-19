@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useUser, useAuth } from "@clerk/clerk-expo";
 import { useUserStore } from "../store";
 import { getMe } from "../services/user";
+import { useDemoStore } from "../store/demoStore";
 
 export default function UserSync() {
   const { user, isLoaded } = useUser();
@@ -9,6 +10,7 @@ export default function UserSync() {
   const setUser = useUserStore((s) => s.setUser);
   const setPreferredUnitSystem = useUserStore((s) => s.setPreferredUnitSystem);
   const clearUser = useUserStore((s) => s.clearUser);
+  const isDemoMode = useDemoStore((s) => s.isDemoMode);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -30,12 +32,15 @@ export default function UserSync() {
         .catch((err) => {
           console.warn("UserSync: failed to fetch preferences", err?.message);
         });
+    } else if (isDemoMode) {
+      // Demo account has no Clerk user — show a placeholder name
+      setUser("Demo", "User", null);
     } else {
       clearUser();
     }
 
     return () => { cancelled = true; };
-  }, [user, isLoaded]);
+  }, [user, isLoaded, isDemoMode]);
 
   return null;
 }

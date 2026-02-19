@@ -92,7 +92,7 @@ export default function RecipiesScreen() {
             try {
               await clearAll({ getToken });
             } catch (err) {
-              Alert.alert("Error", err?.message || "Failed to clear recipes");
+              Alert.alert("Couldn't clear recipes", "Please check your connection and try again.");
             } finally {
               setIsClearing(false);
             }
@@ -158,7 +158,7 @@ export default function RecipiesScreen() {
                 Alert.alert("Partial Failure", `Failed to delete ${failCount} recipe${failCount !== 1 ? "s" : ""}. Please try again.`);
               }
             } catch (err) {
-              Alert.alert("Error", err?.message || "Failed to delete recipes");
+              Alert.alert("Couldn't delete recipes", "Please check your connection and try again.");
             } finally {
               setIsDeleting(false);
             }

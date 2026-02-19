@@ -91,6 +91,12 @@ export default function LoginScreen() {
   const [appleLoading, setAppleLoading] = useState(false);
   const [serviceWarning, setServiceWarning] = useState("");
 
+  // Forgot password flow
+  const [forgotStep, setForgotStep] = useState(null); // null | "email" | "verify" | "new"
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
   useEffect(() => {
     if (isSignedIn) {
       router.replace("/home");
@@ -167,10 +173,58 @@ export default function LoginScreen() {
     }
   }, [startAppleAuthenticationFlow, setActive, appleLoading]);
 
+  /* ── Forgot password ── */
+  const handleForgotSend = async () => {
+    if (!isLoaded) return;
+    setError("");
+    const trimmed = resetEmail.trim();
+    if (!trimmed) { setError("Please enter your email address."); return; }
+    setLoading(true);
+    try {
+      await signIn.create({ strategy: "reset_password_email_code", identifier: trimmed });
+      setForgotStep("verify");
+    } catch (err) {
+      setError(parseAuthError(err, "Could not send reset email. Check the address and try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotVerify = async () => {
+    if (!isLoaded) return;
+    setError("");
+    if (!resetCode) { setError("Please enter the code from your email."); return; }
+    if (!newPassword || newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
+    setLoading(true);
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: "reset_password_email_code",
+        code: resetCode,
+        password: newPassword,
+      });
+      if (result.status === "complete") {
+        await setActive?.({ session: result.createdSessionId });
+      } else {
+        setError("Reset failed. Please try again.");
+      }
+    } catch (err) {
+      setError(parseAuthError(err, "Invalid code or password. Please try again."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   /* ── Email / password ── */
   const handleEmailSignIn = async () => {
     if (!isLoaded) return;
     setError("");
+
+    // Guard: session already exists (e.g. valid token in SecureStore but
+    // isSignedIn hasn't propagated yet). Don't attempt a new sign-in.
+    if (isSignedIn) {
+      router.replace("/home");
+      return;
+    }
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
@@ -178,11 +232,16 @@ export default function LoginScreen() {
       return;
     }
 
-    // Demo account — bypass Clerk entirely.
-    // Credentials are set via EXPO_PUBLIC_DEMO_EMAIL / EXPO_PUBLIC_DEMO_PASSWORD.
-    const demoEmail = process.env.EXPO_PUBLIC_DEMO_EMAIL;
-    const demoPassword = process.env.EXPO_PUBLIC_DEMO_PASSWORD;
-    if (demoEmail && demoPassword && trimmedEmail === demoEmail && password === demoPassword) {
+    // Demo accounts — bypass Clerk entirely.
+    // Both credential pairs map to the same backend demo user and token.
+    const demoCreds = [
+      { email: process.env.EXPO_PUBLIC_DEMO_EMAIL, password: process.env.EXPO_PUBLIC_DEMO_PASSWORD },
+      { email: process.env.EXPO_PUBLIC_DEMO_EMAIL_2, password: process.env.EXPO_PUBLIC_DEMO_PASSWORD_2 },
+    ];
+    const isDemo = demoCreds.some(
+      (c) => c.email && c.password && trimmedEmail === c.email && password === c.password
+    );
+    if (isDemo) {
       setLoading(true);
       try {
         await useDemoStore.getState().activate();
@@ -237,6 +296,26 @@ export default function LoginScreen() {
         setError("Sign in failed. Please try again or use another method.");
       }
     } catch (err) {
+      // Clerk fires "identifier_already_signed_in" when a valid session already
+      // exists in SecureStore but isSignedIn hasn't propagated yet. The error
+      // carries the existing sessionId — activate it silently and go home.
+      const clerkErr = err?.errors?.[0];
+      const alreadySignedIn =
+        clerkErr?.code === "identifier_already_signed_in" ||
+        (clerkErr?.message ?? "").toLowerCase().includes("already signed in") ||
+        (clerkErr?.longMessage ?? "").toLowerCase().includes("already signed in");
+      if (alreadySignedIn) {
+        try {
+          const sessionId = clerkErr.meta?.sessionId ?? clerkErr.sessionId;
+          if (sessionId) {
+            await setActive({ session: sessionId });
+          }
+        } catch {
+          // ignore — session activation failed, fall through to navigate
+        }
+        router.replace("/home");
+        return;
+      }
       setError(parseAuthError(err, "Incorrect email or password"));
     } finally {
       setLoading(false);
@@ -330,7 +409,85 @@ export default function LoginScreen() {
               ) : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
-              {!verifyStrategy ? (
+              {forgotStep ? (
+                /* ── Forgot password flow ── */
+                <>
+                  <View style={styles.verifyHeader}>
+                    <Text style={styles.verifyTitle}>
+                      {forgotStep === "verify" ? "Check your email" : forgotStep === "new" ? "New password" : "Reset password"}
+                    </Text>
+                    <Text style={styles.verifyHint}>
+                      {forgotStep === "email"
+                        ? "Enter your email and we'll send a reset code"
+                        : forgotStep === "verify"
+                        ? "Enter the 6-digit code we sent, then choose a new password"
+                        : ""}
+                    </Text>
+                  </View>
+
+                  {forgotStep === "email" && (
+                    <TextInput
+                      placeholder="Email address"
+                      placeholderTextColor={C.textTertiary}
+                      style={styles.input}
+                      value={resetEmail}
+                      onChangeText={setResetEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      returnKeyType="done"
+                      onSubmitEditing={handleForgotSend}
+                    />
+                  )}
+
+                  {forgotStep === "verify" && (
+                    <>
+                      <TextInput
+                        placeholder="000000"
+                        placeholderTextColor={C.textTertiary}
+                        style={[styles.input, styles.codeInput]}
+                        value={resetCode}
+                        onChangeText={setResetCode}
+                        keyboardType="number-pad"
+                        autoFocus
+                        maxLength={6}
+                        textAlign="center"
+                      />
+                      <TextInput
+                        placeholder="New password"
+                        placeholderTextColor={C.textTertiary}
+                        style={[styles.input, { marginTop: 12 }]}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry
+                        returnKeyType="done"
+                        onSubmitEditing={handleForgotVerify}
+                      />
+                    </>
+                  )}
+
+                  <Pressable
+                    style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.85 }]}
+                    onPress={forgotStep === "email" ? handleForgotSend : handleForgotVerify}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color={C.bg} />
+                    ) : (
+                      <Text style={styles.primaryText}>
+                        {forgotStep === "email" ? "Send reset code" : "Reset password"}
+                      </Text>
+                    )}
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.link}
+                    onPress={() => { setForgotStep(null); setResetCode(""); setNewPassword(""); setError(""); }}
+                  >
+                    <Text style={styles.linkText}>Back to sign in</Text>
+                  </Pressable>
+                </>
+              ) : !verifyStrategy ? (
                 <>
                   {/* Apple */}
                   {Platform.OS === "ios" && (
@@ -421,6 +578,16 @@ export default function LoginScreen() {
                     ) : (
                       <Text style={styles.primaryText}>Sign in</Text>
                     )}
+                  </Pressable>
+
+                  {/* Forgot password */}
+                  <Pressable
+                    style={styles.link}
+                    onPress={() => { setError(""); setResetEmail(email.trim()); setForgotStep("email"); }}
+                  >
+                    <Text style={styles.linkText}>
+                      <Text style={styles.linkAccent}>Forgot password?</Text>
+                    </Text>
                   </Pressable>
 
                   {/* Sign up link */}

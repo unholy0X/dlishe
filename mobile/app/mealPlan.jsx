@@ -113,8 +113,8 @@ export default function MealPlanScreen() {
         dayIndex: selectedDay,
         mealType: addMealType,
       });
-    } catch (err) {
-      Alert.alert("Error", err?.message || "Failed to add recipe");
+    } catch {
+      Alert.alert("Couldn't add recipe", "Please check your connection and try again.");
     }
   }, [getToken, selectedDay, addMealType]);
 
@@ -161,6 +161,13 @@ export default function MealPlanScreen() {
           <Text style={styles.headerTitle}>Meal Plan</Text>
           <View style={{ width: 36 }} />
         </View>
+
+        {/* Inline error toast — auto-clears after 4 s */}
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{error}</Text>
+          </View>
+        ) : null}
 
         {/* Week navigation */}
         <View style={styles.weekNav}>
@@ -266,6 +273,21 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: "#F4F5F7",
+  },
+  errorBanner: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    backgroundColor: "#FDECEA",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#F5C6C2",
+  },
+  errorBannerText: {
+    fontSize: 13,
+    color: "#cc3b3b",
+    textAlign: "center",
   },
   safeArea: {
     flex: 1,

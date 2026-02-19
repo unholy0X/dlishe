@@ -14,7 +14,9 @@ import HeartIcon from "./icons/HeartIcon";
 import RecipePlaceholder from "./RecipePlaceholder";
 
 const { width: SCREEN_W } = Dimensions.get("window");
-const CARD_H = SCREEN_W * 1.25;
+// Cap at 500pt so the card never exceeds the sheet on tablets (iPad Air = 820pt wide).
+// All iPhones are ≤ 430pt so this has zero effect on phones.
+const CARD_H = Math.min(SCREEN_W, 500) * 1.25;
 
 function buildMeta(recipe) {
   const parts = [];

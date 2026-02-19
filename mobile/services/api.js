@@ -21,6 +21,13 @@ export async function apiFetch(path, { token, timeout = DEFAULT_TIMEOUT, ...opti
     });
 
     if (!res.ok) {
+      // 401 — never show raw "Invalid token" / "Missing token" to the user.
+      // This covers expired sessions, misconfigured tokens, and transient
+      // auth service failures equally. The user sees one clear action.
+      if (res.status === 401) {
+        throw new Error("Your session has expired. Please sign out and sign back in.");
+      }
+
       let message = `Request failed (${res.status})`;
       try {
         const body = await res.json();

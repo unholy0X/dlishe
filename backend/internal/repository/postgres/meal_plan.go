@@ -175,7 +175,7 @@ func (r *MealPlanRepository) GetEntriesWithRecipes(ctx context.Context, planID u
 		SELECT e.id, e.plan_id, e.recipe_id, e.day_index, e.meal_type, e.sort_order, e.created_at,
 		       r.title, r.thumbnail_url, r.prep_time, r.cook_time
 		FROM meal_plan_entries e
-		JOIN recipes r ON r.id = e.recipe_id
+		JOIN recipes r ON r.id = e.recipe_id AND r.deleted_at IS NULL
 		WHERE e.plan_id = $1
 		ORDER BY e.day_index, e.meal_type, e.sort_order
 	`
@@ -212,7 +212,7 @@ func (r *MealPlanRepository) GetPlanRecipeIngredients(ctx context.Context, planI
 	query := `
 		SELECT DISTINCT ri.name, ri.quantity, ri.unit, ri.category, r.title
 		FROM meal_plan_entries e
-		JOIN recipes r ON r.id = e.recipe_id
+		JOIN recipes r ON r.id = e.recipe_id AND r.deleted_at IS NULL
 		JOIN recipe_ingredients ri ON ri.recipe_id = r.id
 		WHERE e.plan_id = $1
 		ORDER BY ri.category, ri.name

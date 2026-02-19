@@ -53,6 +53,14 @@ export default function PaywallSheet({ visible, onClose, reason }) {
   const annualPrice = annualPkg?.product?.priceString;
   const packagesLoaded = !!(monthlyPrice || annualPrice);
 
+  // Compute real savings % so the badge stays accurate if prices change
+  const savingsPct = (() => {
+    const mo = monthlyPkg?.product?.price;
+    const yr = annualPkg?.product?.price;
+    if (!mo || !yr) return null;
+    return Math.round((1 - yr / 12 / mo) * 100);
+  })();
+
   // Timeout: if packages don't load within LOAD_TIMEOUT_MS, show retry
   useEffect(() => {
     if (!visible || packagesLoaded) {
@@ -72,6 +80,7 @@ export default function PaywallSheet({ visible, onClose, reason }) {
   }, [visible, packagesLoaded]);
 
   const handleRetry = async () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setLoadFailed(false);
     try {
       if (loadOfferings) await loadOfferings();
@@ -186,9 +195,11 @@ export default function PaywallSheet({ visible, onClose, reason }) {
                       >
                         Annual
                       </Text>
-                      <View style={styles.saveBadge}>
-                        <Text style={styles.saveBadgeText}>Save 44%</Text>
-                      </View>
+                      {savingsPct ? (
+                        <View style={styles.saveBadge}>
+                          <Text style={styles.saveBadgeText}>Save {savingsPct}%</Text>
+                        </View>
+                      ) : null}
                     </View>
                     <Text
                       style={[
@@ -253,6 +264,9 @@ export default function PaywallSheet({ visible, onClose, reason }) {
                     ) : (
                       <Text style={styles.failedRestoreText}>Restore purchases</Text>
                     )}
+                  </Pressable>
+                  <Pressable style={styles.failedCancelButton} onPress={onClose}>
+                    <Text style={styles.failedCancelText}>Not now</Text>
                   </Pressable>
                 </View>
               </View>
@@ -473,6 +487,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#385225",
     letterSpacing: -0.2,
+  },
+  failedCancelButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  failedCancelText: {
+    fontSize: 14,
+    color: "#B4B4B4",
   },
   failedRestoreButton: {
     borderRadius: 999,

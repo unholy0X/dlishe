@@ -176,7 +176,7 @@ export default function PantryScreen() {
       try {
         await removeItem({ getToken, itemId });
       } catch (err) {
-        Alert.alert("Error", err?.message || "Failed to remove item");
+        Alert.alert("Couldn't remove item", "Please check your connection and try again.");
       }
     },
     [getToken]
@@ -210,7 +210,7 @@ export default function PantryScreen() {
             try {
               await clearPantry({ getToken });
             } catch (err) {
-              Alert.alert("Error", err?.message || "Failed to clear pantry");
+              Alert.alert("Couldn't reset pantry", "Please check your connection and try again.");
             } finally {
               setIsClearing(false);
             }

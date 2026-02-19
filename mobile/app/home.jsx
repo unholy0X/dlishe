@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Pressable,
   ActivityIndicator,
   Dimensions,
-  Alert,
+  Animated,
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -59,6 +59,20 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+function friendlySaveError(err) {
+  const msg = (err?.message || "").toLowerCase();
+  if (msg.includes("network request failed") || msg.includes("failed to fetch"))
+    return "No internet connection. Check your network and try again.";
+  if (
+    msg.includes("token") ||
+    msg.includes("unauthorized") ||
+    msg.includes("not authenticated") ||
+    msg.includes("sign-in session")
+  )
+    return "Your session needs a refresh. Please sign out and back in.";
+  return "Couldn't save this recipe. Please try again.";
 }
 
 const recipeKeyExtractor = (item) => item.id;
@@ -232,7 +246,7 @@ export default function HomeScreen() {
       .map((r) => r.thumbnailUrl)
       .filter(Boolean);
     if (urls.length > 0) {
-      Image.prefetch(urls);
+      urls.forEach((url) => Image.prefetch(url));
     }
   }, [suggested]);
 
@@ -358,6 +372,27 @@ export default function HomeScreen() {
   }, [allRecipes.length]);
 
   const [savedPublicIds, setSavedPublicIds] = useState(new Set());
+  const [saveError, setSaveError] = useState("");
+  const saveErrorTimer = useRef(null);
+  const saveErrorAnim = useRef(new Animated.Value(0)).current;
+
+  // Animate the save-error toast in when it appears, and clean up on unmount
+  useEffect(() => {
+    if (!saveError) return;
+    saveErrorAnim.setValue(0);
+    Animated.spring(saveErrorAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      damping: 16,
+      stiffness: 220,
+    }).start();
+  }, [saveError]);
+
+  useEffect(() => {
+    return () => {
+      if (saveErrorTimer.current) clearTimeout(saveErrorTimer.current);
+    };
+  }, []);
 
   const handleSaveAndFavorite = useCallback(async (recipeId) => {
     if (savingIds.has(recipeId) || savedPublicIds.has(recipeId)) return;
@@ -380,7 +415,11 @@ export default function HomeScreen() {
         next.delete(recipeId);
         return next;
       });
-      Alert.alert("Error", err?.message || "Failed to save recipe");
+      // Show a non-blocking friendly toast — no jarring alert dialogs
+      const msg = friendlySaveError(err);
+      setSaveError(msg);
+      if (saveErrorTimer.current) clearTimeout(saveErrorTimer.current);
+      saveErrorTimer.current = setTimeout(() => setSaveError(""), 4000);
     } finally {
       setSavingIds((prev) => {
         const next = new Set(prev);
@@ -687,9 +726,13 @@ export default function HomeScreen() {
           onSave={handleSaveAndFavorite}
           onCook={(recipe) => {
             setDinnerOpen(false);
-            // Delay navigation until modal close animation finishes to avoid auth context issues
+            // Silently clone + favorite the recipe in the background so it
+            // lands in the user's library — don't block navigation on it.
+            handleSaveAndFavorite(recipe.id);
+            // Delay navigation until modal close animation finishes, then
+            // open the recipe page directly in immersive cooking mode.
             setTimeout(() => {
-              router.push(`/recipe/${recipe.id}`);
+              router.push(`/recipe/${recipe.id}?cook=1`);
             }, 250);
           }}
           savedIds={savedPublicIds}
@@ -768,6 +811,29 @@ export default function HomeScreen() {
         getToken={getToken}
         onSelectRecipe={(recipe) => router.push(`/recipe/${recipe.id}`)}
       />
+
+      {/* Save-error toast — non-blocking, auto-dismisses, no Alert dialogs */}
+      {saveError ? (
+        <Animated.View
+          style={[
+            styles.saveToast,
+            {
+              opacity: saveErrorAnim,
+              transform: [
+                {
+                  translateY: saveErrorAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [16, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={styles.saveToastText}>{saveError}</Text>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -937,5 +1003,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#385225",
+  },
+  // Non-blocking save-error toast — sits above the FloatingNav
+  saveToast: {
+    position: "absolute",
+    bottom: 108,
+    left: 24,
+    right: 24,
+    backgroundColor: "#1c1c1e",
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  saveToastText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#ffffff",
+    textAlign: "center",
+    lineHeight: 20,
   },
 });

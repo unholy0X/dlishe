@@ -200,7 +200,7 @@ function NutritionItem({ label, value, unit }) {
 // ─── Main Screen ─────────────────────────────────────────────────
 
 export default function RecipeDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, cook } = useLocalSearchParams();
   const router = useRouter();
   const { getToken } = useAuth();
 
@@ -249,7 +249,7 @@ export default function RecipeDetailScreen() {
               router.back();
             } catch (err) {
               setIsDeleting(false);
-              Alert.alert("Error", err?.message || "Failed to delete recipe");
+              Alert.alert("Delete failed", "Couldn't delete the recipe. Please try again.");
             }
           },
         },
@@ -268,7 +268,7 @@ export default function RecipeDetailScreen() {
       if (msg.includes("already")) {
         setSaved(true);
       } else {
-        Alert.alert("Error", msg || "Failed to save recipe");
+        Alert.alert("Save failed", "Couldn't save this recipe. Please try again.");
       }
     } finally {
       setIsSaving(false);
@@ -299,6 +299,14 @@ export default function RecipeDetailScreen() {
       cancelled = true;
     };
   }, [id]);
+
+  // Auto-open immersive cooking mode when navigated from "Let's cook!"
+  useEffect(() => {
+    if (cook === "1" && recipe && !isLoading) {
+      setCookingPhase("prep");
+      setCookingOpen(true);
+    }
+  }, [cook, recipe, isLoading]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -575,8 +583,8 @@ export default function RecipeDetailScreen() {
                           } catch {}
                         }
                         Alert.alert(
-                          "Error",
-                          msg || "Failed to create shopping list",
+                          "Something went wrong",
+                          "Couldn't create the shopping list. Please try again.",
                         );
                       }
                     } finally {
@@ -596,11 +604,6 @@ export default function RecipeDetailScreen() {
               {sectionEntries.map(([section, items], si) => (
                 <View key={si} style={s.ingredientsCard}>
                   <View style={s.ingredientsHeaderRow}>
-                    {/* Replace with correct icon for section */}
-                    <Image
-                      source={require("../../assets/produce.png")}
-                      style={s.ingredientsIcon}
-                    />
                     <Text style={s.ingredientsTitle}>{section}</Text>
                   </View>
                   <View style={s.ingredientsList}>
@@ -616,22 +619,26 @@ export default function RecipeDetailScreen() {
           ) : null}
 
           {/* Steps */}
-          {steps.length > 0 ? (
-            <View style={s.card}>
-              <SectionTitle>Instructions</SectionTitle>
-              <Text style={s.countText}>{steps.length} steps</Text>
-              {steps
-                .sort((a, b) => a.stepNumber - b.stepNumber)
-                .map((step, i) => (
-                  <View key={step.id || i} style={s.stepCard}>
-                    <View style={s.stepBadge}>
-                      <Text style={s.stepBadgeText}>{step.stepNumber}</Text>
+          <View style={s.card}>
+            <SectionTitle>Instructions</SectionTitle>
+            {steps.length > 0 ? (
+              <>
+                <Text style={s.countText}>{steps.length} steps</Text>
+                {steps
+                  .sort((a, b) => a.stepNumber - b.stepNumber)
+                  .map((step, i) => (
+                    <View key={step.id || i} style={s.stepCard}>
+                      <View style={s.stepBadge}>
+                        <Text style={s.stepBadgeText}>{step.stepNumber}</Text>
+                      </View>
+                      <Text style={s.stepCardText}>{step.instruction}</Text>
                     </View>
-                    <Text style={s.stepCardText}>{step.instruction}</Text>
-                  </View>
-                ))}
-            </View>
-          ) : null}
+                  ))}
+              </>
+            ) : (
+              <Text style={s.emptySteps}>No instructions available for this recipe.</Text>
+            )}
+          </View>
 
           {/* Actions */}
           <View style={s.actionsZone}>
@@ -994,6 +1001,13 @@ const s = StyleSheet.create({
     marginTop: 4,
     marginBottom: 14,
     letterSpacing: -0.05,
+  },
+  emptySteps: {
+    fontSize: 14,
+    fontFamily: FONT.regular,
+    color: C.textSecondary,
+    marginTop: 12,
+    paddingBottom: 4,
   },
   ingredientsHeader: {
     flexDirection: "row",

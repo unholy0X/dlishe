@@ -604,7 +604,7 @@ export default function ShoppingListScreen() {
             try {
                 await toggleChecked({ getToken, listId, itemId });
             } catch (err) {
-                Alert.alert("Error", err?.message || "Failed to update item");
+                Alert.alert("Couldn't update item", "Please check your connection and try again.");
             }
         },
         [getToken, listId]
@@ -621,7 +621,7 @@ export default function ShoppingListScreen() {
                         try {
                             await removeItem({ getToken, listId, itemId });
                         } catch (err) {
-                            Alert.alert("Error", err?.message || "Failed to remove item");
+                            Alert.alert("Couldn't remove item", "Please check your connection and try again.");
                         }
                     },
                 },
@@ -647,7 +647,7 @@ export default function ShoppingListScreen() {
             setStockSheetOpen(false);
             router.back();
         } catch (err) {
-            Alert.alert("Error", err?.message || "Failed to complete list");
+            Alert.alert("Couldn't complete list", "Please check your connection and try again.");
         }
     }, [getToken, listId]);
 

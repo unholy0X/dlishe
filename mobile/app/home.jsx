@@ -38,6 +38,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { cloneRecipe, toggleFavorite as toggleFavoriteApi } from "../services/recipes";
 import { useTranslation } from "react-i18next";
 import { filterByMealCategory, CATEGORIES } from "../utils/mealCategories";
+import { useLanguageStore } from "../store/languageStore";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const MASONRY_GAP = 10;
@@ -218,7 +219,8 @@ export default function HomeScreen() {
   }, []);
 
   const { getToken } = useAuth();
-  const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
+  const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll, clearCache } = useSuggestedStore();
+  const language = useLanguageStore((st) => st.language);
   const { recipes: featuredRecipes, loadFeatured } = useFeaturedStore();
   const { recipes: userRecipes, loadRecipes, toggleFavorite } = useRecipeStore();
   const { groups: pantryGroups, loadPantry } = usePantryStore();
@@ -228,11 +230,12 @@ export default function HomeScreen() {
   const favoriteIds = useMemo(() => new Set(favoriteRecipes.map((r) => r.id)), [favoriteRecipes]);
 
   useEffect(() => {
+    clearCache();
     loadSuggested({ limit: 20 }).catch(() => { });
     loadFeatured({ limit: 30 }).catch(() => { });
     loadRecipes({ getToken }).catch(() => { });
     loadMealPlan({ getToken }).catch(() => { });
-  }, []);
+  }, [language]);
 
   // Prefetch suggested recipe thumbnails for smooth carousel
   useEffect(() => {

@@ -9,6 +9,8 @@ export const useSuggestedStore = create((set, get) => ({
   isLoadingAll: false,
   error: "",
 
+  clearCache: () => set({ recipes: [], allRecipes: [], total: 0 }),
+
   loadSuggested: async ({ limit = 10 } = {}) => {
     if (get().isLoading) return;
     set({ isLoading: true, error: "" });

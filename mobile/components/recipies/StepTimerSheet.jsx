@@ -1,9 +1,11 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, Animated, Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { useLanguageStore } from "../../store/languageStore";
+import { getFontFamily } from "../../utils/fonts";
 
 const C = {
   text: "#111111",
@@ -11,12 +13,6 @@ const C = {
   green: "#7FEF80",
   greenDark: "#385225",
   greenLight: "#DFF7C4",
-};
-
-const FONT = {
-  regular: "Inter_400Regular",
-  medium: "Inter_500Medium",
-  semibold: "Inter_600SemiBold",
 };
 
 const STEP_GRADIENTS = [
@@ -30,6 +26,172 @@ const STEP_GRADIENTS = [
   ["#FFF5F0", "#FFE4D6"], // peach
 ];
 
+function makeStyles(FONT, isRTL) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+
+    // ─── Top bar ──────────────────────────────────
+    topBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+      paddingBottom: 4,
+    },
+    quitPill: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+      backgroundColor: "rgba(255,255,255,0.5)",
+    },
+    quitText: {
+      fontSize: 16,
+      fontFamily: FONT.medium,
+      color: C.text,
+    },
+    stepPill: {
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      overflow: "hidden",
+      backgroundColor: "rgba(255,255,255,0.5)",
+    },
+    stepPillText: {
+      fontSize: 13,
+      fontFamily: FONT.medium,
+      color: C.text,
+      letterSpacing: -0.05,
+    },
+
+    // ─── Segmented progress bar ───────────────────
+    progressBar: {
+      flexDirection: "row",
+      paddingHorizontal: 20,
+      gap: 4,
+      marginTop: 12,
+    },
+    progressSegment: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+    },
+    progressCompleted: {
+      backgroundColor: C.green,
+    },
+    progressCurrent: {
+      backgroundColor: C.greenDark,
+    },
+    progressUpcoming: {
+      backgroundColor: "rgba(0,0,0,0.08)",
+    },
+
+    // ─── Center content ───────────────────────────
+    centerContent: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 28,
+    },
+    instructionWrap: {
+      alignItems: "center",
+      maxWidth: "100%",
+    },
+    instructionText: {
+      fontSize: 20,
+      fontFamily: FONT.regular,
+      color: C.text,
+      lineHeight: 30,
+      textAlign: "center",
+      letterSpacing: -0.2,
+    },
+    chipsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: 8,
+      marginTop: 20,
+    },
+    chip: {
+      backgroundColor: "rgba(0,0,0,0.05)",
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+    },
+    chipText: {
+      fontSize: 13,
+      fontFamily: FONT.medium,
+      color: C.text,
+      textTransform: "capitalize",
+      letterSpacing: -0.05,
+    },
+    // ─── Tip banner ───────────────────────────────
+    tipBanner: {
+      backgroundColor: "rgba(253,197,151,0.18)",
+      borderLeftWidth: isRTL ? 0 : 3,
+      borderLeftColor: isRTL ? "transparent" : "#FDC597",
+      borderRightWidth: isRTL ? 3 : 0,
+      borderRightColor: isRTL ? "#FDC597" : "transparent",
+      borderRadius: 10,
+      padding: 14,
+      marginTop: 24,
+      alignSelf: "stretch",
+    },
+    tipLabel: {
+      fontSize: 13,
+      fontFamily: FONT.semibold,
+      color: "#7A4A21",
+      marginBottom: 4,
+    },
+    tipText: {
+      fontSize: 13,
+      fontFamily: FONT.regular,
+      color: "#7A4A21",
+      fontStyle: "italic",
+      lineHeight: 19,
+    },
+
+    // ─── Bottom nav ───────────────────────────────
+    bottomNav: {
+      paddingHorizontal: 20,
+      paddingTop: 10,
+      flexDirection: "row",
+      gap: 12,
+    },
+    navBtn: {
+      flex: 1,
+      borderRadius: 999,
+      paddingVertical: 15,
+      alignItems: "center",
+    },
+    navBtnPrev: {
+      backgroundColor: "rgba(255,255,255,0.7)",
+    },
+    navBtnNext: {
+      backgroundColor: C.green,
+    },
+    navBtnDisabled: {
+      opacity: 0.35,
+    },
+    navBtnPrevText: {
+      fontSize: 15,
+      fontFamily: FONT.medium,
+      color: C.greenDark,
+    },
+    navBtnTextDisabled: {
+      color: C.muted,
+    },
+    navBtnNextText: {
+      fontSize: 15,
+      fontFamily: FONT.semibold,
+      color: C.greenDark,
+    },
+  });
+}
 
 export default function StepTimerSheet({
   step,
@@ -43,6 +205,16 @@ export default function StepTimerSheet({
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
   const { t } = useTranslation("recipe");
+  const language = useLanguageStore((st) => st.language);
+  const isRTL = useLanguageStore((st) => st.isRTL);
+
+  const FONT = useMemo(() => ({
+    regular: getFontFamily(language, "regular"),
+    medium: getFontFamily(language, "medium"),
+    semibold: getFontFamily(language, "semibold"),
+  }), [language]);
+
+  const s = useMemo(() => makeStyles(FONT, isRTL), [FONT, isRTL]);
 
   // Build info chips
   const chips = [];
@@ -76,11 +248,11 @@ export default function StepTimerSheet({
 
   const handleQuit = () => {
     Alert.alert(
-      "Leave cooking mode?",
-      "Your progress won\u2019t be saved.",
+      t("cooking.quitTitle"),
+      t("cooking.quitMessage"),
       [
-        { text: "Keep cooking" },
-        { text: "Leave", style: "destructive", onPress: onQuit },
+        { text: t("cooking.keepCooking") },
+        { text: t("cooking.leave"), style: "destructive", onPress: onQuit },
       ],
     );
   };
@@ -142,7 +314,7 @@ export default function StepTimerSheet({
 
           {step?.tip ? (
             <View style={s.tipBanner}>
-              <Text style={s.tipLabel}>{"\uD83D\uDCA1"} Tip</Text>
+              <Text style={s.tipLabel}>{"\uD83D\uDCA1"} {t("cooking.tip")}</Text>
               <Text style={s.tipText}>{step.tip}</Text>
             </View>
           ) : null}
@@ -171,166 +343,3 @@ export default function StepTimerSheet({
     </LinearGradient>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
-  // ─── Top bar ──────────────────────────────────
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 4,
-  },
-  quitPill: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.5)",
-  },
-  quitText: {
-    fontSize: 16,
-    fontFamily: FONT.medium,
-    color: C.text,
-  },
-  stepPill: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.5)",
-  },
-  stepPillText: {
-    fontSize: 13,
-    fontFamily: FONT.medium,
-    color: C.text,
-    letterSpacing: -0.05,
-  },
-
-  // ─── Segmented progress bar ───────────────────
-  progressBar: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    gap: 4,
-    marginTop: 12,
-  },
-  progressSegment: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  progressCompleted: {
-    backgroundColor: C.green,
-  },
-  progressCurrent: {
-    backgroundColor: C.greenDark,
-  },
-  progressUpcoming: {
-    backgroundColor: "rgba(0,0,0,0.08)",
-  },
-
-  // ─── Center content ───────────────────────────
-  centerContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 28,
-  },
-  instructionWrap: {
-    alignItems: "center",
-    maxWidth: "100%",
-  },
-  instructionText: {
-    fontSize: 20,
-    fontFamily: FONT.regular,
-    color: C.text,
-    lineHeight: 30,
-    textAlign: "center",
-    letterSpacing: -0.2,
-  },
-  chipsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 20,
-  },
-  chip: {
-    backgroundColor: "rgba(0,0,0,0.05)",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  chipText: {
-    fontSize: 13,
-    fontFamily: FONT.medium,
-    color: C.text,
-    textTransform: "capitalize",
-    letterSpacing: -0.05,
-  },
-  // ─── Tip banner ───────────────────────────────
-  tipBanner: {
-    backgroundColor: "rgba(253,197,151,0.18)",
-    borderLeftWidth: 3,
-    borderLeftColor: "#FDC597",
-    borderRadius: 10,
-    padding: 14,
-    marginTop: 24,
-    alignSelf: "stretch",
-  },
-  tipLabel: {
-    fontSize: 13,
-    fontFamily: FONT.semibold,
-    color: "#7A4A21",
-    marginBottom: 4,
-  },
-  tipText: {
-    fontSize: 13,
-    fontFamily: FONT.regular,
-    color: "#7A4A21",
-    fontStyle: "italic",
-    lineHeight: 19,
-  },
-
-  // ─── Bottom nav ───────────────────────────────
-  bottomNav: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    flexDirection: "row",
-    gap: 12,
-  },
-  navBtn: {
-    flex: 1,
-    borderRadius: 999,
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  navBtnPrev: {
-    backgroundColor: "rgba(255,255,255,0.7)",
-  },
-  navBtnNext: {
-    backgroundColor: C.green,
-  },
-  navBtnDisabled: {
-    opacity: 0.35,
-  },
-  navBtnPrevText: {
-    fontSize: 15,
-    fontFamily: FONT.medium,
-    color: C.greenDark,
-  },
-  navBtnTextDisabled: {
-    color: C.muted,
-  },
-  navBtnNextText: {
-    fontSize: 15,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-  },
-});

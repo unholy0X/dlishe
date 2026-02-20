@@ -1,9 +1,11 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useTranslation } from "react-i18next";
 import RecipePlaceholder from "../RecipePlaceholder";
+import { useLanguageStore } from "../../store/languageStore";
+import { getFontFamily } from "../../utils/fonts";
 
 const C = {
   bg: "#F4F5F7",
@@ -15,11 +17,119 @@ const C = {
   greenLight: "#DFF7C4",
 };
 
-const FONT = {
-  regular: "Inter_400Regular",
-  medium: "Inter_500Medium",
-  semibold: "Inter_600SemiBold",
-};
+function makeStyles(FONT) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: C.bg,
+    },
+    topBar: {
+      paddingHorizontal: 20,
+      paddingBottom: 4,
+    },
+    backBtn: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: C.card,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    backIcon: {
+      fontSize: 14,
+      color: C.muted,
+      marginRight: 6,
+    },
+    backText: {
+      fontSize: 13,
+      fontFamily: FONT.medium,
+      color: C.muted,
+    },
+
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: "center",
+      paddingHorizontal: 20,
+      paddingBottom: 20,
+    },
+
+    // ─── Hero card ────────────────────────────────
+    heroCard: {
+      backgroundColor: C.card,
+      borderRadius: 28,
+      overflow: "hidden",
+    },
+    imageWrap: {
+      backgroundColor: C.bg,
+    },
+    image: {
+      width: "100%",
+      height: 240,
+    },
+    heroBody: {
+      padding: 24,
+    },
+    doneLabel: {
+      fontSize: 13,
+      fontFamily: FONT.semibold,
+      color: C.green,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      marginBottom: 6,
+    },
+    recipeTitle: {
+      fontSize: 22,
+      fontFamily: FONT.semibold,
+      color: C.text,
+      lineHeight: 28,
+    },
+    subtitle: {
+      fontSize: 14,
+      fontFamily: FONT.regular,
+      color: C.muted,
+      marginTop: 4,
+    },
+    metaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 16,
+    },
+    metaPill: {
+      backgroundColor: C.greenLight,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+    },
+    metaPillText: {
+      fontSize: 12,
+      fontFamily: FONT.semibold,
+      color: C.greenDark,
+      letterSpacing: -0.05,
+    },
+
+    // ─── Bottom action ────────────────────────────
+    bottomAction: {
+      paddingHorizontal: 20,
+      paddingTop: 10,
+    },
+    primaryBtn: {
+      backgroundColor: C.green,
+      borderRadius: 999,
+      paddingVertical: 16,
+      alignItems: "center",
+    },
+    primaryText: {
+      fontSize: 16,
+      fontFamily: FONT.semibold,
+      color: C.greenDark,
+    },
+  });
+}
 
 export default function DoneSheet({
   title,
@@ -31,6 +141,15 @@ export default function DoneSheet({
 }) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation("recipe");
+  const language = useLanguageStore((st) => st.language);
+
+  const FONT = useMemo(() => ({
+    regular: getFontFamily(language, "regular"),
+    medium: getFontFamily(language, "medium"),
+    semibold: getFontFamily(language, "semibold"),
+  }), [language]);
+
+  const s = useMemo(() => makeStyles(FONT), [FONT]);
 
   const metaParts = [];
   if (totalSteps) metaParts.push(t("doneSheet.stepsCompleted", { count: totalSteps }));
@@ -131,115 +250,3 @@ export default function DoneSheet({
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  topBar: {
-    paddingHorizontal: 20,
-    paddingBottom: 4,
-  },
-  backBtn: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.card,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  backIcon: {
-    fontSize: 14,
-    color: C.muted,
-    marginRight: 6,
-  },
-  backText: {
-    fontSize: 13,
-    fontFamily: FONT.medium,
-    color: C.muted,
-  },
-
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-
-  // ─── Hero card ────────────────────────────────
-  heroCard: {
-    backgroundColor: C.card,
-    borderRadius: 28,
-    overflow: "hidden",
-  },
-  imageWrap: {
-    backgroundColor: C.bg,
-  },
-  image: {
-    width: "100%",
-    height: 240,
-  },
-  heroBody: {
-    padding: 24,
-  },
-  doneLabel: {
-    fontSize: 13,
-    fontFamily: FONT.semibold,
-    color: C.green,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
-  recipeTitle: {
-    fontSize: 22,
-    fontFamily: FONT.semibold,
-    color: C.text,
-    lineHeight: 28,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: FONT.regular,
-    color: C.muted,
-    marginTop: 4,
-  },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 16,
-  },
-  metaPill: {
-    backgroundColor: C.greenLight,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  metaPillText: {
-    fontSize: 12,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-    letterSpacing: -0.05,
-  },
-
-  // ─── Bottom action ────────────────────────────
-  bottomAction: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  primaryBtn: {
-    backgroundColor: C.green,
-    borderRadius: 999,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  primaryText: {
-    fontSize: 16,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-  },
-});

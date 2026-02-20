@@ -36,6 +36,7 @@
     "noMeals": "No meals planned yet",
     "hint": "Tap “+ Add recipe” on any slot above to start building your week"
   },
+  "info": "Info",
   "generateList": "Generate Shopping List",
   "addRecipe": "+ Add recipe",
   "addRecipeTitle": "Add recipe",

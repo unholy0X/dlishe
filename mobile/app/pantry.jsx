@@ -183,7 +183,7 @@ export default function PantryScreen() {
         Alert.alert(t("errors:pantry.removeItemFailed"), t("tryAgain", { ns: "common" }));
       }
     },
-    [getToken]
+    [getToken, t]
   );
 
   const toggleCategory = useCallback((category) => {
@@ -222,7 +222,7 @@ export default function PantryScreen() {
         },
       ]
     );
-  }, [getToken, total]);
+  }, [getToken, total, t]);
 
   const isEmpty = !isLoading && groups.length === 0;
 

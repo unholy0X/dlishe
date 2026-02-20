@@ -111,7 +111,12 @@
     "repeat": "إعادة",
     "pause": "إيقاف مؤقت",
     "quit": "خروج",
-    "done": "تم!"
+    "done": "تم!",
+    "quitTitle": "مغادرة وضع الطبخ؟",
+    "quitMessage": "لن يتم حفظ تقدمك.",
+    "keepCooking": "مواصلة الطبخ",
+    "leave": "مغادرة",
+    "tip": "نصيحة"
   },
   "difficulty": {
     "easy": "سهل",

@@ -121,7 +121,7 @@ export default function MealPlanScreen() {
     } catch {
       Alert.alert(t("errors:mealPlan.addFailed"), t("tryAgain", { ns: "common" }));
     }
-  }, [getToken, selectedDay, addMealType]);
+  }, [getToken, selectedDay, addMealType, t]);
 
   const handleRemove = useCallback(async (entryId) => {
     try {
@@ -137,12 +137,12 @@ export default function MealPlanScreen() {
       if (result?.listId) {
         router.push(`/shoppingList?id=${result.listId}`);
       } else if (result?.message) {
-        Alert.alert("Info", result.message);
+        Alert.alert(t("info"), result.message);
       }
     } catch (err) {
       Alert.alert(t("errors:shopping.generateFailed"), err?.message || t("tryAgain", { ns: "common" }));
     }
-  }, [getToken]);
+  }, [getToken, t]);
 
   useEffect(() => {
     if (error) {

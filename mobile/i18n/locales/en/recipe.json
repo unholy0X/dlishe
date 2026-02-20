@@ -105,7 +105,12 @@
     "repeat": "Repeat",
     "pause": "Pause",
     "quit": "Quit",
-    "done": "Done!"
+    "done": "Done!",
+    "quitTitle": "Leave cooking mode?",
+    "quitMessage": "Your progress won\u2019t be saved.",
+    "keepCooking": "Keep cooking",
+    "leave": "Leave",
+    "tip": "Tip"
   },
   "difficulty": {
     "easy": "Easy",

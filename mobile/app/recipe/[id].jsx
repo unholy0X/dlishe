@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -28,6 +28,8 @@ import {
 } from "../../services/shopping";
 import { useRecipeStore, useShoppingStore } from "../../store";
 import { useTranslation } from "react-i18next";
+import { useLanguageStore } from "../../store/languageStore";
+import { getFontFamily } from "../../utils/fonts";
 import ArrowLeftIcon from "../../components/icons/ArrowLeftIcon";
 import RecipePlaceholder from "../../components/RecipePlaceholder";
 import PrepChecklistSheet from "../../components/recipies/PrepShecklistSheet";
@@ -54,12 +56,6 @@ const C = {
   purpleDark: "#4A2D73",
   border: "#EAEAEA",
   error: "#cc3b3b",
-};
-
-const FONT = {
-  regular: "Inter_400Regular",
-  medium: "Inter_500Medium",
-  semibold: "Inter_600SemiBold",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -112,16 +108,16 @@ const DeleteIcon = ({ size = 17, color = "#FF0000" }) => (
 
 // ─── Sub-components ──────────────────────────────────────────────
 
-function MetaPill({ label, color }) {
+function MetaPill({ label, color, styles: st }) {
   return (
-    <View style={[s.pill, color && { backgroundColor: color }]}>
-      <Text style={s.pillText}>{label}</Text>
+    <View style={[st.pill, color && { backgroundColor: color }]}>
+      <Text style={st.pillText}>{label}</Text>
     </View>
   );
 }
 
-function SectionTitle({ children }) {
-  return <Text style={s.sectionTitle}>{children}</Text>;
+function SectionTitle({ children, styles: st }) {
+  return <Text style={st.sectionTitle}>{children}</Text>;
 }
 
 function IngredientRow({ ingredient, isLast }) {
@@ -187,15 +183,15 @@ function StepRow({ step }) {
   );
 }
 
-function NutritionItem({ label, value, unit }) {
+function NutritionItem({ label, value, unit, styles: st }) {
   if (value == null) return null;
   return (
-    <View style={s.nutritionItem}>
-      <Text style={s.nutritionValue}>
+    <View style={st.nutritionItem}>
+      <Text style={st.nutritionValue}>
         {Math.round(value)}
         {unit}
       </Text>
-      <Text style={s.nutritionLabel}>{label}</Text>
+      <Text style={st.nutritionLabel}>{label}</Text>
     </View>
   );
 }
@@ -207,6 +203,13 @@ export default function RecipeDetailScreen() {
   const router = useRouter();
   const { getToken } = useAuth();
   const { t } = useTranslation("recipe");
+  const language = useLanguageStore((st) => st.language);
+  const FONT = useMemo(() => ({
+    regular: getFontFamily(language, "regular"),
+    medium: getFontFamily(language, "medium"),
+    semibold: getFontFamily(language, "semibold"),
+  }), [language]);
+  const s = useMemo(() => makeStyles(FONT), [FONT]);
 
   const [recipe, setRecipe] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -340,7 +343,7 @@ export default function RecipeDetailScreen() {
     return (
       <View style={s.screen}>
         <SafeAreaView style={s.safeTop} edges={["top"]}>
-          <BackButton onPress={() => router.back()} />
+          <BackButton onPress={() => router.back()} styles={s} />
           <View style={s.centered}>
             <Text style={s.errorText}>{error || t("detail.notFound")}</Text>
           </View>
@@ -430,7 +433,7 @@ export default function RecipeDetailScreen() {
             />
           )}
           <SafeAreaView style={s.heroOverlay} edges={["top"]}>
-            <BackButton light onPress={() => router.back()} />
+            <BackButton light onPress={() => router.back()} styles={s} />
           </SafeAreaView>
           <View style={s.heroContent}>
             <Text style={s.heroTitle}>{recipe.title}</Text>
@@ -499,21 +502,23 @@ export default function RecipeDetailScreen() {
             nutrition.carbs ||
             nutrition.fat) ? (
             <View style={s.card}>
-              <SectionTitle>{t("detail.nutrition")}</SectionTitle>
+              <SectionTitle styles={s}>{t("detail.nutrition")}</SectionTitle>
               <View style={s.nutritionGrid}>
                 <NutritionItem
                   label="Calories"
                   value={nutrition.calories}
                   unit=""
+                  styles={s}
                 />
                 <NutritionItem
                   label="Protein"
                   value={nutrition.protein}
                   unit="g"
+                  styles={s}
                 />
-                <NutritionItem label="Carbs" value={nutrition.carbs} unit="g" />
-                <NutritionItem label="Fat" value={nutrition.fat} unit="g" />
-                <NutritionItem label="Fiber" value={nutrition.fiber} unit="g" />
+                <NutritionItem label="Carbs" value={nutrition.carbs} unit="g" styles={s} />
+                <NutritionItem label="Fat" value={nutrition.fat} unit="g" styles={s} />
+                <NutritionItem label="Fiber" value={nutrition.fiber} unit="g" styles={s} />
               </View>
             </View>
           ) : null}
@@ -523,7 +528,7 @@ export default function RecipeDetailScreen() {
             <View style={s.card}>
               <View style={s.ingredientsHeader}>
                 <View>
-                  <SectionTitle>{t("detail.ingredients")}</SectionTitle>
+                  <SectionTitle styles={s}>{t("detail.ingredients")}</SectionTitle>
                   <Text style={s.countText}>{t("units.items", { count: ingredients.length, ns: "common" })}</Text>
                 </View>
                 <Pressable
@@ -624,7 +629,7 @@ export default function RecipeDetailScreen() {
 
           {/* Steps */}
           <View style={s.card}>
-            <SectionTitle>{t("detail.instructions")}</SectionTitle>
+            <SectionTitle styles={s}>{t("detail.instructions")}</SectionTitle>
             {steps.length > 0 ? (
               <>
                 <Text style={s.countText}>{t("detail.steps", { count: steps.length })}</Text>
@@ -763,19 +768,19 @@ export default function RecipeDetailScreen() {
 
 // ─── Back Button ─────────────────────────────────────────────────
 
-function BackButton({ onPress, light }) {
+function BackButton({ onPress, light, styles: st }) {
   const { t } = useTranslation("common");
   return (
     <Pressable
       onPress={onPress}
-      style={[s.backButton, light && s.backButtonLight]}
+      style={[st.backButton, light && st.backButtonLight]}
     >
       <ArrowLeftIcon
         width={10}
         height={10}
         color={light ? "#ffffff" : C.textSecondary}
       />
-      <Text style={[s.backButtonText, light && s.backButtonTextLight]}>
+      <Text style={[st.backButtonText, light && st.backButtonTextLight]}>
         {t("buttons.back")}
       </Text>
     </Pressable>
@@ -784,7 +789,8 @@ function BackButton({ onPress, light }) {
 
 // ─── Styles ──────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+function makeStyles(FONT) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: C.bg,
@@ -1330,4 +1336,5 @@ const s = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: -0.05,
   },
-});
+  });
+}

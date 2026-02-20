@@ -611,7 +611,7 @@ export default function ShoppingListScreen() {
                 Alert.alert(t("errors:shopping.updateItemFailed"), t("tryAgain", { ns: "common" }));
             }
         },
-        [getToken, listId]
+        [getToken, listId, t]
     );
 
     const handleDeleteItem = useCallback(
@@ -631,7 +631,7 @@ export default function ShoppingListScreen() {
                 },
             ]);
         },
-        [getToken, listId]
+        [getToken, listId, t]
     );
 
     const handleAddItem = useCallback(
@@ -653,7 +653,7 @@ export default function ShoppingListScreen() {
         } catch (err) {
             Alert.alert(t("errors:shopping.completeListFailed"), t("tryAgain", { ns: "common" }));
         }
-    }, [getToken, listId]);
+    }, [getToken, listId, t]);
 
     const toggleCategory = useCallback((category) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);

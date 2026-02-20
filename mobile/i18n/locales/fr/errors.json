@@ -1,4 +1,5 @@
 {
+  "errorTitle": "Erreur",
   "generic": "Une erreur s'est produite. Veuillez réessayer.",
   "network": "Pas de connexion internet. Vérifiez votre réseau et réessayez.",
   "session": "Votre session doit être actualisée. Veuillez vous déconnecter et vous reconnecter.",
@@ -33,6 +34,9 @@
   "pantry": {
     "removeItemFailed": "Impossible de supprimer l'article",
     "clearFailed": "Impossible de réinitialiser le garde-manger"
+  },
+  "prefs": {
+    "saveFailed": "Échec de l'enregistrement des préférences"
   },
   "config": {
     "missingKey": "Erreur de configuration",

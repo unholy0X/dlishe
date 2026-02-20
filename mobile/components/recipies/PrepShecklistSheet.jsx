@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { useLanguageStore } from "../../store/languageStore";
+import { getFontFamily } from "../../utils/fonts";
 
 const C = {
   bg: "#F4F5F7",
@@ -17,12 +19,6 @@ const C = {
   green: "#7FEF80",
   greenDark: "#385225",
   border: "#EAEAEA",
-};
-
-const FONT = {
-  regular: "Inter_400Regular",
-  medium: "Inter_500Medium",
-  semibold: "Inter_600SemiBold",
 };
 
 const SECTION_COLORS = [
@@ -40,6 +36,194 @@ function getSectionColor(index) {
   return SECTION_COLORS[index % SECTION_COLORS.length];
 }
 
+function makeStyles(FONT) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: C.bg,
+    },
+
+    // ─── Top bar ──────────────────────────────────
+    topBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+      paddingBottom: 4,
+    },
+    backBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "#fff",
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    backIcon: {
+      fontSize: 14,
+      color: C.muted,
+      marginRight: 6,
+    },
+    backText: {
+      fontSize: 13,
+      fontFamily: FONT.medium,
+      color: C.muted,
+    },
+    counterPill: {
+      backgroundColor: "#fff",
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    counterPillText: {
+      fontSize: 13,
+      fontFamily: FONT.semibold,
+      color: C.text,
+      letterSpacing: -0.05,
+    },
+
+    // ─── Title area ───────────────────────────────
+    titleArea: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 4,
+    },
+    title: {
+      fontSize: 24,
+      fontFamily: FONT.semibold,
+      color: C.text,
+    },
+    subtitle: {
+      fontSize: 14,
+      fontFamily: FONT.regular,
+      color: C.muted,
+      marginTop: 4,
+    },
+
+    scrollView: {
+      flex: 1,
+    },
+    scroll: {
+      paddingHorizontal: 20,
+      paddingBottom: 16,
+    },
+
+    sectionCard: {
+      backgroundColor: "#fff",
+      borderRadius: 20,
+      padding: 16,
+      marginTop: 16,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    sectionCircle: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      marginRight: 10,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sectionInitial: {
+      fontSize: 14,
+      fontFamily: FONT.semibold,
+      color: "#fff",
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontFamily: FONT.semibold,
+      color: C.text,
+    },
+    sectionInner: {
+      backgroundColor: "#F7F7F7",
+      borderRadius: 16,
+      padding: 14,
+    },
+
+    row: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      paddingVertical: 10,
+    },
+    rowBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: "#ECECEC",
+    },
+    check: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      marginRight: 12,
+      marginTop: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    checkOn: {
+      backgroundColor: C.green,
+    },
+    checkOff: {
+      backgroundColor: "#E6E6E6",
+    },
+    checkMark: {
+      fontSize: 12,
+      color: C.greenDark,
+      fontFamily: FONT.semibold,
+    },
+    rowContent: {
+      flex: 1,
+    },
+    rowTopLine: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    rowLabel: {
+      fontSize: 15,
+      fontFamily: FONT.medium,
+      color: C.text,
+      flex: 1,
+      marginRight: 10,
+      lineHeight: 20,
+    },
+    rowLabelChecked: {
+      textDecorationLine: "line-through",
+      color: C.muted,
+    },
+    rowQty: {
+      fontSize: 13,
+      fontFamily: FONT.semibold,
+      color: C.text,
+      flexShrink: 0,
+    },
+    rowNotes: {
+      fontSize: 13,
+      fontFamily: FONT.regular,
+      color: C.muted,
+      marginTop: 2,
+      lineHeight: 18,
+    },
+
+    footer: {
+      paddingHorizontal: 20,
+      paddingTop: 10,
+    },
+    readyBtn: {
+      backgroundColor: C.green,
+      borderRadius: 999,
+      paddingVertical: 16,
+      alignItems: "center",
+    },
+    readyBtnText: {
+      fontSize: 16,
+      fontFamily: FONT.semibold,
+      color: C.greenDark,
+    },
+  });
+}
+
 export default function PrepChecklistSheet({
   ingredients,
   checkedIngredients,
@@ -49,6 +233,15 @@ export default function PrepChecklistSheet({
 }) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation("recipe");
+  const language = useLanguageStore((st) => st.language);
+
+  const FONT = useMemo(() => ({
+    regular: getFontFamily(language, "regular"),
+    medium: getFontFamily(language, "medium"),
+    semibold: getFontFamily(language, "semibold"),
+  }), [language]);
+
+  const s = useMemo(() => makeStyles(FONT), [FONT]);
 
   // Group ingredients by section
   const sections = {};
@@ -158,189 +351,3 @@ export default function PrepChecklistSheet({
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-
-  // ─── Top bar ──────────────────────────────────
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 4,
-  },
-  backBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  backIcon: {
-    fontSize: 14,
-    color: C.muted,
-    marginRight: 6,
-  },
-  backText: {
-    fontSize: 13,
-    fontFamily: FONT.medium,
-    color: C.muted,
-  },
-  counterPill: {
-    backgroundColor: "#fff",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  counterPillText: {
-    fontSize: 13,
-    fontFamily: FONT.semibold,
-    color: C.text,
-    letterSpacing: -0.05,
-  },
-
-  // ─── Title area ───────────────────────────────
-  titleArea: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  title: {
-    fontSize: 24,
-    fontFamily: FONT.semibold,
-    color: C.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: FONT.regular,
-    color: C.muted,
-    marginTop: 4,
-  },
-
-  scrollView: {
-    flex: 1,
-  },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-
-  sectionCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 16,
-    marginTop: 16,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginRight: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sectionInitial: {
-    fontSize: 14,
-    fontFamily: FONT.semibold,
-    color: "#fff",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontFamily: FONT.semibold,
-    color: C.text,
-  },
-  sectionInner: {
-    backgroundColor: "#F7F7F7",
-    borderRadius: 16,
-    padding: 14,
-  },
-
-  row: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: 10,
-  },
-  rowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#ECECEC",
-  },
-  check: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    marginRight: 12,
-    marginTop: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkOn: {
-    backgroundColor: C.green,
-  },
-  checkOff: {
-    backgroundColor: "#E6E6E6",
-  },
-  checkMark: {
-    fontSize: 12,
-    color: C.greenDark,
-    fontFamily: FONT.semibold,
-  },
-  rowContent: {
-    flex: 1,
-  },
-  rowTopLine: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  rowLabel: {
-    fontSize: 15,
-    fontFamily: FONT.medium,
-    color: C.text,
-    flex: 1,
-    marginRight: 10,
-    lineHeight: 20,
-  },
-  rowLabelChecked: {
-    textDecorationLine: "line-through",
-    color: C.muted,
-  },
-  rowQty: {
-    fontSize: 13,
-    fontFamily: FONT.semibold,
-    color: C.text,
-    flexShrink: 0,
-  },
-  rowNotes: {
-    fontSize: 13,
-    fontFamily: FONT.regular,
-    color: C.muted,
-    marginTop: 2,
-    lineHeight: 18,
-  },
-
-  footer: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  readyBtn: {
-    backgroundColor: C.green,
-    borderRadius: 999,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  readyBtnText: {
-    fontSize: 16,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-  },
-});

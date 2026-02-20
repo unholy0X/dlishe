@@ -197,7 +197,7 @@ export default function DinnerInspirationSheet({
           ) : null}
           {protein ? (
             <View style={[styles.badge, styles.badgeProtein]}>
-              <Text style={styles.badgeText}>{protein}g protein</Text>
+              <Text style={styles.badgeText}>{t("detail.protein", { value: protein, ns: "recipe" })}</Text>
             </View>
           ) : null}
         </View>
@@ -231,7 +231,7 @@ export default function DinnerInspirationSheet({
           </Text>
           {meta ? <Text style={styles.heroMeta}>{meta}</Text> : null}
           {calories ? (
-            <Text style={styles.heroCals}>{calories} kcal / serving</Text>
+            <Text style={styles.heroCals}>{t("detail.calories", { value: calories, ns: "recipe" })}</Text>
           ) : null}
         </View>
       </Animated.View>

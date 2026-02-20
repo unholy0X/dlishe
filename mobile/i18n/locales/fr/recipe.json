@@ -105,7 +105,12 @@
     "repeat": "Répéter",
     "pause": "Pause",
     "quit": "Quitter",
-    "done": "Terminé !"
+    "done": "Terminé !",
+    "quitTitle": "Quitter le mode cuisine ?",
+    "quitMessage": "Votre progression ne sera pas sauvegardée.",
+    "keepCooking": "Continuer à cuisiner",
+    "leave": "Quitter",
+    "tip": "Astuce"
   },
   "difficulty": {
     "easy": "Facile",

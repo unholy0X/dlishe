@@ -81,6 +81,9 @@ i18n.use(initReactI18next).init({
     escapeValue: false,
   },
   compatibilityJSON: 'v4',
+  react: {
+    useSuspense: false,
+  },
 });
 
 export default i18n;

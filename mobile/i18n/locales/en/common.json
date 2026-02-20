@@ -75,5 +75,9 @@
     "clearAll": "Clear all"
   },
   "restartRequired": "Restart required",
-  "restartMessage": "Please close and reopen the app to apply the language change."
+  "restartMessage": "Please close and reopen the app to apply the language change.",
+  "deleteAccount": "Delete Account",
+  "deleteAccountMsg": "This will permanently delete your account and all your data (recipes, pantry, shopping lists). This action cannot be undone.",
+  "deleteAccountConfirm": "Yes, delete my account",
+  "deleteAccountError": "Failed to delete account. Please try again."
 }

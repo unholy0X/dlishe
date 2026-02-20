@@ -75,5 +75,9 @@
     "clearAll": "Tout effacer"
   },
   "restartRequired": "Redémarrage requis",
-  "restartMessage": "Veuillez fermer et rouvrir l'application pour appliquer le changement de langue."
+  "restartMessage": "Veuillez fermer et rouvrir l'application pour appliquer le changement de langue.",
+  "deleteAccount": "Supprimer le compte",
+  "deleteAccountMsg": "Cela supprimera définitivement votre compte et toutes vos données (recettes, frigo, listes de courses). Cette action est irréversible.",
+  "deleteAccountConfirm": "Oui, supprimer mon compte",
+  "deleteAccountError": "Impossible de supprimer le compte. Veuillez réessayer."
 }

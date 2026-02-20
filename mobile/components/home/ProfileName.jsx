@@ -8,6 +8,7 @@ import {
   Modal,
   Alert,
   Linking,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useClerk, useUser } from "@clerk/clerk-expo";
@@ -17,11 +18,13 @@ import { useTranslation } from "react-i18next";
 import RulerIcon from "../icons/RulerIcon";
 import GlobeIcon from "../icons/GlobeIcon";
 import LogoutIcon from "../icons/LogoutIcon";
+import TrashIcon from "../icons/TrashIcon";
 import CrownIcon from "../icons/CrownIcon";
 import { FOOD_AVATARS, AVATAR_COLORS } from "../avatars/FoodAvatars";
 import { useUserStore, useSubscriptionStore, useDemoStore } from "../../store";
 import { useLanguageStore } from "../../store/languageStore";
 import PaywallSheet from "../paywall/PaywallSheet";
+import { deleteAccount } from "../../services/user";
 
 function hashName(name) {
   let h = 0;
@@ -65,8 +68,10 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation("home");
+  const { t: tc } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const entitlement = useSubscriptionStore((s) => s.entitlement);
 
@@ -229,6 +234,55 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
               <LogoutIcon width={20} height={20} color="#cc3b3b" />
             </View>
             <Text style={styles.logoutText}>{t("profile.logout")}</Text>
+          </Pressable>
+
+          {/* Delete account — Apple Settings-style danger row */}
+          <Text style={[styles.sectionLabel, styles.dangerLabel]}>{tc("deleteAccount").toUpperCase()}</Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.menuRow,
+              styles.deleteRow,
+              pressed && styles.deleteRowPressed,
+              deletingAccount && styles.deleteRowDisabled,
+            ]}
+            onPress={() => {
+              Alert.alert(
+                tc("deleteAccount"),
+                tc("deleteAccountMsg"),
+                [
+                  { text: tc("buttons.cancel"), style: "cancel" },
+                  {
+                    text: tc("deleteAccountConfirm"),
+                    style: "destructive",
+                    onPress: async () => {
+                      setDeletingAccount(true);
+                      try {
+                        await deleteAccount({ getToken });
+                        await user?.delete();
+                        router.replace("/");
+                      } catch {
+                        Alert.alert(tc("deleteAccount"), tc("deleteAccountError"));
+                      } finally {
+                        setDeletingAccount(false);
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+            disabled={deletingAccount}
+          >
+            <View style={styles.deleteIconWrap}>
+              {deletingAccount ? (
+                <ActivityIndicator size="small" color="#D63031" />
+              ) : (
+                <TrashIcon width={20} height={20} color="#D63031" />
+              )}
+            </View>
+            <View style={styles.menuRowContent}>
+              <Text style={styles.deleteTitle}>{tc("deleteAccount")}</Text>
+              <Text style={styles.deleteSubtitle}>{tc("deleteAccountMsg").split(".")[0]}.</Text>
+            </View>
           </Pressable>
 
           {/* Legal links */}
@@ -420,6 +474,44 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
     color: "#cc3b3b",
+  },
+  // Danger section
+  dangerLabel: {
+    marginTop: 20,
+    color: "#D63031",
+    opacity: 0.6,
+  },
+  deleteRow: {
+    borderWidth: 1,
+    borderColor: "rgba(214, 48, 49, 0.15)",
+    backgroundColor: "#FFF5F5",
+  },
+  deleteRowPressed: {
+    backgroundColor: "#FFE8E8",
+    opacity: 0.85,
+  },
+  deleteRowDisabled: {
+    opacity: 0.5,
+  },
+  deleteIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(214, 48, 49, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  deleteTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#D63031",
+    letterSpacing: -0.1,
+  },
+  deleteSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "rgba(214, 48, 49, 0.55)",
   },
   legalRow: {
     flexDirection: "row",

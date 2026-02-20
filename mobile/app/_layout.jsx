@@ -16,6 +16,7 @@ import {
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import UserSync from "../components/UserSync";
 import ErrorBoundary from "../components/ErrorBoundary";
+import OfflineBanner from "../components/OfflineBanner";
 import { useSubscriptionStore } from "../store";
 import { useDemoStore } from "../store/demoStore";
 import { useLanguageStore } from "../store/languageStore";
@@ -197,6 +198,7 @@ export default function RootLayout() {
         <ClerkLoaded>
           <UserSync />
           <AuthGate />
+          <OfflineBanner />
         </ClerkLoaded>
       </ClerkProvider>
     </ErrorBoundary>

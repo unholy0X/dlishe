@@ -87,6 +87,24 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	response.OK(w, resp)
 }
 
+// DeleteAccount handles DELETE /api/v1/users/me
+// Wipes all user data from the backend. The mobile client is responsible for
+// subsequently calling Clerk's user.delete() to remove the auth identity.
+func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Unauthorized(w, "Not authenticated")
+		return
+	}
+
+	if err := h.userRepo.DeleteAccount(r.Context(), user.ID); err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // UpdatePreferencesRequest represents the request to update user preferences
 type UpdatePreferencesRequest struct {
 	PreferredUnitSystem string `json:"preferredUnitSystem"`

@@ -174,6 +174,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/me", authHandler.Me)
 				r.Patch("/me/preferences", authHandler.UpdatePreferences)
+				r.Delete("/me", authHandler.DeleteAccount)
 			})
 
 			// Recipe routes

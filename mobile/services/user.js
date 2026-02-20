@@ -13,3 +13,7 @@ export async function updatePreferences({ preferredUnitSystem, preferredLanguage
     body: JSON.stringify(body),
   });
 }
+
+export async function deleteAccount({ getToken }) {
+  return authFetch("/users/me", getToken, { method: "DELETE" });
+}

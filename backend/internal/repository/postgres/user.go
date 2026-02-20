@@ -457,6 +457,42 @@ func (r *UserRepository) CountUserScansThisMonth(ctx context.Context, userID uui
 	return count, nil
 }
 
+// DeleteAccount permanently wipes all data for a user in a single transaction,
+// then soft-deletes the user record itself (Apple guideline 5.1.1(v) compliance).
+func (r *UserRepository) DeleteAccount(ctx context.Context, id uuid.UUID) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	steps := []string{
+		// Child rows first to avoid FK violations
+		`DELETE FROM recipe_ingredients WHERE recipe_id IN (SELECT id FROM recipes WHERE user_id = $1)`,
+		`DELETE FROM recipe_steps WHERE recipe_id IN (SELECT id FROM recipes WHERE user_id = $1)`,
+		`DELETE FROM recipe_shares WHERE owner_id = $1 OR recipient_id = $1`,
+		`DELETE FROM recipes WHERE user_id = $1`,
+		`DELETE FROM pantry_items WHERE user_id = $1`,
+		`DELETE FROM shopping_items WHERE list_id IN (SELECT id FROM shopping_lists WHERE user_id = $1)`,
+		`DELETE FROM shopping_lists WHERE user_id = $1`,
+		`DELETE FROM meal_plan_entries WHERE meal_plan_id IN (SELECT id FROM meal_plans WHERE user_id = $1)`,
+		`DELETE FROM meal_plans WHERE user_id = $1`,
+		`DELETE FROM video_jobs WHERE user_id = $1`,
+		`DELETE FROM user_subscriptions WHERE user_id = $1`,
+		`DELETE FROM usage_quotas WHERE user_id = $1`,
+		// Soft-delete the user record last
+		`UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
+	}
+
+	for _, q := range steps {
+		if _, err := tx.ExecContext(ctx, q, id); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 // TrackScanUsage increments the scan usage counter for the current month
 func (r *UserRepository) TrackScanUsage(ctx context.Context, userID uuid.UUID) error {
 	query := `

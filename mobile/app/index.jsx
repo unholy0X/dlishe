@@ -54,6 +54,12 @@ function parseAuthError(err, fallback, t) {
   ) {
     return t("errors.unavailable");
   }
+  const code = (err?.errors?.[0]?.code ?? "").toLowerCase();
+
+  if (code === "form_identifier_not_found" || raw.includes("couldn't find your account")) {
+    return t("errors.accountNotFound");
+  }
+
   return (
     err?.errors?.[0]?.longMessage ??
     err?.errors?.[0]?.message ??
@@ -121,7 +127,7 @@ export default function LoginScreen() {
             setServiceWarning("");
           }
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => clearTimeout(timer));
     }
 
@@ -367,8 +373,8 @@ export default function LoginScreen() {
     verifyStrategy === "email_code"
       ? t("verify.sentEmail")
       : verifyStrategy === "phone_code"
-      ? t("verify.sentPhone")
-      : t("verify.authenticatorApp");
+        ? t("verify.sentPhone")
+        : t("verify.authenticatorApp");
 
   return (
     <View style={styles.screen}>

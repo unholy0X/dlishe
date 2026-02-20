@@ -23,10 +23,10 @@ import { useTranslation } from "react-i18next";
 WebBrowser.maybeCompleteAuthSession();
 
 /* ─── parse auth errors into user-friendly messages ─── */
-function parseAuthError(err, fallback, noInternet, unavailable) {
+function parseAuthError(err, fallback, t) {
   const raw = (err?.message ?? "").toLowerCase();
   if (raw.includes("network request failed") || raw.includes("failed to fetch")) {
-    return noInternet;
+    return t("errors.noInternet");
   }
   if (
     raw.includes("cannot read") ||
@@ -36,8 +36,14 @@ function parseAuthError(err, fallback, noInternet, unavailable) {
     err?.status === 503 ||
     err?.status === 500
   ) {
-    return unavailable;
+    return t("errors.unavailable");
   }
+  const code = (err?.errors?.[0]?.code ?? "").toLowerCase();
+
+  if (code === "form_identifier_not_found" || raw.includes("couldn't find your account")) {
+    return t("errors.accountNotFound");
+  }
+
   return (
     err?.errors?.[0]?.longMessage ??
     err?.errors?.[0]?.message ??
@@ -83,7 +89,7 @@ export default function SignUpScreen() {
 
   const { t } = useTranslation("auth");
   const tAuthError = (err, fallback) =>
-    parseAuthError(err, fallback, t("errors.noInternet"), t("errors.unavailable"));
+    parseAuthError(err, fallback, t);
   const signingUp = useRef(false);
 
   // If already signed in and NOT because we just signed up, sign out
@@ -121,7 +127,7 @@ export default function SignUpScreen() {
             setServiceWarning("");
           }
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => clearTimeout(timer));
     }
 

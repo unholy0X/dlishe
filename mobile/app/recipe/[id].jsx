@@ -887,7 +887,7 @@ function makeStyles(FONT, isRTL = false) {
       fontSize: 12,
       fontFamily: FONT.medium,
       color: C.textSecondary,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     backButtonTextLight: {
       color: "#ffffff",
@@ -912,7 +912,7 @@ function makeStyles(FONT, isRTL = false) {
       fontFamily: FONT.regular,
       color: C.textSecondary,
       lineHeight: 22,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
       writingDirection: isRTL ? "rtl" : "ltr",
       textAlign: isRTL ? "right" : "left",
     },
@@ -951,7 +951,7 @@ function makeStyles(FONT, isRTL = false) {
       fontFamily: FONT.medium,
       color: C.textSecondary,
       textTransform: "capitalize",
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
 
     // Tags
@@ -972,7 +972,7 @@ function makeStyles(FONT, isRTL = false) {
       fontSize: 12,
       fontFamily: FONT.regular,
       color: C.textMeta,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
 
     // Dietary
@@ -992,7 +992,7 @@ function makeStyles(FONT, isRTL = false) {
       fontSize: 12,
       fontFamily: FONT.medium,
       color: C.greenDark,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
 
     // Card
@@ -1006,7 +1006,7 @@ function makeStyles(FONT, isRTL = false) {
       fontSize: 20,
       fontFamily: FONT.semibold,
       color: C.textPrimary,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     countText: {
       fontSize: 12,
@@ -1014,7 +1014,7 @@ function makeStyles(FONT, isRTL = false) {
       color: C.textMeta,
       marginTop: 4,
       marginBottom: 14,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     emptySteps: {
       fontSize: 14,
@@ -1040,7 +1040,7 @@ function makeStyles(FONT, isRTL = false) {
       fontSize: 13,
       fontFamily: FONT.semibold,
       color: C.greenDark,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
 
     // Ingredients (new)
@@ -1128,14 +1128,14 @@ function makeStyles(FONT, isRTL = false) {
       fontSize: 18,
       fontFamily: FONT.semibold,
       color: C.textPrimary,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     nutritionLabel: {
       fontSize: 11,
       fontFamily: FONT.regular,
       color: C.textMeta,
       marginTop: 2,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
 
     // Actions zone
@@ -1192,7 +1192,7 @@ function makeStyles(FONT, isRTL = false) {
       fontSize: 14,
       fontFamily: FONT.medium,
       color: C.error,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     saveButton: {
       paddingVertical: 14,
@@ -1210,7 +1210,7 @@ function makeStyles(FONT, isRTL = false) {
       fontSize: 14,
       fontFamily: FONT.semibold,
       color: C.greenDark,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     savedBanner: {
       paddingVertical: 14,
@@ -1225,7 +1225,7 @@ function makeStyles(FONT, isRTL = false) {
       fontSize: 14,
       fontFamily: FONT.medium,
       color: C.greenDark,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
       textAlign: "center",
     },
 
@@ -1253,7 +1253,7 @@ function makeStyles(FONT, isRTL = false) {
       fontFamily: FONT.regular,
       color: C.textPrimary,
       lineHeight: 22,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     ingredientQty: { fontFamily: FONT.semibold },
     ingredientOptional: {
@@ -1267,7 +1267,7 @@ function makeStyles(FONT, isRTL = false) {
       color: C.textMeta,
       marginTop: 2,
       fontStyle: "italic",
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     ingredientSection: {
       fontSize: 14,
@@ -1275,7 +1275,7 @@ function makeStyles(FONT, isRTL = false) {
       color: C.greenDark,
       marginTop: 14,
       marginBottom: 4,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
 
     // Old steps styles kept
@@ -1304,7 +1304,7 @@ function makeStyles(FONT, isRTL = false) {
       fontFamily: FONT.regular,
       color: C.textPrimary,
       lineHeight: 24,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     stepMetaRow: {
       flexDirection: "row",
@@ -1323,7 +1323,7 @@ function makeStyles(FONT, isRTL = false) {
       fontFamily: FONT.medium,
       color: C.textSecondary,
       textTransform: "capitalize",
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     tipBanner: {
       backgroundColor: "#FFF9F0",
@@ -1339,7 +1339,7 @@ function makeStyles(FONT, isRTL = false) {
       color: C.orangeDark,
       fontStyle: "italic",
       lineHeight: 20,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
   });
 }

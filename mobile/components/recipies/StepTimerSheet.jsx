@@ -65,7 +65,7 @@ function makeStyles(FONT, isRTL) {
       fontSize: 13,
       fontFamily: FONT.medium,
       color: C.text,
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
 
     // ─── Segmented progress bar ───────────────────
@@ -107,7 +107,7 @@ function makeStyles(FONT, isRTL) {
       color: C.text,
       lineHeight: 30,
       textAlign: isRTL ? "right" : "center",
-      letterSpacing: -0.2,
+      letterSpacing: isRTL ? 0 : -0.2,
       writingDirection: isRTL ? "rtl" : "ltr",
     },
     chipsRow: {
@@ -128,7 +128,7 @@ function makeStyles(FONT, isRTL) {
       fontFamily: FONT.medium,
       color: C.text,
       textTransform: "capitalize",
-      letterSpacing: -0.05,
+      letterSpacing: isRTL ? 0 : -0.05,
     },
     // ─── Tip banner ───────────────────────────────
     tipBanner: {

@@ -65,13 +65,17 @@ function makeStyles(FONT) {
     },
     imageWrap: {
       backgroundColor: C.bg,
+      overflow: "hidden",
     },
     image: {
       width: "100%",
       height: 240,
     },
     heroBody: {
-      padding: 24,
+      paddingHorizontal: 24,
+      paddingTop: 24,
+      paddingBottom: 32,
+      alignItems: "flex-end", // Align text right for RTL context
     },
     doneLabel: {
       fontSize: 13,
@@ -85,13 +89,16 @@ function makeStyles(FONT) {
       fontSize: 22,
       fontFamily: FONT.semibold,
       color: C.text,
-      lineHeight: 28,
+      lineHeight: 32,
+      paddingTop: 4,
+      textAlign: "right", // Ensure RTL rendering matches
     },
     subtitle: {
       fontSize: 14,
       fontFamily: FONT.regular,
       color: C.muted,
-      marginTop: 4,
+      marginTop: 8,
+      textAlign: "right",
     },
     metaRow: {
       flexDirection: "row",

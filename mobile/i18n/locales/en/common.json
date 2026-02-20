@@ -73,5 +73,7 @@
     "takePhoto": "Take Photo",
     "chooseFromLibrary": "Choose from Library",
     "clearAll": "Clear all"
-  }
+  },
+  "restartRequired": "Restart required",
+  "restartMessage": "Please close and reopen the app to apply the language change."
 }

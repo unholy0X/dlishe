@@ -35,31 +35,33 @@ type DietaryInfo struct {
 
 // Recipe represents a recipe in DLISHE
 type Recipe struct {
-	ID             uuid.UUID        `json:"id" db:"id"`
-	UserID         uuid.UUID        `json:"userId" db:"user_id"`
-	Title          string           `json:"title" db:"title"`
-	Description    *string          `json:"description,omitempty" db:"description"`
-	Servings       *int             `json:"servings,omitempty" db:"servings"`
-	PrepTime       *int             `json:"prepTime,omitempty" db:"prep_time"`    // minutes
-	CookTime       *int             `json:"cookTime,omitempty" db:"cook_time"`    // minutes
-	Difficulty     *string          `json:"difficulty,omitempty" db:"difficulty"` // easy, medium, hard
-	Cuisine        *string          `json:"cuisine,omitempty" db:"cuisine"`
-	ThumbnailURL   *string          `json:"thumbnailUrl,omitempty" db:"thumbnail_url"`
-	SourceType     string           `json:"sourceType" db:"source_type"` // manual, video, ai, photo, cloned
-	SourceURL      *string          `json:"sourceUrl,omitempty" db:"source_url"`
-	SourceRecipeID *uuid.UUID       `json:"sourceRecipeId,omitempty" db:"source_recipe_id"` // ID of original recipe if cloned
-	SourceMetadata map[string]any   `json:"sourceMetadata,omitempty" db:"source_metadata"`
-	Tags           []string         `json:"tags,omitempty" db:"tags"`
-	IsPublic       bool             `json:"isPublic" db:"is_public"` // Public/suggested recipes visible to all users
-	IsFavorite     bool             `json:"isFavorite" db:"is_favorite"`
-	IsFeatured     bool             `json:"isFeatured" db:"is_featured"`
-	FeaturedAt     *time.Time       `json:"featuredAt,omitempty" db:"featured_at"`
-	Nutrition      *RecipeNutrition `json:"nutrition,omitempty" db:"nutrition"`      // Nutritional info per serving
-	DietaryInfo    *DietaryInfo     `json:"dietaryInfo,omitempty" db:"dietary_info"` // Dietary flags for filtering
-	SyncVersion    int              `json:"syncVersion" db:"sync_version"`
-	CreatedAt      time.Time        `json:"createdAt" db:"created_at"`
-	UpdatedAt      time.Time        `json:"updatedAt" db:"updated_at"`
-	DeletedAt      *time.Time       `json:"-" db:"deleted_at"`
+	ID                 uuid.UUID        `json:"id" db:"id"`
+	UserID             uuid.UUID        `json:"userId" db:"user_id"`
+	Title              string           `json:"title" db:"title"`
+	Description        *string          `json:"description,omitempty" db:"description"`
+	Servings           *int             `json:"servings,omitempty" db:"servings"`
+	PrepTime           *int             `json:"prepTime,omitempty" db:"prep_time"`    // minutes
+	CookTime           *int             `json:"cookTime,omitempty" db:"cook_time"`    // minutes
+	Difficulty         *string          `json:"difficulty,omitempty" db:"difficulty"` // easy, medium, hard
+	Cuisine            *string          `json:"cuisine,omitempty" db:"cuisine"`
+	ThumbnailURL       *string          `json:"thumbnailUrl,omitempty" db:"thumbnail_url"`
+	SourceType         string           `json:"sourceType" db:"source_type"` // manual, video, ai, photo, cloned
+	SourceURL          *string          `json:"sourceUrl,omitempty" db:"source_url"`
+	SourceRecipeID     *uuid.UUID       `json:"sourceRecipeId,omitempty" db:"source_recipe_id"` // ID of original recipe if cloned
+	SourceMetadata     map[string]any   `json:"sourceMetadata,omitempty" db:"source_metadata"`
+	Tags               []string         `json:"tags,omitempty" db:"tags"`
+	IsPublic           bool             `json:"isPublic" db:"is_public"` // Public/suggested recipes visible to all users
+	IsFavorite         bool             `json:"isFavorite" db:"is_favorite"`
+	IsFeatured         bool             `json:"isFeatured" db:"is_featured"`
+	FeaturedAt         *time.Time       `json:"featuredAt,omitempty" db:"featured_at"`
+	Nutrition          *RecipeNutrition `json:"nutrition,omitempty" db:"nutrition"`      // Nutritional info per serving
+	DietaryInfo        *DietaryInfo     `json:"dietaryInfo,omitempty" db:"dietary_info"` // Dietary flags for filtering
+	SyncVersion        int              `json:"syncVersion" db:"sync_version"`
+	CreatedAt          time.Time        `json:"createdAt" db:"created_at"`
+	UpdatedAt          time.Time        `json:"updatedAt" db:"updated_at"`
+	DeletedAt          *time.Time       `json:"-" db:"deleted_at"`
+	ContentLanguage    string           `json:"contentLanguage" db:"content_language"`
+	TranslationGroupID *uuid.UUID       `json:"translationGroupId,omitempty" db:"translation_group_id"`
 
 	// Computed fields (for list views without loading full relations)
 	IngredientCount int `json:"ingredientCount,omitempty"`

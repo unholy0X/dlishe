@@ -31,8 +31,8 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // Create creates a new user
 func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 	query := `
-		INSERT INTO users (id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, preferred_unit_system)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO users (id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, preferred_unit_system, preferred_language)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -46,6 +46,7 @@ func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 		user.CreatedAt,
 		user.UpdatedAt,
 		user.PreferredUnitSystem,
+		user.PreferredLanguage,
 	)
 
 	if err != nil {
@@ -64,7 +65,7 @@ func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 // GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	query := `
-		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
+		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system, preferred_language
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -82,6 +83,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 		&user.UpdatedAt,
 		&user.DeletedAt,
 		&user.PreferredUnitSystem,
+		&user.PreferredLanguage,
 	)
 
 	if err != nil {
@@ -97,7 +99,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 // GetByEmail retrieves a user by email
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	query := `
-		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
+		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system, preferred_language
 		FROM users
 		WHERE email = $1 AND deleted_at IS NULL
 	`
@@ -115,6 +117,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 		&user.UpdatedAt,
 		&user.DeletedAt,
 		&user.PreferredUnitSystem,
+		&user.PreferredLanguage,
 	)
 
 	if err != nil {
@@ -130,7 +133,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 // GetByDeviceID retrieves an anonymous user by device ID
 func (r *UserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*model.User, error) {
 	query := `
-		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
+		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system, preferred_language
 		FROM users
 		WHERE device_id = $1 AND is_anonymous = TRUE AND deleted_at IS NULL
 	`
@@ -148,6 +151,7 @@ func (r *UserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*m
 		&user.UpdatedAt,
 		&user.DeletedAt,
 		&user.PreferredUnitSystem,
+		&user.PreferredLanguage,
 	)
 
 	if err != nil {
@@ -163,7 +167,7 @@ func (r *UserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*m
 // GetByClerkID retrieves a user by Clerk ID
 func (r *UserRepository) GetByClerkID(ctx context.Context, clerkID string) (*model.User, error) {
 	query := `
-		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system
+		SELECT id, clerk_id, email, password_hash, name, is_anonymous, device_id, created_at, updated_at, deleted_at, preferred_unit_system, preferred_language
 		FROM users
 		WHERE clerk_id = $1 AND deleted_at IS NULL
 	`
@@ -181,6 +185,7 @@ func (r *UserRepository) GetByClerkID(ctx context.Context, clerkID string) (*mod
 		&user.UpdatedAt,
 		&user.DeletedAt,
 		&user.PreferredUnitSystem,
+		&user.PreferredLanguage,
 	)
 
 	if err != nil {
@@ -197,7 +202,7 @@ func (r *UserRepository) GetByClerkID(ctx context.Context, clerkID string) (*mod
 func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	query := `
 		UPDATE users
-		SET email = $2, password_hash = $3, name = $4, is_anonymous = $5, updated_at = $6, preferred_unit_system = $7
+		SET email = $2, password_hash = $3, name = $4, is_anonymous = $5, updated_at = $6, preferred_unit_system = $7, preferred_language = $8
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -211,6 +216,7 @@ func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 		user.IsAnonymous,
 		user.UpdatedAt,
 		user.PreferredUnitSystem,
+		user.PreferredLanguage,
 	)
 
 	if err != nil {

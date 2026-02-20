@@ -73,5 +73,7 @@
     "takePhoto": "التقاط صورة",
     "chooseFromLibrary": "اختيار من المكتبة",
     "clearAll": "مسح الكل"
-  }
+  },
+  "restartRequired": "إعادة التشغيل مطلوبة",
+  "restartMessage": "يرجى إغلاق التطبيق وإعادة فتحه لتطبيق تغيير اللغة."
 }

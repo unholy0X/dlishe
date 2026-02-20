@@ -73,5 +73,7 @@
     "takePhoto": "Prendre une photo",
     "chooseFromLibrary": "Choisissez dans la bibliothèque",
     "clearAll": "Tout effacer"
-  }
+  },
+  "restartRequired": "Redémarrage requis",
+  "restartMessage": "Veuillez fermer et rouvrir l'application pour appliquer le changement de langue."
 }

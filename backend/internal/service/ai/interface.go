@@ -127,7 +127,7 @@ type RecipeExtractor interface {
 	ExtractFromImages(ctx context.Context, imageDataList [][]byte, mimeTypes []string) (*ExtractionResult, error)
 
 	// RefineRecipe reviews and improves an extracted recipe (deduplication, standardization, etc.)
-	RefineRecipe(ctx context.Context, rawRecipe *ExtractionResult) (*ExtractionResult, error)
+	RefineRecipe(ctx context.Context, rawRecipe *ExtractionResult, targetLanguage string) (*ExtractionResult, error)
 
 	// ValidateURL validates if a URL is supported for extraction
 	ValidateURL(url string) error
@@ -139,16 +139,16 @@ type RecipeExtractor interface {
 // ShoppingListAnalyzer defines the interface for AI-powered shopping list analysis
 type ShoppingListAnalyzer interface {
 	// SmartMergeItems takes a list of raw items and returns a consolidated, categorized list
-	SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string) ([]model.ShoppingItemInput, error)
+	SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string, targetLanguage string) ([]model.ShoppingItemInput, error)
 }
 
 // PantryScanner defines the interface for AI-powered pantry scanning
 type PantryScanner interface {
 	// ScanPantry detects pantry items from an image (photo of fridge, pantry shelf, etc.)
-	ScanPantry(ctx context.Context, imageData []byte, mimeType string) (*PantryScanResult, error)
+	ScanPantry(ctx context.Context, imageData []byte, mimeType string, targetLanguage string) (*PantryScanResult, error)
 
 	// ScanPantryMulti detects pantry items from multiple images
-	ScanPantryMulti(ctx context.Context, imageDataList [][]byte, mimeTypes []string) (*PantryScanResult, error)
+	ScanPantryMulti(ctx context.Context, imageDataList [][]byte, mimeTypes []string, targetLanguage string) (*PantryScanResult, error)
 }
 
 // PantryScanResult contains the detected pantry items from an image
@@ -206,6 +206,7 @@ type EnrichmentInput struct {
 	PrepTime    int      `json:"prepTime,omitempty"`
 	CookTime    int      `json:"cookTime,omitempty"`
 	Cuisine     string   `json:"cuisine,omitempty"`
+	Language    string   `json:"language,omitempty"` // "en", "fr", etc.
 }
 
 // EnrichmentResult contains the enrichment data from AI

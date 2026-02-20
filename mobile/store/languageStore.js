@@ -47,16 +47,29 @@ export const useLanguageStore = create((set, get) => ({
     const currentIsRTL = get().isRTL;
     set({ language: lang, isRTL: nextIsRTL });
 
-    // RTL changes require app reload
+    // RTL changes require a full app reload to re-render the layout tree.
     if (currentIsRTL !== nextIsRTL) {
       try {
         const Updates = require("expo-updates");
         await Updates.reloadAsync();
       } catch {
-        const { DevSettings, I18nManager } = require("react-native");
+        const { DevSettings, I18nManager, Alert } = require("react-native");
         I18nManager.allowRTL(nextIsRTL);
         I18nManager.forceRTL(nextIsRTL);
-        if (DevSettings?.reload) DevSettings.reload();
+        if (DevSettings?.reload) {
+          // Development only (Expo Go / metro dev client)
+          DevSettings.reload();
+        } else {
+          // Production build where expo-updates is unavailable or reloadAsync threw.
+          // I18nManager.forceRTL has been set — the user just needs to restart once.
+          Alert.alert(
+            i18n.t("common:restartRequired", "Restart required"),
+            i18n.t(
+              "common:restartMessage",
+              "Please close and reopen the app to apply the language change."
+            )
+          );
+        }
       }
     }
   },

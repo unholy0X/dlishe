@@ -31,6 +31,32 @@ var (
 	reJSONBlock        = regexp.MustCompile("(?s)```(?:json)?\\s*(.*?)```")
 )
 
+// languageNames maps ISO 639-1 codes to the full name used in Gemini prompts.
+// "auto" tells Gemini to detect language from the source content.
+var languageNames = map[string]string{
+	"en":   "English",
+	"fr":   "French",
+	"ar":   "Arabic",
+	"es":   "Spanish",
+	"de":   "German",
+	"it":   "Italian",
+	"pt":   "Portuguese",
+	"zh":   "Chinese",
+	"ja":   "Japanese",
+	"ko":   "Korean",
+	"auto": "auto",
+}
+
+// ResolveLanguageName converts an ISO 639-1 code to the full English name
+// used in Gemini prompts. Exported so the handler package can call it.
+// Falls back to "English" for unrecognised codes.
+func ResolveLanguageName(code string) string {
+	if name, ok := languageNames[code]; ok {
+		return name
+	}
+	return "English"
+}
+
 // isPrivateIP checks if an IP address is private/internal (SSRF protection)
 func isPrivateIP(ip net.IP) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
@@ -437,6 +463,12 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		if !reLangValidation.MatchString(req.Language) || len(req.Language) > 50 {
 			return nil, fmt.Errorf("invalid language format")
 		}
+		// Resolve ISO code (e.g. "fr") to full name (e.g. "French") for Gemini prompt.
+		// If req.Language is already a full name (e.g. "French"), ResolveLanguageName
+		// returns the fallback "English" — so we only resolve known ISO codes.
+		if resolved := ResolveLanguageName(req.Language); resolved != "English" || req.Language == "en" {
+			req.Language = resolved
+		}
 	} else {
 		req.Language = "English"
 	}
@@ -573,7 +605,7 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 }
 
 // RefineRecipe reviews and improves an extracted recipe
-func (g *GeminiClient) RefineRecipe(ctx context.Context, rawRecipe *ExtractionResult) (*ExtractionResult, error) {
+func (g *GeminiClient) RefineRecipe(ctx context.Context, rawRecipe *ExtractionResult, targetLanguage string) (*ExtractionResult, error) {
 	genModel := g.client.GenerativeModel(g.model)
 	genModel.ResponseMIMEType = "application/json"
 
@@ -583,10 +615,14 @@ func (g *GeminiClient) RefineRecipe(ctx context.Context, rawRecipe *ExtractionRe
 		return nil, fmt.Errorf("failed to marshal recipe: %w", err)
 	}
 
+	targetLangName := ResolveLanguageName(targetLanguage)
+
 	prompt := fmt.Sprintf(`You are a professional chef reviewing a recipe extraction. Your task is to refine and improve this recipe.
 
 **Original Recipe (JSON)**:
 %s
+
+**Target Language**: %s (All user-facing text except Categories MUST be translated to this language)
 
 **Your refinement tasks**:
 
@@ -618,13 +654,15 @@ func (g *GeminiClient) RefineRecipe(ctx context.Context, rawRecipe *ExtractionRe
 - NEVER remove or merge ingredients - keep ALL ingredients from the original
 - NEVER reduce the ingredient count - output must have >= original ingredient count
 - NEVER leave category empty - every ingredient must have a valid category
+- CATEGORIES MUST BE KEPT IN ENGLISH exact values: dairy, produce, proteins, bakery, pantry, spices, condiments, beverages, snacks, frozen, household, other
+- All other fields (Title, Description, Ingredient Names, Units, Sections, Steps, Tags) MUST be translated to %s
 - If two ingredients seem similar, keep BOTH - add notes to clarify difference
 - Preserve all timestamps, techniques, and other metadata exactly
 - Return the refined recipe in the EXACT SAME JSON structure
 
 Original ingredient count: %d - Your output MUST have at least %d ingredients.
 
-Return ONLY the JSON, no explanations.`, string(rawJSON), len(rawRecipe.Ingredients), len(rawRecipe.Ingredients))
+Return ONLY the JSON, no explanations.`, string(rawJSON), targetLangName, targetLangName, len(rawRecipe.Ingredients), len(rawRecipe.Ingredients))
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
 		return genModel.GenerateContent(ctx, genai.Text(prompt))
@@ -689,7 +727,7 @@ func (g *GeminiClient) ValidateURL(url string) error {
 }
 
 // SmartMergeItems takes a list of raw items and returns a consolidated, categorized list
-func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string) ([]model.ShoppingItemInput, error) {
+func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string, targetLanguage string) ([]model.ShoppingItemInput, error) {
 	genModel := g.client.GenerativeModel(g.model)
 	genModel.ResponseMIMEType = "application/json"
 
@@ -744,8 +782,12 @@ func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model
 		unitInstruction = `2. **Normalize Units**: Combine quantities and **STRICTLY CONVERT TO IMPERIAL** (ounces, lbs, cups, tsp, tbsp, fahrenheit). Convert grams/kg to oz/lbs. Example: "100g" -> "3.5oz".`
 	}
 
+	targetLangName := ResolveLanguageName(targetLanguage)
+
 	prompt := fmt.Sprintf(`
 		You are an expert home economist and chef. Your task is to take a raw shopping list and "Smart Merge" it into a clean, organized perfection.
+
+		**Target Language**: %s (Item Names and Units MUST be in this language, but Categories MUST stay exactly as the English <valid_categories> values provided)
 
 		<input_list>
 		%s
@@ -758,15 +800,15 @@ func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model
 		**Instructions**:
 		1. **Merge Duplicates**: Combine items that are effectively the same (e.g., "Onions" + "1 Red Onion" -> "2 Onions" unless specific distinction matters for a recipe).
 		%s
-		3. **Categorize**: Assign the correct category from the <valid_categories> list provided.
-		4. **Standardize Names**: Use clean, capitalized names (e.g., "milk" -> "Milk").
+		3. **Categorize**: Assign the correct category EXACTLY from the English <valid_categories> list provided.
+		4. **Standardize Names**: Use clean, capitalized names translated to the Target Language (e.g., "milk" -> "Le Lait").
 
 		**Return ONLY structured JSON**:
 		[
 			{ "name": "Milk", "quantity": 1, "unit": "gallon", "category": "dairy" },
 			{ "name": "Onions", "quantity": 3, "unit": "pieces", "category": "produce" }
 		]
-	`, string(listJSON), string(categoriesJSON), unitInstruction)
+	`, targetLangName, string(listJSON), string(categoriesJSON), unitInstruction)
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
 		return genModel.GenerateContent(ctx, genai.Text(prompt))
@@ -896,12 +938,12 @@ Return ONLY the JSON, no markdown or explanations.`, sanitizePromptString(url), 
 }
 
 // ScanPantry detects pantry items from an image
-func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeType string) (*PantryScanResult, error) {
-	return g.ScanPantryMulti(ctx, [][]byte{imageData}, []string{mimeType})
+func (g *GeminiClient) ScanPantry(ctx context.Context, imageData []byte, mimeType string, targetLanguage string) (*PantryScanResult, error) {
+	return g.ScanPantryMulti(ctx, [][]byte{imageData}, []string{mimeType}, targetLanguage)
 }
 
 // ScanPantryMulti detects pantry items from multiple images
-func (g *GeminiClient) ScanPantryMulti(ctx context.Context, imageDataList [][]byte, mimeTypes []string) (*PantryScanResult, error) {
+func (g *GeminiClient) ScanPantryMulti(ctx context.Context, imageDataList [][]byte, mimeTypes []string, targetLanguage string) (*PantryScanResult, error) {
 	if len(imageDataList) == 0 {
 		return nil, fmt.Errorf("no images provided")
 	}
@@ -931,7 +973,11 @@ func (g *GeminiClient) ScanPantryMulti(ctx context.Context, imageDataList [][]by
 	genModel := g.client.GenerativeModel(g.model)
 	genModel.ResponseMIMEType = "application/json"
 
-	prompt := `You are an expert at identifying food and pantry items. Analyze the provided image(s) and detect all visible food/pantry items.
+	targetLangName := ResolveLanguageName(targetLanguage)
+
+	prompt := fmt.Sprintf(`You are an expert at identifying food and pantry items. Analyze the provided image(s) and detect all visible food/pantry items.
+
+**Target Language**: %s (Item Names and Units MUST be in this language, but Categories MUST stay English)
 
 **Instructions**:
 1. **CRITICAL**: If the image(s) clearly do **NOT show a pantry, fridge, food storage, or grocery receipt/haul** (e.g. a selfie, landscape, car, pet, random object),
@@ -972,7 +1018,7 @@ func (g *GeminiClient) ScanPantryMulti(ctx context.Context, imageDataList [][]by
 - Weight: "g", "kg", "oz", "lbs"
 - Volume: "ml", "liters"
 
-Return ONLY the JSON, no markdown or explanations. If no food items are detected, return empty items array.`
+Return ONLY the JSON, no markdown or explanations. If no food items are detected, return empty items array.`, targetLangName)
 
 	parts = append(parts, genai.Text(prompt))
 
@@ -1037,9 +1083,16 @@ func (g *GeminiClient) EnrichRecipe(ctx context.Context, input *EnrichmentInput)
 	// Determine if we need servings estimate
 	needServingsEstimate := input.Servings == 0
 
+	// If the recipe is in a non-English language, hint Gemini so it can correctly
+	// identify ingredients/steps written in that language.
+	langHint := ""
+	if input.Language != "" && input.Language != "en" {
+		langHint = fmt.Sprintf("Recipe content language: %s. Analyze ingredient and step names accordingly.\n\n", ResolveLanguageName(input.Language))
+	}
+
 	prompt := fmt.Sprintf(`Analyze this recipe and provide nutrition estimates and dietary classifications.
 
-Recipe:
+%sRecipe:
 ---
 %s
 ---
@@ -1080,7 +1133,7 @@ Guidelines:
 - For dietary flags, analyze all ingredients carefully
 - Use null for isHalal/isKosher unless clearly determinable (e.g., pork = not halal)
 - Infer meal types from recipe characteristics (eggs+bacon=breakfast, substantial protein+sides=dinner, sweet/chocolate=dessert, etc.)
-%s- Set confidence based on how certain you are of your estimates`, recipeText.String(), getServingsEstimateSchema(needServingsEstimate), getServingsEstimateGuideline(needServingsEstimate))
+%s- Set confidence based on how certain you are of your estimates`, langHint, recipeText.String(), getServingsEstimateSchema(needServingsEstimate), getServingsEstimateGuideline(needServingsEstimate))
 
 	// Retry the entire generation + parsing to handle transient JSON issues
 	var lastErr error

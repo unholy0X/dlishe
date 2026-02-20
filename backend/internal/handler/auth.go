@@ -29,6 +29,7 @@ type UserResponse struct {
 	Email               *string `json:"email,omitempty"`
 	Name                *string `json:"name,omitempty"`
 	PreferredUnitSystem string  `json:"preferredUnitSystem"`
+	PreferredLanguage   string  `json:"preferredLanguage"`
 	IsAnonymous         bool    `json:"isAnonymous"`
 	CreatedAt           string  `json:"createdAt"`
 }
@@ -72,6 +73,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 			Email:               user.Email,
 			Name:                user.Name,
 			PreferredUnitSystem: user.PreferredUnitSystem,
+			PreferredLanguage:   user.PreferredLanguage,
 			IsAnonymous:         user.IsAnonymous,
 			CreatedAt:           user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		},
@@ -88,6 +90,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 // UpdatePreferencesRequest represents the request to update user preferences
 type UpdatePreferencesRequest struct {
 	PreferredUnitSystem string `json:"preferredUnitSystem"`
+	PreferredLanguage   string `json:"preferredLanguage"`
 }
 
 // UpdatePreferences handles PATCH /api/v1/users/me/preferences
@@ -104,9 +107,17 @@ func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if req.PreferredUnitSystem != "metric" && req.PreferredUnitSystem != "imperial" {
+	if req.PreferredUnitSystem != "" && req.PreferredUnitSystem != "metric" && req.PreferredUnitSystem != "imperial" {
 		response.ValidationFailed(w, "preferredUnitSystem", "must be 'metric' or 'imperial'")
 		return
+	}
+
+	if req.PreferredLanguage != "" {
+		validLangs := map[string]bool{"en": true, "fr": true, "ar": true}
+		if !validLangs[req.PreferredLanguage] {
+			response.BadRequest(w, "unsupported language code")
+			return
+		}
 	}
 
 	// Re-fetch from DB to get the latest state before updating [P1 fix]
@@ -120,7 +131,13 @@ func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	dbUser.PreferredUnitSystem = req.PreferredUnitSystem
+	if req.PreferredUnitSystem != "" {
+		dbUser.PreferredUnitSystem = req.PreferredUnitSystem
+	}
+	if req.PreferredLanguage != "" {
+		dbUser.PreferredLanguage = req.PreferredLanguage
+	}
+
 	if err := h.userRepo.Update(r.Context(), dbUser); err != nil {
 		response.InternalError(w)
 		return
@@ -131,6 +148,7 @@ func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) 
 		Email:               dbUser.Email,
 		Name:                dbUser.Name,
 		PreferredUnitSystem: dbUser.PreferredUnitSystem,
+		PreferredLanguage:   dbUser.PreferredLanguage,
 		IsAnonymous:         dbUser.IsAnonymous,
 		CreatedAt:           dbUser.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}

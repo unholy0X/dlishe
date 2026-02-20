@@ -37,7 +37,8 @@ func NewExtractionService(
 
 // ExtractFromURLOptions contains options for URL extraction
 type ExtractFromURLOptions struct {
-	BypassCache bool // Force re-extraction even if cached
+	BypassCache bool   // Force re-extraction even if cached
+	Language    string // ISO 639-1 code, e.g. "en", "fr", "ar". Defaults to "en".
 }
 
 // ExtractFromURLResult contains the extraction result
@@ -78,7 +79,11 @@ func (s *ExtractionService) ExtractFromURL(ctx context.Context, userID uuid.UUID
 	}
 
 	// Step 3: Refine the extraction
-	refined, err := s.extractor.RefineRecipe(ctx, extracted)
+	lang := opts.Language
+	if lang == "" {
+		lang = "en"
+	}
+	refined, err := s.extractor.RefineRecipe(ctx, extracted, lang)
 	if err != nil {
 		// Use unrefined if refinement fails
 		refined = extracted
@@ -86,6 +91,7 @@ func (s *ExtractionService) ExtractFromURL(ctx context.Context, userID uuid.UUID
 
 	// Step 4: Enrich with nutrition and dietary info
 	enrichInput := s.extractionResultToEnrichmentInput(refined)
+	enrichInput.Language = lang
 	enrichResult, err := s.enricher.EnrichRecipe(ctx, enrichInput)
 	if err != nil {
 		// Log but continue without enrichment
@@ -108,7 +114,11 @@ func (s *ExtractionService) ExtractFromURL(ctx context.Context, userID uuid.UUID
 }
 
 // ExtractFromImage extracts a recipe from an image (no caching for images)
-func (s *ExtractionService) ExtractFromImage(ctx context.Context, userID uuid.UUID, imageData []byte, mimeType string) (*ExtractFromURLResult, error) {
+func (s *ExtractionService) ExtractFromImage(ctx context.Context, userID uuid.UUID, imageData []byte, mimeType string, language string) (*ExtractFromURLResult, error) {
+	if language == "" {
+		language = "en"
+	}
+
 	// Step 1: Extract recipe from image
 	extracted, err := s.extractor.ExtractFromImage(ctx, imageData, mimeType)
 	if err != nil {
@@ -116,13 +126,14 @@ func (s *ExtractionService) ExtractFromImage(ctx context.Context, userID uuid.UU
 	}
 
 	// Step 2: Refine the extraction
-	refined, err := s.extractor.RefineRecipe(ctx, extracted)
+	refined, err := s.extractor.RefineRecipe(ctx, extracted, language)
 	if err != nil {
 		refined = extracted
 	}
 
 	// Step 3: Enrich with nutrition and dietary info
 	enrichInput := s.extractionResultToEnrichmentInput(refined)
+	enrichInput.Language = language
 	enrichResult, err := s.enricher.EnrichRecipe(ctx, enrichInput)
 	if err != nil {
 		enrichResult = nil

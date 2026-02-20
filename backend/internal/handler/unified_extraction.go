@@ -31,16 +31,16 @@ import (
 
 // UnifiedExtractionHandler handles all recipe extraction types (url, image, video)
 type UnifiedExtractionHandler struct {
-	jobRepo    JobRepository
-	recipeRepo RecipeRepository
-	userRepo   UserRepository
-	extractor  ai.RecipeExtractor
-	enricher   ai.RecipeEnricher
-	cacheRepo  *postgres.ExtractionCacheRepository
-	downloader            VideoDownloader
-	instagramDownloader   InstagramVideoDownloader
-	redis                 *redis.Client
-	logger                *slog.Logger
+	jobRepo             JobRepository
+	recipeRepo          RecipeRepository
+	userRepo            UserRepository
+	extractor           ai.RecipeExtractor
+	enricher            ai.RecipeEnricher
+	cacheRepo           *postgres.ExtractionCacheRepository
+	downloader          VideoDownloader
+	instagramDownloader InstagramVideoDownloader
+	redis               *redis.Client
+	logger              *slog.Logger
 
 	// activeJobs stores cancel functions for running jobs
 	activeJobs sync.Map // map[uuid.UUID]context.CancelFunc
@@ -148,8 +148,8 @@ type UnifiedExtractRequest struct {
 	Images       []ImageInput `json:"images,omitempty"`       // New multi-image field
 	Language     string       `json:"language,omitempty"`     // "en", "fr", "es", "auto"
 	DetailLevel  string       `json:"detailLevel,omitempty"`  // "quick", "detailed"
-	SaveAuto     interface{} `json:"saveAuto,omitempty"`     // Auto-save extracted recipe (bool or string)
-	ForceRefresh interface{} `json:"forceRefresh,omitempty"` // Bypass cache and re-extract (bool or string)
+	SaveAuto     interface{}  `json:"saveAuto,omitempty"`     // Auto-save extracted recipe (bool or string)
+	ForceRefresh interface{}  `json:"forceRefresh,omitempty"` // Bypass cache and re-extract (bool or string)
 }
 
 // Extract handles POST /api/v1/recipes/extract
@@ -405,10 +405,34 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Set defaults
-	if req.Language == "" {
-		req.Language = "auto"
+	// Validate language code if explicitly provided
+	if req.Language != "" && req.Language != "auto" {
+		validLangs := map[string]bool{"en": true, "fr": true, "ar": true}
+		if !validLangs[req.Language] {
+			response.ValidationFailed(w, "language", "must be 'en', 'fr', or 'ar'")
+			return
+		}
 	}
+
+	// Resolve effective language.
+	// Priority: explicit request param → user's stored preference → "en"
+	effectiveLangCode := req.Language
+	if effectiveLangCode == "" || effectiveLangCode == "auto" {
+		if dbUser, err := h.userRepo.GetByID(r.Context(), user.ID); err == nil && dbUser.PreferredLanguage != "" {
+			effectiveLangCode = dbUser.PreferredLanguage
+		} else {
+			if err != nil {
+				h.logger.Warn("Failed to fetch user preferred language, defaulting to 'en'",
+					"error", err, "user_id", user.ID)
+			}
+			effectiveLangCode = "en"
+		}
+	}
+
+	// We need to pass the resolved name to the request for Gemini,
+	// but keep the ISO code in the job model for database persistence.
+	req.Language = effectiveLangCode
+
 	if req.DetailLevel == "" {
 		req.DetailLevel = "detailed"
 	}
@@ -689,7 +713,7 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 
 	// Refine the recipe
 	updateProgress(model.JobStatusExtracting, 85, "Refining recipe...")
-	refined, refineErr := h.extractor.RefineRecipe(ctx, result)
+	refined, refineErr := h.extractor.RefineRecipe(ctx, result, job.Language)
 	if refineErr == nil && refined != nil {
 		result = refined
 	}
@@ -704,6 +728,7 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 	if h.enricher != nil {
 		updateProgress(model.JobStatusExtracting, 90, "Analyzing nutrition and dietary info...")
 		enrichInput := h.extractionResultToEnrichmentInput(result)
+		enrichInput.Language = job.Language
 		enrichment, err = h.enricher.EnrichRecipe(ctx, enrichInput)
 		if err != nil {
 			// Log but continue without enrichment
@@ -1288,23 +1313,24 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 	}
 
 	recipe := &model.Recipe{
-		ID:           uuid.New(),
-		UserID:       job.UserID,
-		Title:        result.Title,
-		Description:  stringPtr(result.Description),
-		Servings:     intPtr(result.Servings),
-		PrepTime:     intPtr(result.PrepTime),
-		CookTime:     intPtr(result.CookTime),
-		Difficulty:   stringPtr(result.Difficulty),
-		Cuisine:      stringPtr(result.Cuisine),
-		SourceType:   sourceType,
-		SourceURL:    stringPtr(job.SourceURL),
-		ThumbnailURL: stringPtr(thumbnailForDB),
-		Tags:         result.Tags,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-		IsPublic:     isAdmin,
-		IsFeatured:   isInspirator,
+		ID:              uuid.New(),
+		UserID:          job.UserID,
+		Title:           result.Title,
+		Description:     stringPtr(result.Description),
+		Servings:        intPtr(result.Servings),
+		PrepTime:        intPtr(result.PrepTime),
+		CookTime:        intPtr(result.CookTime),
+		Difficulty:      stringPtr(result.Difficulty),
+		Cuisine:         stringPtr(result.Cuisine),
+		SourceType:      sourceType,
+		SourceURL:       stringPtr(job.SourceURL),
+		ThumbnailURL:    stringPtr(thumbnailForDB),
+		Tags:            result.Tags,
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
+		IsPublic:        isAdmin,
+		IsFeatured:      isInspirator,
+		ContentLanguage: job.Language,
 	}
 
 	if isInspirator {

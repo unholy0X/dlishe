@@ -450,6 +450,15 @@ export default function RecipeDetailScreen() {
         </View>
 
         <View style={s.body}>
+          {/* Language badge — shown only when recipe language differs from current app language */}
+          {recipe.contentLanguage && recipe.contentLanguage !== language ? (
+            <View style={s.langBadge}>
+              <Text style={s.langBadgeText}>
+                {{ en: "English", fr: "Français", ar: "العربية" }[recipe.contentLanguage] ?? recipe.contentLanguage.toUpperCase()}
+              </Text>
+            </View>
+          ) : null}
+
           {/* Description */}
           {recipe.description ? (
             <Text style={s.description}>{recipe.description}</Text>
@@ -952,6 +961,24 @@ function makeStyles(FONT, isRTL = false) {
       color: C.textSecondary,
       textTransform: "capitalize",
       letterSpacing: isRTL ? 0 : -0.05,
+    },
+
+    // Language badge
+    langBadge: {
+      alignSelf: "flex-start",
+      backgroundColor: "#FDF2E8",
+      borderRadius: 8,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: "#F0A45E",
+    },
+    langBadgeText: {
+      fontSize: 11,
+      fontFamily: FONT.semibold,
+      color: C.orangeDark,
+      letterSpacing: 0.3,
     },
 
     // Tags

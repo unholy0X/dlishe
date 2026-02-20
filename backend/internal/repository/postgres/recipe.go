@@ -968,6 +968,39 @@ func (r *RecipeRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	return tx.Commit()
 }
 
+// DeleteAllByUser soft-deletes every recipe owned by the user and removes
+// their corresponding meal plan entries in a single transaction.
+func (r *RecipeRepository) DeleteAllByUser(ctx context.Context, userID uuid.UUID) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UTC()
+
+	// Remove meal plan entries that reference this user's recipes first.
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM meal_plan_entries
+		WHERE recipe_id IN (
+			SELECT id FROM recipes WHERE user_id = $1 AND deleted_at IS NULL
+		)
+	`, userID); err != nil {
+		return err
+	}
+
+	// Soft-delete all of the user's non-deleted recipes in one statement.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE recipes
+		SET deleted_at = $2, updated_at = $2
+		WHERE user_id = $1 AND deleted_at IS NULL
+	`, userID, now); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // SetFavorite sets the favorite status of a recipe
 func (r *RecipeRepository) SetFavorite(ctx context.Context, id uuid.UUID, favorite bool) error {
 	query := `

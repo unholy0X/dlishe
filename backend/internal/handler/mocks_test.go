@@ -113,6 +113,9 @@ func (m *mockUserRepository) UpsertSubscription(ctx context.Context, sub *model.
 	}
 	return m.UpsertSubscriptionFunc(ctx, sub)
 }
+func (m *mockUserRepository) DeleteAccount(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
 
 type mockRecipeRepository struct {
 	CreateFunc                 func(ctx context.Context, recipe *model.Recipe) error
@@ -200,6 +203,9 @@ func (m *mockRecipeRepository) SoftDelete(ctx context.Context, id uuid.UUID) err
 		return nil
 	}
 	return m.SoftDeleteFunc(ctx, id)
+}
+func (m *mockRecipeRepository) DeleteAllByUser(ctx context.Context, userID uuid.UUID) error {
+	return nil
 }
 func (m *mockRecipeRepository) SetFavorite(ctx context.Context, id uuid.UUID, isFavorite bool) error {
 	if m.SetFavoriteFunc == nil {

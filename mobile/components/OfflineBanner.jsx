@@ -1,41 +1,57 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import { Text, StyleSheet, Animated } from "react-native";
 import * as Network from "expo-network";
 import { useTranslation } from "react-i18next";
 
+/**
+ * Returns true ONLY when connectivity is definitively offline.
+ * - isConnected === false  → definitely no network
+ * - isInternetReachable === false  → connected but no internet (captive portal, etc.)
+ * - null / undefined → unknown (Android returns null while probing); treat as online
+ *   to avoid false-positive offline banners on launch.
+ */
+function isDefinitelyOffline(state) {
+  if (!state) return false;
+  if (state.isConnected === false) return true;
+  if (state.isInternetReachable === false) return true;
+  return false;
+}
+
 export default function OfflineBanner() {
   const { t } = useTranslation("common");
-  const [isOffline, setIsOffline] = useState(false);
+  const [offline, setOffline] = useState(false);
   const slideAnim = useRef(new Animated.Value(-60)).current;
 
   useEffect(() => {
     let mounted = true;
 
-    const check = async () => {
-      try {
-        const state = await Network.getNetworkStateAsync();
-        if (mounted) setIsOffline(!state.isConnected || !state.isInternetReachable);
-      } catch {
-        // ignore — assume online if check fails
-      }
-    };
+    // Seed the initial state synchronously so there is no gap on mount.
+    Network.getNetworkStateAsync()
+      .then((state) => {
+        if (mounted) setOffline(isDefinitelyOffline(state));
+      })
+      .catch(() => {
+        // If the initial probe fails, assume online — do not show false alarm.
+      });
 
-    check();
+    // Subscribe to real-time state changes; no polling, zero battery overhead.
+    const subscription = Network.addNetworkStateListener((state) => {
+      if (mounted) setOffline(isDefinitelyOffline(state));
+    });
 
-    const interval = setInterval(check, 5000);
     return () => {
       mounted = false;
-      clearInterval(interval);
+      subscription.remove();
     };
   }, []);
 
   useEffect(() => {
     Animated.timing(slideAnim, {
-      toValue: isOffline ? 0 : -60,
+      toValue: offline ? 0 : -60,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [isOffline]);
+  }, [offline, slideAnim]);
 
   return (
     <Animated.View

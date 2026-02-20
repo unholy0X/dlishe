@@ -621,6 +621,25 @@ func (h *RecipeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
+// DeleteAll handles DELETE /api/v1/recipes
+// Soft-deletes every recipe belonging to the authenticated user in a single
+// database transaction. Used by the mobile "Clear All" feature so the client
+// does not need to fire N individual DELETE requests.
+func (h *RecipeHandler) DeleteAll(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	if err := h.repo.DeleteAllByUser(r.Context(), user.ID); err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	response.NoContent(w)
+}
+
 // ToggleFavorite handles POST /api/v1/recipes/{recipeID}/favorite
 // @Summary Toggle recipe favorite status
 // @Description Mark or unmark a recipe as favorite

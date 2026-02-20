@@ -480,6 +480,9 @@ func (r *UserRepository) DeleteAccount(ctx context.Context, id uuid.UUID) error 
 		`DELETE FROM video_jobs WHERE user_id = $1`,
 		`DELETE FROM user_subscriptions WHERE user_id = $1`,
 		`DELETE FROM usage_quotas WHERE user_id = $1`,
+		// Wipe RevenueCat idempotency ledger — app_user_id is stored as the
+		// user's UUID string; payload may contain PII (email, name).
+		`DELETE FROM revenuecat_events WHERE app_user_id = $1::text`,
 		// Soft-delete the user record last
 		`UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
 	}

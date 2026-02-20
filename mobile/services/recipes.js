@@ -18,6 +18,10 @@ export async function deleteRecipe({ recipeId, getToken }) {
   return authFetch(`/recipes/${recipeId}`, getToken, { method: "DELETE" });
 }
 
+export async function deleteAllRecipes({ getToken }) {
+  return authFetch("/recipes", getToken, { method: "DELETE" });
+}
+
 export async function fetchSuggested({ limit = 10, offset = 0 } = {}) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset), lang: getCurrentLanguage() });
   return apiFetch(`/recipes/suggested?${params}`, {});

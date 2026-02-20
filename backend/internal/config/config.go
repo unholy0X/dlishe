@@ -83,6 +83,10 @@ type Config struct {
 	// Leave both empty to disable demo mode.
 	DemoToken     string
 	DemoUserEmail string
+
+	// Observability
+	SentryDSN   string // Leave empty to disable Sentry
+	Environment string // "production", "staging", "development"
 }
 
 // Load creates a Config from environment variables
@@ -156,6 +160,10 @@ func Load() *Config {
 		// Demo account
 		DemoToken:     getEnv("DEMO_TOKEN", ""),
 		DemoUserEmail: getEnv("DEMO_USER_EMAIL", ""),
+
+		// Observability
+		SentryDSN:   getEnv("SENTRY_DSN", ""),
+		Environment: getEnv("ENVIRONMENT", "production"),
 	}
 }
 

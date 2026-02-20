@@ -40,6 +40,7 @@ type RecipeRepository interface {
 	SearchPublic(ctx context.Context, query, lang string, limit int) ([]*model.Recipe, error)
 	Update(ctx context.Context, recipe *model.Recipe) error
 	SoftDelete(ctx context.Context, id uuid.UUID) error
+	DeleteAllByUser(ctx context.Context, userID uuid.UUID) error
 	SetFavorite(ctx context.Context, id uuid.UUID, isFavorite bool) error
 }
 

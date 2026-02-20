@@ -618,11 +618,14 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 }
 
 // ListPublic retrieves all public/suggested recipes with ingredient/step counts
-func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
-	// Get total count
-	countQuery := `SELECT COUNT(*) FROM recipes WHERE is_public = TRUE AND deleted_at IS NULL`
+func (r *RecipeRepository) ListPublic(ctx context.Context, lang string, limit, offset int) ([]*model.Recipe, int, error) {
+	if lang == "" {
+		lang = "en"
+	}
+	// Get total count for this language
+	countQuery := `SELECT COUNT(*) FROM recipes WHERE is_public = TRUE AND deleted_at IS NULL AND COALESCE(NULLIF(content_language,''),'en') = $1`
 	var total int
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	err := r.db.QueryRowContext(ctx, countQuery, lang).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -639,11 +642,12 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
 		FROM recipes r
 		WHERE r.is_public = TRUE AND r.deleted_at IS NULL
+		  AND COALESCE(NULLIF(r.content_language,''),'en') = $1
 		ORDER BY RANDOM()
-		LIMIT $1 OFFSET $2
+		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, lang, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1313,10 +1317,13 @@ func (r *RecipeRepository) Search(ctx context.Context, userID uuid.UUID, query s
 }
 
 // SearchPublic searches public (suggested) recipes by title, cuisine, description, and tags.
-func (r *RecipeRepository) SearchPublic(ctx context.Context, query string, limit int) ([]*model.Recipe, error) {
+func (r *RecipeRepository) SearchPublic(ctx context.Context, query, lang string, limit int) ([]*model.Recipe, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
+	if lang == "" {
+		lang = "en"
+	}
 	if limit <= 0 {
 		limit = 10
 	}
@@ -1343,6 +1350,7 @@ func (r *RecipeRepository) SearchPublic(ctx context.Context, query string, limit
 		FROM recipes r
 		WHERE (r.is_public = TRUE OR r.is_featured = TRUE)
 		  AND r.deleted_at IS NULL
+		  AND COALESCE(NULLIF(r.content_language,''),'en') = $4
 		  AND (
 		      r.title ILIKE $1
 		      OR r.cuisine ILIKE $1
@@ -1360,7 +1368,7 @@ func (r *RecipeRepository) SearchPublic(ctx context.Context, query string, limit
 		LIMIT $3
 	`
 
-	rows, err := r.db.QueryContext(ctx, sqlQuery, searchPattern, query, limit)
+	rows, err := r.db.QueryContext(ctx, sqlQuery, searchPattern, query, limit, lang)
 	if err != nil {
 		return nil, err
 	}

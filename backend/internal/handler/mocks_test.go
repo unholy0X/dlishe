@@ -159,7 +159,7 @@ func (m *mockRecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID,
 	}
 	return m.ListByUserFunc(ctx, userID, limit, offset)
 }
-func (m *mockRecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
+func (m *mockRecipeRepository) ListPublic(ctx context.Context, lang string, limit, offset int) ([]*model.Recipe, int, error) {
 	if m.ListPublicFunc == nil {
 		return nil, 0, nil
 	}
@@ -183,7 +183,7 @@ func (m *mockRecipeRepository) Search(ctx context.Context, userID uuid.UUID, que
 	}
 	return m.SearchFunc(ctx, userID, query, limit)
 }
-func (m *mockRecipeRepository) SearchPublic(ctx context.Context, query string, limit int) ([]*model.Recipe, error) {
+func (m *mockRecipeRepository) SearchPublic(ctx context.Context, query, lang string, limit int) ([]*model.Recipe, error) {
 	return []*model.Recipe{}, nil
 }
 func (m *mockRecipeRepository) Update(ctx context.Context, recipe *model.Recipe) error {

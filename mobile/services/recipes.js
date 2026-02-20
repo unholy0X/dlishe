@@ -1,4 +1,9 @@
 import { apiFetch, authFetch } from "./api";
+import { useLanguageStore } from "../store/languageStore";
+
+function getCurrentLanguage() {
+  return useLanguageStore.getState().language || "en";
+}
 
 export async function fetchRecipes({ getToken, limit = 20, offset = 0 }) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
@@ -14,7 +19,7 @@ export async function deleteRecipe({ recipeId, getToken }) {
 }
 
 export async function fetchSuggested({ limit = 10, offset = 0 } = {}) {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset), lang: getCurrentLanguage() });
   return apiFetch(`/recipes/suggested?${params}`, {});
 }
 
@@ -33,7 +38,7 @@ export async function searchRecipes({ getToken, query, limit = 10 }) {
 }
 
 export async function searchPublicRecipes({ query, limit = 15 }) {
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  const params = new URLSearchParams({ q: query, limit: String(limit), lang: getCurrentLanguage() });
   return apiFetch(`/recipes/search/public?${params}`, {});
 }
 

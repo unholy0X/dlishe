@@ -213,6 +213,14 @@ func (h *RecipeHandler) SearchPublic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lang := r.URL.Query().Get("lang")
+	switch lang {
+	case "en", "fr", "ar":
+		// valid
+	default:
+		lang = "en"
+	}
+
 	limit := 15
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 50 {
@@ -220,7 +228,7 @@ func (h *RecipeHandler) SearchPublic(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recipes, err := h.repo.SearchPublic(r.Context(), query, limit)
+	recipes, err := h.repo.SearchPublic(r.Context(), query, lang, limit)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -268,6 +276,15 @@ func (h *RecipeHandler) SearchPublic(w http.ResponseWriter, r *http.Request) {
 func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
 	// No auth required - public endpoint
 
+	// Language filter: ?lang=en|fr|ar (default "en")
+	lang := r.URL.Query().Get("lang")
+	switch lang {
+	case "en", "fr", "ar":
+		// valid
+	default:
+		lang = "en"
+	}
+
 	// Pagination
 	limit := 20
 	offset := 0
@@ -284,7 +301,7 @@ func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recipes, total, err := h.repo.ListPublic(r.Context(), limit, offset)
+	recipes, total, err := h.repo.ListPublic(r.Context(), lang, limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return

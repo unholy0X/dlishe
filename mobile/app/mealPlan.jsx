@@ -131,6 +131,10 @@ export default function MealPlanScreen() {
     }
   }, [getToken]);
 
+  const handleRecipePress = useCallback((recipeId) => {
+    if (recipeId) router.push(`/recipe/${recipeId}`);
+  }, [router]);
+
   const handleGenerateList = useCallback(async () => {
     try {
       const result = await generateShoppingList({ getToken });
@@ -226,6 +230,7 @@ export default function MealPlanScreen() {
                 entries={entriesForDay.filter((e) => e.mealType === type)}
                 onAdd={() => handleAdd(type)}
                 onRemove={handleRemove}
+                onPressRecipe={handleRecipePress}
               />
             ))}
 

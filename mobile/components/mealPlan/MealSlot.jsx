@@ -56,7 +56,7 @@ function buildMeta(entry, t) {
   return "";
 }
 
-export default function MealSlot({ mealType, entries = [], onAdd, onRemove }) {
+export default function MealSlot({ mealType, entries = [], onAdd, onRemove, onPressRecipe }) {
   const { t } = useTranslation("mealPlan");
   const config = MEAL_CONFIG[mealType] || MEAL_CONFIG.dinner;
   const { Icon } = config;
@@ -83,7 +83,11 @@ export default function MealSlot({ mealType, entries = [], onAdd, onRemove }) {
       {entries.map((entry) => {
         const meta = buildMeta(entry, t);
         return (
-          <View key={entry.id} style={styles.recipeCard}>
+          <Pressable
+            key={entry.id}
+            style={({ pressed }) => [styles.recipeCard, pressed && { opacity: 0.75 }]}
+            onPress={() => onPressRecipe && onPressRecipe(entry.recipeId)}
+          >
             <View style={styles.thumbWrap}>
               <RecipePlaceholder title={entry.recipeTitle || ""} variant="small" style={styles.thumb} />
               {entry.thumbnailUrl ? (
@@ -103,14 +107,14 @@ export default function MealSlot({ mealType, entries = [], onAdd, onRemove }) {
             </View>
             <Pressable
               style={styles.removeBtn}
-              onPress={() => onRemove(entry.id)}
+              onPress={(e) => { e.stopPropagation?.(); onRemove(entry.id); }}
               hitSlop={10}
             >
               <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth={2.5} strokeLinecap="round">
                 <Path d="M18 6L6 18M6 6l12 12" />
               </Svg>
             </Pressable>
-          </View>
+          </Pressable>
         );
       })}
 

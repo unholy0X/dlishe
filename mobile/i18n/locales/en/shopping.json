@@ -29,6 +29,7 @@
     "hint": "Select at least 2 lists to merge.",
     "title": "Smart Merge",
     "merge": "Merge",
+    "generatedName": "Smart Merge — {{date}}",
     "confirm": "Merge {{names}} into one list? Duplicates will be combined intelligently.",
     "successTitle": "Merged",
     "successMessage": "Lists merged successfully!"

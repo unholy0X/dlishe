@@ -272,6 +272,14 @@ func (h *MealPlanHandler) GenerateShoppingList(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Parse optional body (e.g. localized list name from the client)
+	var generateReq struct {
+		Name string `json:"name"`
+	}
+	if r.ContentLength > 0 {
+		_ = json.NewDecoder(r.Body).Decode(&generateReq)
+	}
+
 	if len(plan.Entries) == 0 {
 		response.BadRequest(w, "Meal plan has no entries")
 		return
@@ -368,8 +376,12 @@ func (h *MealPlanHandler) GenerateShoppingList(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create shopping list
-	weekStr := plan.WeekStart.Format("Jan 2")
-	listName := fmt.Sprintf("Meal Plan — Week of %s", weekStr)
+	// Use client-provided name (localized) or fall back to default English
+	listName := generateReq.Name
+	if listName == "" {
+		weekStr := plan.WeekStart.Format("Jan 2")
+		listName = fmt.Sprintf("Meal Plan — Week of %s", weekStr)
+	}
 	listInput := &model.ShoppingListInput{
 		Name: listName,
 	}

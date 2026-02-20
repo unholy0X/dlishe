@@ -40,6 +40,7 @@
   "listCreated": "Liste de courses créée",
   "listCreatedMsg": "{{count}} articles ajoutés — retrouvez la liste dans l'onglet Courses.",
   "allInPantry": "Rien à acheter — tous les ingrédients sont déjà dans votre garde-manger !",
+  "generatedListName": "Plan repas — Semaine du {{date}}",
   "generateList": "Générer la liste de courses",
   "addRecipe": "+ Ajouter une recette",
   "addRecipeTitle": "Ajouter une recette",

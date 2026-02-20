@@ -28,8 +28,9 @@ export async function removePlanEntry({ getToken, planId, entryId }) {
   });
 }
 
-export async function generateShoppingList({ getToken, planId }) {
+export async function generateShoppingList({ getToken, planId, name }) {
   return authFetch(`/meal-plans/${planId}/generate-list`, getToken, {
     method: "POST",
+    body: name ? JSON.stringify({ name }) : undefined,
   });
 }

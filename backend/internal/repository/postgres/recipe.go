@@ -724,7 +724,8 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, lang string, limit, o
 			   r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
 			   r.content_language, r.translation_group_id,
 			   COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
-			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
+			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count,
+			   (SELECT array_agg(name ORDER BY sort_order) FROM recipe_ingredients WHERE recipe_id = r.id) AS ingredient_names
 		FROM recipes r
 		WHERE r.is_public = TRUE AND r.deleted_at IS NULL
 		  AND COALESCE(NULLIF(r.content_language,''),'en') = $1
@@ -742,7 +743,7 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, lang string, limit, o
 	for rows.Next() {
 		recipe := &model.Recipe{}
 		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
-		var tags TextArray
+		var tags, ingredientNames TextArray
 
 		err := rows.Scan(
 			&recipe.ID,
@@ -773,12 +774,14 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, lang string, limit, o
 			&recipe.TranslationGroupID,
 			&recipe.IngredientCount,
 			&recipe.StepCount,
+			&ingredientNames,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
 
 		recipe.Tags = []string(tags)
+		recipe.IngredientNames = []string(ingredientNames)
 		if sourceMetadata != nil {
 			unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 		}
@@ -1546,7 +1549,8 @@ func (r *RecipeRepository) ListFeatured(ctx context.Context, lang string, limit,
 			   r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
 			   r.content_language, r.translation_group_id,
 			   COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
-			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
+			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count,
+			   (SELECT array_agg(name ORDER BY sort_order) FROM recipe_ingredients WHERE recipe_id = r.id) AS ingredient_names
 		FROM recipes r
 		WHERE r.is_featured = TRUE AND r.deleted_at IS NULL
 		  AND COALESCE(NULLIF(r.content_language,''),'en') = $1
@@ -1564,7 +1568,7 @@ func (r *RecipeRepository) ListFeatured(ctx context.Context, lang string, limit,
 	for rows.Next() {
 		recipe := &model.Recipe{}
 		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
-		var tags TextArray
+		var tags, ingredientNames TextArray
 
 		err := rows.Scan(
 			&recipe.ID,
@@ -1595,12 +1599,14 @@ func (r *RecipeRepository) ListFeatured(ctx context.Context, lang string, limit,
 			&recipe.TranslationGroupID,
 			&recipe.IngredientCount,
 			&recipe.StepCount,
+			&ingredientNames,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
 
 		recipe.Tags = []string(tags)
+		recipe.IngredientNames = []string(ingredientNames)
 		if sourceMetadata != nil {
 			unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 		}

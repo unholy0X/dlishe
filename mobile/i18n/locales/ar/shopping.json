@@ -1,5 +1,5 @@
 {
-  "header": "المقاضي",
+  "header": "قوائم المشتريات",
   "listCount_zero": "لا توجد قوائم",
   "listCount_one": "قائمة واحدة",
   "listCount_two": "قائمتان",
@@ -14,8 +14,8 @@
     "createButton": "إنشاء قائمة"
   },
   "create": {
-    "sheetTitle": "قائمة مقاضي جديدة",
-    "namePlaceholder": "مثال: مقاضي الأسبوع",
+    "sheetTitle": "قائمة مشتريات جديدة",
+    "namePlaceholder": "مثال: مشتريات الأسبوع",
     "nameLabel": "الاسم",
     "cancel": "إلغاء",
     "create": "إنشاء"
@@ -38,6 +38,7 @@
     "hint": "حدد قائمتين على الأقل لدمجهما.",
     "title": "دمج ذكي",
     "merge": "دمج",
+    "generatedName": "دمج ذكي — {{date}}",
     "confirm": "دمج {{names}} في قائمة واحدة؟ سيتم التخلص من المكونات المكررة.",
     "successTitle": "تم الدمج بنجاح",
     "successMessage": "تم دمج القوائم في قائمة واحدة!"
@@ -102,6 +103,6 @@
     "categories_other": "{{count}} فئة",
     "deleteItem": "حذف المكون",
     "deleteItemMessage": "هل تريد حذف هذا المكون من القائمة؟",
-    "generateFromPlan": "إنشاء من خطة الوجبات"
+    "generateFromPlan": "إنشاء من وجبات الأسبوع"
   }
 }

@@ -64,8 +64,9 @@ type Recipe struct {
 	TranslationGroupID *uuid.UUID       `json:"translationGroupId,omitempty" db:"translation_group_id"`
 
 	// Computed fields (for list views without loading full relations)
-	IngredientCount int `json:"ingredientCount,omitempty"`
-	StepCount       int `json:"stepCount,omitempty"`
+	IngredientCount int      `json:"ingredientCount,omitempty"`
+	StepCount       int      `json:"stepCount,omitempty"`
+	IngredientNames []string `json:"ingredientNames,omitempty"`
 
 	// Related data (not stored in recipes table, loaded on GetByID)
 	Ingredients []RecipeIngredient `json:"ingredients,omitempty"`

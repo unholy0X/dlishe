@@ -870,10 +870,13 @@ func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Create NEW Shopping List
-	// Name format: "Smart Merge: [Date]"
-	timeStr := time.Now().Format("Jan 02, 15:04")
+	// Use client-provided name (localized) or fall back to default English
+	mergedName := req.Name
+	if mergedName == "" {
+		mergedName = "Smart Merge: " + time.Now().Format("Jan 02, 15:04")
+	}
 	listInput := &model.ShoppingListInput{
-		Name:        "Smart Merge: " + timeStr,
+		Name:        mergedName,
 		Description: ptr("Automatically merged from " + strings.Join(uuidSliceToStrings(req.SourceListIDs), ", ")),
 	}
 	// Simplified description

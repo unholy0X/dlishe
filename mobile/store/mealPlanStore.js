@@ -125,13 +125,13 @@ export const useMealPlanStore = create((set, get) => ({
     }
   },
 
-  generateShoppingList: async ({ getToken }) => {
+  generateShoppingList: async ({ getToken, name }) => {
     const { plan } = get();
     if (!plan) return null;
 
     set({ isGenerating: true, error: "" });
     try {
-      const result = await generateShoppingList({ getToken, planId: plan.id });
+      const result = await generateShoppingList({ getToken, planId: plan.id, name });
       set({ isGenerating: false });
       return result;
     } catch (err) {

@@ -9,13 +9,13 @@
     "curatedPicks": "اخترناها خصيصاً لك"
   },
   "stats": {
-    "favorites": "المفضلة",
+    "favorites": "وصفاتي المفضلة",
     "highProtein": "غنية بالبروتين",
     "quickMeals": "وجبات سريعة",
     "explore": "استكشف"
   },
   "sheets": {
-    "suggestedTitle": "مقترحة لك",
+    "suggestedTitle": "اخترنا لك",
     "suggestions_zero": "لا توجد اقتراحات",
     "suggestions_one": "اقتراح واحد",
     "suggestions_two": "اقتراحان",
@@ -38,7 +38,7 @@
     "matched_many": "{{count}} وصفة مطابقة",
     "matched_other": "{{count}} وصفة مطابقة",
     "matching": "نبحث في مكونات ثلاجتك...",
-    "favoritesTitle": "المفضلة",
+    "favoritesTitle": "وصفاتي المفضلة",
     "favoritesSaved_zero": "لم يتم حفظ أي وصفة",
     "favoritesSaved_one": "تم حفظ وصفة واحدة",
     "favoritesSaved_two": "تم حفظ وصفتين",
@@ -50,7 +50,7 @@
     "counter": "{{current}} / {{total}}",
     "notFeeling": "لنجرب غيرها",
     "letsCook": "لنطبخها!",
-    "savedToFavorites": "تم الحفظ في المفضلة",
+    "savedToFavorites": "تم الحفظ في وصفاتي المفضلة",
     "noIdeas": "لا توجد أفكار للعشاء بعد",
     "addMore": "أضف المزيد من الوصفات لاستلهام الأفكار"
   },
@@ -66,11 +66,11 @@
   },
   "badge": {
     "matches_zero": "لا تطابق",
-    "matches_one": "مثيل واحد",
-    "matches_two": "مثيلان",
-    "matches_few": "{{count}} أمثلة",
-    "matches_many": "{{count}} مثيل",
-    "matches_other": "{{count}} مثيل"
+    "matches_one": "مكون واحد متطابق",
+    "matches_two": "مكونان متطابقان",
+    "matches_few": "{{count}} مكونات متطابقة",
+    "matches_many": "{{count}} مكوناً متطابقاً",
+    "matches_other": "{{count}} مكوناً متطابقاً"
   },
   "recentRecipes": "أحدث الوصفات",
   "seeAll": "عرض الكل",

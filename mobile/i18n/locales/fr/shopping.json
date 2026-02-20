@@ -29,6 +29,7 @@
     "hint": "Sélectionnez au moins 2 listes à fusionner.",
     "title": "Fusion intelligente",
     "merge": "Fusionner",
+    "generatedName": "Fusion — {{date}}",
     "confirm": "Fusionner {{names}} en une seule liste ? Les doublons seront combinés intelligemment.",
     "successTitle": "Fusionnées",
     "successMessage": "Listes fusionnées avec succès !"

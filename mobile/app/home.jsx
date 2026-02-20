@@ -159,27 +159,20 @@ function RecipeGrid({ data, onPressRecipe, savedPublicIds, savingIds, onSave, re
   );
 }
 
-/** Tokenize a pantry item name into match tokens (words > 2 chars + full phrase) */
-function tokenize(name) {
-  const lower = name.toLowerCase().trim();
-  const words = lower.split(/\s+/).filter((w) => w.length > 2);
-  const tokens = new Set(words);
-  if (words.length > 1) tokens.add(lower);
-  return [...tokens];
-}
-
-/** Count how many unique pantry tokens appear in a recipe's text */
-function countPantryMatches(recipe, pantryTokens) {
-  const haystack = [
-    recipe.title || "",
-    ...(recipe.tags || []),
-    recipe.cuisine || "",
-  ]
-    .join(" ")
-    .toLowerCase();
+/**
+ * Count how many of a recipe's actual ingredients are covered by the pantry.
+ * Matches ingredient name strings against pantry item names using substring
+ * containment — a pantry item "red onion" matches an ingredient "diced red
+ * onion" because the pantry name appears inside the ingredient string.
+ * The result is always in [0, recipe.ingredientNames.length].
+ */
+function countPantryMatches(recipe, pantryNames) {
+  const names = recipe.ingredientNames;
+  if (!names || names.length === 0) return 0;
   let count = 0;
-  for (const token of pantryTokens) {
-    if (haystack.includes(token)) count++;
+  for (const ingName of names) {
+    const ing = ingName.toLowerCase();
+    if (pantryNames.some((p) => ing.includes(p))) count++;
   }
   return count;
 }
@@ -293,12 +286,13 @@ export default function HomeScreen() {
       return;
     }
 
-    const tokens = allItems.flatMap((item) => item.name ? tokenize(item.name) : []);
-    const uniqueTokens = [...new Set(tokens)];
+    const pantryNames = [...new Set(
+      allItems.filter((i) => i.name).map((i) => i.name.toLowerCase().trim())
+    )];
     const pool = allRecipes.length > 0 ? allRecipes : suggested;
 
     const scored = pool
-      .map((r) => ({ ...r, _matchCount: countPantryMatches(r, uniqueTokens) }))
+      .map((r) => ({ ...r, _matchCount: countPantryMatches(r, pantryNames) }))
       .filter((r) => r._matchCount > 0)
       .sort((a, b) => b._matchCount - a._matchCount);
 

@@ -137,7 +137,10 @@ export default function MealPlanScreen() {
 
   const handleGenerateList = useCallback(async () => {
     try {
-      const result = await generateShoppingList({ getToken });
+      const weekDate = plan?.weekStart ? new Date(plan.weekStart) : new Date();
+      const dateStr = weekDate.toLocaleDateString(i18n.language, { month: "short", day: "numeric" });
+      const name = t("generatedListName", { date: dateStr });
+      const result = await generateShoppingList({ getToken, name });
       if (result?.list) {
         const list = result.list;
         const itemCount = list.items?.length ?? list.itemCount ?? 0;

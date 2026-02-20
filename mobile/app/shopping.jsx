@@ -155,7 +155,7 @@ export default function ShoppingScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const activeKey = pathname.replace("/", "") || "shopping";
-  const { t } = useTranslation("shopping");
+  const { t, i18n } = useTranslation("shopping");
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [isAddRecipeOpen, setAddRecipeOpen] = useState(false);
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -270,7 +270,9 @@ export default function ShoppingScreen() {
           text: t("merge.merge"),
           onPress: async () => {
             try {
-              await mergeLists({ getToken, sourceListIds: selectedIds });
+              const dateStr = new Date().toLocaleDateString(i18n.language, { month: "short", day: "numeric" });
+              const name = t("merge.generatedName", { date: dateStr });
+              await mergeLists({ getToken, sourceListIds: selectedIds, name });
               Alert.alert(t("merge.successTitle"), t("merge.successMessage"));
             } catch {
               Alert.alert(t("errors:shopping.mergeFailed"), t("tryAgain", { ns: "common" }));

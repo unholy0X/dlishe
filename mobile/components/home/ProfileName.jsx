@@ -165,7 +165,7 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
             </View>
             <View style={styles.unitToggle}>
               {["en", "fr", "ar"].map((lang) => (
-                <Pressable key={lang} onPress={() => setLanguage(lang)}>
+                <Pressable key={lang} onPress={() => setLanguage(lang, getToken)}>
                   <Text style={[
                     styles.unitOption,
                     language === lang && styles.unitOptionActive,

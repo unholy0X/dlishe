@@ -1,4 +1,9 @@
 import { authFetch } from "./api";
+import { useLanguageStore } from "../store/languageStore";
+
+function getCurrentLanguage() {
+  return useLanguageStore.getState().language || "en";
+}
 
 export async function extractRecipeFromUrl({ url, getToken }) {
   return authFetch("/recipes/extract", getToken, {
@@ -7,12 +12,13 @@ export async function extractRecipeFromUrl({ url, getToken }) {
       url,
       saveAuto: true,
       detailLevel: "detailed",
-      language: "auto",
+      language: getCurrentLanguage(),
     }),
   });
 }
 
 export async function extractRecipeFromImage({ images, getToken }) {
+  const lang = getCurrentLanguage();
   // Build request with new images[] array + legacy fields for backward compat
   const payload = {
     type: "image",
@@ -25,7 +31,7 @@ export async function extractRecipeFromImage({ images, getToken }) {
     mimeType: images[0]?.mimeType || "image/jpeg",
     saveAuto: true,
     detailLevel: "detailed",
-    language: "auto",
+    language: lang,
   };
   return authFetch("/recipes/extract", getToken, {
     method: "POST",

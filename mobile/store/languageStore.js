@@ -2,6 +2,7 @@ import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import { getLocales } from "expo-localization";
 import i18n from "../i18n";
+import { updatePreferences } from "../services/user";
 
 const STORAGE_KEY = "dlishe_language";
 const SUPPORTED = ["en", "fr", "ar"];
@@ -34,7 +35,9 @@ export const useLanguageStore = create((set, get) => ({
   },
 
   // Change language and persist the preference.
-  setLanguage: async (lang) => {
+  // Pass getToken (from useAuth) when called by an authenticated user so the
+  // preference is synced to the backend. Safe to omit for anonymous contexts.
+  setLanguage: async (lang, getToken) => {
     if (!SUPPORTED.includes(lang)) return;
     try {
       await SecureStore.setItemAsync(STORAGE_KEY, lang);
@@ -42,6 +45,15 @@ export const useLanguageStore = create((set, get) => ({
       // Non-fatal
     }
     await i18n.changeLanguage(lang);
+
+    // Sync to backend so future extractions use the right language
+    if (getToken) {
+      try {
+        await updatePreferences({ preferredLanguage: lang, getToken });
+      } catch {
+        // Non-fatal — local preference is already updated
+      }
+    }
 
     const nextIsRTL = lang === "ar";
     const currentIsRTL = get().isRTL;

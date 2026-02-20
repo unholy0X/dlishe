@@ -745,24 +745,28 @@ func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
 	// Create clone
 	now := time.Now().UTC()
 	clone := &model.Recipe{
-		ID:             uuid.New(),
-		UserID:         user.ID,
-		Title:          source.Title,
-		Description:    source.Description,
-		Servings:       source.Servings,
-		PrepTime:       source.PrepTime,
-		CookTime:       source.CookTime,
-		Difficulty:     source.Difficulty,
-		Cuisine:        source.Cuisine,
-		ThumbnailURL:   source.ThumbnailURL,
-		SourceType:     "cloned",
-		SourceURL:      source.SourceURL,
-		SourceRecipeID: &sourceID,
-		Tags:           source.Tags,
-		IsFavorite:     false, // Don't copy favorite status
-		SyncVersion:    1,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:                 uuid.New(),
+		UserID:             user.ID,
+		Title:              source.Title,
+		Description:        source.Description,
+		Servings:           source.Servings,
+		PrepTime:           source.PrepTime,
+		CookTime:           source.CookTime,
+		Difficulty:         source.Difficulty,
+		Cuisine:            source.Cuisine,
+		ThumbnailURL:       source.ThumbnailURL,
+		SourceType:         "cloned",
+		SourceURL:          source.SourceURL,
+		SourceRecipeID:     &sourceID,
+		Tags:               source.Tags,
+		IsFavorite:         false, // Don't copy favorite status
+		ContentLanguage:    source.ContentLanguage,
+		TranslationGroupID: source.TranslationGroupID,
+		Nutrition:          source.Nutrition,
+		DietaryInfo:        source.DietaryInfo,
+		SyncVersion:        1,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 
 	// Clone ingredients with new IDs

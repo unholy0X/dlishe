@@ -367,6 +367,91 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 	return recipe, nil
 }
 
+// GetPublicBySourceURL retrieves a public or featured recipe by source URL in the given language.
+// Used to avoid re-extracting URLs that have already been extracted as public/featured content.
+func (r *RecipeRepository) GetPublicBySourceURL(ctx context.Context, sourceURL, lang string) (*model.Recipe, error) {
+	query := `
+		SELECT id, user_id, title, description, servings, prep_time, cook_time,
+			   difficulty, cuisine, thumbnail_url, source_type, source_url,
+			   source_recipe_id, source_metadata, tags, is_public, is_favorite,
+			   is_featured, featured_at,
+			   nutrition, dietary_info, sync_version, created_at, updated_at,
+			   content_language, translation_group_id
+		FROM recipes
+		WHERE source_url = $1
+		  AND (is_public = TRUE OR is_featured = TRUE)
+		  AND COALESCE(NULLIF(content_language, ''), 'en') = $2
+		  AND deleted_at IS NULL
+		LIMIT 1
+	`
+
+	recipe := &model.Recipe{}
+	var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
+	var tags TextArray
+
+	err := r.db.QueryRowContext(ctx, query, sourceURL, lang).Scan(
+		&recipe.ID,
+		&recipe.UserID,
+		&recipe.Title,
+		&recipe.Description,
+		&recipe.Servings,
+		&recipe.PrepTime,
+		&recipe.CookTime,
+		&recipe.Difficulty,
+		&recipe.Cuisine,
+		&recipe.ThumbnailURL,
+		&recipe.SourceType,
+		&recipe.SourceURL,
+		&recipe.SourceRecipeID,
+		&sourceMetadata,
+		&tags,
+		&recipe.IsPublic,
+		&recipe.IsFavorite,
+		&recipe.IsFeatured,
+		&recipe.FeaturedAt,
+		&nutritionJSON,
+		&dietaryInfoJSON,
+		&recipe.SyncVersion,
+		&recipe.CreatedAt,
+		&recipe.UpdatedAt,
+		&recipe.ContentLanguage,
+		&recipe.TranslationGroupID,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrRecipeNotFound
+		}
+		return nil, err
+	}
+
+	recipe.Tags = []string(tags)
+
+	if sourceMetadata != nil {
+		unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
+	}
+	if nutritionJSON != nil {
+		recipe.Nutrition = &model.RecipeNutrition{}
+		unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
+	}
+	if dietaryInfoJSON != nil {
+		recipe.DietaryInfo = &model.DietaryInfo{}
+		unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
+	}
+
+	// Load ingredients and steps for cloning
+	recipe.Ingredients, err = r.getIngredients(ctx, recipe.ID)
+	if err != nil {
+		return nil, err
+	}
+	recipe.Steps, err = r.getSteps(ctx, recipe.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return recipe, nil
+}
+
 // GetBySourceRecipeID retrieves a recipe by its source recipe ID for a specific user
 // This is used to check if a user already has a clone of a recipe
 func (r *RecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sourceRecipeID uuid.UUID) (*model.Recipe, error) {

@@ -194,14 +194,14 @@ export default function RecipiesScreen() {
     return (
       <RecipeCard
         title={item.title}
-        meta={buildMeta(item)}
+        meta={buildMeta(item, t)}
         thumbnailUrl={item.thumbnailUrl}
         isFavorite={item.isFavorite}
         onPress={() => router.push(`/recipe/${item.id}`)}
         onToggleFavorite={() => handleToggleFavorite(item.id)}
       />
     );
-  }, [router, handleToggleFavorite, isSelectMode, selectedIds, toggleSelection]);
+  }, [router, handleToggleFavorite, isSelectMode, selectedIds, toggleSelection, t]);
 
   const ListHeader = isSelectMode ? (
     <View style={styles.selectBar}>

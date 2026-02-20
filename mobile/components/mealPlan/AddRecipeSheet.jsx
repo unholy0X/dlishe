@@ -73,7 +73,7 @@ export default function AddRecipeSheet({ visible, onClose, recipes = [], isLoadi
         </Svg>
       </View>
     </Pressable>
-  ), [onSelect]);
+  ), [onSelect, t]);
 
   return (
     <BottomSheetModal visible={visible} onClose={onClose} customScroll>

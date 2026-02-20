@@ -24,7 +24,7 @@ export async function fetchSuggested({ limit = 10, offset = 0 } = {}) {
 }
 
 export async function fetchFeatured({ limit = 30, offset = 0 } = {}) {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset), lang: getCurrentLanguage() });
   return apiFetch(`/recipes/featured?${params}`, {});
 }
 

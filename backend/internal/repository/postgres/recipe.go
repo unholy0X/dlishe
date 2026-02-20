@@ -1440,11 +1440,14 @@ func (r *RecipeRepository) SearchPublic(ctx context.Context, query, lang string,
 }
 
 // ListFeatured retrieves all featured recipes with ingredient/step counts
-func (r *RecipeRepository) ListFeatured(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
-	// Get total count
-	countQuery := `SELECT COUNT(*) FROM recipes WHERE is_featured = TRUE AND deleted_at IS NULL`
+func (r *RecipeRepository) ListFeatured(ctx context.Context, lang string, limit, offset int) ([]*model.Recipe, int, error) {
+	if lang == "" {
+		lang = "en"
+	}
+	// Get total count for this language
+	countQuery := `SELECT COUNT(*) FROM recipes WHERE is_featured = TRUE AND deleted_at IS NULL AND COALESCE(NULLIF(content_language,''),'en') = $1`
 	var total int
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	err := r.db.QueryRowContext(ctx, countQuery, lang).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1461,11 +1464,12 @@ func (r *RecipeRepository) ListFeatured(ctx context.Context, limit, offset int) 
 			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
 		FROM recipes r
 		WHERE r.is_featured = TRUE AND r.deleted_at IS NULL
+		  AND COALESCE(NULLIF(r.content_language,''),'en') = $1
 		ORDER BY RANDOM()
-		LIMIT $1 OFFSET $2
+		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, lang, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}

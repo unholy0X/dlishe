@@ -332,6 +332,15 @@ func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
 func (h *RecipeHandler) ListFeatured(w http.ResponseWriter, r *http.Request) {
 	// No auth required - public endpoint
 
+	// Language filter: ?lang=en|fr|ar (default "en")
+	lang := r.URL.Query().Get("lang")
+	switch lang {
+	case "en", "fr", "ar":
+		// valid
+	default:
+		lang = "en"
+	}
+
 	// Pagination
 	limit := 30
 	offset := 0
@@ -348,7 +357,7 @@ func (h *RecipeHandler) ListFeatured(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recipes, total, err := h.repo.ListFeatured(r.Context(), limit, offset)
+	recipes, total, err := h.repo.ListFeatured(r.Context(), lang, limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return

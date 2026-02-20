@@ -32,7 +32,7 @@ type RecipeRepository interface {
 	GetBySourceURL(ctx context.Context, userID uuid.UUID, sourceURL string) (*model.Recipe, error)
 	ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.Recipe, int, error)
 	ListPublic(ctx context.Context, lang string, limit, offset int) ([]*model.Recipe, int, error)
-	ListFeatured(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error)
+	ListFeatured(ctx context.Context, lang string, limit, offset int) ([]*model.Recipe, int, error)
 	ListForRecommendations(ctx context.Context, userID uuid.UUID) ([]*model.Recipe, error)
 	Search(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*model.Recipe, error)
 	SearchPublic(ctx context.Context, query, lang string, limit int) ([]*model.Recipe, error)

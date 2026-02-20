@@ -7,6 +7,8 @@ export const useFeaturedStore = create((set, get) => ({
   isLoading: false,
   error: "",
 
+  clearCache: () => set({ recipes: [], total: 0 }),
+
   loadFeatured: async ({ limit = 30 } = {}) => {
     if (get().isLoading) return;
     set({ isLoading: true, error: "" });

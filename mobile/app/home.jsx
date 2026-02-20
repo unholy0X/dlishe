@@ -221,7 +221,7 @@ export default function HomeScreen() {
   const { getToken } = useAuth();
   const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll, clearCache } = useSuggestedStore();
   const language = useLanguageStore((st) => st.language);
-  const { recipes: featuredRecipes, loadFeatured } = useFeaturedStore();
+  const { recipes: featuredRecipes, loadFeatured, clearCache: clearFeaturedCache } = useFeaturedStore();
   const { recipes: userRecipes, loadRecipes, toggleFavorite } = useRecipeStore();
   const { groups: pantryGroups, loadPantry } = usePantryStore();
   const { plan: mealPlan, loadCurrentWeek: loadMealPlan } = useMealPlanStore();
@@ -231,6 +231,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     clearCache();
+    clearFeaturedCache();
     loadSuggested({ limit: 20 }).catch(() => { });
     loadFeatured({ limit: 30 }).catch(() => { });
     loadRecipes({ getToken }).catch(() => { });

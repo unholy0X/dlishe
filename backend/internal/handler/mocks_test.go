@@ -165,7 +165,7 @@ func (m *mockRecipeRepository) ListPublic(ctx context.Context, lang string, limi
 	}
 	return m.ListPublicFunc(ctx, limit, offset)
 }
-func (m *mockRecipeRepository) ListFeatured(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
+func (m *mockRecipeRepository) ListFeatured(ctx context.Context, lang string, limit, offset int) ([]*model.Recipe, int, error) {
 	if m.ListFeaturedFunc == nil {
 		return nil, 0, nil
 	}

@@ -1,14 +1,16 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, I18nManager } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useTranslation } from "react-i18next";
 import CalendarIcon from "../icons/CalendarIcon";
 import Svg, { Path } from "react-native-svg";
+import { useLanguageStore } from "../../store/languageStore";
 
 const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 function ChevronRightSmall() {
+  const isRTL = useLanguageStore((s) => s.isRTL);
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#385225" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }] }}>
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#385225" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}>
       <Path d="M9 18l6-6-6-6" />
     </Svg>
   );

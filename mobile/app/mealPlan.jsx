@@ -8,13 +8,13 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
-  I18nManager,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import Svg, { Path } from "react-native-svg";
 import { useMealPlanStore, useRecipeStore } from "../store";
+import { useLanguageStore } from "../store/languageStore";
 import DayPills from "../components/mealPlan/DayPills";
 import MealSlot from "../components/mealPlan/MealSlot";
 import AddRecipeSheet from "../components/mealPlan/AddRecipeSheet";
@@ -24,16 +24,18 @@ import ArrowLeftIcon from "../components/icons/ArrowLeftIcon";
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
 
 function ChevronLeft({ color = "#385225" }) {
+  const isRTL = useLanguageStore((s) => s.isRTL);
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }] }}>
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}>
       <Path d="M15 18l-6-6 6-6" />
     </Svg>
   );
 }
 
 function ChevronRight({ color = "#385225" }) {
+  const isRTL = useLanguageStore((s) => s.isRTL);
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }] }}>
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}>
       <Path d="M9 18l6-6-6-6" />
     </Svg>
   );

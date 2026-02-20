@@ -12,7 +12,7 @@
 //
 // Optional env vars:
 //
-//	GEMINI_MODEL   - model name (default: gemini-2.0-flash)
+//	GEMINI_MODEL   - model name (default: gemini-2.0-pro-exp-02-05)
 //	TARGET_LANGS   - comma-separated ISO codes (default: ar,fr)
 //	DRY_RUN=true   - run translation but do not write to DB
 package main
@@ -39,10 +39,11 @@ import (
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const (
-	defaultModel = "gemini-2.0-flash"
-	maxRetries   = 4
-	baseDelay    = 2 * time.Second
-	maxDelay     = 60 * time.Second
+	defaultModel    = "gemini-2.0-pro-exp-02-05"
+	maxRetries      = 2
+	maxOutputTokens = 8192
+	baseDelay       = 2 * time.Second
+	maxDelay        = 60 * time.Second
 )
 
 // languageNames maps ISO 639-1 codes to the full names used in prompts.
@@ -534,7 +535,8 @@ func translateWithRetry(
 	model.SystemInstruction = &genai.Content{
 		Parts: []genai.Part{genai.Text(buildSystemPrompt(langName))},
 	}
-	model.GenerationConfig.SetTemperature(0.1) // low temperature for accuracy
+	model.GenerationConfig.SetTemperature(0.1)          // low temperature for accuracy
+	model.GenerationConfig.SetMaxOutputTokens(maxOutputTokens) // prevent silent truncation
 
 	prompt := fmt.Sprintf(
 		"Translate the following recipe JSON into %s. Return only the translated JSON object:\n\n%s",
@@ -572,7 +574,12 @@ func translateWithRetry(
 		if err != nil {
 			lastErr = err
 			slog.Warn("failed to parse Gemini response", "attempt", attempt, "err", err)
-			continue // malformed JSON is retried
+			// Max tokens is structural — one retry is worth trying (model output is
+			// non-deterministic) but further retries are pointless.
+			if strings.Contains(err.Error(), "max tokens exceeded") && attempt >= 1 {
+				break
+			}
+			continue
 		}
 
 		// Guard: ingredient and step counts must be identical to the source.

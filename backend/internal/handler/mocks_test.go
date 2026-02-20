@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"github.com/dishflow/backend/internal/model"
@@ -15,10 +16,18 @@ import (
 
 type mockUserRepository struct {
 	GetByIDFunc                 func(ctx context.Context, id uuid.UUID) (*model.User, error)
+	GetByDeviceIDFunc           func(ctx context.Context, deviceID string) (*model.User, error)
+	GetByClerkIDFunc            func(ctx context.Context, clerkID string) (*model.User, error)
+	GetByEmailFunc              func(ctx context.Context, email string) (*model.User, error)
 	UpdateFunc                  func(ctx context.Context, user *model.User) error
 	GetSubscriptionFunc         func(ctx context.Context, userID uuid.UUID) (*model.UserSubscription, error)
 	CountUserScansThisMonthFunc func(ctx context.Context, userID uuid.UUID) (int, error)
 	TrackScanUsageFunc          func(ctx context.Context, userID uuid.UUID) error
+	RecordLoginFunc             func(ctx context.Context, userID uuid.UUID, appVersion, os, deviceName string) error
+	IsEventProcessedFunc        func(ctx context.Context, eventID string) (bool, error)
+	MarkEventProcessedFunc      func(ctx context.Context, eventID string) error
+	LogEventFunc                func(ctx context.Context, eventID, eventType, appUserID string, payload json.RawMessage) error
+	UpsertSubscriptionFunc      func(ctx context.Context, sub *model.UserSubscription) error
 }
 
 func (m *mockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
@@ -26,6 +35,24 @@ func (m *mockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.
 		return &model.User{}, nil
 	}
 	return m.GetByIDFunc(ctx, id)
+}
+func (m *mockUserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*model.User, error) {
+	if m.GetByDeviceIDFunc == nil {
+		return nil, nil
+	}
+	return m.GetByDeviceIDFunc(ctx, deviceID)
+}
+func (m *mockUserRepository) GetByClerkID(ctx context.Context, clerkID string) (*model.User, error) {
+	if m.GetByClerkIDFunc == nil {
+		return nil, nil
+	}
+	return m.GetByClerkIDFunc(ctx, clerkID)
+}
+func (m *mockUserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
+	if m.GetByEmailFunc == nil {
+		return nil, nil
+	}
+	return m.GetByEmailFunc(ctx, email)
 }
 func (m *mockUserRepository) Update(ctx context.Context, user *model.User) error {
 	if m.UpdateFunc == nil {
@@ -50,6 +77,41 @@ func (m *mockUserRepository) TrackScanUsage(ctx context.Context, userID uuid.UUI
 		return nil
 	}
 	return m.TrackScanUsageFunc(ctx, userID)
+}
+
+func (m *mockUserRepository) RecordLogin(ctx context.Context, userID uuid.UUID, appVersion, os, deviceName string) error {
+	if m.RecordLoginFunc == nil {
+		return nil
+	}
+	return m.RecordLoginFunc(ctx, userID, appVersion, os, deviceName)
+}
+
+func (m *mockUserRepository) IsEventProcessed(ctx context.Context, eventID string) (bool, error) {
+	if m.IsEventProcessedFunc == nil {
+		return false, nil
+	}
+	return m.IsEventProcessedFunc(ctx, eventID)
+}
+
+func (m *mockUserRepository) MarkEventProcessed(ctx context.Context, eventID string) error {
+	if m.MarkEventProcessedFunc == nil {
+		return nil
+	}
+	return m.MarkEventProcessedFunc(ctx, eventID)
+}
+
+func (m *mockUserRepository) LogEvent(ctx context.Context, eventID, eventType, appUserID string, payload json.RawMessage) error {
+	if m.LogEventFunc == nil {
+		return nil
+	}
+	return m.LogEventFunc(ctx, eventID, eventType, appUserID, payload)
+}
+
+func (m *mockUserRepository) UpsertSubscription(ctx context.Context, sub *model.UserSubscription) error {
+	if m.UpsertSubscriptionFunc == nil {
+		return nil
+	}
+	return m.UpsertSubscriptionFunc(ctx, sub)
 }
 
 type mockRecipeRepository struct {
@@ -443,12 +505,12 @@ func (m *mockRecipeExtractor) IsAvailable(ctx context.Context) bool {
 }
 
 type mockShoppingListAnalyzer struct {
-	SmartMergeItemsFunc func(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string) ([]model.ShoppingItemInput, error)
+	SmartMergeItemsFunc func(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string, targetLanguage string) ([]model.ShoppingItemInput, error)
 }
 
-func (m *mockShoppingListAnalyzer) SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string) ([]model.ShoppingItemInput, error) {
+func (m *mockShoppingListAnalyzer) SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string, targetLanguage string) ([]model.ShoppingItemInput, error) {
 	if m.SmartMergeItemsFunc == nil {
 		return nil, nil
 	}
-	return m.SmartMergeItemsFunc(ctx, currentItems, preferredUnitSystem)
+	return m.SmartMergeItemsFunc(ctx, currentItems, preferredUnitSystem, targetLanguage)
 }

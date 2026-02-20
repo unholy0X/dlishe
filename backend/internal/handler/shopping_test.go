@@ -71,7 +71,7 @@ func TestShoppingHandler_SmartMergeList(t *testing.T) {
 		}
 
 		// Mock AI
-		mockAI.SmartMergeItemsFunc = func(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string) ([]model.ShoppingItemInput, error) {
+		mockAI.SmartMergeItemsFunc = func(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string, targetLanguage string) ([]model.ShoppingItemInput, error) {
 			cat := "produce"
 			return []model.ShoppingItemInput{
 				{Name: "Onions", Quantity: ptr(3.0), Unit: ptr("pcs"), Category: &cat},

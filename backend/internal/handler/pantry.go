@@ -326,10 +326,10 @@ type ImageInput struct {
 
 // ScanRequest represents the request body for JSON-based scan
 type ScanRequest struct {
-	ImageBase64 string       `json:"imageBase64"`         // Legacy single image
-	MimeType    string       `json:"mimeType,omitempty"`  // Legacy single mime type
-	Images      []ImageInput `json:"images,omitempty"`    // New multi-image field
-	AutoAdd     bool         `json:"autoAdd,omitempty"`   // Auto-add detected items to pantry
+	ImageBase64 string       `json:"imageBase64"`        // Legacy single image
+	MimeType    string       `json:"mimeType,omitempty"` // Legacy single mime type
+	Images      []ImageInput `json:"images,omitempty"`   // New multi-image field
+	AutoAdd     bool         `json:"autoAdd,omitempty"`  // Auto-add detected items to pantry
 }
 
 // ScanResponse represents the response from pantry scan
@@ -530,8 +530,15 @@ func (h *PantryHandler) Scan(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch user preference to determine language code
+	var targetLanguage = "en"
+	dbUser, err := h.userRepo.GetByID(ctx, user.ID)
+	if err == nil && dbUser.PreferredLanguage != "" {
+		targetLanguage = dbUser.PreferredLanguage
+	}
+
 	// Call AI to scan the image(s)
-	result, err := h.scanner.ScanPantryMulti(ctx, imageDataList, mimeTypes)
+	result, err := h.scanner.ScanPantryMulti(ctx, imageDataList, mimeTypes, targetLanguage)
 	if err != nil {
 		if errors.Is(err, model.ErrIrrelevantContent) {
 			response.ErrorJSON(w, http.StatusUnprocessableEntity, "CONTENT_IRRELEVANT", err.Error(), nil)

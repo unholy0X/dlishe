@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Animated, Alert } from "react-native
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 const C = {
   text: "#111111",
@@ -41,6 +42,7 @@ export default function StepTimerSheet({
   const insets = useSafeAreaInsets();
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
+  const { t } = useTranslation("recipe");
 
   // Build info chips
   const chips = [];
@@ -94,7 +96,7 @@ export default function StepTimerSheet({
         </Pressable>
         <BlurView intensity={40} tint="light" style={s.stepPill}>
           <Text style={s.stepPillText}>
-            Step {currentStep + 1} of {totalSteps}
+            {t("cooking.step", { current: currentStep + 1, total: totalSteps })}
           </Text>
         </BlurView>
       </View>
@@ -157,12 +159,12 @@ export default function StepTimerSheet({
           <Text
             style={[s.navBtnPrevText, isFirstStep && s.navBtnTextDisabled]}
           >
-            {"\u2039"}  Previous
+            {"\u2039"}  {t("cooking.previous")}
           </Text>
         </Pressable>
         <Pressable style={[s.navBtn, s.navBtnNext]} onPress={onNext}>
           <Text style={s.navBtnNextText}>
-            {isLastStep ? "Finish" : "Next  \u203A"}
+            {isLastStep ? t("cooking.done", "Done!") : `${t("cooking.next")}  \u203A`}
           </Text>
         </Pressable>
       </View>

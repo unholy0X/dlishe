@@ -16,6 +16,15 @@
     "saturday": "Saturday",
     "sunday": "Sunday"
   },
+  "daysShort": {
+    "mon": "M",
+    "tue": "T",
+    "wed": "W",
+    "thu": "T",
+    "fri": "F",
+    "sat": "S",
+    "sun": "S"
+  },
   "mealTypes": {
     "breakfast": "Breakfast",
     "lunch": "Lunch",
@@ -25,16 +34,33 @@
   },
   "empty": {
     "noMeals": "No meals planned yet",
-    "hint": "Tap \u201c+ Add recipe\u201d on any slot above to start building your week"
+    "hint": "Tap “+ Add recipe” on any slot above to start building your week"
   },
   "generateList": "Generate Shopping List",
   "addRecipe": "+ Add recipe",
   "addRecipeTitle": "Add recipe",
-  "searchRecipes": "Search recipes\u2026",
+  "searchRecipes": "Search recipes…",
   "card": {
     "title": "Meal Plan",
     "subtitle_zero": "Plan your week",
     "subtitle_one": "{{count}} meal this week",
+    "subtitle_two": "{{count}} meals this week",
+    "subtitle_few": "{{count}} meals this week",
+    "subtitle_many": "{{count}} meals this week",
     "subtitle_other": "{{count}} meals this week"
+  },
+  "addSheet": {
+    "title": "Add Recipe",
+    "searchPlaceholder": "Search your recipes...",
+    "emptyMatch": "No recipes match your search",
+    "emptySaved": "No saved recipes",
+    "tryDifferent": "Try a different search term",
+    "extractFirst": "Extract or create a recipe first"
+  },
+  "fallback": {
+    "recipe": "Recipe"
+  },
+  "slot": {
+    "addBtn": "+ Add recipe"
   }
 }

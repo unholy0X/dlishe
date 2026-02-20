@@ -1,4 +1,14 @@
 {
+  "extraction": {
+    "title": "Extraction en cours",
+    "subtitle": "Nous lisons la recette",
+    "step1": "Lecture du contenu...",
+    "step2": "Recherche d'ingrédients...",
+    "step3": "Organisation des étapes...",
+    "step4": "Calcul des valeurs nutritionnelles...",
+    "step5": "Vérification des informations...",
+    "step6": "Presque terminé..."
+  },
   "detail": {
     "ingredients": "Ingrédients",
     "instructions": "Instructions",
@@ -18,6 +28,7 @@
     "noIngredients": "Cette recette n'a pas d'ingrédients à ajouter.",
     "noIngredientsTitle": "Pas d'ingrédients",
     "shoppingListCreated": "Liste de courses créée",
+    "ingredientsAdded_zero": "Aucun ingrédient ajouté à « {{title}} »",
     "ingredientsAdded_one": "{{count}} ingrédient ajouté à « {{title}} »",
     "ingredientsAdded_other": "{{count}} ingrédients ajoutés à « {{title}} »",
     "alreadyAdded": "Déjà ajouté",
@@ -29,15 +40,39 @@
   },
   "add": {
     "title": "Ajouter une recette",
+    "subtitle": "Collez un lien YouTube ou de n'importe quel site de recette et nous nous occupons du reste",
     "fromImage": "Extraire depuis une image",
-    "fromCamera": "Scanner avec la caméra",
-    "fromUrl": "Coller depuis une URL",
+    "fromCamera": "Scanner avec l'appareil photo",
+    "fromUrl": "Coller un lien",
     "manual": "Saisie manuelle",
     "urlPlaceholder": "https://...",
     "extract": "Extraire",
-    "extracting": "Extraction de la recette..."
+    "extracting": "Extraction de la recette...",
+    "back": "Retour",
+    "monthlyLimit": "Limite mensuelle atteinte",
+    "upgradePro": "Passer à Pro",
+    "quotaHint": "Extractions et scans illimités",
+    "quotaReset": "Réinitialisation le mois prochain",
+    "recipeReady": "Recette prête !",
+    "min": "min",
+    "servings": "portions",
+    "ingredients": "Ingrédients",
+    "items": "articles",
+    "instructions": "Instructions",
+    "steps": "mesures",
+    "more": "plus",
+    "savedToBox": "Enregistré dans votre boîte de recettes",
+    "addAnother": "Ajouter une autre recette",
+    "cancel": "Annuler",
+    "cookingTitle": "En cuisine",
+    "addNew": "Ajouter une recette",
+    "grabRecipe": "Extraire la recette",
+    "or": "Ou",
+    "snapTitle": "Prenez un livre de cuisine en photo",
+    "snapSubtitle": "Prenez en photo n'importe quelle page de recette"
   },
   "list": {
+    "title_zero": "Aucune recette enregistrée",
     "title_one": "{{count}} recette enregistrée",
     "title_other": "{{count}} recettes enregistrées",
     "loading": "Chargement des recettes…",
@@ -76,5 +111,29 @@
     "easy": "Facile",
     "medium": "Moyen",
     "hard": "Difficile"
+  },
+  "search": {
+    "placeholder": "Rechercher des recettes...",
+    "cancel": "Annuler",
+    "searching": "Recherche...",
+    "emptyTitle": "Aucune recette trouvée",
+    "emptySubtitle": "Essayez un autre mot-clé comme cuisine,\\ningingrédient ou nom du plat",
+    "hintText": "Rechercher par nom, cuisine ou ingrédient",
+    "yourRecipes": "Vos recettes",
+    "suggestedRecipes": "Recettes suggérées"
+  },
+  "prep": {
+    "title": "Ingrédients",
+    "subtitle": "Rassemblez vos ingrédients avant de commencer",
+    "back": "Retour",
+    "readyBtn": "C'est prêt, on commence!"
+  },
+  "doneSheet": {
+    "allDone": "TERMINÉ !",
+    "subtitle": "Bon appétit",
+    "stepsCompleted": "{{count}} étapes terminées",
+    "timeApprox": "A pris ~{{time}} min",
+    "serveAndEnjoy": "Servez et dégustez !",
+    "back": "Retour"
   }
 }

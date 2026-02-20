@@ -42,7 +42,23 @@ export const useLanguageStore = create((set, get) => ({
       // Non-fatal
     }
     await i18n.changeLanguage(lang);
-    set({ language: lang, isRTL: lang === "ar" });
+
+    const nextIsRTL = lang === "ar";
+    const currentIsRTL = get().isRTL;
+    set({ language: lang, isRTL: nextIsRTL });
+
+    // RTL changes require app reload
+    if (currentIsRTL !== nextIsRTL) {
+      try {
+        const Updates = require("expo-updates");
+        await Updates.reloadAsync();
+      } catch {
+        const { DevSettings, I18nManager } = require("react-native");
+        I18nManager.allowRTL(nextIsRTL);
+        I18nManager.forceRTL(nextIsRTL);
+        if (DevSettings?.reload) DevSettings.reload();
+      }
+    }
   },
 
   getSupportedLanguages: () => SUPPORTED,

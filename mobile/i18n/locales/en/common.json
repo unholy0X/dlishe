@@ -54,5 +54,24 @@
     "recipies": "Recipes",
     "pantry": "Pantry",
     "shopping": "Shopping"
+  },
+  "generic": "Something went wrong",
+  "retryError": "The app ran into an unexpected error.\\nPlease try reloading.",
+  "fatalError": "The app keeps crashing.\\nPlease close and reopen it.",
+  "reloadApp": "Reload App",
+  "camera": {
+    "actionTitle": "Take a photo",
+    "accessNeededTitle": "Camera access needed",
+    "accessNeededMsg": "Allow camera access so you can snap a photo.",
+    "photoAccessNeededTitle": "Photo access needed",
+    "photoAccessNeededMsg": "Allow photo access so you can pick from your library.",
+    "errorTitle": "Oops",
+    "errorCamera": "Something went wrong with the camera.",
+    "errorLibrary": "Something went wrong picking the photo.",
+    "addPhotoTitle": "Add a photo",
+    "addPhotoMsg": "How would you like to add your photo?",
+    "takePhoto": "Take Photo",
+    "chooseFromLibrary": "Choose from Library",
+    "clearAll": "Clear all"
   }
 }

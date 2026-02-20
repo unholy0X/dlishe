@@ -1,9 +1,11 @@
 {
   "header": {
+    "pageTitle": "My Pantry",
+    "title_zero": "No items in pantry",
     "title_one": "{{count}} item in pantry",
     "title_other": "{{count}} items in pantry"
   },
-  "loading": "Loading pantry\u2026",
+  "loading": "Loading pantry…",
   "empty": {
     "title": "A Peaceful Pantry",
     "subtitle": "Add ingredients you have at home to discover what you can create",
@@ -35,6 +37,7 @@
     "household": "Household",
     "other": "Other"
   },
+  "itemCount_zero": "No items",
   "itemCount_one": "{{count}} item",
   "itemCount_other": "{{count}} items",
   "removeAll_one": "Remove all {{count}} item",
@@ -43,6 +46,32 @@
   "addSheet": {
     "title": "Add to Pantry",
     "searchPlaceholder": "Search ingredients...",
-    "add": "Add to pantry"
+    "add": "Add to pantry",
+    "quickPick": "Quick pick:",
+    "itemName": "Item name:",
+    "itemPlaceholder": "e.g. Almond Milk",
+    "qty": "Qty (optional)",
+    "unit": "Unit",
+    "alertTitle": "All done!",
+    "alertOops": "Oops",
+    "alertError": "Something went wrong. Try again?",
+    "back": "Back",
+    "browseCategory": "Browse by category",
+    "importBulk": "Or import in bulk",
+    "snapTitle": "Snap your groceries",
+    "snapSubtitle": "Add items from a photo",
+    "scanBtn": "Scan for ingredients",
+    "spotting": "Spotting items…",
+    "typeCustom": "+ Type custom item",
+    "backToQuickPick": "← Back to quick pick",
+    "cancel": "Cancel",
+    "addBtn": "Add"
+  },
+  "detail": {
+    "qtyLabel": "Quantity",
+    "unitLabel": "Unit"
+  },
+  "quickAdd": {
+    "title": "Quick add"
   }
 }

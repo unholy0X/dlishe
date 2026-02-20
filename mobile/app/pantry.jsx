@@ -65,9 +65,10 @@ const CATEGORY_TINTS = {
 
 const CategoryFolder = ({ category, items, isExpanded, onToggle, onDeleteItem }) => {
   const { t } = useTranslation("pantry");
-  const image = CATEGORY_IMAGES[category] || CATEGORY_IMAGES.other;
-  const tint = CATEGORY_TINTS[category] || CATEGORY_TINTS.other;
-  const displayName = t(`categories.${category}`);
+  const safeCategory = (category || "other").toLowerCase();
+  const image = CATEGORY_IMAGES[safeCategory] || CATEGORY_IMAGES.other;
+  const tint = CATEGORY_TINTS[safeCategory] || CATEGORY_TINTS.other;
+  const displayName = t(`categories.${safeCategory}`, category);
   const previewItems = items.slice(0, 4);
 
   return (
@@ -160,18 +161,18 @@ export default function PantryScreen() {
   const { groups, total, isLoading, error, loadPantry, removeItem, clearPantry } = usePantryStore();
 
   useEffect(() => {
-    loadPantry({ getToken }).catch(() => {});
+    loadPantry({ getToken }).catch(() => { });
   }, []);
 
   // Refresh when navigating back to this screen
   useEffect(() => {
     if (pathname === "/pantry") {
-      loadPantry({ getToken }).catch(() => {});
+      loadPantry({ getToken }).catch(() => { });
     }
   }, [pathname]);
 
   const onRefresh = useCallback(() => {
-    loadPantry({ getToken }).catch(() => {});
+    loadPantry({ getToken }).catch(() => { });
   }, [getToken]);
 
   const handleDelete = useCallback(
@@ -195,7 +196,7 @@ export default function PantryScreen() {
 
   const handleSheetClose = () => {
     setSheetOpen(false);
-    loadPantry({ getToken }).catch(() => {});
+    loadPantry({ getToken }).catch(() => { });
   };
 
   const handleClearPantry = useCallback(() => {
@@ -228,57 +229,58 @@ export default function PantryScreen() {
   return (
     <View style={styles.screen}>
       <SwipeNavigator>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        {isEmpty ? (
-          <View style={styles.emptyWrapper}>
-            <PantryEmptyState onPressAdd={() => setSheetOpen(true)} />
-          </View>
-        ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={isLoading && groups.length > 0}
-                onRefresh={onRefresh}
-                tintColor="#385225"
-              />
-            }
-          >
-            <View style={styles.paddedContainer}>
-              <PantryHeader
-                subtitle={t("header.title", { count: total })}
-                onPressMore={() => setMenuOpen(true)}
-                onPressAdd={() => setSheetOpen(true)}
-              />
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          {isEmpty ? (
+            <View style={styles.emptyWrapper}>
+              <PantryEmptyState onPressAdd={() => setSheetOpen(true)} />
             </View>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isLoading && groups.length > 0}
+                  onRefresh={onRefresh}
+                  tintColor="#385225"
+                />
+              }
+            >
+              <View style={styles.paddedContainer}>
+                <PantryHeader
+                  title={t("header.pageTitle", "My Pantry")}
+                  subtitle={t("header.title", { count: total })}
+                  onPressMore={() => setMenuOpen(true)}
+                  onPressAdd={() => setSheetOpen(true)}
+                />
+              </View>
 
-            {isLoading && groups.length === 0 ? (
-              <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#385225" />
-                <Text style={styles.loadingText}>{t("loading")}</Text>
-              </View>
-            ) : error ? (
-              <View style={styles.centered}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : (
-              <View style={styles.foldersContainer}>
-                {groups.map((group) => (
-                  <CategoryFolder
-                    key={group.category}
-                    category={group.category}
-                    items={group.items || []}
-                    isExpanded={expandedCategories[group.category]}
-                    onToggle={() => toggleCategory(group.category)}
-                    onDeleteItem={handleDelete}
-                  />
-                ))}
-              </View>
-            )}
-          </ScrollView>
-        )}
-      </SafeAreaView>
+              {isLoading && groups.length === 0 ? (
+                <View style={styles.centered}>
+                  <ActivityIndicator size="large" color="#385225" />
+                  <Text style={styles.loadingText}>{t("loading")}</Text>
+                </View>
+              ) : error ? (
+                <View style={styles.centered}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : (
+                <View style={styles.foldersContainer}>
+                  {groups.map((group) => (
+                    <CategoryFolder
+                      key={group.category}
+                      category={group.category}
+                      items={group.items || []}
+                      isExpanded={expandedCategories[group.category]}
+                      onToggle={() => toggleCategory(group.category)}
+                      onDeleteItem={handleDelete}
+                    />
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          )}
+        </SafeAreaView>
       </SwipeNavigator>
 
       <FloatingNav

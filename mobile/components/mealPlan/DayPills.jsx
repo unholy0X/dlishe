@@ -1,14 +1,18 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import { useTranslation } from "react-i18next";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 export default function DayPills({ weekStart, selectedDay, onSelectDay, mealsPerDay = [] }) {
+  const { t } = useTranslation("mealPlan");
   const monday = weekStart ? new Date(weekStart) : new Date();
 
   return (
     <View style={styles.container}>
-      {DAYS.map((label, i) => {
+      {DAY_KEYS.map((key, i) => {
+        const short = t(`daysShort.${key}`, { defaultValue: "" });
+        const label = short ? short : t(`days.${key}`).substring(0, 3);
         const isActive = selectedDay === i;
         const hasMeals = (mealsPerDay[i] || 0) > 0;
         const date = new Date(monday);
@@ -17,7 +21,7 @@ export default function DayPills({ weekStart, selectedDay, onSelectDay, mealsPer
 
         return (
           <Pressable
-            key={label}
+            key={key}
             style={({ pressed }) => [
               styles.pill,
               isActive && styles.pillActive,

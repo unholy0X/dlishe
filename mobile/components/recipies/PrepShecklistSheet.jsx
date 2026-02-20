@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 const C = {
   bg: "#F4F5F7",
@@ -47,6 +48,7 @@ export default function PrepChecklistSheet({
   onReady,
 }) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation("recipe");
 
   // Group ingredients by section
   const sections = {};
@@ -76,7 +78,7 @@ export default function PrepChecklistSheet({
       <View style={[s.topBar, { paddingTop: insets.top + 10 }]}>
         <Pressable style={s.backBtn} onPress={onBack}>
           <Text style={s.backIcon}>←</Text>
-          <Text style={s.backText}>Back</Text>
+          <Text style={s.backText}>{t("prep.back")}</Text>
         </Pressable>
         <View style={s.counterPill}>
           <Text style={s.counterPillText}>
@@ -87,8 +89,8 @@ export default function PrepChecklistSheet({
 
       {/* Title area */}
       <View style={s.titleArea}>
-        <Text style={s.title}>Before we start</Text>
-        <Text style={s.subtitle}>Gather everything you need</Text>
+        <Text style={s.title}>{t("prep.title")}</Text>
+        <Text style={s.subtitle}>{t("prep.subtitle")}</Text>
       </View>
 
       <ScrollView
@@ -150,7 +152,7 @@ export default function PrepChecklistSheet({
       {/* Footer */}
       <View style={[s.footer, { paddingBottom: insets.bottom + 8 }]}>
         <Pressable style={s.readyBtn} onPress={onReady}>
-          <Text style={s.readyBtnText}>I'm ready, let's cook</Text>
+          <Text style={s.readyBtnText}>{t("prep.readyBtn")}</Text>
         </Pressable>
       </View>
     </View>

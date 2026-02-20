@@ -25,12 +25,12 @@ import { useTranslation } from "react-i18next";
 import { useRecipeStore } from "../store";
 import { deleteRecipe } from "../services/recipes";
 
-function buildMeta(recipe) {
+function buildMeta(recipe, t) {
   const parts = [];
   const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
-  if (totalTime > 0) parts.push(`${totalTime} min`);
-  if (recipe.difficulty) parts.push(recipe.difficulty);
-  if (recipe.servings) parts.push(`${recipe.servings} servings`);
+  if (totalTime > 0) parts.push(t("time.minOnly", { m: totalTime, ns: "common" }));
+  if (recipe.difficulty) parts.push(t(`difficulty.${recipe.difficulty}`, { defaultValue: recipe.difficulty }));
+  if (recipe.servings) parts.push(t("units.servings", { count: recipe.servings, ns: "common" }));
   return parts.join(" · ");
 }
 
@@ -178,7 +178,7 @@ export default function RecipiesScreen() {
           <View style={{ opacity: isSelected ? 1 : 0.6 }}>
             <RecipeCard
               title={item.title}
-              meta={buildMeta(item)}
+              meta={buildMeta(item, t)}
               thumbnailUrl={item.thumbnailUrl}
               isFavorite={item.isFavorite}
               onPress={() => toggleSelection(item.id)}

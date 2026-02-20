@@ -44,15 +44,6 @@ const MASONRY_GAP = 10;
 const MASONRY_COL = (SCREEN_W - 40 - MASONRY_GAP) / 2;
 const MASONRY_HEIGHT = MASONRY_COL * 1.25;
 
-function buildMeta(recipe) {
-  const parts = [];
-  const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
-  if (totalTime > 0) parts.push(`${totalTime} min`);
-  if (recipe.difficulty) parts.push(recipe.difficulty);
-  if (recipe.servings) parts.push(`${recipe.servings} servings`);
-  return parts.join(" · ");
-}
-
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -237,10 +228,10 @@ export default function HomeScreen() {
   const favoriteIds = useMemo(() => new Set(favoriteRecipes.map((r) => r.id)), [favoriteRecipes]);
 
   useEffect(() => {
-    loadSuggested({ limit: 20 }).catch(() => {});
-    loadFeatured({ limit: 30 }).catch(() => {});
-    loadRecipes({ getToken }).catch(() => {});
-    loadMealPlan({ getToken }).catch(() => {});
+    loadSuggested({ limit: 20 }).catch(() => { });
+    loadFeatured({ limit: 30 }).catch(() => { });
+    loadRecipes({ getToken }).catch(() => { });
+    loadMealPlan({ getToken }).catch(() => { });
   }, []);
 
   // Prefetch suggested recipe thumbnails for smooth carousel
@@ -256,8 +247,8 @@ export default function HomeScreen() {
   // Refresh user recipes when navigating back to this screen
   useEffect(() => {
     if (pathname === "/home") {
-      loadRecipes({ getToken }).catch(() => {});
-      loadMealPlan({ getToken }).catch(() => {});
+      loadRecipes({ getToken }).catch(() => { });
+      loadMealPlan({ getToken }).catch(() => { });
     }
   }, [pathname]);
 
@@ -269,7 +260,7 @@ export default function HomeScreen() {
       loadRecipes({ getToken }),
       loadMealPlan({ getToken }),
     ])
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setRefreshing(false));
   }, [getToken]);
 
@@ -284,7 +275,7 @@ export default function HomeScreen() {
     if (allRecipes.length === 0) promises.push(loadAll());
 
     Promise.all(promises)
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setPantryMatchLoading(false));
   }, [getToken, allRecipes.length]);
 
@@ -316,7 +307,7 @@ export default function HomeScreen() {
     setRecoSheetOpen(true);
 
     // Load full dataset if needed
-    if (allRecipes.length === 0) loadAll().catch(() => {});
+    if (allRecipes.length === 0) loadAll().catch(() => { });
 
     const pool = allRecipes.length > 0 ? allRecipes : suggested;
 
@@ -349,7 +340,7 @@ export default function HomeScreen() {
     setMealCatShuffled(shuffle(filterByMealCategory(pool, key)));
     setMealCatOpen(true);
     if (allRecipes.length === 0) {
-      loadAll().catch(() => {});
+      loadAll().catch(() => { });
     }
   }, [allRecipes.length, suggested]);
 
@@ -410,7 +401,7 @@ export default function HomeScreen() {
       if (clonedId) {
         await toggleFavoriteApi({ recipeId: clonedId, isFavorite: true, getToken });
       }
-      loadRecipes({ getToken }).catch(() => {});
+      loadRecipes({ getToken }).catch(() => { });
     } catch (err) {
       // Revert optimistic update on failure
       setSavedPublicIds((prev) => {
@@ -436,7 +427,7 @@ export default function HomeScreen() {
     closeAllSheets();
     setRecipesSheetOpen(true);
     if (allRecipes.length === 0) {
-      loadAll().catch(() => {});
+      loadAll().catch(() => { });
     }
   }, [allRecipes.length]);
 
@@ -459,79 +450,79 @@ export default function HomeScreen() {
   return (
     <View style={styles.screen}>
       <SwipeNavigator>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#385225"
-            />
-          }
-        >
-          <View style={styles.padded}>
-            <ProfileName subtitle={t("tagline")} />
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#385225"
+              />
+            }
+          >
+            <View style={styles.padded}>
+              <ProfileName subtitle={t("tagline")} />
 
-            <SearchBar
-              placeholder={t("searchPlaceholder")}
-              onPress={() => { closeAllSheets(); setSearchOpen(true); }}
-            />
+              <SearchBar
+                placeholder={t("searchPlaceholder")}
+                onPress={() => { closeAllSheets(); setSearchOpen(true); }}
+              />
 
-            <MealCategoryGrid onPress={handleMealCategory} />
+              <MealCategoryGrid onPress={handleMealCategory} />
 
-            <Text style={styles.title}>{t("sectionTitle")}</Text>
-          </View>
-          <View style={{ marginHorizontal: 20 }}>
-            <SuggestionRow
-              items={[
-                {
-                  title: t("suggestions.whatCanIMake"),
-                  subtitle: { txt: t("suggestions.matchPantry"), color: "#385225" },
-                  Icon: () => (
-                    <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
-                      <SparkleBadgeIcon width={40} height={40} />
-                    </View>
-                  ),
-                  onPress: handlePantryMatch,
-                },
-                {
-                  title: t("suggestions.getInspired"),
-                  subtitle: { txt: t("suggestions.curatedPicks"), color: "#5A1F33" },
-                  Icon: () => <HeartBadgeIcon width={40} height={40} />,
-                  onPress: handleDinnerInspiration,
-                },
-              ]}
-            />
-          </View>
+              <Text style={styles.title}>{t("sectionTitle")}</Text>
+            </View>
+            <View style={{ marginHorizontal: 20 }}>
+              <SuggestionRow
+                items={[
+                  {
+                    title: t("suggestions.whatCanIMake"),
+                    subtitle: { txt: t("suggestions.matchPantry"), color: "#385225" },
+                    Icon: () => (
+                      <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
+                        <SparkleBadgeIcon width={40} height={40} />
+                      </View>
+                    ),
+                    onPress: handlePantryMatch,
+                  },
+                  {
+                    title: t("suggestions.getInspired"),
+                    subtitle: { txt: t("suggestions.curatedPicks"), color: "#5A1F33" },
+                    Icon: () => <HeartBadgeIcon width={40} height={40} />,
+                    onPress: handleDinnerInspiration,
+                  },
+                ]}
+              />
+            </View>
 
-          <View style={styles.padded}>
-            <StatsCardsRow
-              favoriteCount={favoriteCount}
-              onPressFavorites={() => { closeAllSheets(); setFavoritesOpen(true); }}
-              onPressHighProtein={() => handleRecommendation("high-protein")}
-              onPressQuickMeals={() => handleRecommendation("quick-meals")}
-            />
+            <View style={styles.padded}>
+              <StatsCardsRow
+                favoriteCount={favoriteCount}
+                onPressFavorites={() => { closeAllSheets(); setFavoritesOpen(true); }}
+                onPressHighProtein={() => handleRecommendation("high-protein")}
+                onPressQuickMeals={() => handleRecommendation("quick-meals")}
+              />
 
-            <MealPlanCard
-              mealsPerDay={mealPlanPerDay}
-              totalMeals={mealPlanTotal}
-              onPress={() => router.push("/mealPlan")}
-            />
+              <MealPlanCard
+                mealsPerDay={mealPlanPerDay}
+                totalMeals={mealPlanTotal}
+                onPress={() => router.push("/mealPlan")}
+              />
 
-            <RecentRecipesHeader
-              onPressSeeAll={handleSeeAll}
-            />
-          </View>
-          <View style={{ marginHorizontal: 20 }}>
-            <RecentRecipesCarousel
-              items={carouselItems}
-              onPressItem={(item) => router.push(`/recipe/${item.id}`)}
-            />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+              <RecentRecipesHeader
+                onPressSeeAll={handleSeeAll}
+              />
+            </View>
+            <View style={{ marginHorizontal: 20 }}>
+              <RecentRecipesCarousel
+                items={carouselItems}
+                onPressItem={(item) => router.push(`/recipe/${item.id}`)}
+              />
+            </View>
+          </ScrollView>
+        </SafeAreaView>
       </SwipeNavigator>
 
       <FloatingNav
@@ -602,7 +593,7 @@ export default function HomeScreen() {
                 data={favoriteRecipes}
                 savedPublicIds={favoriteIds}
                 savingIds={savingIds}
-                onSave={(id) => toggleFavorite({ recipeId: id, getToken }).catch(() => {})}
+                onSave={(id) => toggleFavorite({ recipeId: id, getToken }).catch(() => { })}
                 onPressRecipe={(recipe) => {
                   setFavoritesOpen(false);
                   router.push(`/recipe/${recipe.id}`);
@@ -684,7 +675,7 @@ export default function HomeScreen() {
         {({ onScroll, scrollEnabled }) => (
           <>
             <Text style={styles.recipesSheetTitle}>
-              {mealCatKey ? CATEGORIES[mealCatKey]?.label : ""}
+              {mealCatKey ? t(`mealTypes.${mealCatKey}`, { ns: "mealPlan", defaultValue: CATEGORIES[mealCatKey]?.label }) : ""}
             </Text>
             <Text style={styles.recipesSheetSubtitle}>
               {isLoadingAll

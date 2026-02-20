@@ -1,7 +1,9 @@
 {
   "header": {
-    "title_one": "{{count}} article dans le garde-manger",
-    "title_other": "{{count}} articles dans le garde-manger"
+    "pageTitle": "Mon Frigo",
+    "title_zero": "Aucun article dans le frigo",
+    "title_one": "{{count}} article dans le frigo",
+    "title_other": "{{count}} articles dans le frigo"
   },
   "loading": "Chargement du garde-manger…",
   "empty": {
@@ -29,12 +31,13 @@
     "spices": "Épices",
     "pantry": "Épicerie",
     "beverages": "Boissons",
-    "condiments": "Condiments",
+    "condiments": "Sauces & Condiments",
     "snacks": "Snacks",
     "frozen": "Surgelés",
     "household": "Maison",
     "other": "Autre"
   },
+  "itemCount_zero": "Aucun article",
   "itemCount_one": "{{count}} article",
   "itemCount_other": "{{count}} articles",
   "removeAll_one": "Supprimer {{count}} article",
@@ -43,6 +46,32 @@
   "addSheet": {
     "title": "Ajouter au garde-manger",
     "searchPlaceholder": "Rechercher des ingrédients...",
-    "add": "Ajouter au garde-manger"
+    "add": "Ajouter au garde-manger",
+    "quickPick": "Sélection rapide :",
+    "itemName": "Nom de l'article :",
+    "itemPlaceholder": "par ex. Lait d'amande",
+    "qty": "Quantité (facultatif)",
+    "unit": "Unité",
+    "alertTitle": "Tout est fait !",
+    "alertOops": "Oups",
+    "alertError": "Quelque chose s'est mal passé. Essayer à nouveau?",
+    "back": "Retour",
+    "browseCategory": "Parcourir par catégorie",
+    "importBulk": "Ou importer en gros",
+    "snapTitle": "Prenez vos courses",
+    "snapSubtitle": "Ajouter des éléments à partir d'une photo",
+    "scanBtn": "Rechercher des ingrédients",
+    "spotting": "Repérer des objets…",
+    "typeCustom": "+ Tapez l'article personnalisé",
+    "backToQuickPick": "← Retour à la sélection rapide",
+    "cancel": "Annuler",
+    "addBtn": "Ajouter"
+  },
+  "detail": {
+    "qtyLabel": "Quantité",
+    "unitLabel": "Unité"
+  },
+  "quickAdd": {
+    "title": "Ajout rapide"
   }
 }

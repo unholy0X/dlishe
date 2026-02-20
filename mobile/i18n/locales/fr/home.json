@@ -16,17 +16,21 @@
   },
   "sheets": {
     "suggestedTitle": "Suggéré pour vous",
+    "suggestions_zero": "Aucune suggestion",
     "suggestions_one": "{{count}} suggestion",
     "suggestions_other": "{{count}} suggestions",
     "highProtein": "Riche en protéines",
     "quickMeals": "Repas rapides",
+    "recipes_zero": "Aucune recette",
     "recipes_one": "{{count}} recette",
     "recipes_other": "{{count}} recettes",
     "whatCanIMake": "Que puis-je cuisiner ?",
+    "matched_zero": "Aucune recette trouvée",
     "matched_one": "{{count}} recette trouvée",
     "matched_other": "{{count}} recettes trouvées",
     "matching": "Correspondance avec votre garde-manger...",
     "favoritesTitle": "Mes favoris",
+    "favoritesSaved_zero": "Aucune recette enregistrée",
     "favoritesSaved_one": "{{count}} recette enregistrée",
     "favoritesSaved_other": "{{count}} recettes enregistrées"
   },
@@ -49,6 +53,7 @@
     "noMatchesSubtitle": "Essayez d'ajouter plus d'articles à votre garde-manger"
   },
   "badge": {
+    "matches_zero": "Aucune correspondance",
     "matches_one": "{{count}} correspondance",
     "matches_other": "{{count}} correspondances"
   },

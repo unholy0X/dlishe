@@ -14,6 +14,7 @@ import {
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SearchIcon from "./icons/SearchIcon";
+import { useTranslation } from "react-i18next";
 import RecipePlaceholder from "./RecipePlaceholder";
 import { searchRecipes, searchPublicRecipes } from "../services/recipes";
 
@@ -63,6 +64,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const { t } = useTranslation("recipe");
 
   // Animate in/out
   useEffect(() => {
@@ -170,7 +172,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
               <TextInput
                 ref={inputRef}
                 style={styles.input}
-                placeholder="Search recipes..."
+                placeholder={t("search.placeholder", "Search recipes...")}
                 placeholderTextColor="#B4B4B4"
                 value={query}
                 onChangeText={handleChangeText}
@@ -185,7 +187,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
               )}
             </View>
             <Pressable onPress={onClose} style={styles.cancelBtn}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{t("search.cancel", "Cancel")}</Text>
             </Pressable>
           </View>
 
@@ -200,16 +202,16 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
             {isSearching && (
               <View style={styles.statusRow}>
                 <ActivityIndicator size="small" color="#385225" />
-                <Text style={styles.statusText}>Searching...</Text>
+                <Text style={styles.statusText}>{t("search.searching", "Searching...")}</Text>
               </View>
             )}
 
             {/* No results */}
             {!isSearching && hasSearched && results.length === 0 && publicResults.length === 0 && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>No recipes found</Text>
+                <Text style={styles.emptyTitle}>{t("search.emptyTitle", "No recipes found")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  Try a different keyword like cuisine,{"\n"}ingredient, or dish name
+                  {t("search.emptySubtitle", "Try a different keyword like cuisine,\ningredient, or dish name")}
                 </Text>
               </View>
             )}
@@ -219,7 +221,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
               <View style={styles.hintState}>
                 <SearchIcon width={40} height={40} color="#D4D4D4" />
                 <Text style={styles.hintText}>
-                  Search by name, cuisine, or ingredient
+                  {t("search.hintText", "Search by name, cuisine, or ingredient")}
                 </Text>
               </View>
             )}
@@ -228,7 +230,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
             {results.length > 0 && (
               <>
                 {publicResults.length > 0 && (
-                  <Text style={styles.sectionTitle}>Your recipes</Text>
+                  <Text style={styles.sectionTitle}>{t("search.yourRecipes", "Your recipes")}</Text>
                 )}
                 {results.map((recipe) => renderResultCard(recipe, handleSelect))}
               </>
@@ -237,7 +239,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
             {/* Public / suggested recipes */}
             {publicResults.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>Suggested recipes</Text>
+                <Text style={styles.sectionTitle}>{t("search.suggestedRecipes", "Suggested recipes")}</Text>
                 {publicResults.map((recipe) => renderResultCard(recipe, handleSelect))}
               </>
             )}

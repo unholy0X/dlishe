@@ -1,4 +1,14 @@
 {
+  "extraction": {
+    "title": "Extracting Recipe",
+    "subtitle": "Please hold while we get the details",
+    "step1": "Reading content...",
+    "step2": "Finding ingredients...",
+    "step3": "Organizing steps...",
+    "step4": "Calculating nutritional values...",
+    "step5": "Verifying details...",
+    "step6": "Almost done..."
+  },
   "detail": {
     "ingredients": "Ingredients",
     "instructions": "Instructions",
@@ -18,30 +28,55 @@
     "noIngredients": "This recipe has no ingredients to add.",
     "noIngredientsTitle": "No Ingredients",
     "shoppingListCreated": "Shopping List Created",
+    "ingredientsAdded_zero": "0 ingredients added to \"{{title}}\"",
     "ingredientsAdded_one": "Added {{count}} ingredient to \"{{title}}\"",
     "ingredientsAdded_other": "Added {{count}} ingredients to \"{{title}}\"",
     "alreadyAdded": "Already Added",
     "alreadyAddedMessage": "This recipe's ingredients are already in a shopping list.",
     "protein": "{{value}}g protein",
     "calories": "{{value}} kcal / serving",
-    "loading": "Loading recipe\u2026",
+    "loading": "Loading recipe…",
     "notFound": "Recipe not found"
   },
   "add": {
     "title": "Add Recipe",
+    "subtitle": "Paste a YouTube link or any recipe site and we'll handle the rest",
     "fromImage": "Extract from image",
     "fromCamera": "Scan with camera",
     "fromUrl": "Paste from URL",
     "manual": "Manual entry",
     "urlPlaceholder": "https://...",
     "extract": "Extract",
-    "extracting": "Extracting recipe..."
+    "extracting": "Extracting recipe...",
+    "back": "Back",
+    "monthlyLimit": "Monthly limit reached",
+    "upgradePro": "Upgrade to Pro",
+    "quotaHint": "No limits on extractions, pantry scans & more",
+    "quotaReset": "Resets next month",
+    "recipeReady": "Recipe ready!",
+    "min": "min",
+    "servings": "servings",
+    "ingredients": "Ingredients",
+    "items": "items",
+    "instructions": "Instructions",
+    "steps": "steps",
+    "more": "more",
+    "savedToBox": "Saved to your recipe box",
+    "addAnother": "Add another recipe",
+    "cancel": "Cancel",
+    "cookingTitle": "Cooking it up",
+    "addNew": "Add a new recipe",
+    "grabRecipe": "Grab recipe",
+    "or": "Or",
+    "snapTitle": "Snap a cookbook",
+    "snapSubtitle": "Take a photo of any recipe page (up to 3)"
   },
   "list": {
+    "title_zero": "No recipes saved",
     "title_one": "{{count}} recipe saved",
     "title_other": "{{count}} recipes saved",
-    "loading": "Loading recipes\u2026",
-    "loadingMore": "Loading more\u2026",
+    "loading": "Loading recipes…",
+    "loadingMore": "Loading more…",
     "empty": "No recipes yet",
     "emptySubtitle": "Tap + to add your first recipe",
     "searchPlaceholder": "Search for a recipe",
@@ -76,5 +111,29 @@
     "easy": "Easy",
     "medium": "Medium",
     "hard": "Hard"
+  },
+  "search": {
+    "placeholder": "Search recipes...",
+    "cancel": "Cancel",
+    "searching": "Searching...",
+    "emptyTitle": "No recipes found",
+    "emptySubtitle": "Try a different keyword like cuisine,\\ningredient, or dish name",
+    "hintText": "Search by name, cuisine, or ingredient",
+    "yourRecipes": "Your recipes",
+    "suggestedRecipes": "Suggested recipes"
+  },
+  "prep": {
+    "title": "Prep Checklist",
+    "subtitle": "Gather your ingredients before starting",
+    "back": "Back",
+    "readyBtn": "Ready, let's start"
+  },
+  "doneSheet": {
+    "allDone": "ALL DONE!",
+    "subtitle": "Enjoy your delicious meal",
+    "stepsCompleted": "Completed {{count}} steps",
+    "timeApprox": "Took ~{{time}} mins",
+    "serveAndEnjoy": "Serve & Enjoy!",
+    "back": "Back"
   }
 }

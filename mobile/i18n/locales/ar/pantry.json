@@ -1,1 +1,83 @@
-{}
+{
+  "header": {
+    "pageTitle": "ثلاجتي",
+    "title_zero": "لا توجد مكونات في الثلاجة",
+    "title_one": "مكون واحد في الثلاجة",
+    "title_two": "مكونان في الثلاجة",
+    "title_few": "{{count}} مكونات في الثلاجة",
+    "title_many": "{{count}} مكوناً في الثلاجة",
+    "title_other": "{{count}} مكون في الثلاجة"
+  },
+  "loading": "جاري قراءة الثلاجة...",
+  "empty": {
+    "title": "ثلاجتك فاضية",
+    "subtitle": "أضف المكونات المتوفرة لديك لترى ما يمكنك طبخه",
+    "addButton": "إضافة مكونات",
+    "alreadyEmpty": "الثلاجة فارغة بالفعل"
+  },
+  "menu": {
+    "title": "خيارات الثلاجة",
+    "reset": "تفريغ الثلاجة"
+  },
+  "resetConfirm": {
+    "title": "تفريغ الثلاجة",
+    "message_one": "سيؤدي هذا إلى إزالة جميع المكونات ({{count}}) من ثلاجتك. هل أنت متأكد؟",
+    "message_other": "سيؤدي هذا إلى إزالة جميع المكونات ({{count}}) من ثلاجتك. هل أنت متأكد؟",
+    "keep": "إلغاء",
+    "reset": "تفريغ"
+  },
+  "categories": {
+    "dairy": "ألبان وأجبان",
+    "produce": "خضار وفواكه",
+    "proteins": "لحوم وبروتينات",
+    "bakery": "مخبوزات",
+    "spices": "بهارات وتوابل",
+    "pantry": "مؤونة",
+    "beverages": "مشروبات",
+    "condiments": "صلصات",
+    "snacks": "تسالي",
+    "frozen": "مجمدات",
+    "household": "منظفات",
+    "other": "أخرى"
+  },
+  "itemCount_zero": "لا توجد مكونات",
+  "itemCount_one": "مكون واحد",
+  "itemCount_two": "مكونان",
+  "itemCount_few": "{{count}} مكونات",
+  "itemCount_many": "{{count}} مكوناً",
+  "itemCount_other": "{{count}} مكون",
+  "removeAll_one": "إزالة جميع المكونات ({{count}})",
+  "removeAll_other": "إزالة جميع المكونات ({{count}})",
+  "moreItems": "+ {{count}} المزيد",
+  "addSheet": {
+    "title": "إضافة للثلاجة",
+    "searchPlaceholder": "البحث عن مكونات...",
+    "add": "إضافة",
+    "quickPick": "اختيار سريع:",
+    "itemName": "اسم المكون:",
+    "itemPlaceholder": "مثال: حليب",
+    "qty": "الكمية (اختياري)",
+    "unit": "الوحدة",
+    "alertTitle": "تم بنجاح!",
+    "alertOops": "عذراً",
+    "alertError": "حدث خطأ ما. حاول مرة أخرى.",
+    "back": "رجوع",
+    "browseCategory": "تصفح حسب الفئة",
+    "importBulk": "أو أضف بالجملة",
+    "snapTitle": "صور مقاضيك",
+    "snapSubtitle": "أضف المكونات من صورة",
+    "scanBtn": "تصوير المكونات",
+    "spotting": "جاري التعرف على المكونات...",
+    "typeCustom": "+ كتابة مكون مخصص",
+    "backToQuickPick": "← العودة للاختيار السريع",
+    "cancel": "إلغاء",
+    "addBtn": "إضافة"
+  },
+  "detail": {
+    "qtyLabel": "الكمية",
+    "unitLabel": "الوحدة"
+  },
+  "quickAdd": {
+    "title": "إضافة سريعة"
+  }
+}

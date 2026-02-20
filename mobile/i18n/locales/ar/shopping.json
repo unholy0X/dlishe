@@ -1,1 +1,87 @@
-{}
+{
+  "header": "المقاضي",
+  "listCount_zero": "لا توجد قوائم",
+  "listCount_one": "قائمة واحدة",
+  "listCount_two": "قائمتان",
+  "listCount_few": "{{count}} قوائم",
+  "listCount_many": "{{count}} قائمة",
+  "listCount_other": "{{count}} قائمة",
+  "loading": "جاري تحميل القوائم...",
+  "listLoading": "جاري تحميل القائمة...",
+  "empty": {
+    "title": "بداية جديدة",
+    "subtitle": "أنشئ قائمة تسوق ولن تنسى أي مكون مرة أخرى",
+    "createButton": "إنشاء قائمة"
+  },
+  "create": {
+    "sheetTitle": "قائمة مقاضي جديدة",
+    "namePlaceholder": "مثال: مقاضي الأسبوع",
+    "nameLabel": "الاسم",
+    "cancel": "إلغاء",
+    "create": "إنشاء"
+  },
+  "delete": {
+    "title_one": "حذف القائمة",
+    "title_other": "حذف {{count}} قوائم",
+    "message_one": "هل تريد حذف هذه القائمة؟",
+    "message_other": "هل تريد حذف {{count}} قوائم؟",
+    "messageNamed": "هل تريد حذف \"{{name}}\"؟"
+  },
+  "merge": {
+    "selectMore": "حدد المزيد",
+    "hint": "حدد قائمتين على الأقل لدمجهما.",
+    "title": "دمج ذكي",
+    "merge": "دمج",
+    "confirm": "دمج {{names}} في قائمة واحدة؟ سيتم التخلص من المكونات المكررة.",
+    "successTitle": "تم الدمج بنجاح",
+    "successMessage": "تم دمج القوائم في قائمة واحدة!"
+  },
+  "clearAll": {
+    "title": "حذف جميع القوائم",
+    "message_one": "سيتم حذف جميع قوائم التسوق ({{count}}) نهائياً. هل أنت متأكد؟",
+    "message_other": "سيتم حذف جميع قوائم التسوق ({{count}}) نهائياً. هل أنت متأكد؟",
+    "keepLists": "الاحتفاظ بالقوائم",
+    "clearAll": "حذف الكل"
+  },
+  "menu": {
+    "title": "خيارات التسوق",
+    "selectLists": "تحديد القوائم",
+    "selectHint": "دمج أو حذف أكثر من قائمة",
+    "clearHint_one": "حذف قائمة ({{count}}) نهائياً",
+    "clearHint_other": "حذف جميع القوائم ({{count}}) نهائياً"
+  },
+  "detail": {
+    "addItem": "إضافة للطلب",
+    "addItemSheet": "إضافة للطلب",
+    "quickAdd": "إضافة سريعة",
+    "browse": "تصفح",
+    "itemNameLabel": "اسم المكون",
+    "itemPlaceholder": "مثال: حليب",
+    "browseByCategory": "تصنيف حسب الفئة",
+    "allCategories": "← جميع الفئات",
+    "customItem": "+ كتابة مكون مخصص",
+    "backToQuickPick": "← العودة للاختيار السريع",
+    "complete": "إكمال القائمة",
+    "stockPantry": "نقل للثلاجة",
+    "stockPantryTitle": "تملية الثلاجة",
+    "stockPantrySubtitle_zero": "لن يتم إضافة أي مكون إلى ثلاجتك",
+    "stockPantrySubtitle_one": "تمت إضافة مكون واحد إلى ثلاجتك",
+    "stockPantrySubtitle_two": "تمت إضافة مكونين إلى ثلاجتك",
+    "stockPantrySubtitle_few": "ستتم إضافة {{count}} مكونات إلى ثلاجتك",
+    "stockPantrySubtitle_many": "ستتم إضافة {{count}} مكوناً إلى ثلاجتك",
+    "stockPantrySubtitle_other": "ستتم إضافة {{count}} مكون إلى ثلاجتك",
+    "stockPantryBtn": "نقل للثلاجة",
+    "notYet": "ليس بعد",
+    "shoppingList": "قائمة التسوق",
+    "listEmpty": "هذه القائمة فارغة",
+    "listEmptyHint": "اضغط على الزر بالأسفل لإضافة أول مكون للقائمة",
+    "addItemBtn": "+ إضافة",
+    "checked_one": "{{checked}} من {{total}} مكون",
+    "checked_other": "{{checked}} من {{total}} مكونات",
+    "categories_one": "{{count}} فئة",
+    "categories_other": "{{count}} فئات",
+    "deleteItem": "حذف المكون",
+    "deleteItemMessage": "هل تريد حذف هذا المكون من القائمة؟",
+    "generateFromPlan": "إنشاء من خطة الوجبات"
+  }
+}

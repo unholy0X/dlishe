@@ -63,20 +63,22 @@ const FONT = {
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────
-function formatTime(minutes) {
+function formatTime(minutes, t) {
   if (!minutes) return null;
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 60) return t("time.minOnly", { m: minutes, ns: "common" });
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return m ? `${h}h ${m}m` : `${h}h`;
+  return m ? t("time.hourMin", { h, m, ns: "common" }) : t("time.hourOnly", { h, ns: "common" });
 }
 
-function formatDuration(seconds) {
+function formatDuration(seconds, t) {
   if (!seconds) return null;
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
-  if (m === 0) return `${s}s`;
-  return s ? `${m}m ${s}s` : `${m} min`;
+  if (m === 0) return t("time.seconds_short", { s, ns: "common" });
+  return s
+    ? `${t("time.minutes_short", { m, ns: "common" })} ${t("time.seconds_short", { s, ns: "common" })}`
+    : t("time.minutes_short", { m, ns: "common" });
 }
 
 // ─── Icons ───────────────────────────────────────────────────────
@@ -164,7 +166,7 @@ function StepRow({ step }) {
             {step.durationSeconds ? (
               <View style={s.stepChip}>
                 <Text style={s.stepChipText}>
-                  {formatDuration(step.durationSeconds)}
+                  {formatDuration(step.durationSeconds, t)}
                 </Text>
               </View>
             ) : null}
@@ -452,19 +454,19 @@ export default function RecipeDetailScreen() {
           {/* Inline Meta */}
           <View style={s.metaInline}>
             {totalTime > 0 ? (
-              <Text style={s.metaInlineText}>{formatTime(totalTime)}</Text>
+              <Text style={s.metaInlineText}>{formatTime(totalTime, t)}</Text>
             ) : null}
             {totalTime > 0 && recipe.difficulty ? (
               <Text style={s.metaDot}>·</Text>
             ) : null}
             {recipe.difficulty ? (
-              <Text style={s.metaInlineText}>{recipe.difficulty}</Text>
+              <Text style={s.metaInlineText}>{t(`difficulty.${recipe.difficulty}`, { defaultValue: recipe.difficulty })}</Text>
             ) : null}
             {recipe.difficulty && recipe.servings ? (
               <Text style={s.metaDot}>·</Text>
             ) : null}
             {recipe.servings ? (
-              <Text style={s.metaInlineText}>{recipe.servings} servings</Text>
+              <Text style={s.metaInlineText}>{t("units.servings", { count: recipe.servings, ns: "common" })}</Text>
             ) : null}
           </View>
 

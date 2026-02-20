@@ -12,6 +12,7 @@ import { Image } from "expo-image";
 import Svg, { Path, Circle } from "react-native-svg";
 import RecipePlaceholder from "../RecipePlaceholder";
 import BottomSheetModal from "../BottomSheetModal";
+import { useTranslation } from "react-i18next";
 
 function SearchIcon() {
   return (
@@ -22,15 +23,16 @@ function SearchIcon() {
   );
 }
 
-function buildMeta(recipe) {
+function buildMeta(recipe, t) {
   const parts = [];
   const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
-  if (totalTime > 0) parts.push(`${totalTime} min`);
-  if (recipe.difficulty) parts.push(recipe.difficulty);
+  if (totalTime > 0) parts.push(t("time.minOnly", { m: totalTime, ns: "common" }));
+  if (recipe.difficulty) parts.push(t(`difficulty.${recipe.difficulty}`, { ns: "recipe", defaultValue: recipe.difficulty }));
   return parts.join(" \u00B7 ");
 }
 
 export default function AddRecipeSheet({ visible, onClose, recipes = [], isLoading, onSelect }) {
+  const { t } = useTranslation("mealPlan");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -61,8 +63,8 @@ export default function AddRecipeSheet({ visible, onClose, recipes = [], isLoadi
       </View>
       <View style={styles.info}>
         <Text style={styles.recipeTitle} numberOfLines={2}>{item.title}</Text>
-        {buildMeta(item) ? (
-          <Text style={styles.recipeMeta}>{buildMeta(item)}</Text>
+        {buildMeta(item, t) ? (
+          <Text style={styles.recipeMeta}>{buildMeta(item, t)}</Text>
         ) : null}
       </View>
       <View style={styles.addIndicator}>
@@ -77,13 +79,13 @@ export default function AddRecipeSheet({ visible, onClose, recipes = [], isLoadi
     <BottomSheetModal visible={visible} onClose={onClose} customScroll>
       {({ onScroll, scrollEnabled }) => (
         <>
-          <Text style={styles.title}>Add Recipe</Text>
+          <Text style={styles.title}>{t("addSheet.title", "Add Recipe")}</Text>
 
           <View style={styles.searchWrap}>
             <SearchIcon />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search your recipes..."
+              placeholder={t("addSheet.searchPlaceholder", "Search your recipes...")}
               placeholderTextColor="#B4B4B4"
               value={search}
               onChangeText={setSearch}
@@ -99,12 +101,12 @@ export default function AddRecipeSheet({ visible, onClose, recipes = [], isLoadi
           ) : filtered.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>
-                {search ? "No recipes match your search" : "No saved recipes"}
+                {search ? t("addSheet.emptyMatch", "No recipes match your search") : t("addSheet.emptySaved", "No saved recipes")}
               </Text>
               <Text style={styles.emptySubtitle}>
                 {search
-                  ? "Try a different search term"
-                  : "Extract or create a recipe first"}
+                  ? t("addSheet.tryDifferent", "Try a different search term")
+                  : t("addSheet.extractFirst", "Extract or create a recipe first")}
               </Text>
             </View>
           ) : (

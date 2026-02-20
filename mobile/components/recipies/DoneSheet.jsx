@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import { useTranslation } from "react-i18next";
 import RecipePlaceholder from "../RecipePlaceholder";
 
 const C = {
@@ -29,10 +30,11 @@ export default function DoneSheet({
   onServe,
 }) {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation("recipe");
 
   const metaParts = [];
-  if (totalSteps) metaParts.push(`${totalSteps} steps completed`);
-  if (totalTime > 0) metaParts.push(`\u2248${totalTime} min`);
+  if (totalSteps) metaParts.push(t("doneSheet.stepsCompleted", { count: totalSteps }));
+  if (totalTime > 0) metaParts.push(t("doneSheet.timeApprox", { time: totalTime }));
 
   // Entrance animation
   const cardScale = useRef(new Animated.Value(0.95)).current;
@@ -71,7 +73,7 @@ export default function DoneSheet({
       <View style={[s.topBar, { paddingTop: insets.top + 10 }]}>
         <Pressable style={s.backBtn} onPress={onBack}>
           <Text style={s.backIcon}>←</Text>
-          <Text style={s.backText}>Back</Text>
+          <Text style={s.backText}>{t("doneSheet.back")}</Text>
         </Pressable>
       </View>
 
@@ -100,12 +102,12 @@ export default function DoneSheet({
 
           <View style={s.heroBody}>
             <Animated.Text style={[s.doneLabel, { opacity: textOpacity }]}>
-              All done!
+              {t("doneSheet.allDone")}
             </Animated.Text>
             {title ? (
               <Text style={s.recipeTitle} numberOfLines={2}>{title}</Text>
             ) : null}
-            <Text style={s.subtitle}>Your dish is ready to serve.</Text>
+            <Text style={s.subtitle}>{t("doneSheet.subtitle")}</Text>
 
             {metaParts.length > 0 ? (
               <View style={s.metaRow}>
@@ -123,7 +125,7 @@ export default function DoneSheet({
       {/* Primary — pinned bottom */}
       <View style={[s.bottomAction, { paddingBottom: insets.bottom + 8 }]}>
         <Pressable style={s.primaryBtn} onPress={onServe}>
-          <Text style={s.primaryText}>Serve & enjoy</Text>
+          <Text style={s.primaryText}>{t("doneSheet.serveAndEnjoy")}</Text>
         </Pressable>
       </View>
     </View>

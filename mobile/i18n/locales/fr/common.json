@@ -52,7 +52,26 @@
   "nav": {
     "home": "Accueil",
     "recipies": "Recettes",
-    "pantry": "Garde-manger",
+    "pantry": "Frigo",
     "shopping": "Courses"
+  },
+  "generic": "Quelque chose s'est mal passé",
+  "retryError": "L'application a rencontré une erreur inattendue.\\nVeuillez essayer de recharger.",
+  "fatalError": "L'application continue de planter.\\nVeuillez la fermer et la rouvrir.",
+  "reloadApp": "Recharger l'application",
+  "camera": {
+    "actionTitle": "Prendre une photo",
+    "accessNeededTitle": "Accès à la caméra nécessaire",
+    "accessNeededMsg": "Autorisez l’accès à l’appareil photo pour pouvoir prendre une photo.",
+    "photoAccessNeededTitle": "Accès aux photos nécessaire",
+    "photoAccessNeededMsg": "Autorisez l’accès aux photos afin que vous puissiez choisir dans votre bibliothèque.",
+    "errorTitle": "Oups",
+    "errorCamera": "Quelque chose s'est mal passé avec la caméra.",
+    "errorLibrary": "Quelque chose s'est mal passé lors du choix de la photo.",
+    "addPhotoTitle": "Ajouter une photo",
+    "addPhotoMsg": "Comment souhaitez-vous ajouter votre photo ?",
+    "takePhoto": "Prendre une photo",
+    "chooseFromLibrary": "Choisissez dans la bibliothèque",
+    "clearAll": "Tout effacer"
   }
 }

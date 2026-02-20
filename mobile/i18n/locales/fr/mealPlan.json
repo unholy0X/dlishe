@@ -16,6 +16,15 @@
     "saturday": "Samedi",
     "sunday": "Dimanche"
   },
+  "daysShort": {
+    "mon": "L",
+    "tue": "M",
+    "wed": "M",
+    "thu": "J",
+    "fri": "V",
+    "sat": "S",
+    "sun": "D"
+  },
   "mealTypes": {
     "breakfast": "Petit-déjeuner",
     "lunch": "Déjeuner",
@@ -35,6 +44,23 @@
     "title": "Plan de repas",
     "subtitle_zero": "Aucun repas cette semaine",
     "subtitle_one": "{{count}} repas planifié",
+    "subtitle_two": "{{count}} repas planifiés",
+    "subtitle_few": "{{count}} repas planifiés",
+    "subtitle_many": "{{count}} repas planifiés",
     "subtitle_other": "{{count}} repas planifiés"
+  },
+  "addSheet": {
+    "title": "Ajouter une recette",
+    "searchPlaceholder": "Recherchez vos recettes...",
+    "emptyMatch": "Aucune recette ne correspond à votre recherche",
+    "emptySaved": "Aucune recette enregistrée",
+    "tryDifferent": "Essayez un autre terme de recherche",
+    "extractFirst": "Extrayez ou créez d'abord une recette"
+  },
+  "fallback": {
+    "recipe": "Recette"
+  },
+  "slot": {
+    "addBtn": "+ Ajouter une recette"
   }
 }

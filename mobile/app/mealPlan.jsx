@@ -8,6 +8,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  I18nManager,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -24,7 +25,7 @@ const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
 
 function ChevronLeft({ color = "#385225" }) {
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }] }}>
       <Path d="M15 18l-6-6 6-6" />
     </Svg>
   );
@@ -32,25 +33,25 @@ function ChevronLeft({ color = "#385225" }) {
 
 function ChevronRight({ color = "#385225" }) {
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }] }}>
       <Path d="M9 18l6-6-6-6" />
     </Svg>
   );
 }
 
-function formatWeekRange(weekStart) {
+function formatWeekRange(weekStart, locale = "en-US") {
   if (!weekStart) return "";
   const start = new Date(weekStart);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   const opts = { month: "short", day: "numeric" };
-  return `${start.toLocaleDateString("en-US", opts)} \u2013 ${end.toLocaleDateString("en-US", opts)}`;
+  return `${start.toLocaleDateString(locale, opts)} \u2013 ${end.toLocaleDateString(locale, opts)}`;
 }
 
 export default function MealPlanScreen() {
   const router = useRouter();
   const { getToken } = useAuth();
-  const { t } = useTranslation("mealPlan");
+  const { t, i18n } = useTranslation("mealPlan");
   const { recipes: userRecipes, isLoading: recipesLoading, loadRecipes } = useRecipeStore();
 
   const {
@@ -73,14 +74,14 @@ export default function MealPlanScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadCurrentWeek({ getToken }).catch(() => {});
-    loadRecipes({ getToken }).catch(() => {});
+    loadCurrentWeek({ getToken }).catch(() => { });
+    loadRecipes({ getToken }).catch(() => { });
   }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadCurrentWeek({ getToken })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setRefreshing(false));
   }, [getToken]);
 
@@ -174,15 +175,15 @@ export default function MealPlanScreen() {
         {/* Week navigation */}
         <View style={styles.weekNav}>
           <Pressable
-            onPress={() => navigateWeek({ getToken, direction: -1 }).catch(() => {})}
+            onPress={() => navigateWeek({ getToken, direction: -1 }).catch(() => { })}
             hitSlop={10}
             style={({ pressed }) => [styles.weekArrow, pressed && { backgroundColor: "#EAEAEA" }]}
           >
             <ChevronLeft />
           </Pressable>
-          <Text style={styles.weekLabel}>{formatWeekRange(plan?.weekStart)}</Text>
+          <Text style={styles.weekLabel}>{formatWeekRange(plan?.weekStart, i18n.language)}</Text>
           <Pressable
-            onPress={() => navigateWeek({ getToken, direction: 1 }).catch(() => {})}
+            onPress={() => navigateWeek({ getToken, direction: 1 }).catch(() => { })}
             hitSlop={10}
             style={({ pressed }) => [styles.weekArrow, pressed && { backgroundColor: "#EAEAEA" }]}
           >

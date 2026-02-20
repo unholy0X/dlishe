@@ -1,1 +1,41 @@
-{}
+{
+  "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+  "network": "لا يوجد اتصال بالإنترنت. تحقق من شبكتك وحاول مرة أخرى.",
+  "session": "جلستك تحتاج إلى تحديث. الرجاء تسجيل الخروج والعودة مرة أخرى.",
+  "connection": "يرجى التحقق من اتصالك والمحاولة مرة أخرى.",
+  "recipe": {
+    "loadFailed": "فشل تحميل الوصفة",
+    "deleteFailed": "فشل الحذف",
+    "deleteMessage": "تعذر حذف الوصفة. يرجى المحاولة مرة أخرى.",
+    "saveFailed": "فشل الحفظ",
+    "saveMessage": "تعذر حفظ هذه الوصفة. يرجى المحاولة مرة أخرى.",
+    "clearFailed": "لا يمكن مسح الوصفات",
+    "deleteBulkFailed": "تعذر حذف الوصفات",
+    "partialDelete_one": "فشل حذف {{count}} الوصفة. يرجى المحاولة مرة أخرى.",
+    "partialDelete_other": "فشل حذف ____عدد____ وصفات. يرجى المحاولة مرة أخرى."
+  },
+  "mealPlan": {
+    "addFailed": "تعذرت إضافة الوصفة",
+    "notSynced": "لم تتم مزامنة خطة الوجبات بعد. اسحب للأسفل للتحديث.",
+    "loadFailed": "فشل في تحميل خطة الوجبات"
+  },
+  "shopping": {
+    "createFailed": "فشل في إنشاء القائمة",
+    "shoppingListFailed": "حدث خطأ ما",
+    "shoppingListMessage": "تعذر إنشاء قائمة التسوق. يرجى المحاولة مرة أخرى.",
+    "updateItemFailed": "تعذر تحديث العنصر",
+    "removeItemFailed": "تعذرت إزالة العنصر",
+    "completeListFailed": "لا يمكن إكمال القائمة",
+    "mergeFailed": "فشل في دمج القوائم",
+    "deleteFailed": "فشل حذف القائمة",
+    "generateFailed": "فشل في إنشاء قائمة التسوق"
+  },
+  "pantry": {
+    "removeItemFailed": "تعذرت إزالة العنصر",
+    "clearFailed": "لا يمكن إعادة ضبط مخزن المؤن"
+  },
+  "config": {
+    "missingKey": "خطأ في التكوين",
+    "missingKeyMessage": "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY مفقود. يرجى الاتصال بالدعم."
+  }
+}

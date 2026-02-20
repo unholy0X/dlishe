@@ -1,1 +1,77 @@
-{}
+{
+  "buttons": {
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "delete": "حذف",
+    "retry": "إعادة المحاولة",
+    "done": "تم",
+    "back": "رجوع",
+    "confirm": "تأكيد",
+    "notNow": "ليس الآن",
+    "ok": "موافق",
+    "close": "إغلاق",
+    "add": "إضافة",
+    "edit": "تعديل",
+    "select": "تحديد",
+    "selectAll": "تحديد الكل",
+    "deselectAll": "إلغاء تحديد الكل",
+    "create": "إنشاء",
+    "reset": "إعادة ضبط",
+    "share": "مشاركة"
+  },
+  "units": {
+    "min": "دقيقة",
+    "hour_one": "{{count}} ساعة",
+    "hour_other": "{{count}} ساعات",
+    "servings_one": "{{count}} حصة",
+    "servings_other": "{{count}} حصص",
+    "items_one": "{{count}} عنصر",
+    "items_other": "{{count}} عناصر"
+  },
+  "time": {
+    "minOnly": "{{m}} دقيقة",
+    "hourMin": "{{h}}س {{m}}د",
+    "hourOnly": "{{h}}س",
+    "seconds_short": "{{s}}ث",
+    "minutes_short": "{{m}}د"
+  },
+  "loading": "جاري التحميل...",
+  "loadingMore": "جاري تحميل المزيد...",
+  "noResults": "لم يتم العثور على نتائج",
+  "noInternet": "لا يوجد اتصال بالإنترنت. يرجى التحقق من الشبكة والمحاولة مجدداً.",
+  "sessionExpired": "انتهت صلاحية الجلسة. يرجى تسجيل الخروج ثم الدخول مجدداً.",
+  "tryAgain": "يرجى التحقق من اتصالك والمحاولة مرة أخرى.",
+  "termsOfUse": "شروط الاستخدام",
+  "privacyPolicy": "سياسة الخصوصية",
+  "recipes_one": "{{count}} وصفة",
+  "recipes_other": "{{count}} وصفات",
+  "matches_one": "{{count}} مطابقة",
+  "matches_other": "{{count}} مطابقات",
+  "selected_one": "تم تحديد {{count}}",
+  "selected_other": "تم تحديد {{count}}",
+  "nav": {
+    "home": "الرئيسية",
+    "recipies": "وصفاتي",
+    "pantry": "الثلاجة",
+    "shopping": "التسوق"
+  },
+  "generic": "حدث خطأ ما",
+  "retryError": "حدث خطأ غير متوقع.\\nيرجى إعادة المحاولة.",
+  "fatalError": "يستمر التطبيق في التعطل.\\nيُرجى إغلاقه وإعادة فتحه.",
+  "reloadApp": "إعادة تحميل التطبيق",
+  "camera": {
+    "actionTitle": "إضافة صورة",
+    "accessNeededTitle": "مطلوب صلاحية الكاميرا",
+    "accessNeededMsg": "يرجى السماح بالوصول إلى الكاميرا لالتقاط صورة.",
+    "photoAccessNeededTitle": "مطلوب صلاحية الصور",
+    "photoAccessNeededMsg": "يرجى السماح بالوصول إلى معرض الصور لاختيار صورة.",
+    "errorTitle": "عذراً",
+    "errorCamera": "حدث خطأ في الكاميرا.",
+    "errorLibrary": "حدث خطأ أثناء اختيار الصورة.",
+    "addPhotoTitle": "إضافة صورة",
+    "addPhotoMsg": "كيف تود إضافة صورتك؟",
+    "takePhoto": "التقاط صورة",
+    "chooseFromLibrary": "اختيار من المكتبة",
+    "clearAll": "مسح الكل"
+  }
+}

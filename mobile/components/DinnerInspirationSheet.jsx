@@ -19,12 +19,12 @@ const { width: SCREEN_W } = Dimensions.get("window");
 // All iPhones are ≤ 430pt so this has zero effect on phones.
 const CARD_H = Math.min(SCREEN_W, 500) * 1.25;
 
-function buildMeta(recipe) {
+function buildMeta(recipe, t) {
   const parts = [];
   const total = (recipe.prepTime || 0) + (recipe.cookTime || 0);
-  if (total > 0) parts.push(`${total} min`);
-  if (recipe.difficulty) parts.push(recipe.difficulty);
-  if (recipe.servings) parts.push(`${recipe.servings} servings`);
+  if (total > 0) parts.push(t("time.minOnly", { m: total, ns: "common" }));
+  if (recipe.difficulty) parts.push(t(`difficulty.${recipe.difficulty}`, { ns: "recipe", defaultValue: recipe.difficulty }));
+  if (recipe.servings) parts.push(t("units.servings", { count: recipe.servings, ns: "common" }));
   return parts.join("  ·  ");
 }
 
@@ -151,7 +151,7 @@ export default function DinnerInspirationSheet({
   if (!recipe) return null;
 
   const imageSource = recipe.thumbnailUrl ? { uri: recipe.thumbnailUrl } : null;
-  const meta = buildMeta(recipe);
+  const meta = buildMeta(recipe, t);
   const isSaved = savedIds?.has(recipe.id);
   const isSaving = savingIds?.has(recipe.id);
   const cuisine = recipe.cuisine || recipe.dietaryInfo?.cuisine;

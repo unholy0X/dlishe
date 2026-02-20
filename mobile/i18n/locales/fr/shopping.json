@@ -1,5 +1,6 @@
 {
   "header": "Courses",
+  "listCount_zero": "Aucune liste",
   "listCount_one": "{{count}} liste",
   "listCount_other": "{{count}} listes",
   "loading": "Chargement des listes…",
@@ -60,6 +61,7 @@
     "complete": "Terminer la liste",
     "stockPantry": "Approvisionner le garde-manger",
     "stockPantryTitle": "Approvisionner votre garde-manger",
+    "stockPantrySubtitle_zero": "Aucun article ne sera ajouté",
     "stockPantrySubtitle_one": "{{count}} article sera ajouté à votre garde-manger",
     "stockPantrySubtitle_other": "{{count}} articles seront ajoutés à votre garde-manger",
     "stockPantryBtn": "Approvisionner",

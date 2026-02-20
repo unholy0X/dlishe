@@ -16,17 +16,21 @@
   },
   "sheets": {
     "suggestedTitle": "Suggested For You",
+    "suggestions_zero": "0 suggestions",
     "suggestions_one": "{{count}} suggestion",
     "suggestions_other": "{{count}} suggestions",
     "highProtein": "High Protein",
     "quickMeals": "Quick Meals",
+    "recipes_zero": "No recipes",
     "recipes_one": "{{count}} recipe",
     "recipes_other": "{{count}} recipes",
     "whatCanIMake": "What Can I Make?",
+    "matched_zero": "No recipes matched",
     "matched_one": "{{count}} recipe matched",
     "matched_other": "{{count}} recipes matched",
     "matching": "Matching your pantry...",
     "favoritesTitle": "My Favorites",
+    "favoritesSaved_zero": "No recipes saved",
     "favoritesSaved_one": "{{count}} recipe saved",
     "favoritesSaved_other": "{{count}} recipes saved"
   },
@@ -49,6 +53,7 @@
     "noMatchesSubtitle": "Try adding more items to your pantry"
   },
   "badge": {
+    "matches_zero": "No matches",
     "matches_one": "{{count}} match",
     "matches_other": "{{count}} matches"
   },

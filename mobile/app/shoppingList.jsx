@@ -128,8 +128,10 @@ const CATEGORY_TINTS = {
 
 // ─── CategoryFolder ─────────────────────────────────────────────────────────
 const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, onDeleteItem }) => {
+    const { t } = useTranslation("pantry");
     const image = CATEGORY_IMAGES[category] || CATEGORY_IMAGES.other;
     const label = CATEGORY_LABELS[category] || "Other";
+    const translatedLabel = t(`categories.${category}`, label);
     const tint = CATEGORY_TINTS[category] || CATEGORY_TINTS.other;
     const checkedCount = items.filter((i) => i.isChecked).length;
     const allChecked = items.length > 0 && checkedCount === items.length;
@@ -148,7 +150,7 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
                 </View>
                 <View style={styles.folderInfo}>
                     <Text style={[styles.folderTitle, allChecked && styles.folderTitleDone]}>
-                        {label}
+                        {translatedLabel}
                     </Text>
                     <View style={styles.folderMeta}>
                         <Text style={styles.folderCount}>
@@ -171,7 +173,7 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
                 <View style={styles.previewRow}>
                     {previewItems.map((item) => (
                         <View key={item.id} style={styles.previewChip}>
-                            <Text style={styles.previewChipText} numberOfLines={1}>{item.name}</Text>
+                            <Text style={styles.previewChipText} numberOfLines={1}>{t(`items.${item.name}`, item.name)}</Text>
                         </View>
                     ))}
                     {uncheckedItems.length > 4 && (
@@ -201,11 +203,11 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
                                     style={[styles.itemName, item.isChecked && styles.itemNameChecked]}
                                     numberOfLines={1}
                                 >
-                                    {item.name}
+                                    {t(`items.${item.name}`, item.name)}
                                 </Text>
                                 {item.quantity && (
                                     <Text style={[styles.itemQty, item.isChecked && styles.itemQtyChecked]}>
-                                        {item.quantity}{item.unit ? ` ${item.unit}` : ""}
+                                        {item.quantity}{item.unit ? ` ${t(`units.${item.unit}`, item.unit)}` : ""}
                                     </Text>
                                 )}
                             </View>
@@ -226,7 +228,7 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
 
 // ─── AddItemSheet ────────────────────────────────────────────────────────────
 const AddItemSheet = ({ onClose, onAdd }) => {
-    const { t } = useTranslation("shopping");
+    const { t } = useTranslation(["shopping", "pantry"]);
     const [mode, setMode] = useState("quick"); // "quick" | "browse"
     const [name, setName] = useState("");
     const [quantity, setQuantity] = useState("");
@@ -311,7 +313,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                     {showQtyInputs && (
                         <View style={styles.qtyRow}>
                             <View style={styles.qtyInputWrap}>
-                                <Text style={styles.inputLabel}>Quantity</Text>
+                                <Text style={styles.inputLabel}>{t("detail.qtyLabel", "Quantity")}</Text>
                                 <TextInput
                                     style={styles.qtyInput}
                                     placeholder="1"
@@ -322,7 +324,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                                 />
                             </View>
                             <View style={styles.unitWrap}>
-                                <Text style={styles.inputLabel}>Unit</Text>
+                                <Text style={styles.inputLabel}>{t("detail.unitLabel", "Unit")}</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                     {COMMON_UNITS.map((u) => (
                                         <Pressable
@@ -371,7 +373,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                                 onPress={() => handleCategoryTap(cat)}
                             >
                                 <Image source={cat.image} style={styles.categoryCardImage} resizeMode="contain" />
-                                <Text style={styles.categoryCardText}>{cat.label}</Text>
+                                <Text style={styles.categoryCardText}>{t(`pantry:categories.${cat.key}`, cat.label)}</Text>
                             </Pressable>
                         ))}
                     </View>
@@ -385,12 +387,12 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                         <Text style={styles.browseBackText}>{t("detail.allCategories")}</Text>
                     </Pressable>
 
-                    <Text style={styles.browseCategoryTitle}>{selectedCategory.label}</Text>
+                    <Text style={styles.browseCategoryTitle}>{t(`pantry:categories.${selectedCategory.key}`, selectedCategory.label)}</Text>
 
                     {/* Quick pick chips */}
                     {!showCustomInput && (
                         <>
-                            <Text style={styles.inputLabel}>Quick pick:</Text>
+                            <Text style={styles.inputLabel}>{t("pantry:addSheet.quickPick", "Quick pick:")}</Text>
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
@@ -404,7 +406,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                                         onPress={() => handleQuickPickItem(item)}
                                     >
                                         <Text style={[styles.quickPickChipText, name === item && styles.quickPickChipTextSelected]}>
-                                            {item}
+                                            {t(`pantry:items.${item}`, item)}
                                         </Text>
                                     </Pressable>
                                 ))}
@@ -419,10 +421,10 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                     {/* Custom input */}
                     {showCustomInput && (
                         <>
-                            <Text style={styles.inputLabel}>Item name:</Text>
+                            <Text style={styles.inputLabel}>{t("pantry:addSheet.itemName", "Item name:")}</Text>
                             <TextInput
                                 style={styles.textInput}
-                                placeholder="e.g. Almond Milk"
+                                placeholder={t("pantry:addSheet.itemPlaceholder", "e.g. Almond Milk")}
                                 placeholderTextColor="#B4B4B4"
                                 value={name}
                                 onChangeText={setName}
@@ -438,7 +440,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                     {showQtyInputs && (
                         <View style={styles.qtyRow}>
                             <View style={styles.qtyInputWrap}>
-                                <Text style={styles.inputLabel}>Qty (optional)</Text>
+                                <Text style={styles.inputLabel}>{t("pantry:addSheet.qty", "Qty (optional)")}</Text>
                                 <TextInput
                                     style={styles.qtyInput}
                                     placeholder="1"
@@ -449,7 +451,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                                 />
                             </View>
                             <View style={styles.unitWrap}>
-                                <Text style={styles.inputLabel}>Unit</Text>
+                                <Text style={styles.inputLabel}>{t("pantry:addSheet.unit", "Unit")}</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                     {COMMON_UNITS.map((u) => (
                                         <Pressable
@@ -497,17 +499,17 @@ const StockPantrySheet = ({ items, onStock, onDismiss }) => {
     const categoryBreakdown = useMemo(() => {
         const groups = {};
         (items || []).forEach((item) => {
-            const cat = item.category || "other";
+            const cat = (item.category || "other").toLowerCase();
             if (!groups[cat]) groups[cat] = { count: 0 };
             groups[cat].count += 1;
         });
         return Object.entries(groups).map(([key, val]) => ({
             key,
-            label: CATEGORY_LABELS[key] || "Other",
+            label: t(`pantry:categories.${key}`, CATEGORY_LABELS[key] || "Other"),
             image: CATEGORY_IMAGES[key] || CATEGORY_IMAGES.other,
             count: val.count,
         }));
-    }, [items]);
+    }, [items, t]);
 
     const totalItems = items?.length || 0;
 
@@ -666,7 +668,7 @@ export default function ShoppingListScreen() {
         const items = activeList?.items || [];
         const groups = {};
         items.forEach((item) => {
-            const cat = item.category || "other";
+            const cat = (item.category || "other").toLowerCase();
             if (!groups[cat]) groups[cat] = [];
             groups[cat].push(item);
         });

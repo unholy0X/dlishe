@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, I18nManager } from "react-native";
 import { useTranslation } from "react-i18next";
 import CalendarIcon from "../icons/CalendarIcon";
 import Svg, { Path } from "react-native-svg";
@@ -8,7 +8,7 @@ const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 function ChevronRightSmall() {
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#385225" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#385225" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }] }}>
       <Path d="M9 18l6-6-6-6" />
     </Svg>
   );
@@ -16,7 +16,10 @@ function ChevronRightSmall() {
 
 export default function MealPlanCard({ mealsPerDay = [], totalMeals = 0, onPress }) {
   const { t } = useTranslation("mealPlan");
-  const dayLabels = DAY_KEYS.map((k) => t(`days.${k}`).charAt(0).toUpperCase());
+  const dayLabels = DAY_KEYS.map((k) => {
+    const short = t(`daysShort.${k}`, { defaultValue: "" });
+    return short ? short : t(`days.${k}`).charAt(0).toUpperCase();
+  });
 
   return (
     <Pressable

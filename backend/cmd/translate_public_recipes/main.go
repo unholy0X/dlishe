@@ -41,7 +41,7 @@ import (
 const (
 	defaultModel    = "gemini-3-flash-preview"
 	maxRetries      = 2
-	maxOutputTokens = 8192
+	maxOutputTokens = 81920
 	baseDelay       = 2 * time.Second
 	maxDelay        = 60 * time.Second
 )
@@ -534,7 +534,7 @@ func translateWithRetry(
 	model.SystemInstruction = &genai.Content{
 		Parts: []genai.Part{genai.Text(buildSystemPrompt(langName))},
 	}
-	model.GenerationConfig.SetTemperature(0.1)          // low temperature for accuracy
+	model.GenerationConfig.SetTemperature(0.1)                 // low temperature for accuracy
 	model.GenerationConfig.SetMaxOutputTokens(maxOutputTokens) // prevent silent truncation
 
 	prompt := fmt.Sprintf(

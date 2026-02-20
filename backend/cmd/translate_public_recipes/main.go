@@ -12,7 +12,7 @@
 //
 // Optional env vars:
 //
-//	GEMINI_MODEL   - model name (default: gemini-2.0-pro-exp-02-05)
+//	GEMINI_MODEL   - model name (default: gemini-3-flash-preview)
 //	TARGET_LANGS   - comma-separated ISO codes (default: ar,fr)
 //	DRY_RUN=true   - run translation but do not write to DB
 package main
@@ -39,7 +39,7 @@ import (
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const (
-	defaultModel    = "gemini-2.0-pro-exp-02-05"
+	defaultModel    = "gemini-3-flash-preview"
 	maxRetries      = 2
 	maxOutputTokens = 8192
 	baseDelay       = 2 * time.Second
@@ -312,10 +312,9 @@ func run() error {
 
 // ── Database helpers ──────────────────────────────────────────────────────────
 
-// loadEnglishPublicRecipes returns all public recipes whose content is in
-// English (or whose language column is empty, for legacy rows).
-// This includes admin-seeded recipes and inspirator recipes (both are
-// is_public = TRUE).
+// loadEnglishPublicRecipes returns all English-language recipes that should be
+// translated: admin-seeded public recipes (is_public = TRUE) and inspirator
+// "Get Inspired" recipes (is_featured = TRUE).
 func loadEnglishPublicRecipes(ctx context.Context, pool *pgxpool.Pool) ([]dbRecipe, error) {
 	const q = `
 		SELECT
@@ -325,7 +324,7 @@ func loadEnglishPublicRecipes(ctx context.Context, pool *pgxpool.Pool) ([]dbReci
 			nutrition::text,
 			dietary_info::text
 		FROM recipes
-		WHERE is_public = TRUE
+		WHERE (is_public = TRUE OR is_featured = TRUE)
 		  AND (content_language = 'en' OR content_language = '')
 		  AND deleted_at IS NULL
 		ORDER BY created_at ASC

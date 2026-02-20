@@ -37,6 +37,9 @@
     "hint": "Appuyez sur « + Ajouter une recette » sur un créneau pour commencer votre semaine"
   },
   "info": "Info",
+  "listCreated": "Liste de courses créée",
+  "listCreatedMsg": "{{count}} articles ajoutés — retrouvez la liste dans l'onglet Courses.",
+  "allInPantry": "Rien à acheter — tous les ingrédients sont déjà dans votre garde-manger !",
   "generateList": "Générer la liste de courses",
   "addRecipe": "+ Ajouter une recette",
   "addRecipeTitle": "Ajouter une recette",

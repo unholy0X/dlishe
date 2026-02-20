@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import Svg, { Path } from "react-native-svg";
-import { useMealPlanStore, useRecipeStore } from "../store";
+import { useMealPlanStore, useRecipeStore, useShoppingStore } from "../store";
 import { useLanguageStore } from "../store/languageStore";
 import DayPills from "../components/mealPlan/DayPills";
 import MealSlot from "../components/mealPlan/MealSlot";
@@ -138,10 +138,19 @@ export default function MealPlanScreen() {
   const handleGenerateList = useCallback(async () => {
     try {
       const result = await generateShoppingList({ getToken });
-      if (result?.listId) {
-        router.push(`/shoppingList?id=${result.listId}`);
+      if (result?.list) {
+        const list = result.list;
+        const itemCount = list.items?.length ?? list.itemCount ?? 0;
+        // Inject the new list into the shopping store so it's ready in the Shopping tab
+        useShoppingStore.setState((state) => ({
+          lists: [
+            { ...list, itemCount, checkedCount: 0 },
+            ...(state.lists || []),
+          ],
+        }));
+        Alert.alert(t("listCreated"), t("listCreatedMsg", { count: itemCount, name: list.name }));
       } else if (result?.message) {
-        Alert.alert(t("info"), result.message);
+        Alert.alert(t("info"), t("allInPantry"));
       }
     } catch (err) {
       Alert.alert(t("errors:shopping.generateFailed"), err?.message || t("tryAgain", { ns: "common" }));

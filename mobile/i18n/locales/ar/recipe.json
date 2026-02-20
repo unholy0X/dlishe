@@ -142,6 +142,24 @@
     "leave": "مغادرة",
     "tip": "نصيحة"
   },
+  "nutrition": {
+    "calories": "سعرات",
+    "protein": "بروتين",
+    "carbs": "كربوهيدرات",
+    "fat": "دهون",
+    "fiber": "ألياف",
+    "unitG": "جم"
+  },
+  "dietary": {
+    "vegetarian": "نباتي",
+    "vegan": "نباتي صرف",
+    "glutenFree": "خالٍ من الجلوتين",
+    "dairyFree": "خالٍ من منتجات الألبان",
+    "nutFree": "خالٍ من المكسرات",
+    "keto": "كيتو",
+    "halal": "حلال",
+    "kosher": "كوشر"
+  },
   "difficulty": {
     "easy": "سهل",
     "medium": "متوسط",

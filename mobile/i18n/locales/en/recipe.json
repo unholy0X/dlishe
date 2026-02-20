@@ -112,6 +112,24 @@
     "leave": "Leave",
     "tip": "Tip"
   },
+  "nutrition": {
+    "calories": "Calories",
+    "protein": "Protein",
+    "carbs": "Carbs",
+    "fat": "Fat",
+    "fiber": "Fiber",
+    "unitG": "g"
+  },
+  "dietary": {
+    "vegetarian": "Vegetarian",
+    "vegan": "Vegan",
+    "glutenFree": "Gluten-Free",
+    "dairyFree": "Dairy-Free",
+    "nutFree": "Nut-Free",
+    "keto": "Keto",
+    "halal": "Halal",
+    "kosher": "Kosher"
+  },
   "difficulty": {
     "easy": "Easy",
     "medium": "Medium",

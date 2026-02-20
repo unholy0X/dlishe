@@ -106,8 +106,9 @@ function makeStyles(FONT, isRTL) {
       fontFamily: FONT.regular,
       color: C.text,
       lineHeight: 30,
-      textAlign: "center",
+      textAlign: isRTL ? "right" : "center",
       letterSpacing: -0.2,
+      writingDirection: isRTL ? "rtl" : "ltr",
     },
     chipsRow: {
       flexDirection: "row",
@@ -153,6 +154,8 @@ function makeStyles(FONT, isRTL) {
       color: "#7A4A21",
       fontStyle: "italic",
       lineHeight: 19,
+      writingDirection: isRTL ? "rtl" : "ltr",
+      textAlign: isRTL ? "right" : "left",
     },
 
     // ─── Bottom nav ───────────────────────────────

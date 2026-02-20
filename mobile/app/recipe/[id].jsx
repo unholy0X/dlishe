@@ -204,12 +204,13 @@ export default function RecipeDetailScreen() {
   const { getToken } = useAuth();
   const { t } = useTranslation("recipe");
   const language = useLanguageStore((st) => st.language);
+  const isRTL = useLanguageStore((st) => st.isRTL);
   const FONT = useMemo(() => ({
     regular: getFontFamily(language, "regular"),
     medium: getFontFamily(language, "medium"),
     semibold: getFontFamily(language, "semibold"),
   }), [language]);
-  const s = useMemo(() => makeStyles(FONT), [FONT]);
+  const s = useMemo(() => makeStyles(FONT, isRTL), [FONT, isRTL]);
 
   const [recipe, setRecipe] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -368,14 +369,14 @@ export default function RecipeDetailScreen() {
 
   const dietaryBadges = [];
   if (dietary) {
-    if (dietary.isVegetarian) dietaryBadges.push("Vegetarian");
-    if (dietary.isVegan) dietaryBadges.push("Vegan");
-    if (dietary.isGlutenFree) dietaryBadges.push("Gluten-Free");
-    if (dietary.isDairyFree) dietaryBadges.push("Dairy-Free");
-    if (dietary.isNutFree) dietaryBadges.push("Nut-Free");
-    if (dietary.isKeto) dietaryBadges.push("Keto");
-    if (dietary.isHalal) dietaryBadges.push("Halal");
-    if (dietary.isKosher) dietaryBadges.push("Kosher");
+    if (dietary.isVegetarian) dietaryBadges.push("dietary.vegetarian");
+    if (dietary.isVegan) dietaryBadges.push("dietary.vegan");
+    if (dietary.isGlutenFree) dietaryBadges.push("dietary.glutenFree");
+    if (dietary.isDairyFree) dietaryBadges.push("dietary.dairyFree");
+    if (dietary.isNutFree) dietaryBadges.push("dietary.nutFree");
+    if (dietary.isKeto) dietaryBadges.push("dietary.keto");
+    if (dietary.isHalal) dietaryBadges.push("dietary.halal");
+    if (dietary.isKosher) dietaryBadges.push("dietary.kosher");
   }
 
   // Cooking mode helpers
@@ -489,7 +490,7 @@ export default function RecipeDetailScreen() {
             <View style={s.dietaryRow}>
               {dietaryBadges.map((badge, i) => (
                 <View key={i} style={s.dietaryBadge}>
-                  <Text style={s.dietaryText}>{badge}</Text>
+                  <Text style={s.dietaryText}>{t(badge)}</Text>
                 </View>
               ))}
             </View>
@@ -505,20 +506,20 @@ export default function RecipeDetailScreen() {
               <SectionTitle styles={s}>{t("detail.nutrition")}</SectionTitle>
               <View style={s.nutritionGrid}>
                 <NutritionItem
-                  label="Calories"
+                  label={t("nutrition.calories")}
                   value={nutrition.calories}
                   unit=""
                   styles={s}
                 />
                 <NutritionItem
-                  label="Protein"
+                  label={t("nutrition.protein")}
                   value={nutrition.protein}
-                  unit="g"
+                  unit={t("nutrition.unitG")}
                   styles={s}
                 />
-                <NutritionItem label="Carbs" value={nutrition.carbs} unit="g" styles={s} />
-                <NutritionItem label="Fat" value={nutrition.fat} unit="g" styles={s} />
-                <NutritionItem label="Fiber" value={nutrition.fiber} unit="g" styles={s} />
+                <NutritionItem label={t("nutrition.carbs")} value={nutrition.carbs} unit={t("nutrition.unitG")} styles={s} />
+                <NutritionItem label={t("nutrition.fat")} value={nutrition.fat} unit={t("nutrition.unitG")} styles={s} />
+                <NutritionItem label={t("nutrition.fiber")} value={nutrition.fiber} unit={t("nutrition.unitG")} styles={s} />
               </View>
             </View>
           ) : null}
@@ -789,7 +790,7 @@ function BackButton({ onPress, light, styles: st }) {
 
 // ─── Styles ──────────────────────────────────────────────────────
 
-function makeStyles(FONT) {
+function makeStyles(FONT, isRTL = false) {
   return StyleSheet.create({
     screen: {
       flex: 1,
@@ -912,6 +913,8 @@ function makeStyles(FONT) {
       color: C.textSecondary,
       lineHeight: 22,
       letterSpacing: -0.05,
+      writingDirection: isRTL ? "rtl" : "ltr",
+      textAlign: isRTL ? "right" : "left",
     },
 
     // Inline Meta
@@ -1102,6 +1105,8 @@ function makeStyles(FONT) {
       fontSize: 14,
       lineHeight: 20,
       color: C.textPrimary,
+      writingDirection: isRTL ? "rtl" : "ltr",
+      textAlign: isRTL ? "right" : "left",
     },
 
     // Nutrition

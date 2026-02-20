@@ -171,9 +171,9 @@ export default function ShoppingScreen() {
 
   // Load lists on mount + when app comes back to foreground
   useEffect(() => {
-    loadLists({ getToken }).catch(() => {});
+    loadLists({ getToken }).catch(() => { });
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") loadLists({ getToken }).catch(() => {});
+      if (state === "active") loadLists({ getToken }).catch(() => { });
     });
     return () => sub.remove();
   }, []);
@@ -181,12 +181,12 @@ export default function ShoppingScreen() {
   // Also reload when pathname changes back to shopping (returning from detail)
   useEffect(() => {
     if (pathname === "/shopping") {
-      loadLists({ getToken }).catch(() => {});
+      loadLists({ getToken }).catch(() => { });
     }
   }, [pathname]);
 
   const onRefresh = useCallback(() => {
-    loadLists({ getToken }).catch(() => {});
+    loadLists({ getToken }).catch(() => { });
   }, [getToken]);
 
   const handleCreateList = async (name) => {
@@ -315,102 +315,102 @@ export default function ShoppingScreen() {
   return (
     <View style={styles.screen}>
       <SwipeNavigator>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>{t("header")}</Text>
-            <Text style={styles.subtitle}>{t("listCount", { count: safeListsArray.length })}</Text>
-          </View>
-          <View style={styles.headerActions}>
-            {isSelecting ? (
-              <Pressable style={styles.cancelSelectBtn} onPress={exitSelectMode}>
-                <Text style={styles.cancelSelectText}>{t("buttons.cancel", { ns: "common" })}</Text>
-              </Pressable>
-            ) : (
-              <>
-                <Pressable onPress={() => setMenuOpen(true)}>
-                  <BlurView intensity={120} tint="light" style={styles.dotsBlur}>
-                    <DotsVerticalIcon width={6} height={20} color="#B4B4B4" />
-                  </BlurView>
-                </Pressable>
-                <Pressable style={styles.addButton} onPress={() => setSheetOpen(true)}>
-                  <PlusIcon width={24} height={24} color="#385225" />
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-
-        {isLoading && safeListsArray.length === 0 ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#385225" />
-            <Text style={styles.loadingText}>{t("loading")}</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.centered}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : isEmpty ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
-              <ShoppingIcon width={32} height={28} color="#6b6b6b" />
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>{t("header")}</Text>
+              <Text style={styles.subtitle}>{t("listCount", { count: safeListsArray.length })}</Text>
             </View>
-            <Text style={styles.emptyTitle}>{t("empty.title")}</Text>
-            <Text style={styles.emptySubtitle}>{t("empty.subtitle")}</Text>
-            <Pressable style={styles.emptyBtn} onPress={() => setSheetOpen(true)}>
-              <Text style={styles.emptyBtnText}>{t("empty.createButton")}</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={
-              <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor="#385225" />
-            }
-          >
-            {safeListsArray.map((list, index) => (
-              <ShoppingListCard
-                key={list.id}
-                list={list}
-                index={index}
-                onPress={() => handleOpenList(list)}
-                onLongPress={() => isSelecting ? null : handleDeleteList(list)}
-                isSelecting={isSelecting}
-                isSelected={selectedIds.includes(list.id)}
-                onSelect={toggleSelect}
-              />
-            ))}
-          </ScrollView>
-        )}
-
-        {/* Selection action bar */}
-        {isSelecting && selectedIds.length > 0 && (
-          <View style={styles.selectionBar}>
-            <Text style={styles.selectionCount}>
-              {t("selected", { count: selectedIds.length, ns: "common" })}
-            </Text>
-            <View style={styles.selectionActions}>
-              {selectedIds.length >= 2 && (
-                <Pressable
-                  style={[styles.selectionBtn, styles.mergeBtn]}
-                  onPress={handleMergeSelected}
-                  disabled={isMerging}
-                >
-                  {isMerging ? (
-                    <ActivityIndicator size="small" color="#28457A" />
-                  ) : (
-                    <Text style={styles.mergeBtnText}>{t("merge.merge")}</Text>
-                  )}
+            <View style={styles.headerActions}>
+              {isSelecting ? (
+                <Pressable style={styles.cancelSelectBtn} onPress={exitSelectMode}>
+                  <Text style={styles.cancelSelectText}>{t("buttons.cancel", { ns: "common" })}</Text>
                 </Pressable>
+              ) : (
+                <>
+                  <Pressable onPress={() => setMenuOpen(true)}>
+                    <BlurView intensity={120} tint="light" style={styles.dotsBlur}>
+                      <DotsVerticalIcon width={6} height={20} color="#B4B4B4" />
+                    </BlurView>
+                  </Pressable>
+                  <Pressable style={styles.addButton} onPress={() => setSheetOpen(true)}>
+                    <PlusIcon width={24} height={24} color="#385225" />
+                  </Pressable>
+                </>
               )}
-              <Pressable style={[styles.selectionBtn, styles.deleteBtn]} onPress={handleDeleteSelected}>
-                <Text style={styles.deleteBtnText}>{t("buttons.delete", { ns: "common" })}</Text>
-              </Pressable>
             </View>
           </View>
-        )}
-      </SafeAreaView>
+
+          {isLoading && safeListsArray.length === 0 ? (
+            <View style={styles.centered}>
+              <ActivityIndicator size="large" color="#385225" />
+              <Text style={styles.loadingText}>{t("loading")}</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.centered}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : isEmpty ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconWrap}>
+                <ShoppingIcon width={32} height={28} color="#6b6b6b" />
+              </View>
+              <Text style={styles.emptyTitle}>{t("empty.title")}</Text>
+              <Text style={styles.emptySubtitle}>{t("empty.subtitle")}</Text>
+              <Pressable style={styles.emptyBtn} onPress={() => setSheetOpen(true)}>
+                <Text style={styles.emptyBtnText}>{t("empty.createButton")}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              refreshControl={
+                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor="#385225" />
+              }
+            >
+              {safeListsArray.map((list, index) => (
+                <ShoppingListCard
+                  key={list.id}
+                  list={list}
+                  index={index}
+                  onPress={() => handleOpenList(list)}
+                  onLongPress={() => isSelecting ? null : handleDeleteList(list)}
+                  isSelecting={isSelecting}
+                  isSelected={selectedIds.includes(list.id)}
+                  onSelect={toggleSelect}
+                />
+              ))}
+            </ScrollView>
+          )}
+
+          {/* Selection action bar */}
+          {isSelecting && selectedIds.length > 0 && (
+            <View style={styles.selectionBar}>
+              <Text style={styles.selectionCount}>
+                {t("selected", { count: selectedIds.length, ns: "common" })}
+              </Text>
+              <View style={styles.selectionActions}>
+                {selectedIds.length >= 2 && (
+                  <Pressable
+                    style={[styles.selectionBtn, styles.mergeBtn]}
+                    onPress={handleMergeSelected}
+                    disabled={isMerging}
+                  >
+                    {isMerging ? (
+                      <ActivityIndicator size="small" color="#28457A" />
+                    ) : (
+                      <Text style={styles.mergeBtnText}>{t("merge.merge")}</Text>
+                    )}
+                  </Pressable>
+                )}
+                <Pressable style={[styles.selectionBtn, styles.deleteBtn]} onPress={handleDeleteSelected}>
+                  <Text style={styles.deleteBtnText}>{t("buttons.delete", { ns: "common" })}</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </SafeAreaView>
       </SwipeNavigator>
 
       {!isSelecting && (

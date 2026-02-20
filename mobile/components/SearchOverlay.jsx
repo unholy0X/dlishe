@@ -20,7 +20,7 @@ import { searchRecipes, searchPublicRecipes } from "../services/recipes";
 
 const DEBOUNCE_MS = 300;
 
-function renderResultCard(recipe, onSelect) {
+function renderResultCard(recipe, onSelect, t) {
   const imageSource = recipe.thumbnailUrl ? { uri: recipe.thumbnailUrl } : null;
   return (
     <Pressable
@@ -45,7 +45,7 @@ function renderResultCard(recipe, onSelect) {
           ) : null}
           {recipe.difficulty ? (
             <View style={styles.resultTag}>
-              <Text style={styles.resultTagText}>{recipe.difficulty}</Text>
+              <Text style={styles.resultTagText}>{t(`difficulty.${recipe.difficulty.toLowerCase()}`, { defaultValue: recipe.difficulty })}</Text>
             </View>
           ) : null}
         </View>
@@ -232,7 +232,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
                 {publicResults.length > 0 && (
                   <Text style={styles.sectionTitle}>{t("search.yourRecipes", "Your recipes")}</Text>
                 )}
-                {results.map((recipe) => renderResultCard(recipe, handleSelect))}
+                {results.map((recipe) => renderResultCard(recipe, handleSelect, t))}
               </>
             )}
 
@@ -240,7 +240,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
             {publicResults.length > 0 && (
               <>
                 <Text style={styles.sectionTitle}>{t("search.suggestedRecipes", "Suggested recipes")}</Text>
-                {publicResults.map((recipe) => renderResultCard(recipe, handleSelect))}
+                {publicResults.map((recipe) => renderResultCard(recipe, handleSelect, t))}
               </>
             )}
           </ScrollView>
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    marginLeft: 10,
+    marginStart: 10,
     fontSize: 16,
     color: "#111111",
     paddingVertical: 0,

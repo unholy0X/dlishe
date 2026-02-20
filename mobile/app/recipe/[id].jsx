@@ -463,7 +463,7 @@ export default function RecipeDetailScreen() {
               <Text style={s.metaDot}>·</Text>
             ) : null}
             {recipe.difficulty ? (
-              <Text style={s.metaInlineText}>{t(`difficulty.${recipe.difficulty}`, { defaultValue: recipe.difficulty })}</Text>
+              <Text style={s.metaInlineText}>{t(`difficulty.${recipe.difficulty.toLowerCase()}`, { defaultValue: recipe.difficulty })}</Text>
             ) : null}
             {recipe.difficulty && recipe.servings ? (
               <Text style={s.metaDot}>·</Text>
@@ -497,10 +497,10 @@ export default function RecipeDetailScreen() {
 
           {/* Nutrition */}
           {nutrition &&
-          (nutrition.calories ||
-            nutrition.protein ||
-            nutrition.carbs ||
-            nutrition.fat) ? (
+            (nutrition.calories ||
+              nutrition.protein ||
+              nutrition.carbs ||
+              nutrition.fat) ? (
             <View style={s.card}>
               <SectionTitle styles={s}>{t("detail.nutrition")}</SectionTitle>
               <View style={s.nutritionGrid}>
@@ -554,7 +554,7 @@ export default function RecipeDetailScreen() {
                             getToken,
                             listId: createdList.id,
                           });
-                        } catch {}
+                        } catch { }
                         Alert.alert(
                           t("detail.noIngredientsTitle"),
                           t("detail.noIngredients"),
@@ -589,7 +589,7 @@ export default function RecipeDetailScreen() {
                               getToken,
                               listId: createdList.id,
                             });
-                          } catch {}
+                          } catch { }
                         }
                         Alert.alert(
                           t("errors:shopping.shoppingListFailed"),
@@ -654,19 +654,19 @@ export default function RecipeDetailScreen() {
             {isOwn ? (
               <>
                 {sortedSteps.length > 0 && (
-                <Pressable
-                  style={s.primaryBtn}
-                  onPress={() => {
-                    setCookingPhase("prep");
-                    setCurrentStep(0);
-                    setCheckedIngredients({});
-                    setCookingOpen(true);
-                  }}
-                >
-                  <Text style={s.primaryBtnText}>
-                    <PlayIcon size={12} /> {t("detail.startCooking")}
-                  </Text>
-                </Pressable>
+                  <Pressable
+                    style={s.primaryBtn}
+                    onPress={() => {
+                      setCookingPhase("prep");
+                      setCurrentStep(0);
+                      setCheckedIngredients({});
+                      setCookingOpen(true);
+                    }}
+                  >
+                    <Text style={s.primaryBtnText}>
+                      <PlayIcon size={12} /> {t("detail.startCooking")}
+                    </Text>
+                  </Pressable>
                 )}
                 <Pressable
                   style={s.deleteBtn}
@@ -791,550 +791,550 @@ function BackButton({ onPress, light, styles: st }) {
 
 function makeStyles(FONT) {
   return StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  cookingModal: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-  scrollContent: {
-    paddingBottom: 60,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    fontFamily: FONT.regular,
-    color: C.textSecondary,
-  },
-  errorText: {
-    fontSize: 14,
-    fontFamily: FONT.regular,
-    color: C.error,
-    textAlign: "center",
-    paddingHorizontal: 20,
-  },
+    screen: {
+      flex: 1,
+      backgroundColor: C.bg,
+    },
+    cookingModal: {
+      flex: 1,
+      backgroundColor: C.bg,
+    },
+    scrollContent: {
+      paddingBottom: 60,
+    },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 14,
+      fontFamily: FONT.regular,
+      color: C.textSecondary,
+    },
+    errorText: {
+      fontSize: 14,
+      fontFamily: FONT.regular,
+      color: C.error,
+      textAlign: "center",
+      paddingHorizontal: 20,
+    },
 
-  // Hero
-  heroWrap: { position: "relative" },
-  heroImage: {
-    width: "100%",
-    height: 340,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  heroGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 130,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  heroOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-  },
-  heroContent: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    bottom: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-  },
-  heroTitle: {
-    color: "#fff",
-    fontSize: 24,
-    fontFamily: FONT.semibold,
-    width: "75%",
-  },
+    // Hero
+    heroWrap: { position: "relative" },
+    heroImage: {
+      width: "100%",
+      height: 340,
+      borderBottomLeftRadius: 30,
+      borderBottomRightRadius: 30,
+    },
+    heroGradient: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 130,
+      borderBottomLeftRadius: 30,
+      borderBottomRightRadius: 30,
+    },
+    heroOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: 20,
+      paddingTop: 8,
+    },
+    heroContent: {
+      position: "absolute",
+      left: 20,
+      right: 20,
+      bottom: 20,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+    },
+    heroTitle: {
+      color: "#fff",
+      fontSize: 24,
+      fontFamily: FONT.semibold,
+      width: "75%",
+    },
 
-  safeTop: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-  },
+    safeTop: {
+      flex: 1,
+      paddingHorizontal: 20,
+      paddingTop: 12,
+    },
 
-  // Back button
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  backButtonLight: {
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-  },
-  backButtonText: {
-    marginLeft: 8,
-    fontSize: 12,
-    fontFamily: FONT.medium,
-    color: C.textSecondary,
-    letterSpacing: -0.05,
-  },
-  backButtonTextLight: {
-    color: "#ffffff",
-  },
-  heroPlay: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: C.greenBright,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    // Back button
+    backButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      backgroundColor: "rgba(255, 255, 255, 0.85)",
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    backButtonLight: {
+      backgroundColor: "rgba(0, 0, 0, 0.3)",
+    },
+    backButtonText: {
+      marginLeft: 8,
+      fontSize: 12,
+      fontFamily: FONT.medium,
+      color: C.textSecondary,
+      letterSpacing: -0.05,
+    },
+    backButtonTextLight: {
+      color: "#ffffff",
+    },
+    heroPlay: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: C.greenBright,
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
-  // Body
-  body: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  description: {
-    marginTop: 10,
-    fontSize: 14,
-    fontFamily: FONT.regular,
-    color: C.textSecondary,
-    lineHeight: 22,
-    letterSpacing: -0.05,
-  },
+    // Body
+    body: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
+    description: {
+      marginTop: 10,
+      fontSize: 14,
+      fontFamily: FONT.regular,
+      color: C.textSecondary,
+      lineHeight: 22,
+      letterSpacing: -0.05,
+    },
 
-  // Inline Meta
-  metaInline: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 12,
-  },
-  metaInlineText: {
-    fontSize: 13,
-    color: C.textMeta,
-    fontFamily: FONT.regular,
-  },
-  metaDot: {
-    marginHorizontal: 6,
-    color: C.textMeta,
-  },
+    // Inline Meta
+    metaInline: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 12,
+    },
+    metaInlineText: {
+      fontSize: 13,
+      color: C.textMeta,
+      fontFamily: FONT.regular,
+    },
+    metaDot: {
+      marginHorizontal: 6,
+      color: C.textMeta,
+    },
 
-  // Meta pills (unused now but kept)
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 16,
-  },
-  pill: {
-    backgroundColor: C.border,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  pillText: {
-    fontSize: 12,
-    fontFamily: FONT.medium,
-    color: C.textSecondary,
-    textTransform: "capitalize",
-    letterSpacing: -0.05,
-  },
+    // Meta pills (unused now but kept)
+    metaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 16,
+    },
+    pill: {
+      backgroundColor: C.border,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+    },
+    pillText: {
+      fontSize: 12,
+      fontFamily: FONT.medium,
+      color: C.textSecondary,
+      textTransform: "capitalize",
+      letterSpacing: -0.05,
+    },
 
-  // Tags
-  tagsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 12,
-  },
-  tag: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  tagText: {
-    fontSize: 12,
-    fontFamily: FONT.regular,
-    color: C.textMeta,
-    letterSpacing: -0.05,
-  },
+    // Tags
+    tagsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 12,
+    },
+    tag: {
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: C.border,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+    },
+    tagText: {
+      fontSize: 12,
+      fontFamily: FONT.regular,
+      color: C.textMeta,
+      letterSpacing: -0.05,
+    },
 
-  // Dietary
-  dietaryRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 12,
-  },
-  dietaryBadge: {
-    backgroundColor: C.greenLight,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  dietaryText: {
-    fontSize: 12,
-    fontFamily: FONT.medium,
-    color: C.greenDark,
-    letterSpacing: -0.05,
-  },
+    // Dietary
+    dietaryRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 12,
+    },
+    dietaryBadge: {
+      backgroundColor: C.greenLight,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+    },
+    dietaryText: {
+      fontSize: 12,
+      fontFamily: FONT.medium,
+      color: C.greenDark,
+      letterSpacing: -0.05,
+    },
 
-  // Card
-  card: {
-    backgroundColor: C.card,
-    borderRadius: 20,
-    padding: 18,
-    marginTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontFamily: FONT.semibold,
-    color: C.textPrimary,
-    letterSpacing: -0.05,
-  },
-  countText: {
-    fontSize: 12,
-    fontFamily: FONT.regular,
-    color: C.textMeta,
-    marginTop: 4,
-    marginBottom: 14,
-    letterSpacing: -0.05,
-  },
-  emptySteps: {
-    fontSize: 14,
-    fontFamily: FONT.regular,
-    color: C.textSecondary,
-    marginTop: 12,
-    paddingBottom: 4,
-  },
-  ingredientsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  addToListBtn: {
-    backgroundColor: C.greenLight,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    minWidth: 70,
-    alignItems: "center",
-  },
-  addToListBtnText: {
-    fontSize: 13,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-    letterSpacing: -0.05,
-  },
+    // Card
+    card: {
+      backgroundColor: C.card,
+      borderRadius: 20,
+      padding: 18,
+      marginTop: 20,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontFamily: FONT.semibold,
+      color: C.textPrimary,
+      letterSpacing: -0.05,
+    },
+    countText: {
+      fontSize: 12,
+      fontFamily: FONT.regular,
+      color: C.textMeta,
+      marginTop: 4,
+      marginBottom: 14,
+      letterSpacing: -0.05,
+    },
+    emptySteps: {
+      fontSize: 14,
+      fontFamily: FONT.regular,
+      color: C.textSecondary,
+      marginTop: 12,
+      paddingBottom: 4,
+    },
+    ingredientsHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    addToListBtn: {
+      backgroundColor: C.greenLight,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      minWidth: 70,
+      alignItems: "center",
+    },
+    addToListBtnText: {
+      fontSize: 13,
+      fontFamily: FONT.semibold,
+      color: C.greenDark,
+      letterSpacing: -0.05,
+    },
 
-  // Ingredients (new)
-  ingredientsCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 16,
-    marginTop: 14,
-  },
-  ingredientsHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  ingredientsIcon: {
-    width: 28,
-    height: 28,
-    marginRight: 10,
-  },
-  ingredientsTitle: {
-    fontSize: 16,
-    fontFamily: FONT.semibold,
-    color: C.textPrimary,
-  },
-  ingredientsList: {
-    backgroundColor: "#F7F7F7",
-    borderRadius: 14,
-    padding: 12,
-  },
-  ingredientsBullet: {
-    fontSize: 14,
-    color: C.textPrimary,
-    fontFamily: FONT.regular,
-    marginBottom: 6,
-  },
+    // Ingredients (new)
+    ingredientsCard: {
+      backgroundColor: "#fff",
+      borderRadius: 20,
+      padding: 16,
+      marginTop: 14,
+    },
+    ingredientsHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+    ingredientsIcon: {
+      width: 28,
+      height: 28,
+      marginRight: 10,
+    },
+    ingredientsTitle: {
+      fontSize: 16,
+      fontFamily: FONT.semibold,
+      color: C.textPrimary,
+    },
+    ingredientsList: {
+      backgroundColor: "#F7F7F7",
+      borderRadius: 14,
+      padding: 12,
+    },
+    ingredientsBullet: {
+      fontSize: 14,
+      color: C.textPrimary,
+      fontFamily: FONT.regular,
+      marginBottom: 6,
+    },
 
-  // Steps (new)
-  stepCard: {
-    flexDirection: "row",
-    backgroundColor: "#F7F7F7",
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 12,
-    alignItems: "flex-start",
-  },
-  stepBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: C.greenLight,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  stepBadgeText: {
-    fontSize: 13,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-  },
-  stepCardText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-    color: C.textPrimary,
-  },
+    // Steps (new)
+    stepCard: {
+      flexDirection: "row",
+      backgroundColor: "#F7F7F7",
+      borderRadius: 18,
+      padding: 14,
+      marginBottom: 12,
+      alignItems: "flex-start",
+    },
+    stepBadge: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: C.greenLight,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 10,
+    },
+    stepBadgeText: {
+      fontSize: 13,
+      fontFamily: FONT.semibold,
+      color: C.greenDark,
+    },
+    stepCardText: {
+      flex: 1,
+      fontSize: 14,
+      lineHeight: 20,
+      color: C.textPrimary,
+    },
 
-  // Nutrition
-  nutritionGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 14,
-  },
-  nutritionItem: {
-    backgroundColor: C.bg,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    alignItems: "center",
-    minWidth: 70,
-  },
-  nutritionValue: {
-    fontSize: 18,
-    fontFamily: FONT.semibold,
-    color: C.textPrimary,
-    letterSpacing: -0.05,
-  },
-  nutritionLabel: {
-    fontSize: 11,
-    fontFamily: FONT.regular,
-    color: C.textMeta,
-    marginTop: 2,
-    letterSpacing: -0.05,
-  },
+    // Nutrition
+    nutritionGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 14,
+    },
+    nutritionItem: {
+      backgroundColor: C.bg,
+      borderRadius: 16,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      alignItems: "center",
+      minWidth: 70,
+    },
+    nutritionValue: {
+      fontSize: 18,
+      fontFamily: FONT.semibold,
+      color: C.textPrimary,
+      letterSpacing: -0.05,
+    },
+    nutritionLabel: {
+      fontSize: 11,
+      fontFamily: FONT.regular,
+      color: C.textMeta,
+      marginTop: 2,
+      letterSpacing: -0.05,
+    },
 
-  // Actions zone
-  actionsZone: {
-    marginTop: 36,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-    alignItems: "center",
-  },
-  primaryBtn: {
-    marginTop: 20,
-    backgroundColor: C.greenBright,
-    borderRadius: 999,
-    paddingVertical: 16,
-    alignItems: "center",
-    width: "100%",
-  },
-  primaryBtnText: {
-    color: C.greenDark,
-    fontSize: 16,
-    fontFamily: FONT.semibold,
-  },
-  deleteBtn: {
-    marginTop: 14,
-    backgroundColor: "#FDECEC",
-    borderRadius: 999,
-    paddingVertical: 14,
-    alignItems: "center",
-    width: "100%",
-  },
-  deleteRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  deleteBtnText: {
-    color: "#E24B4B",
-    fontSize: 15,
-    fontFamily: FONT.medium,
-  },
-  deleteButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#F0D0D0",
-    backgroundColor: "#FFF5F5",
-  },
-  deleteButtonPressed: {
-    backgroundColor: "#FFE8E8",
-  },
-  deleteButtonText: {
-    fontSize: 14,
-    fontFamily: FONT.medium,
-    color: C.error,
-    letterSpacing: -0.05,
-  },
-  saveButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 999,
-    backgroundColor: C.greenBright,
-    width: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  saveButtonPressed: {
-    opacity: 0.85,
-  },
-  saveButtonText: {
-    fontSize: 14,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-    letterSpacing: -0.05,
-  },
-  savedBanner: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 999,
-    backgroundColor: C.greenLight,
-    width: "100%",
-    justifyContent: "center",
-    alignContent: "center",
-  },
-  savedText: {
-    fontSize: 14,
-    fontFamily: FONT.medium,
-    color: C.greenDark,
-    letterSpacing: -0.05,
-    textAlign: "center",
-  },
+    // Actions zone
+    actionsZone: {
+      marginTop: 36,
+      paddingTop: 24,
+      borderTopWidth: 1,
+      borderTopColor: "#F0F0F0",
+      alignItems: "center",
+    },
+    primaryBtn: {
+      marginTop: 20,
+      backgroundColor: C.greenBright,
+      borderRadius: 999,
+      paddingVertical: 16,
+      alignItems: "center",
+      width: "100%",
+    },
+    primaryBtnText: {
+      color: C.greenDark,
+      fontSize: 16,
+      fontFamily: FONT.semibold,
+    },
+    deleteBtn: {
+      marginTop: 14,
+      backgroundColor: "#FDECEC",
+      borderRadius: 999,
+      paddingVertical: 14,
+      alignItems: "center",
+      width: "100%",
+    },
+    deleteRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    deleteBtnText: {
+      color: "#E24B4B",
+      fontSize: 15,
+      fontFamily: FONT.medium,
+    },
+    deleteButton: {
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: "#F0D0D0",
+      backgroundColor: "#FFF5F5",
+    },
+    deleteButtonPressed: {
+      backgroundColor: "#FFE8E8",
+    },
+    deleteButtonText: {
+      fontSize: 14,
+      fontFamily: FONT.medium,
+      color: C.error,
+      letterSpacing: -0.05,
+    },
+    saveButton: {
+      paddingVertical: 14,
+      paddingHorizontal: 40,
+      borderRadius: 999,
+      backgroundColor: C.greenBright,
+      width: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    saveButtonPressed: {
+      opacity: 0.85,
+    },
+    saveButtonText: {
+      fontSize: 14,
+      fontFamily: FONT.semibold,
+      color: C.greenDark,
+      letterSpacing: -0.05,
+    },
+    savedBanner: {
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      borderRadius: 999,
+      backgroundColor: C.greenLight,
+      width: "100%",
+      justifyContent: "center",
+      alignContent: "center",
+    },
+    savedText: {
+      fontSize: 14,
+      fontFamily: FONT.medium,
+      color: C.greenDark,
+      letterSpacing: -0.05,
+      textAlign: "center",
+    },
 
-  // Old ingredient styles kept
-  ingredientRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: 10,
-  },
-  ingredientBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
-  },
-  ingredientDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: C.greenBright,
-    marginTop: 6,
-    marginRight: 12,
-  },
-  ingredientContent: { flex: 1 },
-  ingredientName: {
-    fontSize: 15,
-    fontFamily: FONT.regular,
-    color: C.textPrimary,
-    lineHeight: 22,
-    letterSpacing: -0.05,
-  },
-  ingredientQty: { fontFamily: FONT.semibold },
-  ingredientOptional: {
-    fontFamily: FONT.regular,
-    color: C.textMeta,
-    fontStyle: "italic",
-  },
-  ingredientNotes: {
-    fontSize: 12,
-    fontFamily: FONT.regular,
-    color: C.textMeta,
-    marginTop: 2,
-    fontStyle: "italic",
-    letterSpacing: -0.05,
-  },
-  ingredientSection: {
-    fontSize: 14,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-    marginTop: 14,
-    marginBottom: 4,
-    letterSpacing: -0.05,
-  },
+    // Old ingredient styles kept
+    ingredientRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      paddingVertical: 10,
+    },
+    ingredientBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: "#F0F0F0",
+    },
+    ingredientDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: C.greenBright,
+      marginTop: 6,
+      marginRight: 12,
+    },
+    ingredientContent: { flex: 1 },
+    ingredientName: {
+      fontSize: 15,
+      fontFamily: FONT.regular,
+      color: C.textPrimary,
+      lineHeight: 22,
+      letterSpacing: -0.05,
+    },
+    ingredientQty: { fontFamily: FONT.semibold },
+    ingredientOptional: {
+      fontFamily: FONT.regular,
+      color: C.textMeta,
+      fontStyle: "italic",
+    },
+    ingredientNotes: {
+      fontSize: 12,
+      fontFamily: FONT.regular,
+      color: C.textMeta,
+      marginTop: 2,
+      fontStyle: "italic",
+      letterSpacing: -0.05,
+    },
+    ingredientSection: {
+      fontSize: 14,
+      fontFamily: FONT.semibold,
+      color: C.greenDark,
+      marginTop: 14,
+      marginBottom: 4,
+      letterSpacing: -0.05,
+    },
 
-  // Old steps styles kept
-  stepRow: {
-    flexDirection: "row",
-    marginBottom: 20,
-  },
-  stepNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: C.greenLight,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
-    marginTop: 2,
-  },
-  stepNumberText: {
-    fontSize: 14,
-    fontFamily: FONT.semibold,
-    color: C.greenDark,
-  },
-  stepContent: { flex: 1 },
-  stepInstruction: {
-    fontSize: 15,
-    fontFamily: FONT.regular,
-    color: C.textPrimary,
-    lineHeight: 24,
-    letterSpacing: -0.05,
-  },
-  stepMetaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 8,
-  },
-  stepChip: {
-    backgroundColor: C.bg,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  stepChipText: {
-    fontSize: 11,
-    fontFamily: FONT.medium,
-    color: C.textSecondary,
-    textTransform: "capitalize",
-    letterSpacing: -0.05,
-  },
-  tipBanner: {
-    backgroundColor: "#FFF9F0",
-    borderLeftWidth: 3,
-    borderLeftColor: C.orangeLight,
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 10,
-  },
-  tipText: {
-    fontSize: 13,
-    fontFamily: FONT.regular,
-    color: C.orangeDark,
-    fontStyle: "italic",
-    lineHeight: 20,
-    letterSpacing: -0.05,
-  },
+    // Old steps styles kept
+    stepRow: {
+      flexDirection: "row",
+      marginBottom: 20,
+    },
+    stepNumber: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: C.greenLight,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 14,
+      marginTop: 2,
+    },
+    stepNumberText: {
+      fontSize: 14,
+      fontFamily: FONT.semibold,
+      color: C.greenDark,
+    },
+    stepContent: { flex: 1 },
+    stepInstruction: {
+      fontSize: 15,
+      fontFamily: FONT.regular,
+      color: C.textPrimary,
+      lineHeight: 24,
+      letterSpacing: -0.05,
+    },
+    stepMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginTop: 8,
+    },
+    stepChip: {
+      backgroundColor: C.bg,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    stepChipText: {
+      fontSize: 11,
+      fontFamily: FONT.medium,
+      color: C.textSecondary,
+      textTransform: "capitalize",
+      letterSpacing: -0.05,
+    },
+    tipBanner: {
+      backgroundColor: "#FFF9F0",
+      borderLeftWidth: 3,
+      borderLeftColor: C.orangeLight,
+      borderRadius: 8,
+      padding: 10,
+      marginTop: 10,
+    },
+    tipText: {
+      fontSize: 13,
+      fontFamily: FONT.regular,
+      color: C.orangeDark,
+      fontStyle: "italic",
+      lineHeight: 20,
+      letterSpacing: -0.05,
+    },
   });
 }

@@ -23,7 +23,7 @@ function buildMeta(recipe, t) {
   const parts = [];
   const total = (recipe.prepTime || 0) + (recipe.cookTime || 0);
   if (total > 0) parts.push(t("time.minOnly", { m: total, ns: "common" }));
-  if (recipe.difficulty) parts.push(t(`difficulty.${recipe.difficulty}`, { ns: "recipe", defaultValue: recipe.difficulty }));
+  if (recipe.difficulty) parts.push(t(`difficulty.${recipe.difficulty.toLowerCase()}`, { ns: "recipe", defaultValue: recipe.difficulty }));
   if (recipe.servings) parts.push(t("units.servings", { count: recipe.servings, ns: "common" }));
   return parts.join("  ·  ");
 }

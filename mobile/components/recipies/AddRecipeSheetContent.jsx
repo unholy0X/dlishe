@@ -149,7 +149,7 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           ) : null}
           {recipe.difficulty ? (
             <View style={styles.metaPill}>
-              <Text style={[styles.metaPillText, { textTransform: "capitalize" }]}>{recipe.difficulty}</Text>
+              <Text style={[styles.metaPillText, { textTransform: "capitalize" }]}>{t(`difficulty.${recipe.difficulty.toLowerCase()}`, { ns: "recipe", defaultValue: recipe.difficulty })}</Text>
             </View>
           ) : null}
           {recipe.cuisine ? (
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   backText: {
-    marginLeft: 8,
+    marginStart: 8,
     fontSize: 12,
     color: "#555555",
   },
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   input: {
-    marginLeft: 10,
+    marginStart: 10,
     flex: 1,
     color: "#111111",
   },
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#d9d9d9",
   },
   primaryText: {
-    marginLeft: 8,
+    marginStart: 8,
     fontSize: 14,
     fontWeight: "500",
     color: "#385225",
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: "#7FEF80",
-    marginRight: 10,
+    marginEnd: 10,
   },
   ingredientText: {
     fontSize: 14,

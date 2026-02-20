@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#DFF7C4",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginEnd: 12,
   },
   actionTextBlock: {
     flex: 1,

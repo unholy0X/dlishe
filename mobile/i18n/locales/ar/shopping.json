@@ -22,9 +22,15 @@
   },
   "delete": {
     "title_one": "حذف القائمة",
-    "title_other": "حذف {{count}} قوائم",
+    "title_two": "حذف القائمتين",
+    "title_few": "حذف {{count}} قوائم",
+    "title_many": "حذف {{count}} قائمة",
+    "title_other": "حذف {{count}} قائمة",
     "message_one": "هل تريد حذف هذه القائمة؟",
-    "message_other": "هل تريد حذف {{count}} قوائم؟",
+    "message_two": "هل تريد حذف هاتين القائمتين؟",
+    "message_few": "هل تريد حذف الـ {{count}} قوائم؟",
+    "message_many": "هل تريد حذف الـ {{count}} قائمة؟",
+    "message_other": "هل تريد حذف الـ {{count}} قائمة؟",
     "messageNamed": "هل تريد حذف \"{{name}}\"؟"
   },
   "merge": {
@@ -38,7 +44,10 @@
   },
   "clearAll": {
     "title": "حذف جميع القوائم",
-    "message_one": "سيتم حذف جميع قوائم التسوق ({{count}}) نهائياً. هل أنت متأكد؟",
+    "message_one": "سيتم حذف قائمة التسوق نهائياً. هل أنت متأكد؟",
+    "message_two": "سيتم حذف قائمتي التسوق نهائياً. هل أنت متأكد؟",
+    "message_few": "سيتم حذف جميع قوائم التسوق ({{count}}) نهائياً. هل أنت متأكد؟",
+    "message_many": "سيتم حذف جميع قوائم التسوق ({{count}}) نهائياً. هل أنت متأكد؟",
     "message_other": "سيتم حذف جميع قوائم التسوق ({{count}}) نهائياً. هل أنت متأكد؟",
     "keepLists": "الاحتفاظ بالقوائم",
     "clearAll": "حذف الكل"
@@ -47,7 +56,10 @@
     "title": "خيارات التسوق",
     "selectLists": "تحديد القوائم",
     "selectHint": "دمج أو حذف أكثر من قائمة",
-    "clearHint_one": "حذف قائمة ({{count}}) نهائياً",
+    "clearHint_one": "حذف القائمة نهائياً",
+    "clearHint_two": "حذف القائمتين نهائياً",
+    "clearHint_few": "حذف جميع القوائم ({{count}}) نهائياً",
+    "clearHint_many": "حذف جميع القوائم ({{count}}) نهائياً",
     "clearHint_other": "حذف جميع القوائم ({{count}}) نهائياً"
   },
   "detail": {
@@ -76,10 +88,18 @@
     "listEmpty": "هذه القائمة فارغة",
     "listEmptyHint": "اضغط على الزر بالأسفل لإضافة أول مكون للقائمة",
     "addItemBtn": "+ إضافة",
+    "checked_zero": "{{checked}} من {{total}} مكون",
     "checked_one": "{{checked}} من {{total}} مكون",
-    "checked_other": "{{checked}} من {{total}} مكونات",
-    "categories_one": "{{count}} فئة",
-    "categories_other": "{{count}} فئات",
+    "checked_two": "{{checked}} من {{total}} مكونين",
+    "checked_few": "{{checked}} من {{total}} مكونات",
+    "checked_many": "{{checked}} من {{total}} مكوناً",
+    "checked_other": "{{checked}} من {{total}} مكون",
+    "categories_zero": "لا توجد فئات",
+    "categories_one": "فئة واحدة",
+    "categories_two": "فئتان",
+    "categories_few": "{{count}} فئات",
+    "categories_many": "{{count}} فئة",
+    "categories_other": "{{count}} فئة",
     "deleteItem": "حذف المكون",
     "deleteItemMessage": "هل تريد حذف هذا المكون من القائمة؟",
     "generateFromPlan": "إنشاء من خطة الوجبات"

@@ -271,7 +271,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
                         onPress={() => handleItemSelect(item)}
                       >
                         <Text style={[styles.itemChipText, itemName === item && styles.itemChipTextSelected]}>
-                          {item}
+                          {t(`items.${item}`, item)}
                         </Text>
                       </Pressable>
                     ))}
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   backText: {
-    marginLeft: 8,
+    marginStart: 8,
     fontSize: 12,
     color: "#555555",
   },
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   },
   itemsScrollContent: {
     gap: 8,
-    paddingRight: 40,
+    paddingEnd: 40,
   },
   itemChip: {
     backgroundColor: "#F4F5F7",
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginRight: 6,
+    marginEnd: 6,
   },
   unitChipSelected: {
     backgroundColor: "#7FEF80",

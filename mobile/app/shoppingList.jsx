@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
     },
     headerCenter: {
         flex: 1,
-        marginLeft: 12,
+        marginStart: 12,
     },
     listTitle: {
         fontSize: 20,
@@ -984,7 +984,7 @@ const styles = StyleSheet.create({
     },
     folderInfo: {
         flex: 1,
-        marginLeft: 12,
+        marginStart: 12,
     },
     folderTitle: {
         fontSize: 16,
@@ -1075,8 +1075,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: "rgba(255,255,255,0.6)",
         borderRadius: 12,
-        paddingLeft: 12,
-        paddingRight: 8,
+        paddingStart: 12,
+        paddingEnd: 8,
         paddingVertical: 10,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: "#EBEBEB",
@@ -1092,7 +1092,7 @@ const styles = StyleSheet.create({
         borderColor: "#D4D4D4",
         alignItems: "center",
         justifyContent: "center",
-        marginRight: 10,
+        marginEnd: 10,
     },
     checkboxChecked: {
         backgroundColor: "#2a5a2a",
@@ -1116,7 +1116,7 @@ const styles = StyleSheet.create({
     itemQty: {
         fontSize: 13,
         color: "#999999",
-        marginLeft: 8,
+        marginStart: 8,
     },
     itemQtyChecked: {
         color: "#C0C0C0",
@@ -1127,7 +1127,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
-        marginLeft: 8,
+        marginStart: 8,
     },
     itemDeleteText: {
         fontSize: 12,
@@ -1279,7 +1279,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 12,
         paddingVertical: 10,
-        marginRight: 6,
+        marginEnd: 6,
     },
     unitChipSelected: {
         backgroundColor: "#2a5a2a",
@@ -1373,7 +1373,7 @@ const styles = StyleSheet.create({
     },
     quickPickScrollContent: {
         gap: 8,
-        paddingRight: 40,
+        paddingEnd: 40,
     },
     quickPickChip: {
         backgroundColor: "#F4F5F7",

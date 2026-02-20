@@ -29,7 +29,7 @@ function buildMeta(recipe, t) {
   const parts = [];
   const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
   if (totalTime > 0) parts.push(t("time.minOnly", { m: totalTime, ns: "common" }));
-  if (recipe.difficulty) parts.push(t(`difficulty.${recipe.difficulty}`, { defaultValue: recipe.difficulty }));
+  if (recipe.difficulty) parts.push(t(`difficulty.${recipe.difficulty.toLowerCase()}`, { defaultValue: recipe.difficulty }));
   if (recipe.servings) parts.push(t("units.servings", { count: recipe.servings, ns: "common" }));
   return parts.join(" · ");
 }
@@ -54,18 +54,18 @@ export default function RecipiesScreen() {
   const hasMore = recipes.length < total;
 
   useEffect(() => {
-    loadRecipes({ getToken }).catch(() => {});
+    loadRecipes({ getToken }).catch(() => { });
   }, []);
 
   // Refresh when navigating back to this screen
   useEffect(() => {
     if (pathname === "/recipies") {
-      refresh({ getToken }).catch(() => {});
+      refresh({ getToken }).catch(() => { });
     }
   }, [pathname]);
 
   const onRefresh = useCallback(() => {
-    refresh({ getToken }).catch(() => {});
+    refresh({ getToken }).catch(() => { });
   }, [getToken]);
 
   const onEndReached = useCallback(() => {
@@ -76,7 +76,7 @@ export default function RecipiesScreen() {
 
   const handleSheetClose = () => {
     setSheetOpen(false);
-    refresh({ getToken }).catch(() => {});
+    refresh({ getToken }).catch(() => { });
   };
 
   const handleClearAll = useCallback(() => {
@@ -105,7 +105,7 @@ export default function RecipiesScreen() {
   }, [getToken, total]);
 
   const handleToggleFavorite = useCallback((recipeId) => {
-    toggleFavorite({ recipeId, getToken }).catch(() => {});
+    toggleFavorite({ recipeId, getToken }).catch(() => { });
   }, [getToken]);
 
   const handleEnterSelect = useCallback(() => {
@@ -182,7 +182,7 @@ export default function RecipiesScreen() {
               thumbnailUrl={item.thumbnailUrl}
               isFavorite={item.isFavorite}
               onPress={() => toggleSelection(item.id)}
-              onToggleFavorite={() => {}}
+              onToggleFavorite={() => { }}
             />
           </View>
           <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxActive]}>
@@ -272,27 +272,27 @@ export default function RecipiesScreen() {
   return (
     <View style={styles.screen}>
       <SwipeNavigator>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <FlatList
-          data={recipes}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ListHeaderComponent={ListHeader}
-          ListEmptyComponent={ListEmpty}
-          ListFooterComponent={ListFooter}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.3}
-          refreshControl={
-            <RefreshControl
-              refreshing={isLoading && recipes.length > 0}
-              onRefresh={onRefresh}
-              tintColor="#385225"
-            />
-          }
-        />
-      </SafeAreaView>
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          <FlatList
+            data={recipes}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            ListHeaderComponent={ListHeader}
+            ListEmptyComponent={ListEmpty}
+            ListFooterComponent={ListFooter}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            onEndReached={onEndReached}
+            onEndReachedThreshold={0.3}
+            refreshControl={
+              <RefreshControl
+                refreshing={isLoading && recipes.length > 0}
+                onRefresh={onRefresh}
+                tintColor="#385225"
+              />
+            }
+          />
+        </SafeAreaView>
       </SwipeNavigator>
 
       <FloatingNav

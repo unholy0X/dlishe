@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../store/languageStore";
 import { getFontFamily } from "../../utils/fonts";
+import { sc } from "../../utils/deviceScale";
 
 const C = {
   text: "#111111",
@@ -41,16 +42,16 @@ function makeStyles(FONT, isRTL) {
       paddingBottom: 4,
     },
     quitPill: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+      width: sc(38),
+      height: sc(38),
+      borderRadius: sc(19),
       alignItems: "center",
       justifyContent: "center",
       overflow: "hidden",
       backgroundColor: "rgba(255,255,255,0.5)",
     },
     quitText: {
-      fontSize: 16,
+      fontSize: sc(16),
       fontFamily: FONT.medium,
       color: C.text,
     },
@@ -62,7 +63,7 @@ function makeStyles(FONT, isRTL) {
       backgroundColor: "rgba(255,255,255,0.5)",
     },
     stepPillText: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.medium,
       color: C.text,
       letterSpacing: isRTL ? 0 : -0.05,
@@ -102,10 +103,10 @@ function makeStyles(FONT, isRTL) {
       maxWidth: "100%",
     },
     instructionText: {
-      fontSize: 20,
+      fontSize: sc(20),
       fontFamily: FONT.regular,
       color: C.text,
-      lineHeight: 30,
+      lineHeight: sc(30),
       textAlign: isRTL ? "right" : "center",
       letterSpacing: isRTL ? 0 : -0.2,
       writingDirection: isRTL ? "rtl" : "ltr",
@@ -124,7 +125,7 @@ function makeStyles(FONT, isRTL) {
       paddingVertical: 7,
     },
     chipText: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.medium,
       color: C.text,
       textTransform: "capitalize",
@@ -143,17 +144,17 @@ function makeStyles(FONT, isRTL) {
       alignSelf: "stretch",
     },
     tipLabel: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.semibold,
       color: "#7A4A21",
       marginBottom: 4,
     },
     tipText: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.regular,
       color: "#7A4A21",
       fontStyle: "italic",
-      lineHeight: 19,
+      lineHeight: sc(19),
       writingDirection: isRTL ? "rtl" : "ltr",
       textAlign: isRTL ? "right" : "left",
     },
@@ -181,7 +182,7 @@ function makeStyles(FONT, isRTL) {
       opacity: 0.35,
     },
     navBtnPrevText: {
-      fontSize: 15,
+      fontSize: sc(15),
       fontFamily: FONT.medium,
       color: C.greenDark,
     },
@@ -189,7 +190,7 @@ function makeStyles(FONT, isRTL) {
       color: C.muted,
     },
     navBtnNextText: {
-      fontSize: 15,
+      fontSize: sc(15),
       fontFamily: FONT.semibold,
       color: C.greenDark,
     },

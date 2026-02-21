@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "../../store/languageStore";
 import { getFontFamily } from "../../utils/fonts";
+import { sc } from "../../utils/deviceScale";
 
 const C = {
   bg: "#F4F5F7",
@@ -60,12 +61,12 @@ function makeStyles(FONT) {
       paddingVertical: 8,
     },
     backIcon: {
-      fontSize: 14,
+      fontSize: sc(14),
       color: C.muted,
       marginRight: 6,
     },
     backText: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.medium,
       color: C.muted,
     },
@@ -76,7 +77,7 @@ function makeStyles(FONT) {
       paddingVertical: 8,
     },
     counterPillText: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.semibold,
       color: C.text,
       letterSpacing: -0.05,
@@ -89,12 +90,12 @@ function makeStyles(FONT) {
       paddingBottom: 4,
     },
     title: {
-      fontSize: 24,
+      fontSize: sc(24),
       fontFamily: FONT.semibold,
       color: C.text,
     },
     subtitle: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.regular,
       color: C.muted,
       marginTop: 4,
@@ -120,20 +121,20 @@ function makeStyles(FONT) {
       marginBottom: 12,
     },
     sectionCircle: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+      width: sc(28),
+      height: sc(28),
+      borderRadius: sc(14),
       marginRight: 10,
       alignItems: "center",
       justifyContent: "center",
     },
     sectionInitial: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.semibold,
       color: "#fff",
     },
     sectionTitle: {
-      fontSize: 16,
+      fontSize: sc(16),
       fontFamily: FONT.semibold,
       color: C.text,
     },
@@ -153,9 +154,9 @@ function makeStyles(FONT) {
       borderBottomColor: "#ECECEC",
     },
     check: {
-      width: 22,
-      height: 22,
-      borderRadius: 11,
+      width: sc(22),
+      height: sc(22),
+      borderRadius: sc(11),
       marginRight: 12,
       marginTop: 1,
       alignItems: "center",
@@ -168,7 +169,7 @@ function makeStyles(FONT) {
       backgroundColor: "#E6E6E6",
     },
     checkMark: {
-      fontSize: 12,
+      fontSize: sc(12),
       color: C.greenDark,
       fontFamily: FONT.semibold,
     },
@@ -181,29 +182,29 @@ function makeStyles(FONT) {
       alignItems: "flex-start",
     },
     rowLabel: {
-      fontSize: 15,
+      fontSize: sc(15),
       fontFamily: FONT.medium,
       color: C.text,
       flex: 1,
       marginRight: 10,
-      lineHeight: 20,
+      lineHeight: sc(20),
     },
     rowLabelChecked: {
       textDecorationLine: "line-through",
       color: C.muted,
     },
     rowQty: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.semibold,
       color: C.text,
       flexShrink: 0,
     },
     rowNotes: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.regular,
       color: C.muted,
       marginTop: 2,
-      lineHeight: 18,
+      lineHeight: sc(18),
     },
 
     footer: {
@@ -217,7 +218,7 @@ function makeStyles(FONT) {
       alignItems: "center",
     },
     readyBtnText: {
-      fontSize: 16,
+      fontSize: sc(16),
       fontFamily: FONT.semibold,
       color: C.greenDark,
     },

@@ -10,6 +10,7 @@ import {
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import RecipePlaceholder from "../RecipePlaceholder";
+import { sc } from "../../utils/deviceScale";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH * 0.62;
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontWeight: "700",
     color: "#ffffff",
     letterSpacing: -0.3,

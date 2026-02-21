@@ -39,6 +39,7 @@ import { cloneRecipe, toggleFavorite as toggleFavoriteApi } from "../services/re
 import { useTranslation } from "react-i18next";
 import { filterByMealCategory, CATEGORIES } from "../utils/mealCategories";
 import { useLanguageStore } from "../store/languageStore";
+import { sc } from "../utils/deviceScale";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const MASONRY_GAP = 10;
@@ -480,7 +481,7 @@ export default function HomeScreen() {
                     subtitle: { txt: t("suggestions.matchPantry"), color: "#385225" },
                     Icon: () => (
                       <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
-                        <SparkleBadgeIcon width={40} height={40} />
+                        <SparkleBadgeIcon width={sc(40)} height={sc(40)} />
                       </View>
                     ),
                     onPress: handlePantryMatch,
@@ -488,7 +489,7 @@ export default function HomeScreen() {
                   {
                     title: t("suggestions.getInspired"),
                     subtitle: { txt: t("suggestions.curatedPicks"), color: "#5A1F33" },
-                    Icon: () => <HeartBadgeIcon width={40} height={40} />,
+                    Icon: () => <HeartBadgeIcon width={sc(40)} height={sc(40)} />,
                     onPress: handleDinnerInspiration,
                   },
                 ]}
@@ -846,7 +847,7 @@ const styles = StyleSheet.create({
     paddingBottom: 140,
   },
   title: {
-    fontSize: 28,
+    fontSize: sc(28),
     fontWeight: "normal",
     color: "#111111",
     marginVertical: 20,
@@ -861,13 +862,13 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   recipesSheetTitle: {
-    fontSize: 22,
+    fontSize: sc(22),
     fontWeight: "700",
     color: "#111111",
     letterSpacing: -0.3,
   },
   recipesSheetSubtitle: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     marginTop: 4,
     marginBottom: 16,
@@ -911,7 +912,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   masonryTitle: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "700",
     color: "#ffffff",
     letterSpacing: -0.2,
@@ -926,7 +927,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   favoritesTitle: {
-    fontSize: 22,
+    fontSize: sc(22),
     fontWeight: "700",
     color: "#111111",
     letterSpacing: -0.3,
@@ -945,13 +946,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: sc(17),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     textAlign: "center",
     maxWidth: 220,
@@ -977,7 +978,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   matchBadgeText: {
-    fontSize: 11,
+    fontSize: sc(12),
     fontWeight: "700",
     color: "#ffffff",
   },
@@ -992,7 +993,7 @@ const styles = StyleSheet.create({
     borderColor: "#EAEAEA",
   },
   showMoreText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#385225",
   },

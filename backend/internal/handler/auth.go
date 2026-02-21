@@ -98,7 +98,7 @@ func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.userRepo.DeleteAccount(r.Context(), user.ID); err != nil {
-		response.InternalError(w)
+		response.LogAndInternalError(w, err)
 		return
 	}
 

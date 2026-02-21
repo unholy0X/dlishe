@@ -475,7 +475,7 @@ func (r *UserRepository) DeleteAccount(ctx context.Context, id uuid.UUID) error 
 		`DELETE FROM pantry_items WHERE user_id = $1`,
 		`DELETE FROM shopping_items WHERE list_id IN (SELECT id FROM shopping_lists WHERE user_id = $1)`,
 		`DELETE FROM shopping_lists WHERE user_id = $1`,
-		`DELETE FROM meal_plan_entries WHERE meal_plan_id IN (SELECT id FROM meal_plans WHERE user_id = $1)`,
+		`DELETE FROM meal_plan_entries WHERE plan_id IN (SELECT id FROM meal_plans WHERE user_id = $1)`,
 		`DELETE FROM meal_plans WHERE user_id = $1`,
 		`DELETE FROM video_jobs WHERE user_id = $1`,
 		`DELETE FROM user_subscriptions WHERE user_id = $1`,

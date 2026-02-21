@@ -37,6 +37,7 @@ import StepTimerSheet from "../../components/recipies/StepTimerSheet";
 import DoneSheet from "../../components/recipies/DoneSheet";
 import Svg, { Path } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
+import { sc } from "../../utils/deviceScale";
 
 // ─── Design tokens ───────────────────────────────────────────────
 const C = {
@@ -786,8 +787,8 @@ function BackButton({ onPress, light, styles: st }) {
       style={[st.backButton, light && st.backButtonLight]}
     >
       <ArrowLeftIcon
-        width={10}
-        height={10}
+        width={sc(10)}
+        height={sc(10)}
         color={light ? "#ffffff" : C.textSecondary}
       />
       <Text style={[st.backButtonText, light && st.backButtonTextLight]}>
@@ -819,12 +820,12 @@ function makeStyles(FONT, isRTL = false) {
     },
     loadingText: {
       marginTop: 12,
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.regular,
       color: C.textSecondary,
     },
     errorText: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.regular,
       color: C.error,
       textAlign: "center",
@@ -867,7 +868,7 @@ function makeStyles(FONT, isRTL = false) {
     },
     heroTitle: {
       color: "#fff",
-      fontSize: 24,
+      fontSize: sc(24),
       fontFamily: FONT.semibold,
       width: "75%",
     },
@@ -893,7 +894,7 @@ function makeStyles(FONT, isRTL = false) {
     },
     backButtonText: {
       marginLeft: 8,
-      fontSize: 12,
+      fontSize: sc(12),
       fontFamily: FONT.medium,
       color: C.textSecondary,
       letterSpacing: isRTL ? 0 : -0.05,
@@ -902,9 +903,9 @@ function makeStyles(FONT, isRTL = false) {
       color: "#ffffff",
     },
     heroPlay: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: sc(44),
+      height: sc(44),
+      borderRadius: sc(22),
       backgroundColor: C.greenBright,
       alignItems: "center",
       justifyContent: "center",
@@ -913,14 +914,14 @@ function makeStyles(FONT, isRTL = false) {
     // Body
     body: {
       paddingHorizontal: 20,
-      paddingTop: 20,
+      paddingTop: sc(20),
     },
     description: {
-      marginTop: 10,
-      fontSize: 14,
+      marginTop: sc(10),
+      fontSize: sc(14),
       fontFamily: FONT.regular,
       color: C.textSecondary,
-      lineHeight: 22,
+      lineHeight: sc(22),
       letterSpacing: isRTL ? 0 : -0.05,
       writingDirection: isRTL ? "rtl" : "ltr",
       textAlign: isRTL ? "right" : "left",
@@ -933,7 +934,7 @@ function makeStyles(FONT, isRTL = false) {
       marginTop: 12,
     },
     metaInlineText: {
-      fontSize: 13,
+      fontSize: sc(13),
       color: C.textMeta,
       fontFamily: FONT.regular,
     },
@@ -956,7 +957,7 @@ function makeStyles(FONT, isRTL = false) {
       paddingVertical: 6,
     },
     pillText: {
-      fontSize: 12,
+      fontSize: sc(12),
       fontFamily: FONT.medium,
       color: C.textSecondary,
       textTransform: "capitalize",
@@ -975,7 +976,7 @@ function makeStyles(FONT, isRTL = false) {
       borderColor: "#F0A45E",
     },
     langBadgeText: {
-      fontSize: 11,
+      fontSize: sc(11),
       fontFamily: FONT.semibold,
       color: C.orangeDark,
       letterSpacing: 0.3,
@@ -993,12 +994,13 @@ function makeStyles(FONT, isRTL = false) {
       borderWidth: 1,
       borderColor: C.border,
       paddingHorizontal: 12,
-      paddingVertical: 5,
+      paddingVertical: sc(5),
     },
     tagText: {
-      fontSize: 12,
+      fontSize: sc(12),
       fontFamily: FONT.regular,
       color: C.textMeta,
+      lineHeight: sc(18),
       letterSpacing: isRTL ? 0 : -0.05,
     },
 
@@ -1013,12 +1015,13 @@ function makeStyles(FONT, isRTL = false) {
       backgroundColor: C.greenLight,
       borderRadius: 999,
       paddingHorizontal: 12,
-      paddingVertical: 5,
+      paddingVertical: sc(5),
     },
     dietaryText: {
-      fontSize: 12,
+      fontSize: sc(12),
       fontFamily: FONT.medium,
       color: C.greenDark,
+      lineHeight: sc(18),
       letterSpacing: isRTL ? 0 : -0.05,
     },
 
@@ -1030,13 +1033,14 @@ function makeStyles(FONT, isRTL = false) {
       marginTop: 20,
     },
     sectionTitle: {
-      fontSize: 20,
+      fontSize: sc(20),
       fontFamily: FONT.semibold,
       color: C.textPrimary,
+      lineHeight: sc(28),
       letterSpacing: isRTL ? 0 : -0.05,
     },
     countText: {
-      fontSize: 12,
+      fontSize: sc(12),
       fontFamily: FONT.regular,
       color: C.textMeta,
       marginTop: 4,
@@ -1044,7 +1048,7 @@ function makeStyles(FONT, isRTL = false) {
       letterSpacing: isRTL ? 0 : -0.05,
     },
     emptySteps: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.regular,
       color: C.textSecondary,
       marginTop: 12,
@@ -1064,7 +1068,7 @@ function makeStyles(FONT, isRTL = false) {
       alignItems: "center",
     },
     addToListBtnText: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.semibold,
       color: C.greenDark,
       letterSpacing: isRTL ? 0 : -0.05,
@@ -1088,9 +1092,10 @@ function makeStyles(FONT, isRTL = false) {
       marginRight: 10,
     },
     ingredientsTitle: {
-      fontSize: 16,
+      fontSize: sc(16),
       fontFamily: FONT.semibold,
       color: C.textPrimary,
+      lineHeight: sc(22),
     },
     ingredientsList: {
       backgroundColor: "#F7F7F7",
@@ -1098,7 +1103,7 @@ function makeStyles(FONT, isRTL = false) {
       padding: 12,
     },
     ingredientsBullet: {
-      fontSize: 14,
+      fontSize: sc(14),
       color: C.textPrimary,
       fontFamily: FONT.regular,
       marginBottom: 6,
@@ -1114,23 +1119,23 @@ function makeStyles(FONT, isRTL = false) {
       alignItems: "flex-start",
     },
     stepBadge: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
+      width: sc(30),
+      height: sc(30),
+      borderRadius: sc(15),
       backgroundColor: C.greenLight,
       alignItems: "center",
       justifyContent: "center",
       marginRight: 10,
     },
     stepBadgeText: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.semibold,
       color: C.greenDark,
     },
     stepCardText: {
       flex: 1,
-      fontSize: 14,
-      lineHeight: 20,
+      fontSize: sc(14),
+      lineHeight: sc(20),
       color: C.textPrimary,
       writingDirection: isRTL ? "rtl" : "ltr",
       textAlign: isRTL ? "right" : "left",
@@ -1152,13 +1157,13 @@ function makeStyles(FONT, isRTL = false) {
       minWidth: 70,
     },
     nutritionValue: {
-      fontSize: 18,
+      fontSize: sc(18),
       fontFamily: FONT.semibold,
       color: C.textPrimary,
       letterSpacing: isRTL ? 0 : -0.05,
     },
     nutritionLabel: {
-      fontSize: 11,
+      fontSize: sc(11),
       fontFamily: FONT.regular,
       color: C.textMeta,
       marginTop: 2,
@@ -1183,7 +1188,7 @@ function makeStyles(FONT, isRTL = false) {
     },
     primaryBtnText: {
       color: C.greenDark,
-      fontSize: 16,
+      fontSize: sc(16),
       fontFamily: FONT.semibold,
     },
     deleteBtn: {
@@ -1201,7 +1206,7 @@ function makeStyles(FONT, isRTL = false) {
     },
     deleteBtnText: {
       color: "#E24B4B",
-      fontSize: 15,
+      fontSize: sc(15),
       fontFamily: FONT.medium,
     },
     deleteButton: {
@@ -1216,7 +1221,7 @@ function makeStyles(FONT, isRTL = false) {
       backgroundColor: "#FFE8E8",
     },
     deleteButtonText: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.medium,
       color: C.error,
       letterSpacing: isRTL ? 0 : -0.05,
@@ -1234,7 +1239,7 @@ function makeStyles(FONT, isRTL = false) {
       opacity: 0.85,
     },
     saveButtonText: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.semibold,
       color: C.greenDark,
       letterSpacing: isRTL ? 0 : -0.05,
@@ -1249,7 +1254,7 @@ function makeStyles(FONT, isRTL = false) {
       alignContent: "center",
     },
     savedText: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.medium,
       color: C.greenDark,
       letterSpacing: isRTL ? 0 : -0.05,
@@ -1276,10 +1281,10 @@ function makeStyles(FONT, isRTL = false) {
     },
     ingredientContent: { flex: 1 },
     ingredientName: {
-      fontSize: 15,
+      fontSize: sc(15),
       fontFamily: FONT.regular,
       color: C.textPrimary,
-      lineHeight: 22,
+      lineHeight: sc(22),
       letterSpacing: isRTL ? 0 : -0.05,
     },
     ingredientQty: { fontFamily: FONT.semibold },
@@ -1289,7 +1294,7 @@ function makeStyles(FONT, isRTL = false) {
       fontStyle: "italic",
     },
     ingredientNotes: {
-      fontSize: 12,
+      fontSize: sc(12),
       fontFamily: FONT.regular,
       color: C.textMeta,
       marginTop: 2,
@@ -1297,7 +1302,7 @@ function makeStyles(FONT, isRTL = false) {
       letterSpacing: isRTL ? 0 : -0.05,
     },
     ingredientSection: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.semibold,
       color: C.greenDark,
       marginTop: 14,
@@ -1311,9 +1316,9 @@ function makeStyles(FONT, isRTL = false) {
       marginBottom: 20,
     },
     stepNumber: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: sc(32),
+      height: sc(32),
+      borderRadius: sc(16),
       backgroundColor: C.greenLight,
       alignItems: "center",
       justifyContent: "center",
@@ -1321,16 +1326,16 @@ function makeStyles(FONT, isRTL = false) {
       marginTop: 2,
     },
     stepNumberText: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.semibold,
       color: C.greenDark,
     },
     stepContent: { flex: 1 },
     stepInstruction: {
-      fontSize: 15,
+      fontSize: sc(15),
       fontFamily: FONT.regular,
       color: C.textPrimary,
-      lineHeight: 24,
+      lineHeight: sc(24),
       letterSpacing: isRTL ? 0 : -0.05,
     },
     stepMetaRow: {
@@ -1346,7 +1351,7 @@ function makeStyles(FONT, isRTL = false) {
       paddingVertical: 4,
     },
     stepChipText: {
-      fontSize: 11,
+      fontSize: sc(11),
       fontFamily: FONT.medium,
       color: C.textSecondary,
       textTransform: "capitalize",
@@ -1361,11 +1366,11 @@ function makeStyles(FONT, isRTL = false) {
       marginTop: 10,
     },
     tipText: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.regular,
       color: C.orangeDark,
       fontStyle: "italic",
-      lineHeight: 20,
+      lineHeight: sc(20),
       letterSpacing: isRTL ? 0 : -0.05,
     },
   });

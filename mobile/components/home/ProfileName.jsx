@@ -10,6 +10,7 @@ import {
   Linking,
   ActivityIndicator,
 } from "react-native";
+import { sc, isTablet } from "../../utils/deviceScale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useClerk, useUser } from "@clerk/clerk-expo";
 import { useAuth } from "@clerk/clerk-expo";
@@ -100,7 +101,7 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
             imageUrl={imageUrl}
             firstName={firstName}
             lastName={lastName}
-            size={50}
+            size={sc(50)}
           />
           <View style={{ marginLeft: 12 }}>
             <Text style={styles.welcomeTitle}>{t("profile.welcome", { name: displayName })}</Text>
@@ -116,190 +117,200 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
         onRequestClose={() => setOpen(false)}
       >
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
-        <View style={[styles.menuSheet, { paddingBottom: insets.bottom + 20 }]}>
-          {/* Grabber */}
-          <View style={styles.grabber} />
+        <View style={styles.menuSheet}>
+          {/* Constrained inner content for iPad centering */}
+          <View style={[styles.sheetInner, { paddingBottom: insets.bottom + 20 }]}>
+            {/* Grabber */}
+            <View style={styles.grabber} />
 
-          {/* Profile header */}
-          <View style={styles.profileSection}>
-            <Avatar
-              imageUrl={imageUrl}
-              firstName={firstName}
-              lastName={lastName}
-              size={56}
-            />
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{displayName}</Text>
-              {email ? <Text style={styles.profileEmail}>{email}</Text> : null}
+            {/* Profile header */}
+            <View style={styles.profileSection}>
+              <Avatar
+                imageUrl={imageUrl}
+                firstName={firstName}
+                lastName={lastName}
+                size={sc(56)}
+              />
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{displayName}</Text>
+                {email ? <Text style={styles.profileEmail}>{email}</Text> : null}
+              </View>
             </View>
-          </View>
 
-          {/* Preferences */}
-          <Text style={styles.sectionLabel}>{t("profile.kitchenPrefs")}</Text>
+            {/* Preferences */}
+            <Text style={styles.sectionLabel}>{t("profile.kitchenPrefs")}</Text>
 
-          <Pressable style={styles.menuRow} onPress={toggleUnit}>
-            <View style={styles.menuRowIconWrap}>
-              <RulerIcon width={20} height={20} color="#385225" />
-            </View>
-            <View style={styles.menuRowContent}>
-              <Text style={styles.menuRowTitle}>{t("profile.measurementUnits")}</Text>
-              <Text style={styles.menuRowValue}>
-                {preferredUnitSystem === "metric" ? t("profile.metricLabel") : t("profile.imperialLabel")}
-              </Text>
-            </View>
-            <View style={styles.unitToggle}>
-              <Text style={[
-                styles.unitOption,
-                preferredUnitSystem === "metric" && styles.unitOptionActive,
-              ]}>{t("profile.metric")}</Text>
-              <Text style={[
-                styles.unitOption,
-                preferredUnitSystem === "imperial" && styles.unitOptionActive,
-              ]}>{t("profile.imperial")}</Text>
-            </View>
-          </Pressable>
-
-          {/* Language selector */}
-          <View style={[styles.menuRow, { marginTop: 8 }]}>
-            <View style={styles.menuRowIconWrap}>
-              <GlobeIcon width={20} height={20} color="#385225" />
-            </View>
-            <View style={styles.menuRowContent}>
-              <Text style={styles.menuRowTitle}>{t("profile.language")}</Text>
-              <Text style={styles.menuRowValue}>{t(`profile.languageValue_${language}`)}</Text>
-            </View>
-            <View style={styles.unitToggle}>
-              {["en", "fr", "ar"].map((lang) => (
-                <Pressable key={lang} onPress={() => setLanguage(lang, getToken)}>
-                  <Text style={[
-                    styles.unitOption,
-                    language === lang && styles.unitOptionActive,
-                  ]}>{lang.toUpperCase()}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          {/* Subscription */}
-          {entitlement === "pro" ? (
-            <View style={[styles.menuRow, { marginTop: 10 }]}>
-              <View style={[styles.menuRowIconWrap, { backgroundColor: "#DFF7C4" }]}>
-                <CrownIcon width={20} height={20} color="#385225" />
+            <Pressable style={styles.menuRow} onPress={toggleUnit}>
+              <View style={styles.menuRowIconWrap}>
+                <RulerIcon width={sc(20)} height={sc(20)} color="#385225" />
               </View>
               <View style={styles.menuRowContent}>
-                <Text style={styles.menuRowTitle}>{t("profile.proPlan")}</Text>
-                <Text style={styles.menuRowValue}>{t("profile.proValue")}</Text>
+                <Text style={styles.menuRowTitle}>{t("profile.measurementUnits")}</Text>
+                <Text style={styles.menuRowValue}>
+                  {preferredUnitSystem === "metric" ? t("profile.metricLabel") : t("profile.imperialLabel")}
+                </Text>
+              </View>
+              <View style={styles.unitToggle}>
+                <Text style={[
+                  styles.unitOption,
+                  preferredUnitSystem === "metric" && styles.unitOptionActive,
+                ]}>{t("profile.metric")}</Text>
+                <Text style={[
+                  styles.unitOption,
+                  preferredUnitSystem === "imperial" && styles.unitOptionActive,
+                ]}>{t("profile.imperial")}</Text>
+              </View>
+            </Pressable>
+
+            {/* Language selector */}
+            <View style={[styles.menuRow, { marginTop: sc(8) }]}>
+              <View style={styles.menuRowIconWrap}>
+                <GlobeIcon width={sc(20)} height={sc(20)} color="#385225" />
+              </View>
+              <View style={styles.menuRowContent}>
+                <Text style={styles.menuRowTitle}>{t("profile.language")}</Text>
+                <Text style={styles.menuRowValue}>{t(`profile.languageValue_${language}`)}</Text>
+              </View>
+              <View style={styles.unitToggle}>
+                {["en", "fr", "ar"].map((lang) => (
+                  <Pressable key={lang} onPress={() => setLanguage(lang, getToken)}>
+                    <Text style={[
+                      styles.unitOption,
+                      language === lang && styles.unitOptionActive,
+                    ]}>{lang.toUpperCase()}</Text>
+                  </Pressable>
+                ))}
               </View>
             </View>
-          ) : (
+
+            {/* Subscription */}
+            {entitlement === "pro" ? (
+              <View style={[styles.menuRow, { marginTop: sc(10) }]}>
+                <View style={[styles.menuRowIconWrap, { backgroundColor: "#DFF7C4" }]}>
+                  <CrownIcon width={sc(20)} height={sc(20)} color="#385225" />
+                </View>
+                <View style={styles.menuRowContent}>
+                  <Text style={styles.menuRowTitle}>{t("profile.proPlan")}</Text>
+                  <Text style={styles.menuRowValue}>{t("profile.proValue")}</Text>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                style={[styles.menuRow, { marginTop: sc(10) }]}
+                onPress={() => {
+                  setOpen(false);
+                  setTimeout(() => setPaywallVisible(true), 300);
+                }}
+              >
+                <View style={[styles.menuRowIconWrap, { backgroundColor: "#FFF8E1" }]}>
+                  <CrownIcon width={sc(20)} height={sc(20)} color="#F9A825" />
+                </View>
+                <View style={styles.menuRowContent}>
+                  <Text style={styles.menuRowTitle}>{t("profile.upgradePro")}</Text>
+                  <Text style={styles.menuRowValue}>{t("profile.upgradeValue")}</Text>
+                </View>
+              </Pressable>
+            )}
+
+            {/* Log out */}
+            <View style={styles.menuDivider} />
+
             <Pressable
-              style={[styles.menuRow, { marginTop: 10 }]}
-              onPress={() => {
+              style={styles.logoutRow}
+              onPress={async () => {
                 setOpen(false);
-                setTimeout(() => setPaywallVisible(true), 300);
+                // Demo mode — deactivate without calling Clerk
+                if (useDemoStore.getState().isDemoMode) {
+                  await useDemoStore.getState().deactivate();
+                  router.replace("/");
+                  return;
+                }
+                try {
+                  await signOut();
+                  router.replace("/");
+                } catch {
+                  Alert.alert(t("profile.logoutFailed"), t("profile.logoutFailedMsg"));
+                }
               }}
             >
-              <View style={[styles.menuRowIconWrap, { backgroundColor: "#FFF8E1" }]}>
-                <CrownIcon width={20} height={20} color="#F9A825" />
+              <View style={styles.logoutIconWrap}>
+                <LogoutIcon width={sc(20)} height={sc(20)} color="#cc3b3b" />
+              </View>
+              <Text style={styles.logoutText}>{t("profile.logout")}</Text>
+            </Pressable>
+
+            {/* Delete account — Apple Settings-style danger row */}
+            <Text style={[styles.sectionLabel, styles.dangerLabel]}>{tc("deleteAccount").toUpperCase()}</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.menuRow,
+                styles.deleteRow,
+                pressed && styles.deleteRowPressed,
+                deletingAccount && styles.deleteRowDisabled,
+              ]}
+              onPress={() => {
+                Alert.alert(
+                  tc("deleteAccount"),
+                  tc("deleteAccountMsg"),
+                  [
+                    { text: tc("buttons.cancel"), style: "cancel" },
+                    {
+                      text: tc("deleteAccountConfirm"),
+                      style: "destructive",
+                      onPress: async () => {
+                        setDeletingAccount(true);
+                        try {
+                          await deleteAccount({ getToken });
+                          // Backend data wiped — delete Clerk identity.
+                          // If Clerk delete fails, fall back to signOut so the
+                          // session is still cleared (data is already gone).
+                          try {
+                            await user?.delete();
+                          } catch {
+                            await signOut();
+                          }
+                          router.replace("/");
+                        } catch {
+                          Alert.alert(tc("deleteAccount"), tc("deleteAccountError"));
+                        } finally {
+                          setDeletingAccount(false);
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+              disabled={deletingAccount}
+            >
+              <View style={styles.deleteIconWrap}>
+                {deletingAccount ? (
+                  <ActivityIndicator size="small" color="#D63031" />
+                ) : (
+                  <TrashIcon width={sc(20)} height={sc(20)} color="#D63031" />
+                )}
               </View>
               <View style={styles.menuRowContent}>
-                <Text style={styles.menuRowTitle}>{t("profile.upgradePro")}</Text>
-                <Text style={styles.menuRowValue}>{t("profile.upgradeValue")}</Text>
+                <Text style={styles.deleteTitle}>{tc("deleteAccount")}</Text>
+                <Text style={styles.deleteSubtitle}>{tc("deleteAccountMsg").split(".")[0]}.</Text>
               </View>
             </Pressable>
-          )}
 
-          {/* Log out */}
-          <View style={styles.menuDivider} />
-
-          <Pressable
-            style={styles.logoutRow}
-            onPress={async () => {
-              setOpen(false);
-              // Demo mode — deactivate without calling Clerk
-              if (useDemoStore.getState().isDemoMode) {
-                await useDemoStore.getState().deactivate();
-                router.replace("/");
-                return;
-              }
-              try {
-                await signOut();
-                router.replace("/");
-              } catch {
-                Alert.alert(t("profile.logoutFailed"), t("profile.logoutFailedMsg"));
-              }
-            }}
-          >
-            <View style={styles.logoutIconWrap}>
-              <LogoutIcon width={20} height={20} color="#cc3b3b" />
+            {/* Legal links */}
+            <View style={styles.legalRow}>
+              <Pressable
+                style={styles.legalLinkWrap}
+                onPress={() => Linking.openURL("https://dlishe.com/terms")}
+              >
+                <Text style={styles.legalLink}>{t("termsOfUse", { ns: "common" })}</Text>
+              </Pressable>
+              <Text style={styles.legalDot}> · </Text>
+              <Pressable
+                style={styles.legalLinkWrap}
+                onPress={() => Linking.openURL("https://dlishe.com/privacy")}
+              >
+                <Text style={styles.legalLink}>{t("privacyPolicy", { ns: "common" })}</Text>
+              </Pressable>
             </View>
-            <Text style={styles.logoutText}>{t("profile.logout")}</Text>
-          </Pressable>
-
-          {/* Delete account — Apple Settings-style danger row */}
-          <Text style={[styles.sectionLabel, styles.dangerLabel]}>{tc("deleteAccount").toUpperCase()}</Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.menuRow,
-              styles.deleteRow,
-              pressed && styles.deleteRowPressed,
-              deletingAccount && styles.deleteRowDisabled,
-            ]}
-            onPress={() => {
-              Alert.alert(
-                tc("deleteAccount"),
-                tc("deleteAccountMsg"),
-                [
-                  { text: tc("buttons.cancel"), style: "cancel" },
-                  {
-                    text: tc("deleteAccountConfirm"),
-                    style: "destructive",
-                    onPress: async () => {
-                      setDeletingAccount(true);
-                      try {
-                        await deleteAccount({ getToken });
-                        await user?.delete();
-                        router.replace("/");
-                      } catch {
-                        Alert.alert(tc("deleteAccount"), tc("deleteAccountError"));
-                      } finally {
-                        setDeletingAccount(false);
-                      }
-                    },
-                  },
-                ]
-              );
-            }}
-            disabled={deletingAccount}
-          >
-            <View style={styles.deleteIconWrap}>
-              {deletingAccount ? (
-                <ActivityIndicator size="small" color="#D63031" />
-              ) : (
-                <TrashIcon width={20} height={20} color="#D63031" />
-              )}
-            </View>
-            <View style={styles.menuRowContent}>
-              <Text style={styles.deleteTitle}>{tc("deleteAccount")}</Text>
-              <Text style={styles.deleteSubtitle}>{tc("deleteAccountMsg").split(".")[0]}.</Text>
-            </View>
-          </Pressable>
-
-          {/* Legal links */}
-          <View style={styles.legalRow}>
-            <Pressable
-              style={styles.legalLinkWrap}
-              onPress={() => Linking.openURL("https://dlishe.com/terms")}
-            >
-              <Text style={styles.legalLink}>{t("termsOfUse", { ns: "common" })}</Text>
-            </Pressable>
-            <Text style={styles.legalDot}> · </Text>
-            <Pressable
-              style={styles.legalLinkWrap}
-              onPress={() => Linking.openURL("https://dlishe.com/privacy")}
-            >
-              <Text style={styles.legalLink}>{t("privacyPolicy", { ns: "common" })}</Text>
-            </Pressable>
           </View>
         </View>
       </Modal>
@@ -331,14 +342,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   welcomeTitle: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
     color: "#111111",
     letterSpacing: -0.05,
   },
   welcomeSubtitle: {
     marginTop: 2,
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#6b6b6b",
     letterSpacing: -0.05,
   },
@@ -355,47 +366,57 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F5F7",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingHorizontal: 20,
+    // Center content on iPad while background spans full width
+    alignItems: "center",
+  },
+  // Constrained content wrapper — max 620pt on iPad, full-width on phone
+  sheetInner: {
+    width: "100%",
+    maxWidth: isTablet ? 620 : undefined,
+    paddingHorizontal: sc(20),
     paddingTop: 10,
   },
   grabber: {
     alignSelf: "center",
-    width: 44,
-    height: 4,
-    borderRadius: 2,
+    width: sc(44),
+    height: sc(4),
+    borderRadius: sc(2),
     backgroundColor: "#d9d9d9",
-    marginBottom: 20,
+    marginBottom: sc(20),
   },
   // Profile section
   profileSection: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: sc(24),
   },
   profileInfo: {
-    marginLeft: 14,
+    marginLeft: sc(14),
     flex: 1,
   },
   profileName: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontWeight: "600",
     color: "#111111",
     letterSpacing: -0.2,
+    lineHeight: sc(26),
   },
   profileEmail: {
     marginTop: 3,
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#B4B4B4",
     letterSpacing: -0.05,
+    lineHeight: sc(18),
   },
-  // Section
+  // Section label
   sectionLabel: {
-    fontSize: 12,
+    fontSize: sc(12),
     fontWeight: "500",
     color: "#B4B4B4",
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: 10,
+    marginBottom: sc(10),
+    lineHeight: sc(16),
   },
   // Menu rows
   menuRow: {
@@ -403,81 +424,86 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#ffffff",
     borderRadius: 18,
-    padding: 14,
+    padding: sc(16),
   },
   menuRowIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: sc(44),
+    height: sc(44),
+    borderRadius: sc(22),
     backgroundColor: "#F4F5F7",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: sc(14),
   },
   menuRowContent: {
     flex: 1,
   },
   menuRowTitle: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#111111",
     letterSpacing: -0.1,
+    lineHeight: sc(20),
   },
   menuRowValue: {
     marginTop: 2,
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#B4B4B4",
+    lineHeight: sc(16),
   },
+  // Segmented control (Metric/Imperial, EN/FR/AR)
   unitToggle: {
     flexDirection: "row",
     backgroundColor: "#F4F5F7",
-    borderRadius: 10,
+    borderRadius: sc(10),
     overflow: "hidden",
-    marginLeft: 12,
+    marginLeft: sc(12),
   },
   unitOption: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    fontSize: 12,
+    paddingHorizontal: sc(12),
+    paddingVertical: sc(8),
+    fontSize: sc(12),
     fontWeight: "500",
     color: "#B4B4B4",
+    lineHeight: sc(16),
   },
   unitOptionActive: {
     backgroundColor: "#7FEF80",
     color: "#385225",
     fontWeight: "600",
-    borderRadius: 10,
+    borderRadius: sc(10),
     overflow: "hidden",
   },
   // Divider & logout
   menuDivider: {
     height: 1,
     backgroundColor: "#EAEAEA",
-    marginVertical: 16,
+    marginVertical: sc(16),
   },
   logoutRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 4,
-    paddingBottom: 8,
+    paddingVertical: sc(10),
+    paddingBottom: sc(10),
   },
   logoutIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: sc(44),
+    height: sc(44),
+    borderRadius: sc(22),
     backgroundColor: "#FFF0F0",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: sc(14),
   },
   logoutText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "500",
     color: "#cc3b3b",
+    lineHeight: sc(20),
   },
   // Danger section
   dangerLabel: {
-    marginTop: 20,
+    marginTop: sc(20),
     color: "#D63031",
     opacity: 0.6,
   },
@@ -494,30 +520,32 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   deleteIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: sc(44),
+    height: sc(44),
+    borderRadius: sc(22),
     backgroundColor: "rgba(214, 48, 49, 0.1)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: sc(14),
   },
   deleteTitle: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#D63031",
     letterSpacing: -0.1,
+    lineHeight: sc(20),
   },
   deleteSubtitle: {
     marginTop: 2,
-    fontSize: 12,
+    fontSize: sc(12),
     color: "rgba(214, 48, 49, 0.55)",
+    lineHeight: sc(16),
   },
   legalRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 16,
+    marginTop: sc(16),
     paddingVertical: 6,
   },
   legalLinkWrap: {
@@ -525,13 +553,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   legalLink: {
-    fontSize: 13,
+    fontSize: sc(13),
     fontWeight: "500",
     color: "#6b6b6b",
     textDecorationLine: "underline",
+    lineHeight: sc(18),
   },
   legalDot: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#6b6b6b",
     marginHorizontal: 4,
   },

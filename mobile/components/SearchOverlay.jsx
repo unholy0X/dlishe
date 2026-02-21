@@ -11,6 +11,7 @@ import {
   Keyboard,
   Animated,
 } from "react-native";
+import { sc } from "../utils/deviceScale";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SearchIcon from "./icons/SearchIcon";
@@ -168,7 +169,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
           {/* Search input row */}
           <View style={styles.inputRow}>
             <View style={styles.inputContainer}>
-              <SearchIcon width={20} height={20} color="#B4B4B4" />
+              <SearchIcon width={sc(20)} height={sc(20)} color="#B4B4B4" />
               <TextInput
                 ref={inputRef}
                 style={styles.input}
@@ -219,7 +220,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
             {/* Hint */}
             {!hasSearched && !isSearching && (
               <View style={styles.hintState}>
-                <SearchIcon width={40} height={40} color="#D4D4D4" />
+                <SearchIcon width={sc(40)} height={sc(40)} color="#D4D4D4" />
                 <Text style={styles.hintText}>
                   {t("search.hintText", "Search by name, cuisine, or ingredient")}
                 </Text>
@@ -278,20 +279,20 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     marginStart: 10,
-    fontSize: 16,
+    fontSize: sc(16),
     color: "#111111",
     paddingVertical: 0,
   },
   clearBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: sc(24),
+    height: sc(24),
+    borderRadius: sc(12),
     backgroundColor: "#E8E8E8",
     alignItems: "center",
     justifyContent: "center",
   },
   clearText: {
-    fontSize: 11,
+    fontSize: sc(11),
     color: "#999999",
     fontWeight: "600",
   },
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   cancelText: {
-    fontSize: 15,
+    fontSize: sc(15),
     color: "#2a5a2a",
     fontWeight: "600",
   },
@@ -320,7 +321,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   statusText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#999999",
   },
   // Empty
@@ -329,16 +330,16 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: sc(18),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: sc(20),
   },
   // Hint
   hintState: {
@@ -347,12 +348,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   hintText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
   },
   // Section title
   sectionTitle: {
-    fontSize: 13,
+    fontSize: sc(13),
     fontWeight: "600",
     color: "#999999",
     textTransform: "uppercase",
@@ -372,8 +373,8 @@ const styles = StyleSheet.create({
     borderColor: "#EBEBEB",
   },
   resultImage: {
-    width: 72,
-    height: 72,
+    width: sc(72),
+    height: sc(72),
   },
   resultInfo: {
     flex: 1,
@@ -381,7 +382,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   resultTitle: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#111111",
     letterSpacing: -0.2,
@@ -398,7 +399,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   resultTagText: {
-    fontSize: 11,
+    fontSize: sc(12),
     color: "#6b6b6b",
     fontWeight: "500",
   },

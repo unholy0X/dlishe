@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import CalendarIcon from "../icons/CalendarIcon";
 import Svg, { Path } from "react-native-svg";
 import { useLanguageStore } from "../../store/languageStore";
+import { sc } from "../../utils/deviceScale";
 
 const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
@@ -34,7 +35,7 @@ export default function MealPlanCard({ mealsPerDay = [], totalMeals = 0, onPress
 
       <View style={styles.topRow}>
         <View style={styles.iconCircle}>
-          <CalendarIcon width={16} height={16} color="#385225" />
+          <CalendarIcon width={sc(16)} height={sc(16)} color="#385225" />
         </View>
         <View style={styles.titleBlock}>
           <Text style={styles.title}>{t("card.title")}</Text>
@@ -105,9 +106,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: sc(32),
+    height: sc(32),
+    borderRadius: sc(16),
     backgroundColor: "rgba(56, 82, 37, 0.1)",
     alignItems: "center",
     justifyContent: "center",
@@ -117,13 +118,13 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   title: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "700",
     color: "#385225",
     letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 11,
+    fontSize: sc(11),
     fontWeight: "500",
     color: "#5A7A3A",
     marginTop: 1,
@@ -140,13 +141,13 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   dayLabel: {
-    fontSize: 10,
+    fontSize: sc(11),
     fontWeight: "600",
     color: "#5A7A3A",
   },
   dayBar: {
     width: "100%",
-    height: 22,
+    height: sc(22),
     borderRadius: 6,
     backgroundColor: "rgba(255,255,255,0.5)",
     overflow: "hidden",

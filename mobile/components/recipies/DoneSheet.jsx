@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import RecipePlaceholder from "../RecipePlaceholder";
 import { useLanguageStore } from "../../store/languageStore";
 import { getFontFamily } from "../../utils/fonts";
+import { sc } from "../../utils/deviceScale";
 
 const C = {
   bg: "#F4F5F7",
@@ -37,12 +38,12 @@ function makeStyles(FONT) {
       paddingVertical: 8,
     },
     backIcon: {
-      fontSize: 14,
+      fontSize: sc(14),
       color: C.muted,
       marginRight: 6,
     },
     backText: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.medium,
       color: C.muted,
     },
@@ -69,7 +70,7 @@ function makeStyles(FONT) {
     },
     image: {
       width: "100%",
-      height: 240,
+      height: sc(240),
     },
     heroBody: {
       paddingHorizontal: 24,
@@ -78,7 +79,7 @@ function makeStyles(FONT) {
       alignItems: "flex-end", // Align text right for RTL context
     },
     doneLabel: {
-      fontSize: 13,
+      fontSize: sc(13),
       fontFamily: FONT.semibold,
       color: C.green,
       textTransform: "uppercase",
@@ -86,15 +87,15 @@ function makeStyles(FONT) {
       marginBottom: 6,
     },
     recipeTitle: {
-      fontSize: 22,
+      fontSize: sc(22),
       fontFamily: FONT.semibold,
       color: C.text,
-      lineHeight: 32,
+      lineHeight: sc(32),
       paddingTop: 4,
       textAlign: "right", // Ensure RTL rendering matches
     },
     subtitle: {
-      fontSize: 14,
+      fontSize: sc(14),
       fontFamily: FONT.regular,
       color: C.muted,
       marginTop: 8,
@@ -113,7 +114,7 @@ function makeStyles(FONT) {
       paddingVertical: 7,
     },
     metaPillText: {
-      fontSize: 12,
+      fontSize: sc(12),
       fontFamily: FONT.semibold,
       color: C.greenDark,
       letterSpacing: -0.05,
@@ -131,7 +132,7 @@ function makeStyles(FONT) {
       alignItems: "center",
     },
     primaryText: {
-      fontSize: 16,
+      fontSize: sc(16),
       fontFamily: FONT.semibold,
       color: C.greenDark,
     },

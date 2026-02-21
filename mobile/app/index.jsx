@@ -19,6 +19,7 @@ import * as Linking from "expo-linking";
 import Svg, { Path } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 import { useDemoStore } from "../store/demoStore";
+import { sc, isTablet } from "../utils/deviceScale";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -390,6 +391,7 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
           >
+            <View style={styles.formContainer}>
             {/* ── Logo + Brand ── */}
             <View style={styles.brandSection}>
               <Image
@@ -503,7 +505,7 @@ export default function LoginScreen() {
                         <ActivityIndicator color={C.bg} size="small" />
                       ) : (
                         <View style={styles.googleInner}>
-                          <Svg width={18} height={18} viewBox="0 0 24 24" fill={C.bg}>
+                          <Svg width={sc(20)} height={sc(20)} viewBox="0 0 24 24" fill={C.bg}>
                             <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
                           </Svg>
                           <Text style={styles.appleText}>{t("login.continueWithApple")}</Text>
@@ -525,7 +527,7 @@ export default function LoginScreen() {
                       <ActivityIndicator color={C.white} size="small" />
                     ) : (
                       <View style={styles.googleInner}>
-                        <GoogleIcon />
+                        <GoogleIcon size={sc(20)} />
                         <Text style={styles.googleText}>{t("login.continueWithGoogle")}</Text>
                       </View>
                     )}
@@ -666,6 +668,7 @@ export default function LoginScreen() {
                 </>
               )}
             </View>
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -683,32 +686,41 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 28,
-    paddingTop: 40,
-    paddingBottom: 36,
+    paddingTop: sc(40),
+    paddingBottom: sc(36),
     flexGrow: 1,
+  },
+
+  // Constrained + centered form container — max 520pt on iPad
+  formContainer: {
+    width: "100%",
+    maxWidth: isTablet ? 520 : undefined,
+    alignSelf: isTablet ? "center" : undefined,
   },
 
   /* ── brand ── */
   brandSection: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: sc(32),
   },
   logo: {
-    width: 72,
-    height: 72,
+    width: sc(72),
+    height: sc(72),
   },
   brandName: {
-    marginTop: 12,
-    fontSize: 30,
+    marginTop: sc(12),
+    fontSize: sc(30),
     fontFamily: "Inter_600SemiBold",
     color: C.white,
     letterSpacing: 6,
+    lineHeight: sc(38),
   },
   brandTagline: {
-    marginTop: 6,
-    fontSize: 15,
+    marginTop: sc(6),
+    fontSize: sc(15),
     fontFamily: "Inter_400Regular",
     color: C.textSecondary,
+    lineHeight: sc(22),
   },
 
   /* ── form ── */
@@ -720,52 +732,54 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,184,0,0.28)",
     paddingVertical: 11,
     paddingHorizontal: 14,
-    marginBottom: 16,
+    marginBottom: sc(16),
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
   },
   warningText: {
     color: "#FFB800",
-    fontSize: 13,
+    fontSize: sc(13),
     fontFamily: "Inter_400Regular",
-    lineHeight: 18,
+    lineHeight: sc(18),
     flex: 1,
   },
   warningDismiss: {
     color: "#FFB800",
-    fontSize: 14,
+    fontSize: sc(14),
     opacity: 0.7,
     marginTop: 1,
   },
   error: {
     color: C.error,
-    fontSize: 13,
+    fontSize: sc(13),
     fontFamily: "Inter_400Regular",
-    marginBottom: 16,
+    marginBottom: sc(16),
     textAlign: "center",
+    lineHeight: sc(18),
   },
 
   /* ── apple ── */
   appleButton: {
     backgroundColor: C.white,
     borderRadius: 14,
-    paddingVertical: 13,
+    paddingVertical: sc(16),
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: sc(10),
   },
   appleText: {
     color: C.bg,
-    fontSize: 15,
+    fontSize: sc(15),
     fontFamily: "Inter_500Medium",
+    lineHeight: sc(20),
   },
 
   /* ── google ── */
   googleButton: {
     backgroundColor: C.card,
     borderRadius: 14,
-    paddingVertical: 13,
+    paddingVertical: sc(16),
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -774,19 +788,20 @@ const styles = StyleSheet.create({
   googleInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: sc(10),
   },
   googleText: {
     color: C.textPrimary,
-    fontSize: 15,
+    fontSize: sc(15),
     fontFamily: "Inter_500Medium",
+    lineHeight: sc(20),
   },
 
   /* ── divider ── */
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 16,
+    marginVertical: sc(18),
   },
   divider: {
     flex: 1,
@@ -796,52 +811,56 @@ const styles = StyleSheet.create({
   dividerText: {
     marginHorizontal: 14,
     color: C.textTertiary,
-    fontSize: 12,
+    fontSize: sc(12),
     fontFamily: "Inter_400Regular",
+    lineHeight: sc(16),
   },
 
   /* ── inputs ── */
   input: {
     backgroundColor: C.inputBg,
     borderRadius: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
+    paddingHorizontal: sc(18),
+    paddingVertical: sc(16),
     color: C.textPrimary,
-    fontSize: 16,
+    fontSize: sc(16),
     fontFamily: "Inter_400Regular",
     borderWidth: 1,
     borderColor: C.inputBorder,
+    lineHeight: sc(22),
   },
   codeInput: {
-    fontSize: 28,
+    fontSize: sc(28),
     fontFamily: "Inter_600SemiBold",
     letterSpacing: 10,
-    paddingVertical: 18,
+    paddingVertical: sc(20),
   },
 
   /* ── primary ── */
   primaryButton: {
-    marginTop: 16,
+    marginTop: sc(16),
     backgroundColor: C.green,
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: sc(18),
     alignItems: "center",
   },
   primaryText: {
     color: C.bg,
-    fontSize: 16,
+    fontSize: sc(16),
     fontFamily: "Inter_600SemiBold",
+    lineHeight: sc(22),
   },
 
   /* ── links ── */
   link: {
-    marginTop: 14,
+    marginTop: sc(14),
     alignItems: "center",
   },
   linkText: {
     color: C.textSecondary,
-    fontSize: 14,
+    fontSize: sc(14),
     fontFamily: "Inter_400Regular",
+    lineHeight: sc(20),
   },
   linkAccent: {
     color: C.green,
@@ -851,46 +870,49 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 14,
+    marginTop: sc(16),
   },
   legalText: {
-    fontSize: 12,
+    fontSize: sc(12),
     fontFamily: "Inter_400Regular",
     color: C.textSecondary,
     textDecorationLine: "underline",
+    lineHeight: sc(16),
   },
   legalDot: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: C.textSecondary,
   },
 
   /* ── verify ── */
   verifyHeader: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: sc(24),
   },
   verifyBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: sc(56),
+    height: sc(56),
+    borderRadius: sc(28),
     backgroundColor: C.greenMuted,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginBottom: sc(14),
   },
   verifyBadgeText: {
-    fontSize: 26,
+    fontSize: sc(26),
   },
   verifyTitle: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontFamily: "Inter_600SemiBold",
     color: C.textPrimary,
+    lineHeight: sc(28),
   },
   verifyHint: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontFamily: "Inter_400Regular",
     color: C.textSecondary,
-    marginTop: 6,
+    marginTop: sc(6),
     textAlign: "center",
+    lineHeight: sc(20),
   },
 });

@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from "react-native";
+import { sc } from "../utils/deviceScale";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import HeartIcon from "./icons/HeartIcon";
@@ -256,7 +257,7 @@ export default function DinnerInspirationSheet({
           {isSaving ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <HeartIcon width={22} height={22} color="#fff" filled={isSaved} />
+            <HeartIcon width={sc(22)} height={sc(22)} color="#fff" filled={isSaved} />
           )}
         </Pressable>
 
@@ -281,7 +282,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   counterText: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#B4B4B4",
     fontWeight: "600",
     letterSpacing: 1,
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(127, 238, 127, 0.4)",
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: sc(13),
     fontWeight: "600",
     color: "#ffffff",
     textShadowColor: "rgba(0,0,0,0.3)",
@@ -359,7 +360,7 @@ const styles = StyleSheet.create({
     padding: 22,
   },
   heroTitle: {
-    fontSize: 26,
+    fontSize: sc(26),
     fontWeight: "700",
     color: "#ffffff",
     letterSpacing: -0.5,
@@ -368,13 +369,13 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
   heroMeta: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "rgba(255,255,255,0.8)",
     marginTop: 6,
     fontWeight: "500",
   },
   heroCals: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "rgba(255,255,255,0.6)",
     marginTop: 3,
   },
@@ -390,41 +391,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F0F0F0",
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: sc(16),
     alignItems: "center",
   },
   skipText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#888",
   },
   heartBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: sc(52),
+    height: sc(52),
+    borderRadius: sc(26),
     backgroundColor: "#E84057",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#E84057",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
   heartBtnSaved: {
     backgroundColor: "#C43049",
   },
   cookBtn: {
     flex: 1,
-    backgroundColor: "#111111",
+    backgroundColor: "#1E5C0A",
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: sc(16),
     alignItems: "center",
+    shadowColor: "#1E5C0A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
   cookText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "700",
     color: "#ffffff",
+    letterSpacing: 0.2,
   },
   // Empty
   emptyContainer: {

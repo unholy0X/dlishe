@@ -23,6 +23,7 @@ import CheckIcon from "../components/icons/CheckIcon";
 import ShoppingIcon from "../components/icons/ShoppingIcon";
 import { useShoppingStore } from "../store";
 import { useTranslation } from "react-i18next";
+import { sc } from "../utils/deviceScale";
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -196,7 +197,7 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
                             delayLongPress={400}
                         >
                             <View style={[styles.checkbox, item.isChecked && styles.checkboxChecked]}>
-                                {item.isChecked && <CheckIcon width={10} height={10} color="#ffffff" />}
+                                {item.isChecked && <CheckIcon width={sc(10)} height={sc(10)} color="#ffffff" />}
                             </View>
                             <View style={styles.itemContent}>
                                 <Text
@@ -715,7 +716,7 @@ export default function ShoppingListScreen() {
                         </View>
                         {totalItems > 0 && (
                             <Pressable style={styles.completeBtn} onPress={handleComplete}>
-                                <CheckIcon width={16} height={16} color="#ffffff" />
+                                <CheckIcon width={sc(16)} height={sc(16)} color="#ffffff" />
                             </Pressable>
                         )}
                     </View>
@@ -747,7 +748,7 @@ export default function ShoppingListScreen() {
                 ) : totalItems === 0 ? (
                     <View style={styles.emptyState}>
                         <View style={styles.emptyIconWrap}>
-                            <ShoppingIcon width={36} height={32} color="#385225" />
+                            <ShoppingIcon width={sc(36)} height={sc(32)} color="#385225" />
                         </View>
                         <Text style={styles.emptyTitle}>{t("detail.listEmpty")}</Text>
                         <Text style={styles.emptySubtitle}>{t("detail.listEmptyHint")}</Text>
@@ -828,11 +829,11 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         marginTop: 12,
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#6b6b6b",
     },
     errorText: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#cc3b3b",
     },
     // Header hero
@@ -875,15 +876,15 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     backPill: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: sc(36),
+        height: sc(36),
+        borderRadius: sc(18),
         backgroundColor: "#F4F5F7",
         alignItems: "center",
         justifyContent: "center",
     },
     backText: {
-        fontSize: 16,
+        fontSize: sc(16),
         color: "#333333",
         fontWeight: "500",
     },
@@ -892,15 +893,15 @@ const styles = StyleSheet.create({
         marginStart: 12,
     },
     listTitle: {
-        fontSize: 20,
+        fontSize: sc(20),
         fontWeight: "700",
         color: "#111111",
         letterSpacing: -0.3,
     },
     completeBtn: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
+        width: sc(38),
+        height: sc(38),
+        borderRadius: sc(19),
         backgroundColor: "#2a5a2a",
         alignItems: "center",
         justifyContent: "center",
@@ -915,11 +916,11 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     headerProgressLabel: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#6b6b6b",
     },
     headerProgressPercent: {
-        fontSize: 14,
+        fontSize: sc(14),
         fontWeight: "700",
         color: "#2a5a2a",
     },
@@ -935,7 +936,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#7FEF80",
     },
     headerCategoryCount: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#B4B4B4",
         marginTop: 6,
     },
@@ -971,23 +972,23 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     folderImageWrap: {
-        width: 52,
-        height: 52,
+        width: sc(52),
+        height: sc(52),
         borderRadius: 16,
         backgroundColor: "rgba(255,255,255,0.7)",
         alignItems: "center",
         justifyContent: "center",
     },
     folderImage: {
-        width: 40,
-        height: 40,
+        width: sc(40),
+        height: sc(40),
     },
     folderInfo: {
         flex: 1,
         marginStart: 12,
     },
     folderTitle: {
-        fontSize: 16,
+        fontSize: sc(16),
         fontWeight: "600",
         color: "#111111",
     },
@@ -1001,7 +1002,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     folderCount: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#999999",
         fontWeight: "500",
     },
@@ -1018,9 +1019,9 @@ const styles = StyleSheet.create({
         backgroundColor: "#7FEF80",
     },
     expandIcon: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
+        width: sc(30),
+        height: sc(30),
+        borderRadius: sc(15),
         backgroundColor: "rgba(0,0,0,0.04)",
         alignItems: "center",
         justifyContent: "center",
@@ -1029,7 +1030,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#E8F5E9",
     },
     expandIconText: {
-        fontSize: 16,
+        fontSize: sc(16),
         color: "#999999",
         fontWeight: "600",
     },
@@ -1051,7 +1052,7 @@ const styles = StyleSheet.create({
         maxWidth: 100,
     },
     previewChipText: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#6b6b6b",
     },
     previewMore: {
@@ -1061,7 +1062,7 @@ const styles = StyleSheet.create({
         paddingVertical: 5,
     },
     previewMoreText: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#385225",
         fontWeight: "500",
     },
@@ -1085,9 +1086,9 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     checkbox: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
+        width: sc(22),
+        height: sc(22),
+        borderRadius: sc(11),
         borderWidth: 2,
         borderColor: "#D4D4D4",
         alignItems: "center",
@@ -1104,7 +1105,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     itemName: {
-        fontSize: 15,
+        fontSize: sc(15),
         color: "#111111",
         fontWeight: "500",
         flexShrink: 1,
@@ -1114,7 +1115,7 @@ const styles = StyleSheet.create({
         color: "#B4B4B4",
     },
     itemQty: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#999999",
         marginStart: 8,
     },
@@ -1122,15 +1123,15 @@ const styles = StyleSheet.create({
         color: "#C0C0C0",
     },
     itemDelete: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: sc(24),
+        height: sc(24),
+        borderRadius: sc(12),
         alignItems: "center",
         justifyContent: "center",
         marginStart: 8,
     },
     itemDeleteText: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#C0C0C0",
         fontWeight: "600",
     },
@@ -1142,22 +1143,22 @@ const styles = StyleSheet.create({
         paddingHorizontal: 40,
     },
     emptyIconWrap: {
-        width: 88,
-        height: 88,
-        borderRadius: 44,
+        width: sc(88),
+        height: sc(88),
+        borderRadius: sc(44),
         backgroundColor: "#E8F5E9",
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 20,
     },
     emptyTitle: {
-        fontSize: 20,
+        fontSize: sc(20),
         fontWeight: "600",
         color: "#111111",
         marginBottom: 8,
     },
     emptySubtitle: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#999999",
         textAlign: "center",
         lineHeight: 20,
@@ -1170,7 +1171,7 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
     },
     emptyBtnText: {
-        fontSize: 15,
+        fontSize: sc(15),
         fontWeight: "600",
         color: "#385225",
     },
@@ -1179,9 +1180,9 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 30,
         right: 20,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: sc(56),
+        height: sc(56),
+        borderRadius: sc(28),
         alignItems: "center",
         justifyContent: "center",
         shadowColor: "#039274",
@@ -1192,10 +1193,10 @@ const styles = StyleSheet.create({
     },
     fabGradient: {
         ...StyleSheet.absoluteFillObject,
-        borderRadius: 28,
+        borderRadius: sc(28),
     },
     fabText: {
-        fontSize: 28,
+        fontSize: sc(28),
         color: "#ffffff",
         fontWeight: "300",
     },
@@ -1204,7 +1205,7 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
     sheetTitle: {
-        fontSize: 20,
+        fontSize: sc(20),
         fontWeight: "600",
         color: "#111111",
         marginBottom: 16,
@@ -1232,7 +1233,7 @@ const styles = StyleSheet.create({
         elevation: 1,
     },
     modeTabText: {
-        fontSize: 14,
+        fontSize: sc(14),
         fontWeight: "500",
         color: "#999999",
     },
@@ -1241,7 +1242,7 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     inputLabel: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#999999",
         marginBottom: 8,
         marginTop: 12,
@@ -1251,7 +1252,7 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        fontSize: 16,
+        fontSize: sc(16),
         color: "#111111",
     },
     qtyRow: {
@@ -1267,7 +1268,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 12,
         paddingVertical: 10,
-        fontSize: 16,
+        fontSize: sc(16),
         color: "#111111",
         textAlign: "center",
     },
@@ -1285,7 +1286,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#2a5a2a",
     },
     unitChipText: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#111111",
     },
     unitChipTextSelected: {
@@ -1305,7 +1306,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     cancelBtnText: {
-        fontSize: 15,
+        fontSize: sc(15),
         color: "#6b6b6b",
         fontWeight: "500",
     },
@@ -1320,13 +1321,13 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     addBtnText: {
-        fontSize: 15,
+        fontSize: sc(15),
         color: "#ffffff",
         fontWeight: "600",
     },
     // Browse mode
     browseSectionTitle: {
-        fontSize: 14,
+        fontSize: sc(14),
         fontWeight: "500",
         color: "#111111",
         marginBottom: 12,
@@ -1345,12 +1346,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     categoryCardImage: {
-        width: 56,
-        height: 56,
+        width: sc(56),
+        height: sc(56),
     },
     categoryCardText: {
         marginTop: 6,
-        fontSize: 12,
+        fontSize: sc(12),
         fontWeight: "500",
         color: "#333333",
     },
@@ -1358,11 +1359,11 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     browseBackText: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#999999",
     },
     browseCategoryTitle: {
-        fontSize: 18,
+        fontSize: sc(18),
         fontWeight: "600",
         color: "#111111",
         marginBottom: 4,
@@ -1385,7 +1386,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#2a5a2a",
     },
     quickPickChipText: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#111111",
     },
     quickPickChipTextSelected: {
@@ -1397,7 +1398,7 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
     },
     customInputLinkText: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#2a5a2a",
         fontWeight: "500",
     },
@@ -1407,13 +1408,13 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
     stockTitle: {
-        fontSize: 22,
+        fontSize: sc(22),
         fontWeight: "700",
         color: "#111111",
         marginBottom: 6,
     },
     stockSubtitle: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#999999",
         marginBottom: 20,
     },
@@ -1430,21 +1431,21 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         padding: 14,
         alignItems: "center",
-        width: 92,
+        width: sc(92),
     },
     stockCategoryImage: {
-        width: 40,
-        height: 40,
+        width: sc(40),
+        height: sc(40),
         marginBottom: 8,
     },
     stockCategoryLabel: {
-        fontSize: 12,
+        fontSize: sc(12),
         fontWeight: "500",
         color: "#333333",
         marginBottom: 2,
     },
     stockCategoryCount: {
-        fontSize: 14,
+        fontSize: sc(14),
         fontWeight: "700",
         color: "#2a5a2a",
     },
@@ -1460,7 +1461,7 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     stockButtonText: {
-        fontSize: 16,
+        fontSize: sc(16),
         fontWeight: "600",
         color: "#ffffff",
     },
@@ -1469,7 +1470,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     stockDismissText: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#999999",
     },
 });

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, Pressable } from "react-native";
 import { useTranslation } from "react-i18next";
+import { sc } from "../../utils/deviceScale";
 
 const ITEMS = [
   { key: "breakfast", image: require("../../assets/Breakfast.png") },
@@ -56,17 +57,17 @@ const styles = StyleSheet.create({
     width: "23%",
     backgroundColor: "#ffffff",
     borderRadius: 20,
-    paddingVertical: 12,
+    paddingVertical: sc(12),
     alignItems: "center",
   },
   image: {
-    width: 50,
-    height: 50,
+    width: sc(50),
+    height: sc(50),
   },
   label: {
-    marginTop: 8,
-    fontSize: 10,
-    fontWeight: "medium",
+    marginTop: sc(8),
+    fontSize: sc(12),
+    fontWeight: "500",
     color: "#141B34",
     letterSpacing: -0.05
   },

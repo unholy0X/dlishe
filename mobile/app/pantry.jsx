@@ -13,6 +13,7 @@ import {
   Platform,
   Alert,
 } from "react-native";
+import { sc } from "../utils/deviceScale";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
@@ -388,23 +389,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   folderImageWrap: {
-    width: 52,
-    height: 52,
+    width: sc(52),
+    height: sc(52),
     borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.7)",
     alignItems: "center",
     justifyContent: "center",
   },
   folderImage: {
-    width: 40,
-    height: 40,
+    width: sc(40),
+    height: sc(40),
   },
   folderInfo: {
     flex: 1,
     marginLeft: 12,
   },
   folderTitle: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
     color: "#111111",
   },
@@ -414,14 +415,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   folderCount: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#999999",
     fontWeight: "500",
   },
   expandIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: sc(30),
+    height: sc(30),
+    borderRadius: sc(15),
     backgroundColor: "rgba(0,0,0,0.04)",
     alignItems: "center",
     justifyContent: "center",
@@ -430,7 +431,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5E9",
   },
   expandIconText: {
-    fontSize: 16,
+    fontSize: sc(16),
     color: "#999999",
     fontWeight: "600",
   },
@@ -452,7 +453,7 @@ const styles = StyleSheet.create({
     maxWidth: 100,
   },
   previewChipText: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#6b6b6b",
   },
   previewMore: {
@@ -462,7 +463,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   previewMoreText: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#385225",
     fontWeight: "500",
   },
@@ -488,13 +489,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   itemName: {
-    fontSize: 15,
+    fontSize: sc(15),
     color: "#111111",
     fontWeight: "500",
     flexShrink: 1,
   },
   itemQty: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#999999",
     marginLeft: 8,
   },

@@ -25,6 +25,7 @@ import DotsVerticalIcon from "../components/icons/DotsVerticalIcon";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
 import { useTranslation } from "react-i18next";
 import { useShoppingStore } from "../store";
+import { sc } from "../utils/deviceScale";
 
 // Subtle tinted cards — just enough to tell them apart
 const CARD_COLORS = [
@@ -71,7 +72,7 @@ const ShoppingListCard = ({ list, index, onPress, onLongPress, isSelecting, isSe
       {/* Selection checkbox */}
       {isSelecting && (
         <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxChecked]}>
-          {isSelected && <CheckIcon width={12} height={12} color="#ffffff" />}
+          {isSelected && <CheckIcon width={sc(12)} height={sc(12)} color="#ffffff" />}
         </View>
       )}
 
@@ -89,7 +90,7 @@ const ShoppingListCard = ({ list, index, onPress, onLongPress, isSelecting, isSe
       <View style={styles.listStatus}>
         {isComplete ? (
           <View style={[styles.completeBadge, { backgroundColor: palette.text + "20" }]}>
-            <CheckIcon width={14} height={14} color={palette.text} />
+            <CheckIcon width={sc(14)} height={sc(14)} color={palette.text} />
           </View>
         ) : itemCount > 0 ? (
           <Text style={[styles.progressText, { color: palette.text }]}>{checkedCount}/{itemCount}</Text>
@@ -332,11 +333,11 @@ export default function ShoppingScreen() {
                 <>
                   <Pressable onPress={() => setMenuOpen(true)}>
                     <BlurView intensity={120} tint="light" style={styles.dotsBlur}>
-                      <DotsVerticalIcon width={6} height={20} color="#B4B4B4" />
+                      <DotsVerticalIcon width={sc(6)} height={sc(20)} color="#B4B4B4" />
                     </BlurView>
                   </Pressable>
                   <Pressable style={styles.addButton} onPress={() => setSheetOpen(true)}>
-                    <PlusIcon width={24} height={24} color="#385225" />
+                    <PlusIcon width={sc(24)} height={sc(24)} color="#385225" />
                   </Pressable>
                 </>
               )}
@@ -355,7 +356,7 @@ export default function ShoppingScreen() {
           ) : isEmpty ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconWrap}>
-                <ShoppingIcon width={32} height={28} color="#6b6b6b" />
+                <ShoppingIcon width={sc(32)} height={sc(28)} color="#6b6b6b" />
               </View>
               <Text style={styles.emptyTitle}>{t("empty.title")}</Text>
               <Text style={styles.emptySubtitle}>{t("empty.subtitle")}</Text>
@@ -446,7 +447,7 @@ export default function ShoppingScreen() {
             onPress={() => { setMenuOpen(false); enterSelectMode(); }}
           >
             <View style={styles.menuOptionNeutralIcon}>
-              <CheckIcon width={16} height={16} color="#2a5a2a" />
+              <CheckIcon width={sc(16)} height={sc(16)} color="#2a5a2a" />
             </View>
             <View style={styles.menuOptionInfo}>
               <Text style={styles.menuOptionNeutralLabel}>{t("menu.selectLists")}</Text>
@@ -501,14 +502,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: sc(24),
     fontWeight: "500",
     color: "#000",
     letterSpacing: -0.05,
   },
   subtitle: {
     marginTop: 3,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     letterSpacing: -0.05,
   },
@@ -517,8 +518,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dotsBlur: {
-    width: 50,
-    height: 50,
+    width: sc(50),
+    height: sc(50),
     borderWidth: 1,
     borderColor: "#ffffff",
     borderRadius: 999,
@@ -532,8 +533,8 @@ const styles = StyleSheet.create({
     margin: 3,
   },
   addButton: {
-    width: 50,
-    height: 50,
+    width: sc(50),
+    height: sc(50),
     borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
@@ -546,7 +547,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8E8E8",
   },
   cancelSelectText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#111111",
   },
@@ -603,12 +604,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listName: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
   },
   listCount: {
     marginTop: 2,
-    fontSize: 13,
+    fontSize: sc(13),
   },
   progressBar: {
     marginTop: 8,
@@ -624,7 +625,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   progressText: {
-    fontSize: 13,
+    fontSize: sc(13),
     fontWeight: "500",
   },
   completeBadge: {
@@ -656,7 +657,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   selectionCount: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#111111",
   },
@@ -674,7 +675,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#9BC6FB",
   },
   mergeBtnText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#28457A",
   },
@@ -682,7 +683,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FBBDBD",
   },
   deleteBtnText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#7A2828",
   },
@@ -694,11 +695,11 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
   },
   errorText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#cc3b3b",
   },
   emptyState: {
@@ -717,13 +718,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
     textAlign: "center",
     lineHeight: 20,
@@ -736,7 +737,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   emptyBtnText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#385225",
   },
@@ -745,13 +746,13 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   sheetTitle: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#6b6b6b",
     marginBottom: 8,
     marginTop: 12,
@@ -761,7 +762,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: sc(16),
     color: "#111111",
   },
   sheetButtons: {
@@ -777,7 +778,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cancelBtnText: {
-    fontSize: 15,
+    fontSize: sc(15),
     color: "#6b6b6b",
     fontWeight: "500",
   },
@@ -792,7 +793,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   createBtnText: {
-    fontSize: 15,
+    fontSize: sc(15),
     color: "#2a5a2a",
     fontWeight: "600",
   },
@@ -801,7 +802,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   menuTitle: {
-    fontSize: 18,
+    fontSize: sc(18),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 16,
@@ -824,7 +825,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   menuOptionIconText: {
-    fontSize: 16,
+    fontSize: sc(16),
     color: "#cc3b3b",
     fontWeight: "600",
   },
@@ -849,17 +850,17 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   menuOptionNeutralLabel: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
     color: "#2a5a2a",
   },
   menuOptionLabel: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
     color: "#cc3b3b",
   },
   menuOptionDesc: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#999999",
     marginTop: 2,
   },
@@ -870,7 +871,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F5F7",
   },
   menuDismissText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "500",
     color: "#6b6b6b",
   },

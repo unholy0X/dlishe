@@ -4,6 +4,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { sc, isTablet } from "../utils/deviceScale";
 
 import HomeIcon from "./icons/HomeIcon";
 import RecipiesIcon from "./icons/RecipiesIcon";
@@ -68,8 +69,8 @@ export default function FloatingNav({ onPressItem, onPressPlus, activeKey }) {
           </View>
         )}
         <item.Icon
-          width={22}
-          height={22}
+          width={sc(22)}
+          height={sc(22)}
           color={isActive ? "#111111" : "rgba(20,27,52,0.4)"}
         />
         <Text
@@ -176,7 +177,7 @@ export default function FloatingNav({ onPressItem, onPressPlus, activeKey }) {
               style={styles.plusSpecular}
               pointerEvents="none"
             />
-            <PlusIcon width={24} height={24} color="#ffffff" />
+            <PlusIcon width={sc(24)} height={sc(24)} color="#ffffff" />
           </Pressable>
         </Animated.View>
       </View>
@@ -195,7 +196,7 @@ const styles = StyleSheet.create({
   navContainer: {
     position: "relative",
     width: "100%",
-    maxWidth: 420,
+    maxWidth: isTablet ? 580 : 420,
   },
   // Ambient shadow — soft, wide depth glow
   ambientShadow: {
@@ -258,10 +259,10 @@ const styles = StyleSheet.create({
   item: {
     alignItems: "center",
     justifyContent: "center",
-    width: 75,
+    width: isTablet ? 115 : 75,
     borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 15,
+    paddingVertical: sc(6),
+    paddingHorizontal: isTablet ? 6 : 15,
     position: "relative",
   },
   // Active pill — glass within glass
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
   },
   label: {
     marginTop: 2,
-    fontSize: 10,
+    fontSize: sc(11),
     color: "rgba(20,27,52,0.4)",
     letterSpacing: -0.05,
   },
@@ -296,11 +297,11 @@ const styles = StyleSheet.create({
   // Plus button — floating liquid glass orb
   plusOuter: {
     position: "absolute",
-    top: -20,
+    top: -sc(20),
     left: "50%",
-    marginLeft: -28,
-    width: 56,
-    height: 56,
+    marginLeft: -sc(28),
+    width: sc(56),
+    height: sc(56),
     // Colored glow shadow
     shadowColor: "#06B27A",
     shadowOffset: { width: 0, height: 8 },
@@ -309,9 +310,9 @@ const styles = StyleSheet.create({
     elevation: 14,
   },
   plusButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: sc(56),
+    height: sc(56),
+    borderRadius: sc(28),
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
@@ -320,7 +321,7 @@ const styles = StyleSheet.create({
   },
   plusGradient: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 28,
+    borderRadius: sc(28),
   },
   plusSpecular: {
     position: "absolute",
@@ -328,7 +329,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: "55%",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: sc(28),
+    borderTopRightRadius: sc(28),
   },
 });

@@ -7,6 +7,7 @@ import {
   Pressable,
   TextInput,
 } from "react-native";
+import { sc } from "../../utils/deviceScale";
 import { BlurView } from "expo-blur";
 import ArrowLeftIcon from "../icons/ArrowLeftIcon";
 import LinkIcon from "../icons/LinkIcon";
@@ -327,11 +328,11 @@ const styles = StyleSheet.create({
   },
   backText: {
     marginStart: 8,
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#555555",
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: sc(22),
     fontWeight: "normal",
     color: "#000",
     letterSpacing: -0.05,
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 10,
-    fontSize: 26,
+    fontSize: sc(26),
     fontWeight: "normal",
     color: "#000",
     textAlign: "center",
@@ -354,10 +355,10 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 8,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: sc(20),
     letterSpacing: -0.05,
     paddingHorizontal: 20,
   },
@@ -389,14 +390,14 @@ const styles = StyleSheet.create({
   },
   primaryText: {
     marginStart: 8,
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: sc(14),
+    fontWeight: "600",
     color: "#385225",
     letterSpacing: -0.05,
   },
   errorText: {
     marginTop: 8,
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#cc3b3b",
     textAlign: "center",
   },
@@ -412,7 +413,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     marginHorizontal: 10,
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#B4B4B4",
   },
   // Preview styles
@@ -433,7 +434,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   recipeTitle: {
-    fontSize: 22,
+    fontSize: sc(22),
     fontWeight: "500",
     color: "#111111",
     textAlign: "center",
@@ -441,10 +442,10 @@ const styles = StyleSheet.create({
   },
   recipeDescription: {
     marginTop: 8,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: sc(20),
     paddingHorizontal: 10,
   },
   metaRow: {
@@ -461,7 +462,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   metaPillText: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#6b6b6b",
   },
   countsCard: {
@@ -482,11 +483,11 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   countLabel: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
   },
   countValue: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#111111",
   },
@@ -509,13 +510,13 @@ const styles = StyleSheet.create({
     marginEnd: 10,
   },
   ingredientText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#111111",
     flex: 1,
   },
   moreText: {
     marginTop: 6,
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#B4B4B4",
     textAlign: "center",
   },
@@ -528,7 +529,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   savedText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "500",
     color: "#385225",
   },
@@ -542,7 +543,7 @@ const styles = StyleSheet.create({
     borderColor: "#DFDFDF",
   },
   tryAnotherText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "500",
     color: "#6b6b6b",
   },

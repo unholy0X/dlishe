@@ -24,6 +24,7 @@ import CheckIcon from "../components/icons/CheckIcon";
 import { useTranslation } from "react-i18next";
 import { useRecipeStore } from "../store";
 import { deleteRecipe } from "../services/recipes";
+import { sc } from "../utils/deviceScale";
 
 function buildMeta(recipe, t) {
   const parts = [];
@@ -186,7 +187,7 @@ export default function RecipiesScreen() {
             />
           </View>
           <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxActive]}>
-            {isSelected && <CheckIcon width={14} height={14} color="#fff" />}
+            {isSelected && <CheckIcon width={sc(14)} height={sc(14)} color="#fff" />}
           </View>
         </Pressable>
       );
@@ -320,7 +321,7 @@ export default function RecipiesScreen() {
             disabled={total === 0}
           >
             <View style={[styles.menuOptionIcon, styles.menuOptionIconGreen]}>
-              <CheckIcon width={16} height={16} color="#385225" />
+              <CheckIcon width={sc(16)} height={sc(16)} color="#385225" />
             </View>
             <View style={styles.menuOptionInfo}>
               <Text style={[styles.menuOptionLabel, styles.menuOptionLabelGreen, total === 0 && styles.menuOptionDisabled]}>
@@ -387,23 +388,23 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
   },
   errorText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#cc3b3b",
     textAlign: "center",
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontWeight: "500",
     color: "#111111",
     letterSpacing: -0.05,
   },
   emptySubtitle: {
     marginTop: 8,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     textAlign: "center",
     letterSpacing: -0.05,
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   menuTitle: {
-    fontSize: 18,
+    fontSize: sc(18),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 16,
@@ -433,16 +434,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   menuOptionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: sc(40),
+    height: sc(40),
+    borderRadius: sc(20),
     backgroundColor: "#FDDEDE",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
   },
   menuOptionIconText: {
-    fontSize: 16,
+    fontSize: sc(16),
     color: "#cc3b3b",
     fontWeight: "600",
   },
@@ -450,7 +451,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuOptionLabel: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
     color: "#cc3b3b",
   },
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
     color: "#C0C0C0",
   },
   menuOptionDesc: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#999999",
     marginTop: 2,
   },
@@ -469,7 +470,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F5F7",
   },
   menuDismissText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "500",
     color: "#6b6b6b",
   },
@@ -492,17 +493,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   selectBarCancel: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "500",
     color: "#6b6b6b",
   },
   selectBarCount: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#111111",
   },
   selectAllBtn: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#385225",
   },
@@ -513,7 +514,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   deleteBtnText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#ffffff",
   },
@@ -521,9 +522,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     left: 12,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: sc(26),
+    height: sc(26),
+    borderRadius: sc(13),
     borderWidth: 2,
     borderColor: "#B4B4B4",
     backgroundColor: "rgba(255,255,255,0.9)",

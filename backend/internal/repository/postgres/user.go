@@ -483,8 +483,11 @@ func (r *UserRepository) DeleteAccount(ctx context.Context, id uuid.UUID) error 
 		// Wipe RevenueCat idempotency ledger — app_user_id is stored as the
 		// user's UUID string; payload may contain PII (email, name).
 		`DELETE FROM revenuecat_events WHERE app_user_id = $1::text`,
-		// Soft-delete the user record last
-		`UPDATE users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
+		// Soft-delete the user record last.
+		// NULL out clerk_id and email so their UNIQUE constraints are freed —
+		// this allows the same person to re-register immediately after deletion
+		// without hitting a 23505 unique_violation on the tombstone row.
+		`UPDATE users SET deleted_at = NOW(), updated_at = NOW(), clerk_id = NULL, email = NULL, device_id = NULL WHERE id = $1 AND deleted_at IS NULL`,
 	}
 
 	for _, q := range steps {

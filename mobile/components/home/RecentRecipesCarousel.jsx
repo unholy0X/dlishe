@@ -41,7 +41,14 @@ export default function RecentRecipesCarousel({ items = [], onPressItem }) {
           >
             <RecipePlaceholder title={item.title} variant="large" style={styles.image} />
             {imageSource ? (
-              <Image source={imageSource} style={styles.image} transition={200} recyclingKey={item.id} cachePolicy="memory-disk" />
+              <Image
+                source={imageSource}
+                style={styles.image}
+                transition={0}
+                priority={index < 3 ? "high" : "normal"}
+                recyclingKey={item.id}
+                cachePolicy="memory-disk"
+              />
             ) : null}
             <LinearGradient
               colors={["transparent", "rgba(0,0,0,0.55)"]}

@@ -70,6 +70,7 @@ function friendlySaveError(err, t) {
 }
 
 const recipeKeyExtractor = (item) => item.id;
+const REFRESH_THROTTLE_MS = 30_000; // min 30s between background refreshes
 
 const PAGE_SIZE = 10;
 
@@ -195,6 +196,7 @@ export default function HomeScreen() {
   const [mealCatOpen, setMealCatOpen] = useState(false);
   const [mealCatKey, setMealCatKey] = useState(null);
   const [mealCatShuffled, setMealCatShuffled] = useState([]);
+  const lastRefreshAt = useRef(0);
   const [savingIds, setSavingIds] = useState(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [pantryMatchOpen, setPantryMatchOpen] = useState(false);
@@ -234,19 +236,29 @@ export default function HomeScreen() {
 
   // Prefetch suggested recipe thumbnails for smooth carousel
   useEffect(() => {
-    const urls = suggested
-      .map((r) => r.thumbnailUrl)
-      .filter(Boolean);
+    const urls = suggested.map((r) => r.thumbnailUrl).filter(Boolean);
     if (urls.length > 0) {
-      urls.forEach((url) => Image.prefetch(url));
+      Image.prefetch(urls);
     }
   }, [suggested]);
 
-  // Refresh user recipes when navigating back to this screen
+  // Refresh user recipes when navigating back to this screen.
+  // Throttled: skip if last refresh was < 30s ago to avoid render churn.
+  // Also re-warms the expo-image memory cache for carousel thumbnails.
   useEffect(() => {
-    if (pathname === "/home") {
+    if (pathname !== "/home") return;
+
+    const now = Date.now();
+    if (now - lastRefreshAt.current > REFRESH_THROTTLE_MS) {
+      lastRefreshAt.current = now;
       loadRecipes({ getToken }).catch(() => { });
       loadMealPlan({ getToken }).catch(() => { });
+    }
+
+    // Re-warm memory cache so carousel images appear without decode delay
+    const urls = suggested.map((r) => r.thumbnailUrl).filter(Boolean);
+    if (urls.length > 0) {
+      Image.prefetch(urls.slice(0, 6));
     }
   }, [pathname]);
 

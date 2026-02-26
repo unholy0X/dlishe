@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { Image } from "expo-image";
 import HeartIcon from "../icons/HeartIcon";
 import RecipePlaceholder from "../RecipePlaceholder";
+import { sc } from "../../utils/deviceScale";
 
 export default function RecipeCard({
   title,
@@ -52,8 +53,8 @@ export default function RecipeCard({
             >
               <Animated.View style={{ transform: [{ scale: heartScale }] }}>
                 <HeartIcon
-                  width={20}
-                  height={20}
+                  width={sc(20)}
+                  height={sc(20)}
                   color={isFavorite ? "#E84057" : "#C8C8C8"}
                   filled={isFavorite}
                 />
@@ -82,8 +83,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   image: {
-    width: 110,
-    height: 110,
+    width: sc(110),
+    height: sc(110),
   },
   content: {
     flex: 1,
@@ -96,11 +97,11 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 17,
+    fontSize: sc(17),
     fontWeight: "600",
     color: "#111111",
     letterSpacing: -0.2,
-    lineHeight: 22,
+    lineHeight: sc(22),
   },
   heartBtn: {
     paddingLeft: 10,
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
   },
   meta: {
     marginTop: 6,
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#B4B4B4",
     letterSpacing: -0.05,
   },

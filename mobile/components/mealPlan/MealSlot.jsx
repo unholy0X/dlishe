@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Image } from "expo-image";
 import Svg, { Path, Circle } from "react-native-svg";
 import RecipePlaceholder from "../RecipePlaceholder";
+import { useTranslation } from "react-i18next";
 
 // SVG icons for each meal type — no emojis
 function SunIcon({ size = 14, color = "#7A4A21" }) {
@@ -44,18 +45,19 @@ function CookieIcon({ size = 14, color = "#4A2D73" }) {
 
 const MEAL_CONFIG = {
   breakfast: { label: "Breakfast", Icon: SunIcon, bg: "#FDF2E8", accent: "#7A4A21", accentBubble: "#F0A45E" },
-  lunch:     { label: "Lunch",     Icon: LeafIcon, bg: "#EAF4E0", accent: "#385225", accentBubble: "#A3D977" },
-  dinner:    { label: "Dinner",    Icon: MoonIcon,  bg: "#FDEEEE", accent: "#943040", accentBubble: "#F9BABA" },
-  snack:     { label: "Snack",     Icon: CookieIcon, bg: "#F2EEFD", accent: "#4A2D73", accentBubble: "#CCB7F9" },
+  lunch: { label: "Lunch", Icon: LeafIcon, bg: "#EAF4E0", accent: "#385225", accentBubble: "#A3D977" },
+  dinner: { label: "Dinner", Icon: MoonIcon, bg: "#FDEEEE", accent: "#943040", accentBubble: "#F9BABA" },
+  snack: { label: "Snack", Icon: CookieIcon, bg: "#F2EEFD", accent: "#4A2D73", accentBubble: "#CCB7F9" },
 };
 
-function buildMeta(entry) {
+function buildMeta(entry, t) {
   const totalTime = (entry.prepTime || 0) + (entry.cookTime || 0);
-  if (totalTime > 0) return `${totalTime} min`;
+  if (totalTime > 0) return t("time.minOnly", { m: totalTime, ns: "common" });
   return "";
 }
 
-export default function MealSlot({ mealType, entries = [], onAdd, onRemove }) {
+export default function MealSlot({ mealType, entries = [], onAdd, onRemove, onPressRecipe }) {
+  const { t } = useTranslation("mealPlan");
   const config = MEAL_CONFIG[mealType] || MEAL_CONFIG.dinner;
   const { Icon } = config;
 
@@ -67,7 +69,7 @@ export default function MealSlot({ mealType, entries = [], onAdd, onRemove }) {
         <View style={styles.headerInner}>
           <Icon size={14} color={config.accent} />
           <Text style={[styles.headerLabel, { color: config.accent }]}>
-            {config.label}
+            {t(`mealTypes.${mealType}`, config.label)}
           </Text>
         </View>
         {entries.length > 0 && (
@@ -79,9 +81,13 @@ export default function MealSlot({ mealType, entries = [], onAdd, onRemove }) {
 
       {/* Recipe cards */}
       {entries.map((entry) => {
-        const meta = buildMeta(entry);
+        const meta = buildMeta(entry, t);
         return (
-          <View key={entry.id} style={styles.recipeCard}>
+          <Pressable
+            key={entry.id}
+            style={({ pressed }) => [styles.recipeCard, pressed && { opacity: 0.75 }]}
+            onPress={() => onPressRecipe && onPressRecipe(entry.recipeId)}
+          >
             <View style={styles.thumbWrap}>
               <RecipePlaceholder title={entry.recipeTitle || ""} variant="small" style={styles.thumb} />
               {entry.thumbnailUrl ? (
@@ -95,20 +101,20 @@ export default function MealSlot({ mealType, entries = [], onAdd, onRemove }) {
             </View>
             <View style={styles.recipeInfo}>
               <Text style={styles.recipeTitle} numberOfLines={2}>
-                {entry.recipeTitle || "Recipe"}
+                {entry.recipeTitle || t("fallback.recipe", "Recipe")}
               </Text>
               {meta ? <Text style={styles.recipeMeta}>{meta}</Text> : null}
             </View>
             <Pressable
               style={styles.removeBtn}
-              onPress={() => onRemove(entry.id)}
+              onPress={(e) => { e.stopPropagation?.(); onRemove(entry.id); }}
               hitSlop={10}
             >
               <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth={2.5} strokeLinecap="round">
                 <Path d="M18 6L6 18M6 6l12 12" />
               </Svg>
             </Pressable>
-          </View>
+          </Pressable>
         );
       })}
 
@@ -117,7 +123,7 @@ export default function MealSlot({ mealType, entries = [], onAdd, onRemove }) {
         style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.6 }]}
         onPress={onAdd}
       >
-        <Text style={styles.addBtnText}>+ Add recipe</Text>
+        <Text style={styles.addBtnText}>{t("slot.addBtn", "+ Add recipe")}</Text>
       </Pressable>
     </View>
   );

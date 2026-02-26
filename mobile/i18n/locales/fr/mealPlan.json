@@ -1,0 +1,71 @@
+{
+  "title": "Plan de repas",
+  "days": {
+    "mon": "Lun",
+    "tue": "Mar",
+    "wed": "Mer",
+    "thu": "Jeu",
+    "fri": "Ven",
+    "sat": "Sam",
+    "sun": "Dim",
+    "monday": "Lundi",
+    "tuesday": "Mardi",
+    "wednesday": "Mercredi",
+    "thursday": "Jeudi",
+    "friday": "Vendredi",
+    "saturday": "Samedi",
+    "sunday": "Dimanche"
+  },
+  "daysShort": {
+    "mon": "L",
+    "tue": "M",
+    "wed": "M",
+    "thu": "J",
+    "fri": "V",
+    "sat": "S",
+    "sun": "D"
+  },
+  "mealTypes": {
+    "breakfast": "Petit-déjeuner",
+    "lunch": "Déjeuner",
+    "dinner": "Dîner",
+    "snack": "Collation",
+    "more": "Plus"
+  },
+  "empty": {
+    "noMeals": "Aucun repas planifié",
+    "hint": "Appuyez sur « + Ajouter une recette » sur un créneau pour commencer votre semaine"
+  },
+  "info": "Info",
+  "listCreated": "Liste de courses créée",
+  "listCreatedMsg": "{{count}} articles ajoutés — retrouvez la liste dans l'onglet Courses.",
+  "allInPantry": "Rien à acheter — tous les ingrédients sont déjà dans votre garde-manger !",
+  "generatedListName": "Plan repas — Semaine du {{date}}",
+  "generateList": "Générer la liste de courses",
+  "addRecipe": "+ Ajouter une recette",
+  "addRecipeTitle": "Ajouter une recette",
+  "searchRecipes": "Rechercher des recettes…",
+  "card": {
+    "title": "Plan de repas",
+    "subtitle_zero": "Aucun repas cette semaine",
+    "subtitle_one": "{{count}} repas planifié",
+    "subtitle_two": "{{count}} repas planifiés",
+    "subtitle_few": "{{count}} repas planifiés",
+    "subtitle_many": "{{count}} repas planifiés",
+    "subtitle_other": "{{count}} repas planifiés"
+  },
+  "addSheet": {
+    "title": "Ajouter une recette",
+    "searchPlaceholder": "Recherchez vos recettes...",
+    "emptyMatch": "Aucune recette ne correspond à votre recherche",
+    "emptySaved": "Aucune recette enregistrée",
+    "tryDifferent": "Essayez un autre terme de recherche",
+    "extractFirst": "Extrayez ou créez d'abord une recette"
+  },
+  "fallback": {
+    "recipe": "Recette"
+  },
+  "slot": {
+    "addBtn": "+ Ajouter une recette"
+  }
+}

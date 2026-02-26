@@ -36,21 +36,15 @@ import { useSuggestedStore, useFeaturedStore, useRecipeStore, usePantryStore, us
 import MealPlanCard from "../components/mealPlan/MealPlanCard";
 import { useAuth } from "@clerk/clerk-expo";
 import { cloneRecipe, toggleFavorite as toggleFavoriteApi } from "../services/recipes";
+import { useTranslation } from "react-i18next";
 import { filterByMealCategory, CATEGORIES } from "../utils/mealCategories";
+import { useLanguageStore } from "../store/languageStore";
+import { sc } from "../utils/deviceScale";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const MASONRY_GAP = 10;
 const MASONRY_COL = (SCREEN_W - 40 - MASONRY_GAP) / 2;
 const MASONRY_HEIGHT = MASONRY_COL * 1.25;
-
-function buildMeta(recipe) {
-  const parts = [];
-  const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
-  if (totalTime > 0) parts.push(`${totalTime} min`);
-  if (recipe.difficulty) parts.push(recipe.difficulty);
-  if (recipe.servings) parts.push(`${recipe.servings} servings`);
-  return parts.join(" · ");
-}
 
 function shuffle(arr) {
   const a = [...arr];
@@ -61,26 +55,28 @@ function shuffle(arr) {
   return a;
 }
 
-function friendlySaveError(err) {
+function friendlySaveError(err, t) {
   const msg = (err?.message || "").toLowerCase();
   if (msg.includes("network request failed") || msg.includes("failed to fetch"))
-    return "No internet connection. Check your network and try again.";
+    return t("noInternet", { ns: "common" });
   if (
     msg.includes("token") ||
     msg.includes("unauthorized") ||
     msg.includes("not authenticated") ||
     msg.includes("sign-in session")
   )
-    return "Your session needs a refresh. Please sign out and back in.";
-  return "Couldn't save this recipe. Please try again.";
+    return t("sessionExpired", { ns: "common" });
+  return t("errors:recipe.saveMessage");
 }
 
 const recipeKeyExtractor = (item) => item.id;
+const REFRESH_THROTTLE_MS = 30_000; // min 30s between background refreshes
 
 const PAGE_SIZE = 10;
 
 function RecipeGrid({ data, onPressRecipe, savedPublicIds, savingIds, onSave, renderBadge, scrollProps }) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const { t } = useTranslation("home");
 
   // Reset visible count when data changes (new sheet opened)
   useEffect(() => {
@@ -140,7 +136,7 @@ function RecipeGrid({ data, onPressRecipe, savedPublicIds, savingIds, onSave, re
         onPress={() => setVisibleCount((c) => c + PAGE_SIZE)}
       >
         <Text style={styles.showMoreText}>
-          Show more ({data.length - visibleCount} remaining)
+          {t("showMore", { count: data.length - visibleCount })}
         </Text>
       </Pressable>
     );
@@ -165,27 +161,20 @@ function RecipeGrid({ data, onPressRecipe, savedPublicIds, savingIds, onSave, re
   );
 }
 
-/** Tokenize a pantry item name into match tokens (words > 2 chars + full phrase) */
-function tokenize(name) {
-  const lower = name.toLowerCase().trim();
-  const words = lower.split(/\s+/).filter((w) => w.length > 2);
-  const tokens = new Set(words);
-  if (words.length > 1) tokens.add(lower);
-  return [...tokens];
-}
-
-/** Count how many unique pantry tokens appear in a recipe's text */
-function countPantryMatches(recipe, pantryTokens) {
-  const haystack = [
-    recipe.title || "",
-    ...(recipe.tags || []),
-    recipe.cuisine || "",
-  ]
-    .join(" ")
-    .toLowerCase();
+/**
+ * Count how many of a recipe's actual ingredients are covered by the pantry.
+ * Matches ingredient name strings against pantry item names using substring
+ * containment — a pantry item "red onion" matches an ingredient "diced red
+ * onion" because the pantry name appears inside the ingredient string.
+ * The result is always in [0, recipe.ingredientNames.length].
+ */
+function countPantryMatches(recipe, pantryNames) {
+  const names = recipe.ingredientNames;
+  if (!names || names.length === 0) return 0;
   let count = 0;
-  for (const token of pantryTokens) {
-    if (haystack.includes(token)) count++;
+  for (const ingName of names) {
+    const ing = ingName.toLowerCase();
+    if (pantryNames.some((p) => ing.includes(p))) count++;
   }
   return count;
 }
@@ -193,6 +182,7 @@ function countPantryMatches(recipe, pantryTokens) {
 export default function HomeScreen() {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useTranslation("home");
   const activeKey = pathname.replace("/", "") || "home";
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [isRecipesSheetOpen, setRecipesSheetOpen] = useState(false);
@@ -206,6 +196,7 @@ export default function HomeScreen() {
   const [mealCatOpen, setMealCatOpen] = useState(false);
   const [mealCatKey, setMealCatKey] = useState(null);
   const [mealCatShuffled, setMealCatShuffled] = useState([]);
+  const lastRefreshAt = useRef(0);
   const [savingIds, setSavingIds] = useState(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [pantryMatchOpen, setPantryMatchOpen] = useState(false);
@@ -224,8 +215,9 @@ export default function HomeScreen() {
   }, []);
 
   const { getToken } = useAuth();
-  const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll } = useSuggestedStore();
-  const { recipes: featuredRecipes, loadFeatured } = useFeaturedStore();
+  const { recipes: suggested, allRecipes, isLoadingAll, loadSuggested, loadAll, clearCache } = useSuggestedStore();
+  const language = useLanguageStore((st) => st.language);
+  const { recipes: featuredRecipes, loadFeatured, clearCache: clearFeaturedCache } = useFeaturedStore();
   const { recipes: userRecipes, loadRecipes, toggleFavorite } = useRecipeStore();
   const { groups: pantryGroups, loadPantry } = usePantryStore();
   const { plan: mealPlan, loadCurrentWeek: loadMealPlan } = useMealPlanStore();
@@ -234,27 +226,39 @@ export default function HomeScreen() {
   const favoriteIds = useMemo(() => new Set(favoriteRecipes.map((r) => r.id)), [favoriteRecipes]);
 
   useEffect(() => {
-    loadSuggested({ limit: 20 }).catch(() => {});
-    loadFeatured({ limit: 30 }).catch(() => {});
-    loadRecipes({ getToken }).catch(() => {});
-    loadMealPlan({ getToken }).catch(() => {});
-  }, []);
+    clearCache();
+    clearFeaturedCache();
+    loadSuggested({ limit: 20 }).catch(() => { });
+    loadFeatured({ limit: 30 }).catch(() => { });
+    loadRecipes({ getToken }).catch(() => { });
+    loadMealPlan({ getToken }).catch(() => { });
+  }, [language]);
 
   // Prefetch suggested recipe thumbnails for smooth carousel
   useEffect(() => {
-    const urls = suggested
-      .map((r) => r.thumbnailUrl)
-      .filter(Boolean);
+    const urls = suggested.map((r) => r.thumbnailUrl).filter(Boolean);
     if (urls.length > 0) {
-      urls.forEach((url) => Image.prefetch(url));
+      Image.prefetch(urls);
     }
   }, [suggested]);
 
-  // Refresh user recipes when navigating back to this screen
+  // Refresh user recipes when navigating back to this screen.
+  // Throttled: skip if last refresh was < 30s ago to avoid render churn.
+  // Also re-warms the expo-image memory cache for carousel thumbnails.
   useEffect(() => {
-    if (pathname === "/home") {
-      loadRecipes({ getToken }).catch(() => {});
-      loadMealPlan({ getToken }).catch(() => {});
+    if (pathname !== "/home") return;
+
+    const now = Date.now();
+    if (now - lastRefreshAt.current > REFRESH_THROTTLE_MS) {
+      lastRefreshAt.current = now;
+      loadRecipes({ getToken }).catch(() => { });
+      loadMealPlan({ getToken }).catch(() => { });
+    }
+
+    // Re-warm memory cache so carousel images appear without decode delay
+    const urls = suggested.map((r) => r.thumbnailUrl).filter(Boolean);
+    if (urls.length > 0) {
+      Image.prefetch(urls.slice(0, 6));
     }
   }, [pathname]);
 
@@ -266,7 +270,7 @@ export default function HomeScreen() {
       loadRecipes({ getToken }),
       loadMealPlan({ getToken }),
     ])
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setRefreshing(false));
   }, [getToken]);
 
@@ -281,7 +285,7 @@ export default function HomeScreen() {
     if (allRecipes.length === 0) promises.push(loadAll());
 
     Promise.all(promises)
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setPantryMatchLoading(false));
   }, [getToken, allRecipes.length]);
 
@@ -295,12 +299,13 @@ export default function HomeScreen() {
       return;
     }
 
-    const tokens = allItems.flatMap((item) => item.name ? tokenize(item.name) : []);
-    const uniqueTokens = [...new Set(tokens)];
+    const pantryNames = [...new Set(
+      allItems.filter((i) => i.name).map((i) => i.name.toLowerCase().trim())
+    )];
     const pool = allRecipes.length > 0 ? allRecipes : suggested;
 
     const scored = pool
-      .map((r) => ({ ...r, _matchCount: countPantryMatches(r, uniqueTokens) }))
+      .map((r) => ({ ...r, _matchCount: countPantryMatches(r, pantryNames) }))
       .filter((r) => r._matchCount > 0)
       .sort((a, b) => b._matchCount - a._matchCount);
 
@@ -313,7 +318,7 @@ export default function HomeScreen() {
     setRecoSheetOpen(true);
 
     // Load full dataset if needed
-    if (allRecipes.length === 0) loadAll().catch(() => {});
+    if (allRecipes.length === 0) loadAll().catch(() => { });
 
     const pool = allRecipes.length > 0 ? allRecipes : suggested;
 
@@ -346,7 +351,7 @@ export default function HomeScreen() {
     setMealCatShuffled(shuffle(filterByMealCategory(pool, key)));
     setMealCatOpen(true);
     if (allRecipes.length === 0) {
-      loadAll().catch(() => {});
+      loadAll().catch(() => { });
     }
   }, [allRecipes.length, suggested]);
 
@@ -407,7 +412,7 @@ export default function HomeScreen() {
       if (clonedId) {
         await toggleFavoriteApi({ recipeId: clonedId, isFavorite: true, getToken });
       }
-      loadRecipes({ getToken }).catch(() => {});
+      loadRecipes({ getToken }).catch(() => { });
     } catch (err) {
       // Revert optimistic update on failure
       setSavedPublicIds((prev) => {
@@ -416,7 +421,7 @@ export default function HomeScreen() {
         return next;
       });
       // Show a non-blocking friendly toast — no jarring alert dialogs
-      const msg = friendlySaveError(err);
+      const msg = friendlySaveError(err, t);
       setSaveError(msg);
       if (saveErrorTimer.current) clearTimeout(saveErrorTimer.current);
       saveErrorTimer.current = setTimeout(() => setSaveError(""), 4000);
@@ -433,7 +438,7 @@ export default function HomeScreen() {
     closeAllSheets();
     setRecipesSheetOpen(true);
     if (allRecipes.length === 0) {
-      loadAll().catch(() => {});
+      loadAll().catch(() => { });
     }
   }, [allRecipes.length]);
 
@@ -456,79 +461,79 @@ export default function HomeScreen() {
   return (
     <View style={styles.screen}>
       <SwipeNavigator>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#385225"
-            />
-          }
-        >
-          <View style={styles.padded}>
-            <ProfileName subtitle="Your kitchen awaits" />
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#385225"
+              />
+            }
+          >
+            <View style={styles.padded}>
+              <ProfileName subtitle={t("tagline")} />
 
-            <SearchBar
-              placeholder="Search for a recipe"
-              onPress={() => { closeAllSheets(); setSearchOpen(true); }}
-            />
+              <SearchBar
+                placeholder={t("searchPlaceholder")}
+                onPress={() => { closeAllSheets(); setSearchOpen(true); }}
+              />
 
-            <MealCategoryGrid onPress={handleMealCategory} />
+              <MealCategoryGrid onPress={handleMealCategory} />
 
-            <Text style={styles.title}>What Shall we cook today?</Text>
-          </View>
-          <View style={{ marginHorizontal: 20 }}>
-            <SuggestionRow
-              items={[
-                {
-                  title: "What can I make ?",
-                  subtitle: { txt: "Match your pantry", color: "#385225" },
-                  Icon: () => (
-                    <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
-                      <SparkleBadgeIcon width={40} height={40} />
-                    </View>
-                  ),
-                  onPress: handlePantryMatch,
-                },
-                {
-                  title: "Get Inspired",
-                  subtitle: { txt: "Curated picks for you", color: "#5A1F33" },
-                  Icon: () => <HeartBadgeIcon width={40} height={40} />,
-                  onPress: handleDinnerInspiration,
-                },
-              ]}
-            />
-          </View>
+              <Text style={styles.title}>{t("sectionTitle")}</Text>
+            </View>
+            <View style={{ marginHorizontal: 20 }}>
+              <SuggestionRow
+                items={[
+                  {
+                    title: t("suggestions.whatCanIMake"),
+                    subtitle: { txt: t("suggestions.matchPantry"), color: "#385225" },
+                    Icon: () => (
+                      <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
+                        <SparkleBadgeIcon width={sc(40)} height={sc(40)} />
+                      </View>
+                    ),
+                    onPress: handlePantryMatch,
+                  },
+                  {
+                    title: t("suggestions.getInspired"),
+                    subtitle: { txt: t("suggestions.curatedPicks"), color: "#5A1F33" },
+                    Icon: () => <HeartBadgeIcon width={sc(40)} height={sc(40)} />,
+                    onPress: handleDinnerInspiration,
+                  },
+                ]}
+              />
+            </View>
 
-          <View style={styles.padded}>
-            <StatsCardsRow
-              favoriteCount={favoriteCount}
-              onPressFavorites={() => { closeAllSheets(); setFavoritesOpen(true); }}
-              onPressHighProtein={() => handleRecommendation("high-protein")}
-              onPressQuickMeals={() => handleRecommendation("quick-meals")}
-            />
+            <View style={styles.padded}>
+              <StatsCardsRow
+                favoriteCount={favoriteCount}
+                onPressFavorites={() => { closeAllSheets(); setFavoritesOpen(true); }}
+                onPressHighProtein={() => handleRecommendation("high-protein")}
+                onPressQuickMeals={() => handleRecommendation("quick-meals")}
+              />
 
-            <MealPlanCard
-              mealsPerDay={mealPlanPerDay}
-              totalMeals={mealPlanTotal}
-              onPress={() => router.push("/mealPlan")}
-            />
+              <MealPlanCard
+                mealsPerDay={mealPlanPerDay}
+                totalMeals={mealPlanTotal}
+                onPress={() => router.push("/mealPlan")}
+              />
 
-            <RecentRecipesHeader
-              onPressSeeAll={handleSeeAll}
-            />
-          </View>
-          <View style={{ marginHorizontal: 20 }}>
-            <RecentRecipesCarousel
-              items={carouselItems}
-              onPressItem={(item) => router.push(`/recipe/${item.id}`)}
-            />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+              <RecentRecipesHeader
+                onPressSeeAll={handleSeeAll}
+              />
+            </View>
+            <View style={{ marginHorizontal: 20 }}>
+              <RecentRecipesCarousel
+                items={carouselItems}
+                onPressItem={(item) => router.push(`/recipe/${item.id}`)}
+              />
+            </View>
+          </ScrollView>
+        </SafeAreaView>
       </SwipeNavigator>
 
       <FloatingNav
@@ -554,9 +559,9 @@ export default function HomeScreen() {
       >
         {({ onScroll, scrollEnabled }) => (
           <>
-            <Text style={styles.recipesSheetTitle}>Suggested For You</Text>
+            <Text style={styles.recipesSheetTitle}>{t("sheets.suggestedTitle")}</Text>
             <Text style={styles.recipesSheetSubtitle}>
-              {(allRecipes.length || suggested.length)} suggestion{(allRecipes.length || suggested.length) !== 1 ? "s" : ""}
+              {t("sheets.suggestions", { count: allRecipes.length || suggested.length })}
             </Text>
             {isLoadingAll ? (
               <View style={styles.recipesSheetLoading}>
@@ -590,16 +595,16 @@ export default function HomeScreen() {
             <>
               <View style={styles.favoritesHeader}>
                 <HeartIcon width={22} height={22} color="#E84057" filled />
-                <Text style={styles.favoritesTitle}>My Favorites</Text>
+                <Text style={styles.favoritesTitle}>{t("sheets.favoritesTitle")}</Text>
               </View>
               <Text style={styles.recipesSheetSubtitle}>
-                {favoriteCount} recipe{favoriteCount !== 1 ? "s" : ""} saved
+                {t("sheets.favoritesSaved", { count: favoriteCount })}
               </Text>
               <RecipeGrid
                 data={favoriteRecipes}
                 savedPublicIds={favoriteIds}
                 savingIds={savingIds}
-                onSave={(id) => toggleFavorite({ recipeId: id, getToken }).catch(() => {})}
+                onSave={(id) => toggleFavorite({ recipeId: id, getToken }).catch(() => { })}
                 onPressRecipe={(recipe) => {
                   setFavoritesOpen(false);
                   router.push(`/recipe/${recipe.id}`);
@@ -612,18 +617,18 @@ export default function HomeScreen() {
           <View style={styles.recipesSheet}>
             <View style={styles.favoritesHeader}>
               <HeartIcon width={22} height={22} color="#E84057" filled />
-              <Text style={styles.favoritesTitle}>My Favorites</Text>
+              <Text style={styles.favoritesTitle}>{t("sheets.favoritesTitle")}</Text>
             </View>
             <Text style={styles.recipesSheetSubtitle}>
-              {favoriteCount} recipe{favoriteCount !== 1 ? "s" : ""} saved
+              {t("sheets.favoritesSaved", { count: favoriteCount })}
             </Text>
             <View style={styles.emptyFavorites}>
               <View style={styles.emptyHeartCircle}>
                 <HeartIcon width={32} height={32} color="#F9BABA" />
               </View>
-              <Text style={styles.emptyTitle}>No favorites yet</Text>
+              <Text style={styles.emptyTitle}>{t("empty.noFavorites")}</Text>
               <Text style={styles.emptySubtitle}>
-                Tap the heart on any recipe to save it here
+                {t("empty.noFavoritesSubtitle")}
               </Text>
             </View>
           </View>
@@ -639,10 +644,10 @@ export default function HomeScreen() {
         {({ onScroll, scrollEnabled }) => (
           <>
             <Text style={styles.recipesSheetTitle}>
-              {recoFilter === "high-protein" ? "High Protein" : "Quick Meals"}
+              {recoFilter === "high-protein" ? t("sheets.highProtein") : t("sheets.quickMeals")}
             </Text>
             <Text style={styles.recipesSheetSubtitle}>
-              {isLoadingAll ? "Loading..." : `${recoResults.length} recipe${recoResults.length !== 1 ? "s" : ""}`}
+              {isLoadingAll ? t("loading", { ns: "common" }) : t("sheets.recipes", { count: recoResults.length })}
             </Text>
             {isLoadingAll ? (
               <View style={styles.recipesSheetLoading}>
@@ -650,9 +655,9 @@ export default function HomeScreen() {
               </View>
             ) : recoResults.length === 0 ? (
               <View style={styles.emptyFavorites}>
-                <Text style={styles.emptyTitle}>No recipes found</Text>
+                <Text style={styles.emptyTitle}>{t("empty.noRecipes")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  We couldn't find any recipes for this category right now
+                  {t("empty.noRecipesSubtitle")}
                 </Text>
               </View>
             ) : (
@@ -681,12 +686,12 @@ export default function HomeScreen() {
         {({ onScroll, scrollEnabled }) => (
           <>
             <Text style={styles.recipesSheetTitle}>
-              {mealCatKey ? CATEGORIES[mealCatKey]?.label : ""}
+              {mealCatKey ? t(`mealTypes.${mealCatKey}`, { ns: "mealPlan", defaultValue: CATEGORIES[mealCatKey]?.label }) : ""}
             </Text>
             <Text style={styles.recipesSheetSubtitle}>
               {isLoadingAll
-                ? "Loading..."
-                : `${mealCatShuffled.length} recipe${mealCatShuffled.length !== 1 ? "s" : ""}`}
+                ? t("loading", { ns: "common" })
+                : t("sheets.recipes", { count: mealCatShuffled.length })}
             </Text>
             {isLoadingAll ? (
               <View style={styles.recipesSheetLoading}>
@@ -694,9 +699,9 @@ export default function HomeScreen() {
               </View>
             ) : mealCatShuffled.length === 0 ? (
               <View style={styles.emptyFavorites}>
-                <Text style={styles.emptyTitle}>No recipes found</Text>
+                <Text style={styles.emptyTitle}>{t("empty.noRecipes")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  We couldn't find any recipes for this category right now
+                  {t("empty.noRecipesSubtitle")}
                 </Text>
               </View>
             ) : (
@@ -752,12 +757,12 @@ export default function HomeScreen() {
               <View style={{ backgroundColor: "rgba(128, 239, 128, 0.5)", borderRadius: 999 }}>
                 <SparkleBadgeIcon width={22} height={22} />
               </View>
-              <Text style={styles.favoritesTitle}>What Can I Make?</Text>
+              <Text style={styles.favoritesTitle}>{t("sheets.whatCanIMake")}</Text>
             </View>
             <Text style={styles.recipesSheetSubtitle}>
               {pantryMatchLoading
-                ? "Matching your pantry..."
-                : `${pantryMatchResults.length} recipe${pantryMatchResults.length !== 1 ? "s" : ""} matched`}
+                ? t("sheets.matching")
+                : t("sheets.matched", { count: pantryMatchResults.length })}
             </Text>
             {pantryMatchLoading ? (
               <View style={styles.recipesSheetLoading}>
@@ -768,16 +773,16 @@ export default function HomeScreen() {
                 <View style={[styles.emptyHeartCircle, { backgroundColor: "#EAF4E0" }]}>
                   <SparkleBadgeIcon width={32} height={32} />
                 </View>
-                <Text style={styles.emptyTitle}>Pantry is empty</Text>
+                <Text style={styles.emptyTitle}>{t("empty.pantryEmpty")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  Add items to your pantry to see what you can cook
+                  {t("empty.pantryEmptySubtitle")}
                 </Text>
               </View>
             ) : pantryMatchResults.length === 0 ? (
               <View style={styles.emptyFavorites}>
-                <Text style={styles.emptyTitle}>No matches found</Text>
+                <Text style={styles.emptyTitle}>{t("empty.noMatches")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  Try adding more items to your pantry
+                  {t("empty.noMatchesSubtitle")}
                 </Text>
               </View>
             ) : (
@@ -793,7 +798,7 @@ export default function HomeScreen() {
                 renderBadge={(recipe) => (
                   <View style={styles.matchBadge}>
                     <Text style={styles.matchBadgeText}>
-                      {recipe._matchCount} match{recipe._matchCount !== 1 ? "es" : ""}
+                      {t("badge.matches", { count: recipe._matchCount })}
                     </Text>
                   </View>
                 )}
@@ -854,7 +859,7 @@ const styles = StyleSheet.create({
     paddingBottom: 140,
   },
   title: {
-    fontSize: 28,
+    fontSize: sc(28),
     fontWeight: "normal",
     color: "#111111",
     marginVertical: 20,
@@ -869,13 +874,13 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   recipesSheetTitle: {
-    fontSize: 22,
+    fontSize: sc(22),
     fontWeight: "700",
     color: "#111111",
     letterSpacing: -0.3,
   },
   recipesSheetSubtitle: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     marginTop: 4,
     marginBottom: 16,
@@ -919,7 +924,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   masonryTitle: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "700",
     color: "#ffffff",
     letterSpacing: -0.2,
@@ -934,7 +939,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   favoritesTitle: {
-    fontSize: 22,
+    fontSize: sc(22),
     fontWeight: "700",
     color: "#111111",
     letterSpacing: -0.3,
@@ -953,13 +958,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: sc(17),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     textAlign: "center",
     maxWidth: 220,
@@ -985,7 +990,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   matchBadgeText: {
-    fontSize: 11,
+    fontSize: sc(12),
     fontWeight: "700",
     color: "#ffffff",
   },
@@ -1000,7 +1005,7 @@ const styles = StyleSheet.create({
     borderColor: "#EAEAEA",
   },
   showMoreText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#385225",
   },

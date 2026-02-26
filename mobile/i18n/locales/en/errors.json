@@ -1,0 +1,45 @@
+{
+  "errorTitle": "Error",
+  "generic": "Something went wrong. Please try again.",
+  "network": "No internet connection. Check your network and try again.",
+  "session": "Your session needs a refresh. Please sign out and back in.",
+  "connection": "Please check your connection and try again.",
+  "recipe": {
+    "loadFailed": "Failed to load recipe",
+    "deleteFailed": "Delete failed",
+    "deleteMessage": "Couldn't delete the recipe. Please try again.",
+    "saveFailed": "Save failed",
+    "saveMessage": "Couldn't save this recipe. Please try again.",
+    "clearFailed": "Couldn't clear recipes",
+    "deleteBulkFailed": "Couldn't delete recipes",
+    "partialDelete_one": "Failed to delete {{count}} recipe. Please try again.",
+    "partialDelete_other": "Failed to delete {{count}} recipes. Please try again."
+  },
+  "mealPlan": {
+    "addFailed": "Couldn't add recipe",
+    "notSynced": "Meal plan not synced yet. Pull down to refresh.",
+    "loadFailed": "Failed to load meal plan"
+  },
+  "shopping": {
+    "createFailed": "Failed to create list",
+    "shoppingListFailed": "Something went wrong",
+    "shoppingListMessage": "Couldn't create the shopping list. Please try again.",
+    "updateItemFailed": "Couldn't update item",
+    "removeItemFailed": "Couldn't remove item",
+    "completeListFailed": "Couldn't complete list",
+    "mergeFailed": "Failed to merge lists",
+    "deleteFailed": "Failed to delete list",
+    "generateFailed": "Failed to generate shopping list"
+  },
+  "pantry": {
+    "removeItemFailed": "Couldn't remove item",
+    "clearFailed": "Couldn't reset pantry"
+  },
+  "prefs": {
+    "saveFailed": "Failed to save preferences"
+  },
+  "config": {
+    "missingKey": "Configuration Error",
+    "missingKeyMessage": "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY. Please contact support."
+  }
+}

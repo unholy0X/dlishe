@@ -10,6 +10,7 @@ import {
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import RecipePlaceholder from "../RecipePlaceholder";
+import { sc } from "../../utils/deviceScale";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH * 0.62;
@@ -40,7 +41,14 @@ export default function RecentRecipesCarousel({ items = [], onPressItem }) {
           >
             <RecipePlaceholder title={item.title} variant="large" style={styles.image} />
             {imageSource ? (
-              <Image source={imageSource} style={styles.image} transition={200} recyclingKey={item.id} cachePolicy="memory-disk" />
+              <Image
+                source={imageSource}
+                style={styles.image}
+                transition={0}
+                priority={index < 3 ? "high" : "normal"}
+                recyclingKey={item.id}
+                cachePolicy="memory-disk"
+              />
             ) : null}
             <LinearGradient
               colors={["transparent", "rgba(0,0,0,0.55)"]}
@@ -94,7 +102,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   title: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontWeight: "700",
     color: "#ffffff",
     letterSpacing: -0.3,

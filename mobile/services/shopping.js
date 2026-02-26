@@ -92,9 +92,9 @@ export async function completeList({ getToken, listId }) {
 /**
  * Smart merge multiple shopping lists into one
  */
-export async function smartMergeLists({ getToken, sourceListIds }) {
+export async function smartMergeLists({ getToken, sourceListIds, name }) {
     return authFetch("/shopping-lists/smart-merge", getToken, {
         method: "POST",
-        body: JSON.stringify({ sourceListIds }),
+        body: JSON.stringify({ sourceListIds, ...(name ? { name } : {}) }),
     });
 }

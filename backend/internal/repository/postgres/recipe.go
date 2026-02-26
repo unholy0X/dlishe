@@ -81,9 +81,10 @@ func (r *RecipeRepository) Create(ctx context.Context, recipe *model.Recipe) err
 			difficulty, cuisine, thumbnail_url, source_type, source_url,
 			source_recipe_id, source_metadata, tags, is_public, is_favorite,
 			is_featured, featured_at,
-			nutrition, dietary_info, sync_version, created_at, updated_at
+			nutrition, dietary_info, sync_version, created_at, updated_at,
+			content_language, translation_group_id
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
 		)
 	`
 
@@ -112,6 +113,8 @@ func (r *RecipeRepository) Create(ctx context.Context, recipe *model.Recipe) err
 		recipe.SyncVersion,
 		recipe.CreatedAt,
 		recipe.UpdatedAt,
+		recipe.ContentLanguage,
+		recipe.TranslationGroupID,
 	)
 	if err != nil {
 		return err
@@ -205,7 +208,8 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 			   difficulty, cuisine, thumbnail_url, source_type, source_url,
 			   source_recipe_id, source_metadata, tags, is_public, is_favorite,
 			   is_featured, featured_at,
-			   nutrition, dietary_info, sync_version, created_at, updated_at
+			   nutrition, dietary_info, sync_version, created_at, updated_at,
+			   content_language, translation_group_id
 		FROM recipes
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -239,6 +243,8 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 		&recipe.SyncVersion,
 		&recipe.CreatedAt,
 		&recipe.UpdatedAt,
+		&recipe.ContentLanguage,
+		&recipe.TranslationGroupID,
 	)
 
 	if err != nil {
@@ -285,7 +291,8 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 			   difficulty, cuisine, thumbnail_url, source_type, source_url,
 			   source_recipe_id, source_metadata, tags, is_public, is_favorite,
 			   is_featured, featured_at,
-			   nutrition, dietary_info, sync_version, created_at, updated_at
+			   nutrition, dietary_info, sync_version, created_at, updated_at,
+			   content_language, translation_group_id
 		FROM recipes
 		WHERE user_id = $1 AND source_url = $2 AND deleted_at IS NULL
 		LIMIT 1
@@ -320,6 +327,8 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 		&recipe.SyncVersion,
 		&recipe.CreatedAt,
 		&recipe.UpdatedAt,
+		&recipe.ContentLanguage,
+		&recipe.TranslationGroupID,
 	)
 
 	if err != nil {
@@ -358,6 +367,91 @@ func (r *RecipeRepository) GetBySourceURL(ctx context.Context, userID uuid.UUID,
 	return recipe, nil
 }
 
+// GetPublicBySourceURL retrieves a public or featured recipe by source URL in the given language.
+// Used to avoid re-extracting URLs that have already been extracted as public/featured content.
+func (r *RecipeRepository) GetPublicBySourceURL(ctx context.Context, sourceURL, lang string) (*model.Recipe, error) {
+	query := `
+		SELECT id, user_id, title, description, servings, prep_time, cook_time,
+			   difficulty, cuisine, thumbnail_url, source_type, source_url,
+			   source_recipe_id, source_metadata, tags, is_public, is_favorite,
+			   is_featured, featured_at,
+			   nutrition, dietary_info, sync_version, created_at, updated_at,
+			   content_language, translation_group_id
+		FROM recipes
+		WHERE source_url = $1
+		  AND (is_public = TRUE OR is_featured = TRUE)
+		  AND COALESCE(NULLIF(content_language, ''), 'en') = $2
+		  AND deleted_at IS NULL
+		LIMIT 1
+	`
+
+	recipe := &model.Recipe{}
+	var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
+	var tags TextArray
+
+	err := r.db.QueryRowContext(ctx, query, sourceURL, lang).Scan(
+		&recipe.ID,
+		&recipe.UserID,
+		&recipe.Title,
+		&recipe.Description,
+		&recipe.Servings,
+		&recipe.PrepTime,
+		&recipe.CookTime,
+		&recipe.Difficulty,
+		&recipe.Cuisine,
+		&recipe.ThumbnailURL,
+		&recipe.SourceType,
+		&recipe.SourceURL,
+		&recipe.SourceRecipeID,
+		&sourceMetadata,
+		&tags,
+		&recipe.IsPublic,
+		&recipe.IsFavorite,
+		&recipe.IsFeatured,
+		&recipe.FeaturedAt,
+		&nutritionJSON,
+		&dietaryInfoJSON,
+		&recipe.SyncVersion,
+		&recipe.CreatedAt,
+		&recipe.UpdatedAt,
+		&recipe.ContentLanguage,
+		&recipe.TranslationGroupID,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrRecipeNotFound
+		}
+		return nil, err
+	}
+
+	recipe.Tags = []string(tags)
+
+	if sourceMetadata != nil {
+		unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
+	}
+	if nutritionJSON != nil {
+		recipe.Nutrition = &model.RecipeNutrition{}
+		unmarshalJSONB(nutritionJSON, recipe.Nutrition, "nutrition")
+	}
+	if dietaryInfoJSON != nil {
+		recipe.DietaryInfo = &model.DietaryInfo{}
+		unmarshalJSONB(dietaryInfoJSON, recipe.DietaryInfo, "dietary_info")
+	}
+
+	// Load ingredients and steps for cloning
+	recipe.Ingredients, err = r.getIngredients(ctx, recipe.ID)
+	if err != nil {
+		return nil, err
+	}
+	recipe.Steps, err = r.getSteps(ctx, recipe.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return recipe, nil
+}
+
 // GetBySourceRecipeID retrieves a recipe by its source recipe ID for a specific user
 // This is used to check if a user already has a clone of a recipe
 func (r *RecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sourceRecipeID uuid.UUID) (*model.Recipe, error) {
@@ -366,7 +460,8 @@ func (r *RecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sour
 			   difficulty, cuisine, thumbnail_url, source_type, source_url,
 			   source_recipe_id, source_metadata, tags, is_public, is_favorite,
 			   is_featured, featured_at,
-			   nutrition, dietary_info, sync_version, created_at, updated_at
+			   nutrition, dietary_info, sync_version, created_at, updated_at,
+			   content_language, translation_group_id
 		FROM recipes
 		WHERE user_id = $1 AND source_recipe_id = $2 AND deleted_at IS NULL
 		LIMIT 1
@@ -401,6 +496,8 @@ func (r *RecipeRepository) GetBySourceRecipeID(ctx context.Context, userID, sour
 		&recipe.SyncVersion,
 		&recipe.CreatedAt,
 		&recipe.UpdatedAt,
+		&recipe.ContentLanguage,
+		&recipe.TranslationGroupID,
 	)
 
 	if err != nil {
@@ -531,6 +628,7 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 			   r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
 			   r.is_featured, r.featured_at,
 			   r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
+			   r.content_language, r.translation_group_id,
 			   COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
 			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
 		FROM recipes r
@@ -576,6 +674,8 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 			&recipe.SyncVersion,
 			&recipe.CreatedAt,
 			&recipe.UpdatedAt,
+			&recipe.ContentLanguage,
+			&recipe.TranslationGroupID,
 			&recipe.IngredientCount,
 			&recipe.StepCount,
 		)
@@ -603,11 +703,14 @@ func (r *RecipeRepository) ListByUser(ctx context.Context, userID uuid.UUID, lim
 }
 
 // ListPublic retrieves all public/suggested recipes with ingredient/step counts
-func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
-	// Get total count
-	countQuery := `SELECT COUNT(*) FROM recipes WHERE is_public = TRUE AND deleted_at IS NULL`
+func (r *RecipeRepository) ListPublic(ctx context.Context, lang string, limit, offset int) ([]*model.Recipe, int, error) {
+	if lang == "" {
+		lang = "en"
+	}
+	// Get total count for this language
+	countQuery := `SELECT COUNT(*) FROM recipes WHERE is_public = TRUE AND deleted_at IS NULL AND COALESCE(NULLIF(content_language,''),'en') = $1`
 	var total int
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	err := r.db.QueryRowContext(ctx, countQuery, lang).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -619,15 +722,18 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 			   r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
 			   r.is_featured, r.featured_at,
 			   r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
+			   r.content_language, r.translation_group_id,
 			   COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
-			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
+			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count,
+			   (SELECT array_agg(name ORDER BY sort_order) FROM recipe_ingredients WHERE recipe_id = r.id) AS ingredient_names
 		FROM recipes r
 		WHERE r.is_public = TRUE AND r.deleted_at IS NULL
+		  AND COALESCE(NULLIF(r.content_language,''),'en') = $1
 		ORDER BY RANDOM()
-		LIMIT $1 OFFSET $2
+		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, lang, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -637,7 +743,7 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 	for rows.Next() {
 		recipe := &model.Recipe{}
 		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
-		var tags TextArray
+		var tags, ingredientNames TextArray
 
 		err := rows.Scan(
 			&recipe.ID,
@@ -664,14 +770,18 @@ func (r *RecipeRepository) ListPublic(ctx context.Context, limit, offset int) ([
 			&recipe.SyncVersion,
 			&recipe.CreatedAt,
 			&recipe.UpdatedAt,
+			&recipe.ContentLanguage,
+			&recipe.TranslationGroupID,
 			&recipe.IngredientCount,
 			&recipe.StepCount,
+			&ingredientNames,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
 
 		recipe.Tags = []string(tags)
+		recipe.IngredientNames = []string(ingredientNames)
 		if sourceMetadata != nil {
 			unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 		}
@@ -736,7 +846,7 @@ func (r *RecipeRepository) Update(ctx context.Context, recipe *model.Recipe) err
 			source_url = $11, source_recipe_id = $12, source_metadata = $13, tags = $14,
 			is_public = $15, is_favorite = $16, is_featured = $17, featured_at = $18,
 			nutrition = $19, dietary_info = $20,
-			sync_version = $21, updated_at = $22
+			sync_version = $21, updated_at = $22, content_language = $23, translation_group_id = $24
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 
@@ -763,6 +873,8 @@ func (r *RecipeRepository) Update(ctx context.Context, recipe *model.Recipe) err
 		dietaryInfoJSON,
 		recipe.SyncVersion,
 		recipe.UpdatedAt,
+		recipe.ContentLanguage,
+		recipe.TranslationGroupID,
 	)
 	if err != nil {
 		return err
@@ -856,6 +968,39 @@ func (r *RecipeRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	return tx.Commit()
 }
 
+// DeleteAllByUser soft-deletes every recipe owned by the user and removes
+// their corresponding meal plan entries in a single transaction.
+func (r *RecipeRepository) DeleteAllByUser(ctx context.Context, userID uuid.UUID) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UTC()
+
+	// Remove meal plan entries that reference this user's recipes first.
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM meal_plan_entries
+		WHERE recipe_id IN (
+			SELECT id FROM recipes WHERE user_id = $1 AND deleted_at IS NULL
+		)
+	`, userID); err != nil {
+		return err
+	}
+
+	// Soft-delete all of the user's non-deleted recipes in one statement.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE recipes
+		SET deleted_at = $2, updated_at = $2
+		WHERE user_id = $1 AND deleted_at IS NULL
+	`, userID, now); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // SetFavorite sets the favorite status of a recipe
 func (r *RecipeRepository) SetFavorite(ctx context.Context, id uuid.UUID, favorite bool) error {
 	query := `
@@ -895,7 +1040,8 @@ func (r *RecipeRepository) GetChangesSince(ctx context.Context, userID uuid.UUID
 		SELECT id, user_id, title, description, servings, prep_time, cook_time,
 		       difficulty, cuisine, thumbnail_url, source_type, source_url, source_recipe_id, source_metadata,
 		       tags, is_public, is_favorite, is_featured, featured_at,
-		       nutrition, dietary_info, sync_version, created_at, updated_at, deleted_at
+		       nutrition, dietary_info, sync_version, created_at, updated_at,
+		       content_language, translation_group_id, deleted_at
 		FROM recipes
 		WHERE user_id = $1 AND updated_at > $2
 		ORDER BY updated_at ASC
@@ -921,7 +1067,8 @@ func (r *RecipeRepository) GetChangesSince(ctx context.Context, userID uuid.UUID
 			&tags, &recipe.IsPublic, &recipe.IsFavorite,
 			&recipe.IsFeatured, &recipe.FeaturedAt,
 			&nutritionJSON, &dietaryInfoJSON, &recipe.SyncVersion,
-			&recipe.CreatedAt, &recipe.UpdatedAt, &recipe.DeletedAt,
+			&recipe.CreatedAt, &recipe.UpdatedAt,
+			&recipe.ContentLanguage, &recipe.TranslationGroupID, &recipe.DeletedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -998,7 +1145,8 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 			r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
 			r.is_featured, r.featured_at,
 			r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
-			i.id as ing_id, i.name as ing_name, i.quantity, i.unit, i.category,
+			r.content_language, r.translation_group_id,
+			i.id as ing_id, i.name as ing_name, i.quantity, i.unit, i.category, i.section,
 			i.is_optional, i.sort_order
 		FROM recipes r
 		LEFT JOIN recipe_ingredients i ON i.recipe_id = r.id
@@ -1036,12 +1184,15 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 			featuredAt                    *time.Time
 			syncVersion                   int
 			createdAt, updatedAt          time.Time
+			contentLanguage               string
+			translationGroupID            *uuid.UUID
 			// Ingredient fields (nullable since LEFT JOIN)
 			ingID      sql.NullString
 			ingName    sql.NullString
 			quantity   sql.NullFloat64
 			unit       sql.NullString
 			category   sql.NullString
+			ingSection sql.NullString
 			isOptional sql.NullBool
 			sortOrder  sql.NullInt64
 		)
@@ -1052,7 +1203,8 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 			&sourceRecipeID, &sourceMetadata, &tags, &isPublic, &isFavorite,
 			&isFeatured, &featuredAt,
 			&nutritionJSON, &dietaryInfoJSON, &syncVersion, &createdAt, &updatedAt,
-			&ingID, &ingName, &quantity, &unit, &category, &isOptional, &sortOrder,
+			&contentLanguage, &translationGroupID,
+			&ingID, &ingName, &quantity, &unit, &category, &ingSection, &isOptional, &sortOrder,
 		)
 		if err != nil {
 			return nil, err
@@ -1062,26 +1214,28 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 		recipe, exists := recipesMap[recipeID]
 		if !exists {
 			recipe = &model.Recipe{
-				ID:           recipeID,
-				UserID:       userID,
-				Title:        title,
-				Description:  description,
-				Servings:     servings,
-				PrepTime:     prepTime,
-				CookTime:     cookTime,
-				Difficulty:   difficulty,
-				Cuisine:      cuisine,
-				ThumbnailURL: thumbnailURL,
-				SourceType:   sourceType,
-				Tags:         []string(tags),
-				IsPublic:     isPublic,
-				IsFavorite:   isFavorite,
-				IsFeatured:   isFeatured,
-				FeaturedAt:   featuredAt,
-				SyncVersion:  syncVersion,
-				CreatedAt:    createdAt,
-				UpdatedAt:    updatedAt,
-				Ingredients:  []model.RecipeIngredient{},
+				ID:                 recipeID,
+				UserID:             userID,
+				Title:              title,
+				Description:        description,
+				Servings:           servings,
+				PrepTime:           prepTime,
+				CookTime:           cookTime,
+				Difficulty:         difficulty,
+				Cuisine:            cuisine,
+				ThumbnailURL:       thumbnailURL,
+				SourceType:         sourceType,
+				Tags:               []string(tags),
+				IsPublic:           isPublic,
+				IsFavorite:         isFavorite,
+				IsFeatured:         isFeatured,
+				FeaturedAt:         featuredAt,
+				SyncVersion:        syncVersion,
+				CreatedAt:          createdAt,
+				UpdatedAt:          updatedAt,
+				ContentLanguage:    contentLanguage,
+				TranslationGroupID: translationGroupID,
+				Ingredients:        []model.RecipeIngredient{},
 			}
 			if sourceURL.Valid {
 				url := sourceURL.String
@@ -1126,6 +1280,11 @@ func (r *RecipeRepository) ListForRecommendations(ctx context.Context, userID uu
 			}
 			if category.Valid {
 				ingredient.Category = category.String
+			}
+			if ingSection.Valid {
+				ingredient.Section = ingSection.String
+			} else {
+				ingredient.Section = "Main"
 			}
 			if sortOrder.Valid {
 				ingredient.SortOrder = int(sortOrder.Int64)
@@ -1182,10 +1341,11 @@ func (r *RecipeRepository) Search(ctx context.Context, userID uuid.UUID, query s
 		       r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
 		       r.is_featured, r.featured_at,
 		       r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
+		       r.content_language, r.translation_group_id,
 		       COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
 		       COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
 		FROM recipes r
-		WHERE r.user_id = $1 
+		WHERE r.user_id = $1
 		  AND r.deleted_at IS NULL
 		  AND (
 		      r.title ILIKE $2
@@ -1193,8 +1353,8 @@ func (r *RecipeRepository) Search(ctx context.Context, userID uuid.UUID, query s
 		      OR r.description ILIKE $2
 		      OR EXISTS (SELECT 1 FROM unnest(r.tags) AS tag WHERE tag ILIKE $2)
 		  )
-		ORDER BY 
-		    CASE 
+		ORDER BY
+		    CASE
 		        WHEN r.title ILIKE $3 || '%' THEN 0  -- Prefix match ranks highest
 		        WHEN r.title ILIKE $2 THEN 1         -- Any title match
 		        ELSE 2                                -- Other matches
@@ -1243,6 +1403,8 @@ func (r *RecipeRepository) Search(ctx context.Context, userID uuid.UUID, query s
 			&recipe.SyncVersion,
 			&recipe.CreatedAt,
 			&recipe.UpdatedAt,
+			&recipe.ContentLanguage,
+			&recipe.TranslationGroupID,
 			&recipe.IngredientCount,
 			&recipe.StepCount,
 		)
@@ -1276,10 +1438,13 @@ func (r *RecipeRepository) Search(ctx context.Context, userID uuid.UUID, query s
 }
 
 // SearchPublic searches public (suggested) recipes by title, cuisine, description, and tags.
-func (r *RecipeRepository) SearchPublic(ctx context.Context, query string, limit int) ([]*model.Recipe, error) {
+func (r *RecipeRepository) SearchPublic(ctx context.Context, query, lang string, limit int) ([]*model.Recipe, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
+	if lang == "" {
+		lang = "en"
+	}
 	if limit <= 0 {
 		limit = 10
 	}
@@ -1300,11 +1465,13 @@ func (r *RecipeRepository) SearchPublic(ctx context.Context, query string, limit
 		       r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
 		       r.is_featured, r.featured_at,
 		       r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
+		       r.content_language, r.translation_group_id,
 		       COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
 		       COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
 		FROM recipes r
 		WHERE (r.is_public = TRUE OR r.is_featured = TRUE)
 		  AND r.deleted_at IS NULL
+		  AND COALESCE(NULLIF(r.content_language,''),'en') = $4
 		  AND (
 		      r.title ILIKE $1
 		      OR r.cuisine ILIKE $1
@@ -1322,7 +1489,7 @@ func (r *RecipeRepository) SearchPublic(ctx context.Context, query string, limit
 		LIMIT $3
 	`
 
-	rows, err := r.db.QueryContext(ctx, sqlQuery, searchPattern, query, limit)
+	rows, err := r.db.QueryContext(ctx, sqlQuery, searchPattern, query, limit, lang)
 	if err != nil {
 		return nil, err
 	}
@@ -1360,6 +1527,8 @@ func (r *RecipeRepository) SearchPublic(ctx context.Context, query string, limit
 			&recipe.SyncVersion,
 			&recipe.CreatedAt,
 			&recipe.UpdatedAt,
+			&recipe.ContentLanguage,
+			&recipe.TranslationGroupID,
 			&recipe.IngredientCount,
 			&recipe.StepCount,
 		)
@@ -1392,11 +1561,14 @@ func (r *RecipeRepository) SearchPublic(ctx context.Context, query string, limit
 }
 
 // ListFeatured retrieves all featured recipes with ingredient/step counts
-func (r *RecipeRepository) ListFeatured(ctx context.Context, limit, offset int) ([]*model.Recipe, int, error) {
-	// Get total count
-	countQuery := `SELECT COUNT(*) FROM recipes WHERE is_featured = TRUE AND deleted_at IS NULL`
+func (r *RecipeRepository) ListFeatured(ctx context.Context, lang string, limit, offset int) ([]*model.Recipe, int, error) {
+	if lang == "" {
+		lang = "en"
+	}
+	// Get total count for this language
+	countQuery := `SELECT COUNT(*) FROM recipes WHERE is_featured = TRUE AND deleted_at IS NULL AND COALESCE(NULLIF(content_language,''),'en') = $1`
 	var total int
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	err := r.db.QueryRowContext(ctx, countQuery, lang).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1408,15 +1580,18 @@ func (r *RecipeRepository) ListFeatured(ctx context.Context, limit, offset int) 
 			   r.source_recipe_id, r.source_metadata, r.tags, r.is_public, r.is_favorite,
 			   r.is_featured, r.featured_at,
 			   r.nutrition, r.dietary_info, r.sync_version, r.created_at, r.updated_at,
+			   r.content_language, r.translation_group_id,
 			   COALESCE((SELECT COUNT(*) FROM recipe_ingredients WHERE recipe_id = r.id), 0) AS ingredient_count,
-			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count
+			   COALESCE((SELECT COUNT(*) FROM recipe_steps WHERE recipe_id = r.id), 0) AS step_count,
+			   (SELECT array_agg(name ORDER BY sort_order) FROM recipe_ingredients WHERE recipe_id = r.id) AS ingredient_names
 		FROM recipes r
 		WHERE r.is_featured = TRUE AND r.deleted_at IS NULL
+		  AND COALESCE(NULLIF(r.content_language,''),'en') = $1
 		ORDER BY RANDOM()
-		LIMIT $1 OFFSET $2
+		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, lang, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1426,7 +1601,7 @@ func (r *RecipeRepository) ListFeatured(ctx context.Context, limit, offset int) 
 	for rows.Next() {
 		recipe := &model.Recipe{}
 		var sourceMetadata, nutritionJSON, dietaryInfoJSON []byte
-		var tags TextArray
+		var tags, ingredientNames TextArray
 
 		err := rows.Scan(
 			&recipe.ID,
@@ -1453,14 +1628,18 @@ func (r *RecipeRepository) ListFeatured(ctx context.Context, limit, offset int) 
 			&recipe.SyncVersion,
 			&recipe.CreatedAt,
 			&recipe.UpdatedAt,
+			&recipe.ContentLanguage,
+			&recipe.TranslationGroupID,
 			&recipe.IngredientCount,
 			&recipe.StepCount,
+			&ingredientNames,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
 
 		recipe.Tags = []string(tags)
+		recipe.IngredientNames = []string(ingredientNames)
 		if sourceMetadata != nil {
 			unmarshalJSONB(sourceMetadata, &recipe.SourceMetadata, "source_metadata")
 		}

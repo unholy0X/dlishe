@@ -846,13 +846,19 @@ func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request)
 	// AI Processing: Merge items
 	// Fetch user to get preference, defaulting to metric if unavailable
 	var preferredSystem = "metric"
+	var targetLanguage = "en"
 	dbUser, err := h.userRepo.GetByID(ctx, user.ID)
-	if err == nil && dbUser.PreferredUnitSystem != "" {
-		preferredSystem = dbUser.PreferredUnitSystem
+	if err == nil {
+		if dbUser.PreferredUnitSystem != "" {
+			preferredSystem = dbUser.PreferredUnitSystem
+		}
+		if dbUser.PreferredLanguage != "" {
+			targetLanguage = dbUser.PreferredLanguage
+		}
 	}
 
-	// Call AI service with user's preferred unit system
-	mergedItems, err := h.aiService.SmartMergeItems(ctx, items, preferredSystem)
+	// Call AI service with user's preferred unit system and language
+	mergedItems, err := h.aiService.SmartMergeItems(ctx, items, preferredSystem, targetLanguage)
 	if err != nil {
 		response.LogAndError(w, http.StatusInternalServerError, "AI_PROCESSING_FAILED", "Failed to merge items", err)
 		return
@@ -864,10 +870,13 @@ func (h *ShoppingHandler) SmartMergeList(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Create NEW Shopping List
-	// Name format: "Smart Merge: [Date]"
-	timeStr := time.Now().Format("Jan 02, 15:04")
+	// Use client-provided name (localized) or fall back to default English
+	mergedName := req.Name
+	if mergedName == "" {
+		mergedName = "Smart Merge: " + time.Now().Format("Jan 02, 15:04")
+	}
 	listInput := &model.ShoppingListInput{
-		Name:        "Smart Merge: " + timeStr,
+		Name:        mergedName,
 		Description: ptr("Automatically merged from " + strings.Join(uuidSliceToStrings(req.SourceListIDs), ", ")),
 	}
 	// Simplified description

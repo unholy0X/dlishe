@@ -13,6 +13,7 @@ import {
   Platform,
   Alert,
 } from "react-native";
+import { sc } from "../utils/deviceScale";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
@@ -23,6 +24,7 @@ import PantryEmptyState from "../components/pantry/PantryEmptyState";
 import BottomSheetModal from "../components/BottomSheetModal";
 import AddToPantrySheetContent from "../components/pantry/AddToPantrySheetContent";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
+import { useTranslation } from "react-i18next";
 import { usePantryStore } from "../store";
 
 // Enable LayoutAnimation on Android
@@ -63,9 +65,11 @@ const CATEGORY_TINTS = {
 };
 
 const CategoryFolder = ({ category, items, isExpanded, onToggle, onDeleteItem }) => {
-  const image = CATEGORY_IMAGES[category] || CATEGORY_IMAGES.other;
-  const tint = CATEGORY_TINTS[category] || CATEGORY_TINTS.other;
-  const displayName = category.charAt(0).toUpperCase() + category.slice(1);
+  const { t } = useTranslation("pantry");
+  const safeCategory = (category || "other").toLowerCase();
+  const image = CATEGORY_IMAGES[safeCategory] || CATEGORY_IMAGES.other;
+  const tint = CATEGORY_TINTS[safeCategory] || CATEGORY_TINTS.other;
+  const displayName = t(`categories.${safeCategory}`, category);
   const previewItems = items.slice(0, 4);
 
   return (
@@ -84,7 +88,7 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onDeleteItem })
         <View style={styles.folderInfo}>
           <Text style={styles.folderTitle}>{displayName}</Text>
           <View style={styles.folderMeta}>
-            <Text style={styles.folderCount}>{items.length} item{items.length !== 1 ? "s" : ""}</Text>
+            <Text style={styles.folderCount}>{t("itemCount", { count: items.length })}</Text>
           </View>
         </View>
         <View style={[styles.expandIcon, isExpanded && styles.expandIconActive]}>
@@ -147,6 +151,7 @@ export default function PantryScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const activeKey = pathname.replace("/", "") || "pantry";
+  const { t } = useTranslation("pantry");
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [isAddRecipeOpen, setAddRecipeOpen] = useState(false);
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -157,18 +162,18 @@ export default function PantryScreen() {
   const { groups, total, isLoading, error, loadPantry, removeItem, clearPantry } = usePantryStore();
 
   useEffect(() => {
-    loadPantry({ getToken }).catch(() => {});
+    loadPantry({ getToken }).catch(() => { });
   }, []);
 
   // Refresh when navigating back to this screen
   useEffect(() => {
     if (pathname === "/pantry") {
-      loadPantry({ getToken }).catch(() => {});
+      loadPantry({ getToken }).catch(() => { });
     }
   }, [pathname]);
 
   const onRefresh = useCallback(() => {
-    loadPantry({ getToken }).catch(() => {});
+    loadPantry({ getToken }).catch(() => { });
   }, [getToken]);
 
   const handleDelete = useCallback(
@@ -176,10 +181,10 @@ export default function PantryScreen() {
       try {
         await removeItem({ getToken, itemId });
       } catch (err) {
-        Alert.alert("Couldn't remove item", "Please check your connection and try again.");
+        Alert.alert(t("errors:pantry.removeItemFailed"), t("tryAgain", { ns: "common" }));
       }
     },
-    [getToken]
+    [getToken, t]
   );
 
   const toggleCategory = useCallback((category) => {
@@ -192,25 +197,25 @@ export default function PantryScreen() {
 
   const handleSheetClose = () => {
     setSheetOpen(false);
-    loadPantry({ getToken }).catch(() => {});
+    loadPantry({ getToken }).catch(() => { });
   };
 
   const handleClearPantry = useCallback(() => {
     setMenuOpen(false);
     Alert.alert(
-      "Reset Pantry",
-      `This will remove all ${total} item${total !== 1 ? "s" : ""} from your pantry. This can't be undone.`,
+      t("resetConfirm.title"),
+      t("resetConfirm.message", { count: total }),
       [
-        { text: "Keep Items", style: "cancel" },
+        { text: t("resetConfirm.keep"), style: "cancel" },
         {
-          text: "Reset",
+          text: t("resetConfirm.reset"),
           style: "destructive",
           onPress: async () => {
             setIsClearing(true);
             try {
               await clearPantry({ getToken });
             } catch (err) {
-              Alert.alert("Couldn't reset pantry", "Please check your connection and try again.");
+              Alert.alert(t("errors:pantry.clearFailed"), t("tryAgain", { ns: "common" }));
             } finally {
               setIsClearing(false);
             }
@@ -218,64 +223,65 @@ export default function PantryScreen() {
         },
       ]
     );
-  }, [getToken, total]);
+  }, [getToken, total, t]);
 
   const isEmpty = !isLoading && groups.length === 0;
 
   return (
     <View style={styles.screen}>
       <SwipeNavigator>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        {isEmpty ? (
-          <View style={styles.emptyWrapper}>
-            <PantryEmptyState onPressAdd={() => setSheetOpen(true)} />
-          </View>
-        ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={isLoading && groups.length > 0}
-                onRefresh={onRefresh}
-                tintColor="#385225"
-              />
-            }
-          >
-            <View style={styles.paddedContainer}>
-              <PantryHeader
-                subtitle={`${total} item${total !== 1 ? "s" : ""} in pantry`}
-                onPressMore={() => setMenuOpen(true)}
-                onPressAdd={() => setSheetOpen(true)}
-              />
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          {isEmpty ? (
+            <View style={styles.emptyWrapper}>
+              <PantryEmptyState onPressAdd={() => setSheetOpen(true)} />
             </View>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isLoading && groups.length > 0}
+                  onRefresh={onRefresh}
+                  tintColor="#385225"
+                />
+              }
+            >
+              <View style={styles.paddedContainer}>
+                <PantryHeader
+                  title={t("header.pageTitle", "My Pantry")}
+                  subtitle={t("header.title", { count: total })}
+                  onPressMore={() => setMenuOpen(true)}
+                  onPressAdd={() => setSheetOpen(true)}
+                />
+              </View>
 
-            {isLoading && groups.length === 0 ? (
-              <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#385225" />
-                <Text style={styles.loadingText}>Loading pantry…</Text>
-              </View>
-            ) : error ? (
-              <View style={styles.centered}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : (
-              <View style={styles.foldersContainer}>
-                {groups.map((group) => (
-                  <CategoryFolder
-                    key={group.category}
-                    category={group.category}
-                    items={group.items || []}
-                    isExpanded={expandedCategories[group.category]}
-                    onToggle={() => toggleCategory(group.category)}
-                    onDeleteItem={handleDelete}
-                  />
-                ))}
-              </View>
-            )}
-          </ScrollView>
-        )}
-      </SafeAreaView>
+              {isLoading && groups.length === 0 ? (
+                <View style={styles.centered}>
+                  <ActivityIndicator size="large" color="#385225" />
+                  <Text style={styles.loadingText}>{t("loading")}</Text>
+                </View>
+              ) : error ? (
+                <View style={styles.centered}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : (
+                <View style={styles.foldersContainer}>
+                  {groups.map((group) => (
+                    <CategoryFolder
+                      key={group.category}
+                      category={group.category}
+                      items={group.items || []}
+                      isExpanded={expandedCategories[group.category]}
+                      onToggle={() => toggleCategory(group.category)}
+                      onDeleteItem={handleDelete}
+                    />
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          )}
+        </SafeAreaView>
       </SwipeNavigator>
 
       <FloatingNav
@@ -301,7 +307,7 @@ export default function PantryScreen() {
       {/* Menu sheet */}
       <BottomSheetModal visible={isMenuOpen} onClose={() => setMenuOpen(false)}>
         <View style={styles.menuSheet}>
-          <Text style={styles.menuTitle}>Pantry Options</Text>
+          <Text style={styles.menuTitle}>{t("menu.title")}</Text>
           <Pressable
             style={styles.menuOption}
             onPress={handleClearPantry}
@@ -316,15 +322,15 @@ export default function PantryScreen() {
             </View>
             <View style={styles.menuOptionInfo}>
               <Text style={[styles.menuOptionLabel, total === 0 && styles.menuOptionDisabled]}>
-                Reset Pantry
+                {t("menu.reset")}
               </Text>
               <Text style={styles.menuOptionDesc}>
-                {total === 0 ? "Pantry is already empty" : `Remove all ${total} item${total !== 1 ? "s" : ""}`}
+                {total === 0 ? t("empty.alreadyEmpty") : t("removeAll", { count: total })}
               </Text>
             </View>
           </Pressable>
           <Pressable style={styles.menuDismiss} onPress={() => setMenuOpen(false)}>
-            <Text style={styles.menuDismissText}>Cancel</Text>
+            <Text style={styles.menuDismissText}>{t("buttons.cancel", { ns: "common" })}</Text>
           </Pressable>
         </View>
       </BottomSheetModal>
@@ -383,23 +389,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   folderImageWrap: {
-    width: 52,
-    height: 52,
+    width: sc(52),
+    height: sc(52),
     borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.7)",
     alignItems: "center",
     justifyContent: "center",
   },
   folderImage: {
-    width: 40,
-    height: 40,
+    width: sc(40),
+    height: sc(40),
   },
   folderInfo: {
     flex: 1,
     marginLeft: 12,
   },
   folderTitle: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
     color: "#111111",
   },
@@ -409,14 +415,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   folderCount: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#999999",
     fontWeight: "500",
   },
   expandIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: sc(30),
+    height: sc(30),
+    borderRadius: sc(15),
     backgroundColor: "rgba(0,0,0,0.04)",
     alignItems: "center",
     justifyContent: "center",
@@ -425,7 +431,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5E9",
   },
   expandIconText: {
-    fontSize: 16,
+    fontSize: sc(16),
     color: "#999999",
     fontWeight: "600",
   },
@@ -447,7 +453,7 @@ const styles = StyleSheet.create({
     maxWidth: 100,
   },
   previewChipText: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#6b6b6b",
   },
   previewMore: {
@@ -457,7 +463,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   previewMoreText: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#385225",
     fontWeight: "500",
   },
@@ -483,13 +489,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   itemName: {
-    fontSize: 15,
+    fontSize: sc(15),
     color: "#111111",
     fontWeight: "500",
     flexShrink: 1,
   },
   itemQty: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#999999",
     marginLeft: 8,
   },

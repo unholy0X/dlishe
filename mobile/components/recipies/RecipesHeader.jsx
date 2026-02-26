@@ -3,18 +3,22 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { BlurView } from "expo-blur";
 import DotsVerticalIcon from "../icons/DotsVerticalIcon";
 import PlusIcon from "../icons/PlusIcon";
+import { useTranslation } from "react-i18next";
 
 export default function RecipesHeader({
-  title = "My Recipes",
-  subtitle = "10 recipes saved",
+  title,
+  subtitle,
   onPressMore,
   onPressAdd,
 }) {
+  const { t } = useTranslation("recipe");
+  const defaultTitle = t("list.menuTitle", "My Recipes");
+  const defaultSubtitle = t("list.title_other", { count: 0 }, "0 recipes saved");
   return (
     <View style={styles.row}>
       <View>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text style={styles.title}>{title || defaultTitle}</Text>
+        <Text style={styles.subtitle}>{subtitle || defaultSubtitle}</Text>
       </View>
 
       <View style={styles.actions}>

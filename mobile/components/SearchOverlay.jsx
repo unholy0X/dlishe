@@ -11,15 +11,17 @@ import {
   Keyboard,
   Animated,
 } from "react-native";
+import { sc } from "../utils/deviceScale";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SearchIcon from "./icons/SearchIcon";
+import { useTranslation } from "react-i18next";
 import RecipePlaceholder from "./RecipePlaceholder";
 import { searchRecipes, searchPublicRecipes } from "../services/recipes";
 
 const DEBOUNCE_MS = 300;
 
-function renderResultCard(recipe, onSelect) {
+function renderResultCard(recipe, onSelect, t) {
   const imageSource = recipe.thumbnailUrl ? { uri: recipe.thumbnailUrl } : null;
   return (
     <Pressable
@@ -44,7 +46,7 @@ function renderResultCard(recipe, onSelect) {
           ) : null}
           {recipe.difficulty ? (
             <View style={styles.resultTag}>
-              <Text style={styles.resultTagText}>{recipe.difficulty}</Text>
+              <Text style={styles.resultTagText}>{t(`difficulty.${recipe.difficulty.toLowerCase()}`, { defaultValue: recipe.difficulty })}</Text>
             </View>
           ) : null}
         </View>
@@ -63,6 +65,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const { t } = useTranslation("recipe");
 
   // Animate in/out
   useEffect(() => {
@@ -166,11 +169,11 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
           {/* Search input row */}
           <View style={styles.inputRow}>
             <View style={styles.inputContainer}>
-              <SearchIcon width={20} height={20} color="#B4B4B4" />
+              <SearchIcon width={sc(20)} height={sc(20)} color="#B4B4B4" />
               <TextInput
                 ref={inputRef}
                 style={styles.input}
-                placeholder="Search recipes..."
+                placeholder={t("search.placeholder", "Search recipes...")}
                 placeholderTextColor="#B4B4B4"
                 value={query}
                 onChangeText={handleChangeText}
@@ -185,7 +188,7 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
               )}
             </View>
             <Pressable onPress={onClose} style={styles.cancelBtn}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{t("search.cancel", "Cancel")}</Text>
             </Pressable>
           </View>
 
@@ -200,16 +203,16 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
             {isSearching && (
               <View style={styles.statusRow}>
                 <ActivityIndicator size="small" color="#385225" />
-                <Text style={styles.statusText}>Searching...</Text>
+                <Text style={styles.statusText}>{t("search.searching", "Searching...")}</Text>
               </View>
             )}
 
             {/* No results */}
             {!isSearching && hasSearched && results.length === 0 && publicResults.length === 0 && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>No recipes found</Text>
+                <Text style={styles.emptyTitle}>{t("search.emptyTitle", "No recipes found")}</Text>
                 <Text style={styles.emptySubtitle}>
-                  Try a different keyword like cuisine,{"\n"}ingredient, or dish name
+                  {t("search.emptySubtitle", "Try a different keyword like cuisine,\ningredient, or dish name")}
                 </Text>
               </View>
             )}
@@ -217,9 +220,9 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
             {/* Hint */}
             {!hasSearched && !isSearching && (
               <View style={styles.hintState}>
-                <SearchIcon width={40} height={40} color="#D4D4D4" />
+                <SearchIcon width={sc(40)} height={sc(40)} color="#D4D4D4" />
                 <Text style={styles.hintText}>
-                  Search by name, cuisine, or ingredient
+                  {t("search.hintText", "Search by name, cuisine, or ingredient")}
                 </Text>
               </View>
             )}
@@ -228,17 +231,17 @@ export default function SearchOverlay({ visible, onClose, getToken, onSelectReci
             {results.length > 0 && (
               <>
                 {publicResults.length > 0 && (
-                  <Text style={styles.sectionTitle}>Your recipes</Text>
+                  <Text style={styles.sectionTitle}>{t("search.yourRecipes", "Your recipes")}</Text>
                 )}
-                {results.map((recipe) => renderResultCard(recipe, handleSelect))}
+                {results.map((recipe) => renderResultCard(recipe, handleSelect, t))}
               </>
             )}
 
             {/* Public / suggested recipes */}
             {publicResults.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>Suggested recipes</Text>
-                {publicResults.map((recipe) => renderResultCard(recipe, handleSelect))}
+                <Text style={styles.sectionTitle}>{t("search.suggestedRecipes", "Suggested recipes")}</Text>
+                {publicResults.map((recipe) => renderResultCard(recipe, handleSelect, t))}
               </>
             )}
           </ScrollView>
@@ -275,21 +278,21 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
+    marginStart: 10,
+    fontSize: sc(16),
     color: "#111111",
     paddingVertical: 0,
   },
   clearBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: sc(24),
+    height: sc(24),
+    borderRadius: sc(12),
     backgroundColor: "#E8E8E8",
     alignItems: "center",
     justifyContent: "center",
   },
   clearText: {
-    fontSize: 11,
+    fontSize: sc(11),
     color: "#999999",
     fontWeight: "600",
   },
@@ -298,7 +301,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   cancelText: {
-    fontSize: 15,
+    fontSize: sc(15),
     color: "#2a5a2a",
     fontWeight: "600",
   },
@@ -318,7 +321,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   statusText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#999999",
   },
   // Empty
@@ -327,16 +330,16 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: sc(18),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: sc(20),
   },
   // Hint
   hintState: {
@@ -345,12 +348,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   hintText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
   },
   // Section title
   sectionTitle: {
-    fontSize: 13,
+    fontSize: sc(13),
     fontWeight: "600",
     color: "#999999",
     textTransform: "uppercase",
@@ -370,8 +373,8 @@ const styles = StyleSheet.create({
     borderColor: "#EBEBEB",
   },
   resultImage: {
-    width: 72,
-    height: 72,
+    width: sc(72),
+    height: sc(72),
   },
   resultInfo: {
     flex: 1,
@@ -379,7 +382,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   resultTitle: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#111111",
     letterSpacing: -0.2,
@@ -396,7 +399,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   resultTagText: {
-    fontSize: 11,
+    fontSize: sc(12),
     color: "#6b6b6b",
     fontWeight: "500",
   },

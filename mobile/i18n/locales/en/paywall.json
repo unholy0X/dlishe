@@ -1,0 +1,62 @@
+{
+  "title": "Unlock Dlishe Pro",
+  "subtitle": {
+    "default": "Unlock additional features and remove usage limits",
+    "extraction_limit": "You've reached your free extraction limit this month",
+    "scan_limit": "You've reached your free pantry scan limit this month",
+    "recipe_limit": "You've reached the saved recipe limit"
+  },
+  "features": {
+    "extractions": "No limit on recipe extractions",
+    "scans": "No limit on pantry scans",
+    "savedRecipes": "No limit on saved recipes",
+    "support": "Priority support"
+  },
+  "plans": {
+    "annual": "Annual",
+    "monthly": "Monthly",
+    "save": "Save {{pct}}%",
+    "perYear": "/year",
+    "perMonth": "/month"
+  },
+  "buttons": {
+    "continue": "Continue",
+    "restore": "Restore purchases",
+    "notNow": "Not now",
+    "retry": "Try Again"
+  },
+  "loading": "Loading subscription options...",
+  "loadFailed": "Unable to load subscription options.",
+  "purchaseSuccess": {
+    "title": "Welcome to Pro!",
+    "message": "All limits have been removed. Enjoy!"
+  },
+  "purchasePending": {
+    "title": "Almost there!",
+    "message": "Your purchase is being processed. It may take a moment to activate."
+  },
+  "restored": {
+    "title": "Restored!",
+    "message": "Your Pro subscription has been restored."
+  },
+  "notFound": {
+    "title": "No subscription found",
+    "message": "We couldn't find an active subscription to restore."
+  },
+  "unavailable": {
+    "title": "Unavailable",
+    "message": "This plan isn't available right now. Please try again later."
+  },
+  "purchaseFailed": {
+    "title": "Purchase failed",
+    "message": "Something went wrong. Please try again."
+  },
+  "restoreFailed": {
+    "title": "Restore failed",
+    "message": "Something went wrong."
+  },
+  "terms": {
+    "ios": "Payment will be charged to your Apple ID account at confirmation of purchase. Subscription automatically renews unless canceled at least 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings.",
+    "android": "Payment will be charged to your Google Play account at confirmation of purchase. Subscription automatically renews unless canceled at least 24 hours before the end of the current period. You can manage and cancel your subscriptions in Google Play Store settings."
+  }
+}

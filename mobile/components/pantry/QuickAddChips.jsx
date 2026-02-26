@@ -1,14 +1,16 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { BlurView } from "expo-blur";
+import { useTranslation } from "react-i18next";
 
 const ITEMS = ["Eggs", "Milk", "Butter"];
 const ITEMS_C = ["Onions", "Garlic", "Lemons"];
 
 export default function QuickAddChips({ onPressItem }) {
+  const { t } = useTranslation("pantry");
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Quick add</Text>
+      <Text style={styles.title}>{t("quickAdd.title", "Quick add")}</Text>
       <View style={styles.grid}>
         {ITEMS.map((label) => (
           <View key={label} style={styles.chipWrap}>
@@ -57,7 +59,7 @@ const styles = StyleSheet.create({
   chipWrap: {
     marginBottom: 12,
   },
-  
+
   blur: {
     borderWidth: 1,
     borderColor: "#ffffff",

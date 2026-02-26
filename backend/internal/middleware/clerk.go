@@ -138,6 +138,7 @@ func (m *ClerkMiddleware) syncUser(ctx context.Context, claims *clerk.SessionCla
 		CreatedAt:           time.Now().UTC(),
 		UpdatedAt:           time.Now().UTC(),
 		PreferredUnitSystem: "metric",
+		PreferredLanguage:   "en",
 	}
 
 	// Fetch profile from Clerk API to populate email/name [P2 fix]

@@ -21,15 +21,17 @@ import BottomSheetModal from "../components/BottomSheetModal";
 import SearchOverlay from "../components/SearchOverlay";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
 import CheckIcon from "../components/icons/CheckIcon";
+import { useTranslation } from "react-i18next";
 import { useRecipeStore } from "../store";
 import { deleteRecipe } from "../services/recipes";
+import { sc } from "../utils/deviceScale";
 
-function buildMeta(recipe) {
+function buildMeta(recipe, t) {
   const parts = [];
   const totalTime = (recipe.prepTime || 0) + (recipe.cookTime || 0);
-  if (totalTime > 0) parts.push(`${totalTime} min`);
-  if (recipe.difficulty) parts.push(recipe.difficulty);
-  if (recipe.servings) parts.push(`${recipe.servings} servings`);
+  if (totalTime > 0) parts.push(t("time.minOnly", { m: totalTime, ns: "common" }));
+  if (recipe.difficulty) parts.push(t(`difficulty.${recipe.difficulty.toLowerCase()}`, { defaultValue: recipe.difficulty }));
+  if (recipe.servings) parts.push(t("units.servings", { count: recipe.servings, ns: "common" }));
   return parts.join(" · ");
 }
 
@@ -37,6 +39,7 @@ export default function RecipiesScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const activeKey = pathname.replace("/", "") || "recipies";
+  const { t } = useTranslation("recipe");
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [isSearchOpen, setSearchOpen] = useState(false);
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -52,18 +55,18 @@ export default function RecipiesScreen() {
   const hasMore = recipes.length < total;
 
   useEffect(() => {
-    loadRecipes({ getToken }).catch(() => {});
+    loadRecipes({ getToken }).catch(() => { });
   }, []);
 
   // Refresh when navigating back to this screen
   useEffect(() => {
     if (pathname === "/recipies") {
-      refresh({ getToken }).catch(() => {});
+      refresh({ getToken }).catch(() => { });
     }
   }, [pathname]);
 
   const onRefresh = useCallback(() => {
-    refresh({ getToken }).catch(() => {});
+    refresh({ getToken }).catch(() => { });
   }, [getToken]);
 
   const onEndReached = useCallback(() => {
@@ -74,25 +77,25 @@ export default function RecipiesScreen() {
 
   const handleSheetClose = () => {
     setSheetOpen(false);
-    refresh({ getToken }).catch(() => {});
+    refresh({ getToken }).catch(() => { });
   };
 
   const handleClearAll = useCallback(() => {
     setMenuOpen(false);
     Alert.alert(
-      "Reset Recipes",
-      `This will permanently delete all ${total} recipe${total !== 1 ? "s" : ""}. This can't be undone.`,
+      t("list.clearAll"),
+      t("list.clearConfirm", { count: total }),
       [
-        { text: "Keep Recipes", style: "cancel" },
+        { text: t("list.keepRecipes"), style: "cancel" },
         {
-          text: "Delete All",
+          text: t("list.deleteAll"),
           style: "destructive",
           onPress: async () => {
             setIsClearing(true);
             try {
               await clearAll({ getToken });
             } catch (err) {
-              Alert.alert("Couldn't clear recipes", "Please check your connection and try again.");
+              Alert.alert(t("errors:recipe.clearFailed"), t("tryAgain", { ns: "common" }));
             } finally {
               setIsClearing(false);
             }
@@ -103,7 +106,7 @@ export default function RecipiesScreen() {
   }, [getToken, total]);
 
   const handleToggleFavorite = useCallback((recipeId) => {
-    toggleFavorite({ recipeId, getToken }).catch(() => {});
+    toggleFavorite({ recipeId, getToken }).catch(() => { });
   }, [getToken]);
 
   const handleEnterSelect = useCallback(() => {
@@ -138,12 +141,12 @@ export default function RecipiesScreen() {
     const count = selectedIds.size;
     if (count === 0) return;
     Alert.alert(
-      "Delete Recipes",
-      `Permanently delete ${count} recipe${count !== 1 ? "s" : ""}? This can't be undone.`,
+      t("list.bulkDeleteTitle"),
+      t("list.bulkDeleteConfirm", { count }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("buttons.cancel", { ns: "common" }), style: "cancel" },
         {
-          text: `Delete ${count}`,
+          text: t("list.deleteSelected", { count }),
           style: "destructive",
           onPress: async () => {
             setIsDeleting(true);
@@ -155,10 +158,10 @@ export default function RecipiesScreen() {
               exitSelectMode();
               await refresh({ getToken });
               if (failCount > 0) {
-                Alert.alert("Partial Failure", `Failed to delete ${failCount} recipe${failCount !== 1 ? "s" : ""}. Please try again.`);
+                Alert.alert(t("errors:recipe.deleteFailed"), t("errors:recipe.partialDelete", { count: failCount }));
               }
             } catch (err) {
-              Alert.alert("Couldn't delete recipes", "Please check your connection and try again.");
+              Alert.alert(t("errors:recipe.deleteBulkFailed"), t("tryAgain", { ns: "common" }));
             } finally {
               setIsDeleting(false);
             }
@@ -176,15 +179,15 @@ export default function RecipiesScreen() {
           <View style={{ opacity: isSelected ? 1 : 0.6 }}>
             <RecipeCard
               title={item.title}
-              meta={buildMeta(item)}
+              meta={buildMeta(item, t)}
               thumbnailUrl={item.thumbnailUrl}
               isFavorite={item.isFavorite}
               onPress={() => toggleSelection(item.id)}
-              onToggleFavorite={() => {}}
+              onToggleFavorite={() => { }}
             />
           </View>
           <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxActive]}>
-            {isSelected && <CheckIcon width={14} height={14} color="#fff" />}
+            {isSelected && <CheckIcon width={sc(14)} height={sc(14)} color="#fff" />}
           </View>
         </Pressable>
       );
@@ -192,26 +195,26 @@ export default function RecipiesScreen() {
     return (
       <RecipeCard
         title={item.title}
-        meta={buildMeta(item)}
+        meta={buildMeta(item, t)}
         thumbnailUrl={item.thumbnailUrl}
         isFavorite={item.isFavorite}
         onPress={() => router.push(`/recipe/${item.id}`)}
         onToggleFavorite={() => handleToggleFavorite(item.id)}
       />
     );
-  }, [router, handleToggleFavorite, isSelectMode, selectedIds, toggleSelection]);
+  }, [router, handleToggleFavorite, isSelectMode, selectedIds, toggleSelection, t]);
 
   const ListHeader = isSelectMode ? (
     <View style={styles.selectBar}>
       <Pressable onPress={exitSelectMode} hitSlop={8}>
-        <Text style={styles.selectBarCancel}>Cancel</Text>
+        <Text style={styles.selectBarCancel}>{t("buttons.cancel", { ns: "common" })}</Text>
       </Pressable>
       <Text style={styles.selectBarCount}>
-        {selectedIds.size} selected
+        {t("list.selected", { count: selectedIds.size })}
       </Text>
       <Pressable onPress={handleSelectAll} hitSlop={8}>
         <Text style={styles.selectAllBtn}>
-          {selectedIds.size === recipes.length ? "Deselect All" : "Select All"}
+          {selectedIds.size === recipes.length ? t("buttons.deselectAll", { ns: "common" }) : t("buttons.selectAll", { ns: "common" })}
         </Text>
       </Pressable>
       <Pressable
@@ -223,7 +226,7 @@ export default function RecipiesScreen() {
           <ActivityIndicator size="small" color="#fff" />
         ) : (
           <Text style={styles.deleteBtnText}>
-            Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+            {selectedIds.size > 0 ? t("list.deleteSelected", { count: selectedIds.size }) : t("buttons.delete", { ns: "common" })}
           </Text>
         )}
       </Pressable>
@@ -231,13 +234,13 @@ export default function RecipiesScreen() {
   ) : (
     <>
       <RecipesHeader
-        subtitle={`${total} recipe${total !== 1 ? "s" : ""} saved`}
+        subtitle={t("list.title", { count: total })}
         onPressMore={() => setMenuOpen(true)}
         onPressAdd={() => setSheetOpen(true)}
       />
       <View style={{ marginTop: 10, marginBottom: 10 }}>
         <SearchBar
-          placeholder="Search for a recipe"
+          placeholder={t("list.searchPlaceholder")}
           onPress={() => setSearchOpen(true)}
         />
       </View>
@@ -247,7 +250,7 @@ export default function RecipiesScreen() {
   const ListEmpty = isLoading ? (
     <View style={styles.centered}>
       <ActivityIndicator size="large" color="#385225" />
-      <Text style={styles.loadingText}>Loading recipes…</Text>
+      <Text style={styles.loadingText}>{t("list.loading")}</Text>
     </View>
   ) : error ? (
     <View style={styles.centered}>
@@ -255,44 +258,42 @@ export default function RecipiesScreen() {
     </View>
   ) : (
     <View style={styles.centered}>
-      <Text style={styles.emptyTitle}>No recipes yet</Text>
-      <Text style={styles.emptySubtitle}>
-        Tap + to add your first recipe
-      </Text>
+      <Text style={styles.emptyTitle}>{t("list.empty")}</Text>
+      <Text style={styles.emptySubtitle}>{t("list.emptySubtitle")}</Text>
     </View>
   );
 
   const ListFooter = isLoadingMore ? (
     <View style={styles.footerLoader}>
       <ActivityIndicator size="small" color="#385225" />
-      <Text style={styles.loadingText}>Loading more…</Text>
+      <Text style={styles.loadingText}>{t("list.loadingMore")}</Text>
     </View>
   ) : null;
 
   return (
     <View style={styles.screen}>
       <SwipeNavigator>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <FlatList
-          data={recipes}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ListHeaderComponent={ListHeader}
-          ListEmptyComponent={ListEmpty}
-          ListFooterComponent={ListFooter}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.3}
-          refreshControl={
-            <RefreshControl
-              refreshing={isLoading && recipes.length > 0}
-              onRefresh={onRefresh}
-              tintColor="#385225"
-            />
-          }
-        />
-      </SafeAreaView>
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          <FlatList
+            data={recipes}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            ListHeaderComponent={ListHeader}
+            ListEmptyComponent={ListEmpty}
+            ListFooterComponent={ListFooter}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            onEndReached={onEndReached}
+            onEndReachedThreshold={0.3}
+            refreshControl={
+              <RefreshControl
+                refreshing={isLoading && recipes.length > 0}
+                onRefresh={onRefresh}
+                tintColor="#385225"
+              />
+            }
+          />
+        </SafeAreaView>
       </SwipeNavigator>
 
       <FloatingNav
@@ -313,22 +314,20 @@ export default function RecipiesScreen() {
       {/* Menu sheet */}
       <BottomSheetModal visible={isMenuOpen} onClose={() => setMenuOpen(false)}>
         <View style={styles.menuSheet}>
-          <Text style={styles.menuTitle}>Recipe Options</Text>
+          <Text style={styles.menuTitle}>{t("list.menuTitle")}</Text>
           <Pressable
             style={[styles.menuOption, styles.menuOptionGreen]}
             onPress={handleEnterSelect}
             disabled={total === 0}
           >
             <View style={[styles.menuOptionIcon, styles.menuOptionIconGreen]}>
-              <CheckIcon width={16} height={16} color="#385225" />
+              <CheckIcon width={sc(16)} height={sc(16)} color="#385225" />
             </View>
             <View style={styles.menuOptionInfo}>
               <Text style={[styles.menuOptionLabel, styles.menuOptionLabelGreen, total === 0 && styles.menuOptionDisabled]}>
-                Select
+                {t("buttons.select", { ns: "common" })}
               </Text>
-              <Text style={styles.menuOptionDesc}>
-                Select recipes to delete
-              </Text>
+              <Text style={styles.menuOptionDesc}>{t("list.selectToDelete")}</Text>
             </View>
           </Pressable>
           <Pressable
@@ -345,15 +344,15 @@ export default function RecipiesScreen() {
             </View>
             <View style={styles.menuOptionInfo}>
               <Text style={[styles.menuOptionLabel, total === 0 && styles.menuOptionDisabled]}>
-                Reset Recipes
+                {t("list.clearAll")}
               </Text>
               <Text style={styles.menuOptionDesc}>
-                {total === 0 ? "No recipes to remove" : `Remove all ${total} recipe${total !== 1 ? "s" : ""}`}
+                {total === 0 ? t("list.noRecipesToRemove") : t("list.removeAll", { count: total })}
               </Text>
             </View>
           </Pressable>
           <Pressable style={styles.menuDismiss} onPress={() => setMenuOpen(false)}>
-            <Text style={styles.menuDismissText}>Cancel</Text>
+            <Text style={styles.menuDismissText}>{t("buttons.cancel", { ns: "common" })}</Text>
           </Pressable>
         </View>
       </BottomSheetModal>
@@ -389,23 +388,23 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
   },
   errorText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#cc3b3b",
     textAlign: "center",
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontWeight: "500",
     color: "#111111",
     letterSpacing: -0.05,
   },
   emptySubtitle: {
     marginTop: 8,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     textAlign: "center",
     letterSpacing: -0.05,
@@ -421,7 +420,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   menuTitle: {
-    fontSize: 18,
+    fontSize: sc(18),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 16,
@@ -435,16 +434,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   menuOptionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: sc(40),
+    height: sc(40),
+    borderRadius: sc(20),
     backgroundColor: "#FDDEDE",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
   },
   menuOptionIconText: {
-    fontSize: 16,
+    fontSize: sc(16),
     color: "#cc3b3b",
     fontWeight: "600",
   },
@@ -452,7 +451,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuOptionLabel: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
     color: "#cc3b3b",
   },
@@ -460,7 +459,7 @@ const styles = StyleSheet.create({
     color: "#C0C0C0",
   },
   menuOptionDesc: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#999999",
     marginTop: 2,
   },
@@ -471,7 +470,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F5F7",
   },
   menuDismissText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "500",
     color: "#6b6b6b",
   },
@@ -494,17 +493,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   selectBarCancel: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "500",
     color: "#6b6b6b",
   },
   selectBarCount: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#111111",
   },
   selectAllBtn: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#385225",
   },
@@ -515,7 +514,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   deleteBtnText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#ffffff",
   },
@@ -523,9 +522,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     left: 12,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: sc(26),
+    height: sc(26),
+    borderRadius: sc(13),
     borderWidth: 2,
     borderColor: "#B4B4B4",
     backgroundColor: "rgba(255,255,255,0.9)",

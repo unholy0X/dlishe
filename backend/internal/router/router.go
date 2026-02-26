@@ -174,6 +174,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/me", authHandler.Me)
 				r.Patch("/me/preferences", authHandler.UpdatePreferences)
+				r.Delete("/me", authHandler.DeleteAccount)
 			})
 
 			// Recipe routes
@@ -181,6 +182,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 				r.Get("/", recipeHandler.List)
 				r.Get("/search", recipeHandler.Search)
 				r.Post("/", recipeHandler.Create)
+				r.Delete("/", recipeHandler.DeleteAll)
 				r.Get("/recommendations", recommendationsHandler.GetRecommendations)
 				r.Post("/extract", unifiedExtractionHandler.Extract)
 

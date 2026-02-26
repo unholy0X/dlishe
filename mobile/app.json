@@ -3,7 +3,7 @@
     "scheme": "dlishe",
     "name": "Dlishe",
     "slug": "dlishe",
-    "version": "8.0.0",
+    "version": "8.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,6 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "DLISHE uses the camera to scan recipes from photos and pantry items",
-        "NSPhotoLibraryUsageDescription": "DLISHE lets you extract recipes from photos in your library",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -35,8 +34,7 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.READ_MEDIA_IMAGES"
       ]
     },
     "web": {
@@ -51,11 +49,13 @@
         "expo-image-picker",
         {
           "photosPermission": "DLISHE accesses your photos to extract recipes",
-          "cameraPermission": "DLISHE uses the camera to scan recipes and pantry items"
+          "cameraPermission": "DLISHE uses the camera to scan recipes and pantry items",
+          "microphonePermission": false
         }
       ],
       "expo-apple-authentication",
-      "@sentry/react-native"
+      "@sentry/react-native",
+      "expo-localization"
     ],
     "extra": {
       "eas": {

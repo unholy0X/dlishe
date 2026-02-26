@@ -7,6 +7,7 @@ import {
   Pressable,
   TextInput,
 } from "react-native";
+import { sc } from "../../utils/deviceScale";
 import { BlurView } from "expo-blur";
 import ArrowLeftIcon from "../icons/ArrowLeftIcon";
 import LinkIcon from "../icons/LinkIcon";
@@ -16,6 +17,7 @@ import ImageCapture from "../ImageCapture";
 import { useAuth } from "@clerk/clerk-expo";
 import { useExtractStore } from "../../store";
 import PaywallSheet from "../paywall/PaywallSheet";
+import { useTranslation } from "react-i18next";
 
 export default function AddRecipeSheetContent({ onPressBack }) {
   const { getToken } = useAuth();
@@ -34,6 +36,7 @@ export default function AddRecipeSheetContent({ onPressBack }) {
 
   const [capturedImages, setCapturedImages] = useState([]);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const { t } = useTranslation("recipe");
 
   const handleBack = () => {
     setCapturedImages([]);
@@ -65,10 +68,10 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           <Pressable onPress={handleBack}>
             <BlurView intensity={100} tint="light" style={styles.backPill}>
               <ArrowLeftIcon width={9} height={8} color="#555555" />
-              <Text style={styles.backText}>Back</Text>
+              <Text style={styles.backText}>{t("add.back", "Back")}</Text>
             </BlurView>
           </Pressable>
-          <Text style={styles.headerTitle}>Add a recipe</Text>
+          <Text style={styles.headerTitle}>{t("add.title", "Add a recipe")}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -76,23 +79,23 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           <Text style={styles.quotaIcon}>🔒</Text>
         </View>
 
-        <Text style={styles.quotaTitle}>Monthly limit reached</Text>
+        <Text style={styles.quotaTitle}>{t("add.monthlyLimit", "Monthly limit reached")}</Text>
         <Text style={styles.quotaSubtitle}>
-          You've used all your free extractions this month.
+          {t("add.monthlyLimitSubtitle", "You've used all your free extractions this month.")}
         </Text>
 
         <Pressable
           style={styles.upgradeButton}
           onPress={() => setPaywallVisible(true)}
         >
-          <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+          <Text style={styles.upgradeButtonText}>{t("add.upgradePro", "Upgrade to Pro")}</Text>
         </Pressable>
 
         <Text style={styles.quotaHint}>
-          No limits on extractions, pantry scans & more
+          {t("add.quotaHint", "No limits on extractions, pantry scans & more")}
         </Text>
 
-        <Text style={styles.quotaReset}>Resets next month</Text>
+        <Text style={styles.quotaReset}>{t("add.quotaReset", "Resets next month")}</Text>
 
         <PaywallSheet
           visible={paywallVisible}
@@ -115,10 +118,10 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           <Pressable onPress={handleBack}>
             <BlurView intensity={100} tint="light" style={styles.backPill}>
               <ArrowLeftIcon width={9} height={8} color="#555555" />
-              <Text style={styles.backText}>Back</Text>
+              <Text style={styles.backText}>{t("add.back", "Back")}</Text>
             </BlurView>
           </Pressable>
-          <Text style={styles.headerTitle}>Recipe ready!</Text>
+          <Text style={styles.headerTitle}>{t("add.recipeReady", "Recipe ready!")}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -137,17 +140,17 @@ export default function AddRecipeSheetContent({ onPressBack }) {
         <View style={styles.metaRow}>
           {totalTime > 0 && (
             <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>{totalTime} min</Text>
+              <Text style={styles.metaPillText}>{totalTime} {t("add.min", "min")}</Text>
             </View>
           )}
           {recipe.servings ? (
             <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>{recipe.servings} servings</Text>
+              <Text style={styles.metaPillText}>{recipe.servings} {t("add.servings", "servings")}</Text>
             </View>
           ) : null}
           {recipe.difficulty ? (
             <View style={styles.metaPill}>
-              <Text style={[styles.metaPillText, { textTransform: "capitalize" }]}>{recipe.difficulty}</Text>
+              <Text style={[styles.metaPillText, { textTransform: "capitalize" }]}>{t(`difficulty.${recipe.difficulty.toLowerCase()}`, { ns: "recipe", defaultValue: recipe.difficulty })}</Text>
             </View>
           ) : null}
           {recipe.cuisine ? (
@@ -159,13 +162,13 @@ export default function AddRecipeSheetContent({ onPressBack }) {
 
         <View style={styles.countsCard}>
           <View style={styles.countRow}>
-            <Text style={styles.countLabel}>Ingredients</Text>
-            <Text style={styles.countValue}>{ingredientCount} items</Text>
+            <Text style={styles.countLabel}>{t("add.ingredients", "Ingredients")}</Text>
+            <Text style={styles.countValue}>{ingredientCount} {t("add.items", "items")}</Text>
           </View>
           <View style={styles.countDivider} />
           <View style={styles.countRow}>
-            <Text style={styles.countLabel}>Instructions</Text>
-            <Text style={styles.countValue}>{instructionCount} steps</Text>
+            <Text style={styles.countLabel}>{t("add.instructions", "Instructions")}</Text>
+            <Text style={styles.countValue}>{instructionCount} {t("add.steps", "steps")}</Text>
           </View>
         </View>
 
@@ -181,17 +184,19 @@ export default function AddRecipeSheetContent({ onPressBack }) {
               </View>
             ))}
             {ingredientCount > 4 && (
-              <Text style={styles.moreText}>+{ingredientCount - 4} more</Text>
+              <Text style={styles.moreText}>
+                +{ingredientCount - 4} {t("add.more", "more")}
+              </Text>
             )}
           </View>
         )}
 
         <View style={styles.savedBanner}>
-          <Text style={styles.savedText}>Saved to your recipe box</Text>
+          <Text style={styles.savedText}>{t("add.savedToBox", "Saved to your recipe box")}</Text>
         </View>
 
         <Pressable style={styles.tryAnotherButton} onPress={handleTryAnother}>
-          <Text style={styles.tryAnotherText}>Add another recipe</Text>
+          <Text style={styles.tryAnotherText}>{t("add.addAnother", "Add another recipe")}</Text>
         </Pressable>
       </View>
     );
@@ -205,10 +210,10 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           <Pressable onPress={handleBack}>
             <BlurView intensity={100} tint="light" style={styles.backPill}>
               <ArrowLeftIcon width={9} height={8} color="#555555" />
-              <Text style={styles.backText}>Cancel</Text>
+              <Text style={styles.backText}>{t("add.cancel", "Cancel")}</Text>
             </BlurView>
           </Pressable>
-          <Text style={styles.headerTitle}>Cooking it up</Text>
+          <Text style={styles.headerTitle}>{t("add.cookingTitle", "Cooking it up")}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -224,10 +229,10 @@ export default function AddRecipeSheetContent({ onPressBack }) {
         <Pressable onPress={handleBack}>
           <BlurView intensity={100} tint="light" style={styles.backPill}>
             <ArrowLeftIcon width={9} height={8} color="#555555" />
-            <Text style={styles.backText}>Back</Text>
+            <Text style={styles.backText}>{t("add.back", "Back")}</Text>
           </BlurView>
         </Pressable>
-        <Text style={styles.headerTitle}>Add a recipe</Text>
+        <Text style={styles.headerTitle}>{t("add.title", "Add a recipe")}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -237,15 +242,15 @@ export default function AddRecipeSheetContent({ onPressBack }) {
         resizeMode="contain"
       />
 
-      <Text style={styles.title}>Add a new recipe</Text>
+      <Text style={styles.title}>{t("add.addNew", "Add a new recipe")}</Text>
       <Text style={styles.subtitle}>
-        Paste a link from YouTube or any recipe website and we'll do the rest
+        {t("add.subtitle", "Paste a link from YouTube or any recipe website and we'll do the rest")}
       </Text>
 
       <View style={styles.inputWrap}>
         <LinkIcon width={20} height={20} color={url ? "#385225" : "#B4B4B4"} />
         <TextInput
-          placeholder="https://youtube.com/watch?v=..."
+          placeholder={t("add.urlPlaceholder", "https://youtube.com/watch?v=...")}
           placeholderTextColor="#B4B4B4"
           style={styles.input}
           value={url}
@@ -268,14 +273,14 @@ export default function AddRecipeSheetContent({ onPressBack }) {
         disabled={!url.trim() || isRunning}
       >
         <SparkleBadgeIcon width={22} height={22} />
-        <Text style={styles.primaryText}>Grab recipe</Text>
+        <Text style={styles.primaryText}>{t("add.grabRecipe", "Grab recipe")}</Text>
       </Pressable>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <View style={styles.dividerRow}>
         <View style={styles.divider} />
-        <Text style={styles.dividerText}>Or</Text>
+        <Text style={styles.dividerText}>{t("add.or", "Or")}</Text>
         <View style={styles.divider} />
       </View>
 
@@ -285,15 +290,15 @@ export default function AddRecipeSheetContent({ onPressBack }) {
         maxImages={3}
         quality={0.6}
         disabled={isRunning}
-        label="Snap a cookbook"
-        sublabel="Take a photo of any recipe page (up to 3)"
+        label={t("add.snapTitle", "Snap a cookbook")}
+        sublabel={t("add.snapSubtitle", "Take a photo of any recipe page (up to 3)")}
       />
 
       {capturedImages.length > 0 && !isRunning && (
         <Pressable style={styles.primaryButton} onPress={handleExtractFromPhotos}>
           <SparkleBadgeIcon width={22} height={22} />
           <Text style={styles.primaryText}>
-            Extract recipe ({capturedImages.length} photo{capturedImages.length !== 1 ? "s" : ""})
+            {t("add.extractPhotos", { count: capturedImages.length })}
           </Text>
         </Pressable>
       )}
@@ -322,12 +327,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   backText: {
-    marginLeft: 8,
-    fontSize: 12,
+    marginStart: 8,
+    fontSize: sc(12),
     color: "#555555",
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: sc(22),
     fontWeight: "normal",
     color: "#000",
     letterSpacing: -0.05,
@@ -342,7 +347,7 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 10,
-    fontSize: 26,
+    fontSize: sc(26),
     fontWeight: "normal",
     color: "#000",
     textAlign: "center",
@@ -350,10 +355,10 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 8,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: sc(20),
     letterSpacing: -0.05,
     paddingHorizontal: 20,
   },
@@ -367,7 +372,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   input: {
-    marginLeft: 10,
+    marginStart: 10,
     flex: 1,
     color: "#111111",
   },
@@ -384,15 +389,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#d9d9d9",
   },
   primaryText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: "500",
+    marginStart: 8,
+    fontSize: sc(14),
+    fontWeight: "600",
     color: "#385225",
     letterSpacing: -0.05,
   },
   errorText: {
     marginTop: 8,
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#cc3b3b",
     textAlign: "center",
   },
@@ -408,7 +413,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     marginHorizontal: 10,
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#B4B4B4",
   },
   // Preview styles
@@ -429,7 +434,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   recipeTitle: {
-    fontSize: 22,
+    fontSize: sc(22),
     fontWeight: "500",
     color: "#111111",
     textAlign: "center",
@@ -437,10 +442,10 @@ const styles = StyleSheet.create({
   },
   recipeDescription: {
     marginTop: 8,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: sc(20),
     paddingHorizontal: 10,
   },
   metaRow: {
@@ -457,7 +462,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   metaPillText: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: "#6b6b6b",
   },
   countsCard: {
@@ -478,11 +483,11 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   countLabel: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
   },
   countValue: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#111111",
   },
@@ -502,16 +507,16 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: "#7FEF80",
-    marginRight: 10,
+    marginEnd: 10,
   },
   ingredientText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#111111",
     flex: 1,
   },
   moreText: {
     marginTop: 6,
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#B4B4B4",
     textAlign: "center",
   },
@@ -524,7 +529,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   savedText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "500",
     color: "#385225",
   },
@@ -538,7 +543,7 @@ const styles = StyleSheet.create({
     borderColor: "#DFDFDF",
   },
   tryAnotherText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "500",
     color: "#6b6b6b",
   },

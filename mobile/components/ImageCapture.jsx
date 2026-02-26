@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import CameraIcon from "./icons/CameraIcon";
+import { useTranslation } from "react-i18next";
 
 /**
  * Unified image capture component supporting camera, library, single/multi-image.
@@ -22,34 +23,37 @@ export default function ImageCapture({
   maxImages = 1,
   quality = 0.6,
   disabled = false,
-  label = "Take a photo",
-  sublabel = "",
+  label,
+  sublabel,
 }) {
+  const { t } = useTranslation("common");
+  const defaultLabel = t("camera.actionTitle", "Take a photo");
+  const finalLabel = label || defaultLabel;
   const remaining = maxImages - images.length;
 
   const requestCameraPermission = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
-        "Camera access needed",
-        "Allow camera access so you can snap a photo."
+        t("camera.accessNeededTitle", "Camera access needed"),
+        t("camera.accessNeededMsg", "Allow camera access so you can snap a photo.")
       );
       return false;
     }
     return true;
-  }, []);
+  }, [t]);
 
   const requestLibraryPermission = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert(
-        "Photo access needed",
-        "Allow photo access so you can pick from your library."
+        t("camera.photoAccessNeededTitle", "Photo access needed"),
+        t("camera.photoAccessNeededMsg", "Allow photo access so you can pick from your library.")
       );
       return false;
     }
     return true;
-  }, []);
+  }, [t]);
 
   const handleCamera = useCallback(async () => {
     try {
@@ -68,7 +72,7 @@ export default function ImageCapture({
 
       const asset = result.assets[0];
       if (!asset.base64) {
-        Alert.alert("Oops", "Couldn't read the photo. Try again?");
+        Alert.alert(t("camera.errorTitle", "Oops"), t("camera.errorRead", "Couldn't read the photo. Try again?"));
         return;
       }
 
@@ -79,9 +83,9 @@ export default function ImageCapture({
       };
       onImagesChange([...images, newImage].slice(0, maxImages));
     } catch {
-      Alert.alert("Oops", "Something went wrong with the camera.");
+      Alert.alert(t("camera.errorTitle", "Oops"), t("camera.errorCamera", "Something went wrong with the camera."));
     }
-  }, [images, maxImages, quality, onImagesChange, requestCameraPermission]);
+  }, [images, maxImages, quality, onImagesChange, requestCameraPermission, t]);
 
   const handleLibrary = useCallback(async () => {
     try {
@@ -111,23 +115,23 @@ export default function ImageCapture({
         }));
 
       if (newImages.length === 0) {
-        Alert.alert("Oops", "Couldn't read the photo(s). Try again?");
+        Alert.alert(t("camera.errorTitle", "Oops"), t("camera.errorRead2", "Couldn't read the photo(s). Try again?"));
         return;
       }
 
       onImagesChange([...images, ...newImages].slice(0, maxImages));
     } catch {
-      Alert.alert("Oops", "Something went wrong picking the photo.");
+      Alert.alert(t("camera.errorTitle", "Oops"), t("camera.errorLibrary", "Something went wrong picking the photo."));
     }
-  }, [images, maxImages, remaining, quality, onImagesChange, requestLibraryPermission]);
+  }, [images, maxImages, remaining, quality, onImagesChange, requestLibraryPermission, t]);
 
   const showSourceChooser = useCallback(() => {
-    Alert.alert("Add a photo", "How would you like to add your photo?", [
-      { text: "Take Photo", onPress: handleCamera },
-      { text: "Choose from Library", onPress: handleLibrary },
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("camera.addPhotoTitle", "Add a photo"), t("camera.addPhotoMsg", "How would you like to add your photo?"), [
+      { text: t("camera.takePhoto", "Take Photo"), onPress: handleCamera },
+      { text: t("camera.chooseFromLibrary", "Choose from Library"), onPress: handleLibrary },
+      { text: t("buttons.cancel", "Cancel"), style: "cancel" },
     ]);
-  }, [handleCamera, handleLibrary]);
+  }, [handleCamera, handleLibrary, t]);
 
   const removeImage = useCallback(
     (index) => {
@@ -153,7 +157,7 @@ export default function ImageCapture({
           <CameraIcon width={22} height={22} />
         </View>
         <View style={styles.actionTextBlock}>
-          <Text style={styles.actionTitle}>{label}</Text>
+          <Text style={styles.actionTitle}>{finalLabel}</Text>
           {sublabel ? (
             <Text style={styles.actionSubtitle}>{sublabel}</Text>
           ) : null}
@@ -190,7 +194,7 @@ export default function ImageCapture({
         )}
       </View>
       <Pressable onPress={clearAll} disabled={disabled}>
-        <Text style={styles.clearText}>Clear all</Text>
+        <Text style={styles.clearText}>{t("camera.clearAll", "Clear all")}</Text>
       </Pressable>
     </View>
   );
@@ -216,7 +220,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#DFF7C4",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginEnd: 12,
   },
   actionTextBlock: {
     flex: 1,

@@ -213,6 +213,14 @@ func (h *RecipeHandler) SearchPublic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lang := r.URL.Query().Get("lang")
+	switch lang {
+	case "en", "fr", "ar":
+		// valid
+	default:
+		lang = "en"
+	}
+
 	limit := 15
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if val, err := strconv.Atoi(l); err == nil && val > 0 && val <= 50 {
@@ -220,7 +228,7 @@ func (h *RecipeHandler) SearchPublic(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recipes, err := h.repo.SearchPublic(r.Context(), query, limit)
+	recipes, err := h.repo.SearchPublic(r.Context(), query, lang, limit)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -268,6 +276,15 @@ func (h *RecipeHandler) SearchPublic(w http.ResponseWriter, r *http.Request) {
 func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
 	// No auth required - public endpoint
 
+	// Language filter: ?lang=en|fr|ar (default "en")
+	lang := r.URL.Query().Get("lang")
+	switch lang {
+	case "en", "fr", "ar":
+		// valid
+	default:
+		lang = "en"
+	}
+
 	// Pagination
 	limit := 20
 	offset := 0
@@ -284,7 +301,7 @@ func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recipes, total, err := h.repo.ListPublic(r.Context(), limit, offset)
+	recipes, total, err := h.repo.ListPublic(r.Context(), lang, limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -315,6 +332,15 @@ func (h *RecipeHandler) ListSuggested(w http.ResponseWriter, r *http.Request) {
 func (h *RecipeHandler) ListFeatured(w http.ResponseWriter, r *http.Request) {
 	// No auth required - public endpoint
 
+	// Language filter: ?lang=en|fr|ar (default "en")
+	lang := r.URL.Query().Get("lang")
+	switch lang {
+	case "en", "fr", "ar":
+		// valid
+	default:
+		lang = "en"
+	}
+
 	// Pagination
 	limit := 30
 	offset := 0
@@ -331,7 +357,7 @@ func (h *RecipeHandler) ListFeatured(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	recipes, total, err := h.repo.ListFeatured(r.Context(), limit, offset)
+	recipes, total, err := h.repo.ListFeatured(r.Context(), lang, limit, offset)
 	if err != nil {
 		response.InternalError(w)
 		return
@@ -595,6 +621,25 @@ func (h *RecipeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
+// DeleteAll handles DELETE /api/v1/recipes
+// Soft-deletes every recipe belonging to the authenticated user in a single
+// database transaction. Used by the mobile "Clear All" feature so the client
+// does not need to fire N individual DELETE requests.
+func (h *RecipeHandler) DeleteAll(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Unauthorized(w, "Authentication required")
+		return
+	}
+
+	if err := h.repo.DeleteAllByUser(r.Context(), user.ID); err != nil {
+		response.InternalError(w)
+		return
+	}
+
+	response.NoContent(w)
+}
+
 // ToggleFavorite handles POST /api/v1/recipes/{recipeID}/favorite
 // @Summary Toggle recipe favorite status
 // @Description Mark or unmark a recipe as favorite
@@ -719,24 +764,28 @@ func (h *RecipeHandler) Clone(w http.ResponseWriter, r *http.Request) {
 	// Create clone
 	now := time.Now().UTC()
 	clone := &model.Recipe{
-		ID:             uuid.New(),
-		UserID:         user.ID,
-		Title:          source.Title,
-		Description:    source.Description,
-		Servings:       source.Servings,
-		PrepTime:       source.PrepTime,
-		CookTime:       source.CookTime,
-		Difficulty:     source.Difficulty,
-		Cuisine:        source.Cuisine,
-		ThumbnailURL:   source.ThumbnailURL,
-		SourceType:     "cloned",
-		SourceURL:      source.SourceURL,
-		SourceRecipeID: &sourceID,
-		Tags:           source.Tags,
-		IsFavorite:     false, // Don't copy favorite status
-		SyncVersion:    1,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:                 uuid.New(),
+		UserID:             user.ID,
+		Title:              source.Title,
+		Description:        source.Description,
+		Servings:           source.Servings,
+		PrepTime:           source.PrepTime,
+		CookTime:           source.CookTime,
+		Difficulty:         source.Difficulty,
+		Cuisine:            source.Cuisine,
+		ThumbnailURL:       source.ThumbnailURL,
+		SourceType:         "cloned",
+		SourceURL:          source.SourceURL,
+		SourceRecipeID:     &sourceID,
+		Tags:               source.Tags,
+		IsFavorite:         false, // Don't copy favorite status
+		ContentLanguage:    source.ContentLanguage,
+		TranslationGroupID: source.TranslationGroupID,
+		Nutrition:          source.Nutrition,
+		DietaryInfo:        source.DietaryInfo,
+		SyncVersion:        1,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 
 	// Clone ingredients with new IDs

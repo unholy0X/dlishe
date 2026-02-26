@@ -1,19 +1,29 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import { useTranslation } from "react-i18next";
 import CalendarIcon from "../icons/CalendarIcon";
 import Svg, { Path } from "react-native-svg";
+import { useLanguageStore } from "../../store/languageStore";
+import { sc } from "../../utils/deviceScale";
 
-const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 function ChevronRightSmall() {
+  const isRTL = useLanguageStore((s) => s.isRTL);
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#385225" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#385225" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}>
       <Path d="M9 18l6-6-6-6" />
     </Svg>
   );
 }
 
 export default function MealPlanCard({ mealsPerDay = [], totalMeals = 0, onPress }) {
+  const { t } = useTranslation("mealPlan");
+  const dayLabels = DAY_KEYS.map((k) => {
+    const short = t(`daysShort.${k}`, { defaultValue: "" });
+    return short ? short : t(`days.${k}`).charAt(0).toUpperCase();
+  });
+
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
@@ -25,14 +35,12 @@ export default function MealPlanCard({ mealsPerDay = [], totalMeals = 0, onPress
 
       <View style={styles.topRow}>
         <View style={styles.iconCircle}>
-          <CalendarIcon width={16} height={16} color="#385225" />
+          <CalendarIcon width={sc(16)} height={sc(16)} color="#385225" />
         </View>
         <View style={styles.titleBlock}>
-          <Text style={styles.title}>Meal Plan</Text>
+          <Text style={styles.title}>{t("card.title")}</Text>
           <Text style={styles.subtitle}>
-            {totalMeals > 0
-              ? `${totalMeals} meal${totalMeals !== 1 ? "s" : ""} this week`
-              : "Plan your week"}
+            {t("card.subtitle", { count: totalMeals })}
           </Text>
         </View>
         <ChevronRightSmall />
@@ -40,7 +48,7 @@ export default function MealPlanCard({ mealsPerDay = [], totalMeals = 0, onPress
 
       {/* Mini week bar */}
       <View style={styles.weekBar}>
-        {DAYS.map((label, i) => {
+        {dayLabels.map((label, i) => {
           const count = mealsPerDay[i] || 0;
           const filled = count > 0;
           return (
@@ -98,9 +106,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: sc(32),
+    height: sc(32),
+    borderRadius: sc(16),
     backgroundColor: "rgba(56, 82, 37, 0.1)",
     alignItems: "center",
     justifyContent: "center",
@@ -110,13 +118,13 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   title: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "700",
     color: "#385225",
     letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 11,
+    fontSize: sc(11),
     fontWeight: "500",
     color: "#5A7A3A",
     marginTop: 1,
@@ -133,13 +141,13 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   dayLabel: {
-    fontSize: 10,
+    fontSize: sc(11),
     fontWeight: "600",
     color: "#5A7A3A",
   },
   dayBar: {
     width: "100%",
-    height: 22,
+    height: sc(22),
     borderRadius: 6,
     backgroundColor: "rgba(255,255,255,0.5)",
     overflow: "hidden",

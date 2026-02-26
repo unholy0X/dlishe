@@ -203,10 +203,10 @@ export const useShoppingStore = create((set, get) => ({
     },
 
     // Smart merge multiple lists
-    mergeLists: async ({ getToken, sourceListIds }) => {
+    mergeLists: async ({ getToken, sourceListIds, name }) => {
         set({ isMerging: true, error: "" });
         try {
-            const merged = await smartMergeLists({ getToken, sourceListIds });
+            const merged = await smartMergeLists({ getToken, sourceListIds, name });
             // Add new merged list and reload to get fresh data
             set((state) => ({
                 isMerging: false,

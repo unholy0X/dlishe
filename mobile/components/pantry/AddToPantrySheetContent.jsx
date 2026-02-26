@@ -20,6 +20,7 @@ import ScanWithAiIcon from "../icons/ScanWithAiIcon";
 import ImageCapture from "../ImageCapture";
 import { usePantryStore } from "../../store";
 import PaywallSheet from "../paywall/PaywallSheet";
+import { useTranslation } from "react-i18next";
 
 // Categories with predefined common items
 const CATEGORIES = [
@@ -96,6 +97,7 @@ const COMMON_UNITS = ["", "g", "kg", "ml", "L", "oz", "lb", "pcs", "bunch", "can
 export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
   const { getToken } = useAuth();
   const { addItem, scanImage, isScanning } = usePantryStore();
+  const { t } = useTranslation("pantry");
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [itemName, setItemName] = useState("");
@@ -135,7 +137,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
       setUnit("");
       onItemAdded?.();
     } catch (err) {
-      Alert.alert("Error", err?.message || "Failed to add item");
+      Alert.alert(t("addSheet.alertOops", "Oops"), err?.message || t("addSheet.alertError", "Something went wrong. Try again?"));
     } finally {
       setIsAdding(false);
     }
@@ -154,10 +156,10 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
 
       const addedCount = scanResult?.addedCount || 0;
       Alert.alert(
-        "All done!",
+        t("addSheet.alertTitle", "All done!"),
         addedCount > 0
-          ? `Added ${addedCount} item${addedCount !== 1 ? "s" : ""} to your pantry!`
-          : "Hmm, we couldn't spot any items. Try a clearer photo of your ingredients."
+          ? t("addSheet.alertAdded", { count: addedCount, defaultValue: `Added ${addedCount} item${addedCount !== 1 ? "s" : ""} to your pantry!` })
+          : t("addSheet.alertNoItems", "Hmm, we couldn't spot any items. Try a clearer photo of your ingredients.")
       );
 
       setCapturedImages([]);
@@ -169,7 +171,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
       if (msg.includes("quota_exceeded") || msg.includes("monthly scan limit")) {
         setPaywallVisible(true);
       } else {
-        Alert.alert("Oops", err?.message || "Something went wrong. Try again?");
+        Alert.alert(t("addSheet.alertOops", "Oops"), err?.message || t("addSheet.alertError", "Something went wrong. Try again?"));
       }
     }
   }, [capturedImages, getToken, scanImage, onItemAdded]);
@@ -185,14 +187,14 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
         <Pressable onPress={onPressBack}>
           <BlurView intensity={100} tint="light" style={styles.backPill}>
             <ArrowLeftIcon width={9} height={8} color="#555555" />
-            <Text style={styles.backText}>Back</Text>
+            <Text style={styles.backText}>{t("addSheet.back", "Back")}</Text>
           </BlurView>
         </Pressable>
-        <Text style={styles.headerTitle}>Add to pantry</Text>
+        <Text style={styles.headerTitle}>{t("addSheet.title", "Add to pantry")}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <Text style={styles.sectionTitle}>Browse by category</Text>
+      <Text style={styles.sectionTitle}>{t("addSheet.browseCategory", "Browse by category")}</Text>
       <View style={styles.grid}>
         {CATEGORIES.map((item, index) => (
           <Pressable
@@ -201,33 +203,33 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
             onPress={() => handleCategoryTap(item)}
           >
             <Image source={item.image} style={styles.cardImage} resizeMode="contain" />
-            <Text style={styles.cardText}>{item.label}</Text>
+            <Text style={styles.cardText}>{t(`categories.${item.key}`, item.label)}</Text>
           </Pressable>
         ))}
       </View>
 
-      <Text style={styles.sectionTitle}>Or import in bulk</Text>
+      <Text style={styles.sectionTitle}>{t("addSheet.importBulk", "Or import in bulk")}</Text>
       <ImageCapture
         images={capturedImages}
         onImagesChange={setCapturedImages}
         maxImages={1}
         quality={0.6}
         disabled={isScanning}
-        label="Snap your groceries"
-        sublabel="Add items from a photo"
+        label={t("addSheet.snapTitle", "Snap your groceries")}
+        sublabel={t("addSheet.snapSubtitle", "Add items from a photo")}
       />
 
       {capturedImages.length > 0 && !isScanning && (
         <Pressable style={styles.scanButton} onPress={handleScanWithAI}>
           <ScanWithAiIcon width={20} height={18} color="#2a5a2a" />
-          <Text style={styles.scanButtonText}>Scan for ingredients</Text>
+          <Text style={styles.scanButtonText}>{t("addSheet.scanBtn", "Scan for ingredients")}</Text>
         </Pressable>
       )}
 
       {isScanning && (
         <View style={styles.scanningRow}>
           <ActivityIndicator size="small" color="#141B34" />
-          <Text style={styles.scanningText}>Spotting items…</Text>
+          <Text style={styles.scanningText}>{t("addSheet.spotting", "Spotting items…")}</Text>
         </View>
       )}
 
@@ -250,12 +252,12 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
         >
           <Pressable style={styles.modalOverlay} onPress={closeModal}>
             <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-              <Text style={styles.modalTitle}>Add {selectedCategory?.label}</Text>
+              <Text style={styles.modalTitle}>{t("addSheet.addCategory", { category: t(`categories.${selectedCategory?.key}`, selectedCategory?.label) })}</Text>
 
               {/* Quick Pick Items */}
               {!showCustomInput && (
                 <>
-                  <Text style={styles.pickLabel}>Quick pick:</Text>
+                  <Text style={styles.pickLabel}>{t("addSheet.quickPick", "Quick pick:")}</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -269,14 +271,14 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
                         onPress={() => handleItemSelect(item)}
                       >
                         <Text style={[styles.itemChipText, itemName === item && styles.itemChipTextSelected]}>
-                          {item}
+                          {t(`items.${item}`, item)}
                         </Text>
                       </Pressable>
                     ))}
                   </ScrollView>
 
                   <Pressable style={styles.customBtn} onPress={() => setShowCustomInput(true)}>
-                    <Text style={styles.customBtnText}>+ Type custom item</Text>
+                    <Text style={styles.customBtnText}>{t("addSheet.typeCustom", "+ Type custom item")}</Text>
                   </Pressable>
                 </>
               )}
@@ -284,9 +286,9 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
               {/* Custom Input */}
               {showCustomInput && (
                 <>
-                  <Text style={styles.pickLabel}>Item name:</Text>
+                  <Text style={styles.pickLabel}>{t("addSheet.itemName", "Item name:")}</Text>
                   <TextInput
-                    placeholder="e.g. Almond Milk"
+                    placeholder={t("addSheet.itemPlaceholder", "e.g. Almond Milk")}
                     placeholderTextColor="#B4B4B4"
                     style={styles.modalInput}
                     value={itemName}
@@ -294,7 +296,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
                     autoFocus
                   />
                   <Pressable style={styles.backToQuickPick} onPress={() => setShowCustomInput(false)}>
-                    <Text style={styles.backToQuickPickText}>← Back to quick pick</Text>
+                    <Text style={styles.backToQuickPickText}>{t("addSheet.backToQuickPick", "← Back to quick pick")}</Text>
                   </Pressable>
                 </>
               )}
@@ -303,7 +305,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
               {itemName ? (
                 <View style={styles.quantityRow}>
                   <View style={styles.quantityInputWrap}>
-                    <Text style={styles.pickLabel}>Qty (optional)</Text>
+                    <Text style={styles.pickLabel}>{t("addSheet.qty", "Qty (optional)")}</Text>
                     <TextInput
                       placeholder="1"
                       placeholderTextColor="#B4B4B4"
@@ -314,7 +316,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
                     />
                   </View>
                   <View style={styles.unitWrap}>
-                    <Text style={styles.pickLabel}>Unit</Text>
+                    <Text style={styles.pickLabel}>{t("addSheet.unit", "Unit")}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       {COMMON_UNITS.map((u) => (
                         <Pressable
@@ -335,7 +337,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
               {/* Actions */}
               <View style={styles.modalButtons}>
                 <Pressable style={styles.modalCancelBtn} onPress={closeModal}>
-                  <Text style={styles.modalCancelText}>Cancel</Text>
+                  <Text style={styles.modalCancelText}>{t("addSheet.cancel", "Cancel")}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.modalAddBtn, (!itemName.trim() || isAdding) && styles.modalAddBtnDisabled]}
@@ -345,7 +347,7 @@ export default function AddToPantrySheetContent({ onPressBack, onItemAdded }) {
                   {isAdding ? (
                     <ActivityIndicator size="small" color="#2a5a2a" />
                   ) : (
-                    <Text style={styles.modalAddText}>Add</Text>
+                    <Text style={styles.modalAddText}>{t("addSheet.addBtn", "Add")}</Text>
                   )}
                 </Pressable>
               </View>
@@ -378,7 +380,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   backText: {
-    marginLeft: 8,
+    marginStart: 8,
     fontSize: 12,
     color: "#555555",
   },
@@ -480,7 +482,7 @@ const styles = StyleSheet.create({
   },
   itemsScrollContent: {
     gap: 8,
-    paddingRight: 40,
+    paddingEnd: 40,
   },
   itemChip: {
     backgroundColor: "#F4F5F7",
@@ -548,7 +550,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginRight: 6,
+    marginEnd: 6,
   },
   unitChipSelected: {
     backgroundColor: "#7FEF80",

@@ -9,7 +9,9 @@ import {
   Dimensions,
   ActivityIndicator,
 } from "react-native";
+import { sc } from "../utils/deviceScale";
 import { LinearGradient } from "expo-linear-gradient";
+import { useTranslation } from "react-i18next";
 import HeartIcon from "./icons/HeartIcon";
 import RecipePlaceholder from "./RecipePlaceholder";
 
@@ -18,12 +20,12 @@ const { width: SCREEN_W } = Dimensions.get("window");
 // All iPhones are ≤ 430pt so this has zero effect on phones.
 const CARD_H = Math.min(SCREEN_W, 500) * 1.25;
 
-function buildMeta(recipe) {
+function buildMeta(recipe, t) {
   const parts = [];
   const total = (recipe.prepTime || 0) + (recipe.cookTime || 0);
-  if (total > 0) parts.push(`${total} min`);
-  if (recipe.difficulty) parts.push(recipe.difficulty);
-  if (recipe.servings) parts.push(`${recipe.servings} servings`);
+  if (total > 0) parts.push(t("time.minOnly", { m: total, ns: "common" }));
+  if (recipe.difficulty) parts.push(t(`difficulty.${recipe.difficulty.toLowerCase()}`, { ns: "recipe", defaultValue: recipe.difficulty }));
+  if (recipe.servings) parts.push(t("units.servings", { count: recipe.servings, ns: "common" }));
   return parts.join("  ·  ");
 }
 
@@ -34,6 +36,7 @@ export default function DinnerInspirationSheet({
   savedIds,
   savingIds,
 }) {
+  const { t } = useTranslation("home");
   const [index, setIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -132,15 +135,15 @@ export default function DinnerInspirationSheet({
 
     onSave?.(id);
     pendingAutoAdvance.current = true;
-    showToast("Saved to your favorites");
+    showToast(t("inspiration.savedToFavorites"));
   }, [recipe, savedIds, savingIds, onSave, showToast]);
 
   if (!recipes.length) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>No dinner ideas yet</Text>
+        <Text style={styles.emptyTitle}>{t("inspiration.noIdeas")}</Text>
         <Text style={styles.emptySubtitle}>
-          Add more recipes to get inspired
+          {t("inspiration.addMore")}
         </Text>
       </View>
     );
@@ -149,7 +152,7 @@ export default function DinnerInspirationSheet({
   if (!recipe) return null;
 
   const imageSource = recipe.thumbnailUrl ? { uri: recipe.thumbnailUrl } : null;
-  const meta = buildMeta(recipe);
+  const meta = buildMeta(recipe, t);
   const isSaved = savedIds?.has(recipe.id);
   const isSaving = savingIds?.has(recipe.id);
   const cuisine = recipe.cuisine || recipe.dietaryInfo?.cuisine;
@@ -166,7 +169,7 @@ export default function DinnerInspirationSheet({
       {/* Counter */}
       <View style={styles.counterRow}>
         <Text style={styles.counterText}>
-          {index + 1} / {recipes.length}
+          {t("inspiration.counter", { current: index + 1, total: recipes.length })}
         </Text>
       </View>
 
@@ -195,7 +198,7 @@ export default function DinnerInspirationSheet({
           ) : null}
           {protein ? (
             <View style={[styles.badge, styles.badgeProtein]}>
-              <Text style={styles.badgeText}>{protein}g protein</Text>
+              <Text style={styles.badgeText}>{t("detail.protein", { value: protein, ns: "recipe" })}</Text>
             </View>
           ) : null}
         </View>
@@ -229,7 +232,7 @@ export default function DinnerInspirationSheet({
           </Text>
           {meta ? <Text style={styles.heroMeta}>{meta}</Text> : null}
           {calories ? (
-            <Text style={styles.heroCals}>{calories} kcal / serving</Text>
+            <Text style={styles.heroCals}>{t("detail.calories", { value: calories, ns: "recipe" })}</Text>
           ) : null}
         </View>
       </Animated.View>
@@ -240,7 +243,7 @@ export default function DinnerInspirationSheet({
           style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.7 }]}
           onPress={animateNext}
         >
-          <Text style={styles.skipText}>Not feeling it</Text>
+          <Text style={styles.skipText}>{t("inspiration.notFeeling")}</Text>
         </Pressable>
 
         <Pressable
@@ -254,7 +257,7 @@ export default function DinnerInspirationSheet({
           {isSaving ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <HeartIcon width={22} height={22} color="#fff" filled={isSaved} />
+            <HeartIcon width={sc(22)} height={sc(22)} color="#fff" filled={isSaved} />
           )}
         </Pressable>
 
@@ -262,7 +265,7 @@ export default function DinnerInspirationSheet({
           style={({ pressed }) => [styles.cookBtn, pressed && { opacity: 0.85 }]}
           onPress={() => onCook?.(recipe)}
         >
-          <Text style={styles.cookText}>Let's cook!</Text>
+          <Text style={styles.cookText}>{t("inspiration.letsCook")}</Text>
         </Pressable>
       </View>
     </View>
@@ -279,7 +282,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   counterText: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#B4B4B4",
     fontWeight: "600",
     letterSpacing: 1,
@@ -323,7 +326,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(127, 238, 127, 0.4)",
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: sc(13),
     fontWeight: "600",
     color: "#ffffff",
     textShadowColor: "rgba(0,0,0,0.3)",
@@ -357,7 +360,7 @@ const styles = StyleSheet.create({
     padding: 22,
   },
   heroTitle: {
-    fontSize: 26,
+    fontSize: sc(26),
     fontWeight: "700",
     color: "#ffffff",
     letterSpacing: -0.5,
@@ -366,13 +369,13 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
   heroMeta: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "rgba(255,255,255,0.8)",
     marginTop: 6,
     fontWeight: "500",
   },
   heroCals: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "rgba(255,255,255,0.6)",
     marginTop: 3,
   },
@@ -388,41 +391,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F0F0F0",
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: sc(16),
     alignItems: "center",
   },
   skipText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#888",
   },
   heartBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: sc(52),
+    height: sc(52),
+    borderRadius: sc(26),
     backgroundColor: "#E84057",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#E84057",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
   heartBtnSaved: {
     backgroundColor: "#C43049",
   },
   cookBtn: {
     flex: 1,
-    backgroundColor: "#111111",
+    backgroundColor: "#1E5C0A",
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: sc(16),
     alignItems: "center",
+    shadowColor: "#1E5C0A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
   cookText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "700",
     color: "#ffffff",
+    letterSpacing: 0.2,
   },
   // Empty
   emptyContainer: {

@@ -1,0 +1,71 @@
+{
+  "title": "Meal Plan",
+  "days": {
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun",
+    "monday": "Monday",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday",
+    "saturday": "Saturday",
+    "sunday": "Sunday"
+  },
+  "daysShort": {
+    "mon": "M",
+    "tue": "T",
+    "wed": "W",
+    "thu": "T",
+    "fri": "F",
+    "sat": "S",
+    "sun": "S"
+  },
+  "mealTypes": {
+    "breakfast": "Breakfast",
+    "lunch": "Lunch",
+    "dinner": "Dinner",
+    "snack": "Snack",
+    "more": "More"
+  },
+  "empty": {
+    "noMeals": "No meals planned yet",
+    "hint": "Tap “+ Add recipe” on any slot above to start building your week"
+  },
+  "info": "Info",
+  "listCreated": "Shopping List Created",
+  "listCreatedMsg": "{{count}} items added to your shopping list — find it in the Shopping tab.",
+  "allInPantry": "Nothing to buy — all ingredients are already in your pantry!",
+  "generatedListName": "Meal Plan — Week of {{date}}",
+  "generateList": "Generate Shopping List",
+  "addRecipe": "+ Add recipe",
+  "addRecipeTitle": "Add recipe",
+  "searchRecipes": "Search recipes…",
+  "card": {
+    "title": "Meal Plan",
+    "subtitle_zero": "Plan your week",
+    "subtitle_one": "{{count}} meal this week",
+    "subtitle_two": "{{count}} meals this week",
+    "subtitle_few": "{{count}} meals this week",
+    "subtitle_many": "{{count}} meals this week",
+    "subtitle_other": "{{count}} meals this week"
+  },
+  "addSheet": {
+    "title": "Add Recipe",
+    "searchPlaceholder": "Search your recipes...",
+    "emptyMatch": "No recipes match your search",
+    "emptySaved": "No saved recipes",
+    "tryDifferent": "Try a different search term",
+    "extractFirst": "Extract or create a recipe first"
+  },
+  "fallback": {
+    "recipe": "Recipe"
+  },
+  "slot": {
+    "addBtn": "+ Add recipe"
+  }
+}

@@ -22,6 +22,8 @@ import BottomSheetModal from "../components/BottomSheetModal";
 import CheckIcon from "../components/icons/CheckIcon";
 import ShoppingIcon from "../components/icons/ShoppingIcon";
 import { useShoppingStore } from "../store";
+import { useTranslation } from "react-i18next";
+import { sc } from "../utils/deviceScale";
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -127,8 +129,10 @@ const CATEGORY_TINTS = {
 
 // ─── CategoryFolder ─────────────────────────────────────────────────────────
 const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, onDeleteItem }) => {
+    const { t } = useTranslation("pantry");
     const image = CATEGORY_IMAGES[category] || CATEGORY_IMAGES.other;
     const label = CATEGORY_LABELS[category] || "Other";
+    const translatedLabel = t(`categories.${category}`, label);
     const tint = CATEGORY_TINTS[category] || CATEGORY_TINTS.other;
     const checkedCount = items.filter((i) => i.isChecked).length;
     const allChecked = items.length > 0 && checkedCount === items.length;
@@ -147,7 +151,7 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
                 </View>
                 <View style={styles.folderInfo}>
                     <Text style={[styles.folderTitle, allChecked && styles.folderTitleDone]}>
-                        {label}
+                        {translatedLabel}
                     </Text>
                     <View style={styles.folderMeta}>
                         <Text style={styles.folderCount}>
@@ -170,7 +174,7 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
                 <View style={styles.previewRow}>
                     {previewItems.map((item) => (
                         <View key={item.id} style={styles.previewChip}>
-                            <Text style={styles.previewChipText} numberOfLines={1}>{item.name}</Text>
+                            <Text style={styles.previewChipText} numberOfLines={1}>{t(`items.${item.name}`, item.name)}</Text>
                         </View>
                     ))}
                     {uncheckedItems.length > 4 && (
@@ -193,18 +197,18 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
                             delayLongPress={400}
                         >
                             <View style={[styles.checkbox, item.isChecked && styles.checkboxChecked]}>
-                                {item.isChecked && <CheckIcon width={10} height={10} color="#ffffff" />}
+                                {item.isChecked && <CheckIcon width={sc(10)} height={sc(10)} color="#ffffff" />}
                             </View>
                             <View style={styles.itemContent}>
                                 <Text
                                     style={[styles.itemName, item.isChecked && styles.itemNameChecked]}
                                     numberOfLines={1}
                                 >
-                                    {item.name}
+                                    {t(`items.${item.name}`, item.name)}
                                 </Text>
                                 {item.quantity && (
                                     <Text style={[styles.itemQty, item.isChecked && styles.itemQtyChecked]}>
-                                        {item.quantity}{item.unit ? ` ${item.unit}` : ""}
+                                        {item.quantity}{item.unit ? ` ${t(`units.${item.unit}`, item.unit)}` : ""}
                                     </Text>
                                 )}
                             </View>
@@ -225,6 +229,7 @@ const CategoryFolder = ({ category, items, isExpanded, onToggle, onToggleItem, o
 
 // ─── AddItemSheet ────────────────────────────────────────────────────────────
 const AddItemSheet = ({ onClose, onAdd }) => {
+    const { t } = useTranslation(["shopping", "pantry"]);
     const [mode, setMode] = useState("quick"); // "quick" | "browse"
     const [name, setName] = useState("");
     const [quantity, setQuantity] = useState("");
@@ -245,7 +250,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
             setSelectedCategory(null);
             setShowCustomInput(false);
         } catch {
-            Alert.alert("Error", "Failed to add item");
+            Alert.alert(t("errors:shopping.updateItemFailed"), t("tryAgain", { ns: "common" }));
         } finally {
             setIsAdding(false);
         }
@@ -275,7 +280,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
 
     return (
         <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Add Item</Text>
+            <Text style={styles.sheetTitle}>{t("detail.addItemSheet")}</Text>
 
             {/* Mode toggle */}
             <View style={styles.modeToggle}>
@@ -283,23 +288,23 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                     style={[styles.modeTab, mode === "quick" && styles.modeTabActive]}
                     onPress={() => { setMode("quick"); resetBrowse(); }}
                 >
-                    <Text style={[styles.modeTabText, mode === "quick" && styles.modeTabTextActive]}>Quick Add</Text>
+                    <Text style={[styles.modeTabText, mode === "quick" && styles.modeTabTextActive]}>{t("detail.quickAdd")}</Text>
                 </Pressable>
                 <Pressable
                     style={[styles.modeTab, mode === "browse" && styles.modeTabActive]}
                     onPress={() => { setMode("browse"); setName(""); setQuantity(""); setUnit(""); }}
                 >
-                    <Text style={[styles.modeTabText, mode === "browse" && styles.modeTabTextActive]}>Browse</Text>
+                    <Text style={[styles.modeTabText, mode === "browse" && styles.modeTabTextActive]}>{t("detail.browse")}</Text>
                 </Pressable>
             </View>
 
             {/* Quick Add mode */}
             {mode === "quick" && (
                 <>
-                    <Text style={styles.inputLabel}>Item name</Text>
+                    <Text style={styles.inputLabel}>{t("detail.itemNameLabel")}</Text>
                     <TextInput
                         style={styles.textInput}
-                        placeholder="e.g. Milk"
+                        placeholder={t("detail.itemPlaceholder")}
                         placeholderTextColor="#B4B4B4"
                         value={name}
                         onChangeText={setName}
@@ -309,7 +314,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                     {showQtyInputs && (
                         <View style={styles.qtyRow}>
                             <View style={styles.qtyInputWrap}>
-                                <Text style={styles.inputLabel}>Quantity</Text>
+                                <Text style={styles.inputLabel}>{t("detail.qtyLabel", "Quantity")}</Text>
                                 <TextInput
                                     style={styles.qtyInput}
                                     placeholder="1"
@@ -320,7 +325,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                                 />
                             </View>
                             <View style={styles.unitWrap}>
-                                <Text style={styles.inputLabel}>Unit</Text>
+                                <Text style={styles.inputLabel}>{t("detail.unitLabel", "Unit")}</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                     {COMMON_UNITS.map((u) => (
                                         <Pressable
@@ -340,7 +345,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
 
                     <View style={styles.sheetButtons}>
                         <Pressable style={styles.cancelBtn} onPress={onClose}>
-                            <Text style={styles.cancelBtnText}>Cancel</Text>
+                            <Text style={styles.cancelBtnText}>{t("buttons.cancel", { ns: "common" })}</Text>
                         </Pressable>
                         <Pressable
                             style={[styles.addBtn, (!name.trim() || isAdding) && styles.addBtnDisabled]}
@@ -350,7 +355,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                             {isAdding ? (
                                 <ActivityIndicator size="small" color="#2a5a2a" />
                             ) : (
-                                <Text style={styles.addBtnText}>Add</Text>
+                                <Text style={styles.addBtnText}>{t("buttons.add", { ns: "common" })}</Text>
                             )}
                         </Pressable>
                     </View>
@@ -360,7 +365,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
             {/* Browse mode */}
             {mode === "browse" && !selectedCategory && (
                 <>
-                    <Text style={styles.browseSectionTitle}>Browse by category</Text>
+                    <Text style={styles.browseSectionTitle}>{t("detail.browseByCategory")}</Text>
                     <View style={styles.categoryGrid}>
                         {CATEGORIES.map((cat) => (
                             <Pressable
@@ -369,7 +374,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                                 onPress={() => handleCategoryTap(cat)}
                             >
                                 <Image source={cat.image} style={styles.categoryCardImage} resizeMode="contain" />
-                                <Text style={styles.categoryCardText}>{cat.label}</Text>
+                                <Text style={styles.categoryCardText}>{t(`pantry:categories.${cat.key}`, cat.label)}</Text>
                             </Pressable>
                         ))}
                     </View>
@@ -380,15 +385,15 @@ const AddItemSheet = ({ onClose, onAdd }) => {
             {mode === "browse" && selectedCategory && (
                 <>
                     <Pressable onPress={resetBrowse} style={styles.browseBackBtn}>
-                        <Text style={styles.browseBackText}>← All categories</Text>
+                        <Text style={styles.browseBackText}>{t("detail.allCategories")}</Text>
                     </Pressable>
 
-                    <Text style={styles.browseCategoryTitle}>{selectedCategory.label}</Text>
+                    <Text style={styles.browseCategoryTitle}>{t(`pantry:categories.${selectedCategory.key}`, selectedCategory.label)}</Text>
 
                     {/* Quick pick chips */}
                     {!showCustomInput && (
                         <>
-                            <Text style={styles.inputLabel}>Quick pick:</Text>
+                            <Text style={styles.inputLabel}>{t("pantry:addSheet.quickPick", "Quick pick:")}</Text>
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
@@ -402,14 +407,14 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                                         onPress={() => handleQuickPickItem(item)}
                                     >
                                         <Text style={[styles.quickPickChipText, name === item && styles.quickPickChipTextSelected]}>
-                                            {item}
+                                            {t(`pantry:items.${item}`, item)}
                                         </Text>
                                     </Pressable>
                                 ))}
                             </ScrollView>
 
                             <Pressable style={styles.customInputLink} onPress={() => setShowCustomInput(true)}>
-                                <Text style={styles.customInputLinkText}>+ Type custom item</Text>
+                                <Text style={styles.customInputLinkText}>{t("detail.customItem")}</Text>
                             </Pressable>
                         </>
                     )}
@@ -417,17 +422,17 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                     {/* Custom input */}
                     {showCustomInput && (
                         <>
-                            <Text style={styles.inputLabel}>Item name:</Text>
+                            <Text style={styles.inputLabel}>{t("pantry:addSheet.itemName", "Item name:")}</Text>
                             <TextInput
                                 style={styles.textInput}
-                                placeholder="e.g. Almond Milk"
+                                placeholder={t("pantry:addSheet.itemPlaceholder", "e.g. Almond Milk")}
                                 placeholderTextColor="#B4B4B4"
                                 value={name}
                                 onChangeText={setName}
                                 autoFocus
                             />
                             <Pressable onPress={() => setShowCustomInput(false)} style={styles.browseBackBtn}>
-                                <Text style={styles.browseBackText}>← Back to quick pick</Text>
+                                <Text style={styles.browseBackText}>{t("detail.backToQuickPick")}</Text>
                             </Pressable>
                         </>
                     )}
@@ -436,7 +441,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                     {showQtyInputs && (
                         <View style={styles.qtyRow}>
                             <View style={styles.qtyInputWrap}>
-                                <Text style={styles.inputLabel}>Qty (optional)</Text>
+                                <Text style={styles.inputLabel}>{t("pantry:addSheet.qty", "Qty (optional)")}</Text>
                                 <TextInput
                                     style={styles.qtyInput}
                                     placeholder="1"
@@ -447,7 +452,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                                 />
                             </View>
                             <View style={styles.unitWrap}>
-                                <Text style={styles.inputLabel}>Unit</Text>
+                                <Text style={styles.inputLabel}>{t("pantry:addSheet.unit", "Unit")}</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                     {COMMON_UNITS.map((u) => (
                                         <Pressable
@@ -467,7 +472,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
 
                     <View style={styles.sheetButtons}>
                         <Pressable style={styles.cancelBtn} onPress={onClose}>
-                            <Text style={styles.cancelBtnText}>Cancel</Text>
+                            <Text style={styles.cancelBtnText}>{t("buttons.cancel", { ns: "common" })}</Text>
                         </Pressable>
                         <Pressable
                             style={[styles.addBtn, (!name.trim() || isAdding) && styles.addBtnDisabled]}
@@ -477,7 +482,7 @@ const AddItemSheet = ({ onClose, onAdd }) => {
                             {isAdding ? (
                                 <ActivityIndicator size="small" color="#2a5a2a" />
                             ) : (
-                                <Text style={styles.addBtnText}>Add</Text>
+                                <Text style={styles.addBtnText}>{t("buttons.add", { ns: "common" })}</Text>
                             )}
                         </Pressable>
                     </View>
@@ -489,22 +494,23 @@ const AddItemSheet = ({ onClose, onAdd }) => {
 
 // ─── StockPantrySheet ────────────────────────────────────────────────────────
 const StockPantrySheet = ({ items, onStock, onDismiss }) => {
+    const { t } = useTranslation("shopping");
     const [isStocking, setIsStocking] = useState(false);
 
     const categoryBreakdown = useMemo(() => {
         const groups = {};
         (items || []).forEach((item) => {
-            const cat = item.category || "other";
+            const cat = (item.category || "other").toLowerCase();
             if (!groups[cat]) groups[cat] = { count: 0 };
             groups[cat].count += 1;
         });
         return Object.entries(groups).map(([key, val]) => ({
             key,
-            label: CATEGORY_LABELS[key] || "Other",
+            label: t(`pantry:categories.${key}`, CATEGORY_LABELS[key] || "Other"),
             image: CATEGORY_IMAGES[key] || CATEGORY_IMAGES.other,
             count: val.count,
         }));
-    }, [items]);
+    }, [items, t]);
 
     const totalItems = items?.length || 0;
 
@@ -513,17 +519,15 @@ const StockPantrySheet = ({ items, onStock, onDismiss }) => {
         try {
             await onStock();
         } catch {
-            Alert.alert("Error", "Failed to stock pantry");
+            Alert.alert(t("errors:shopping.completeListFailed"), t("tryAgain", { ns: "common" }));
             setIsStocking(false);
         }
     };
 
     return (
         <View style={styles.stockSheet}>
-            <Text style={styles.stockTitle}>Stock Your Pantry</Text>
-            <Text style={styles.stockSubtitle}>
-                {totalItems} item{totalItems !== 1 ? "s" : ""} will be added to your pantry
-            </Text>
+            <Text style={styles.stockTitle}>{t("detail.stockPantryTitle")}</Text>
+            <Text style={styles.stockSubtitle}>{t("detail.stockPantrySubtitle", { count: totalItems })}</Text>
 
             {/* Category breakdown horizontal scroll */}
             <ScrollView
@@ -549,12 +553,12 @@ const StockPantrySheet = ({ items, onStock, onDismiss }) => {
                 {isStocking ? (
                     <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                    <Text style={styles.stockButtonText}>Stock Pantry</Text>
+                    <Text style={styles.stockButtonText}>{t("detail.stockPantryBtn")}</Text>
                 )}
             </Pressable>
 
             <Pressable style={styles.stockDismiss} onPress={onDismiss} disabled={isStocking}>
-                <Text style={styles.stockDismissText}>Not yet</Text>
+                <Text style={styles.stockDismissText}>{t("detail.notYet")}</Text>
             </Pressable>
         </View>
     );
@@ -565,6 +569,7 @@ export default function ShoppingListScreen() {
     const router = useRouter();
     const { id: listId } = useLocalSearchParams();
     const { getToken } = useAuth();
+    const { t } = useTranslation("shopping");
 
     const [isAddSheetOpen, setAddSheetOpen] = useState(false);
     const [isStockSheetOpen, setStockSheetOpen] = useState(false);
@@ -604,30 +609,30 @@ export default function ShoppingListScreen() {
             try {
                 await toggleChecked({ getToken, listId, itemId });
             } catch (err) {
-                Alert.alert("Couldn't update item", "Please check your connection and try again.");
+                Alert.alert(t("errors:shopping.updateItemFailed"), t("tryAgain", { ns: "common" }));
             }
         },
-        [getToken, listId]
+        [getToken, listId, t]
     );
 
     const handleDeleteItem = useCallback(
         (itemId) => {
-            Alert.alert("Delete Item", "Remove this item?", [
-                { text: "Cancel", style: "cancel" },
+            Alert.alert(t("detail.deleteItem"), t("detail.deleteItemMessage"), [
+                { text: t("buttons.cancel", { ns: "common" }), style: "cancel" },
                 {
-                    text: "Delete",
+                    text: t("buttons.delete", { ns: "common" }),
                     style: "destructive",
                     onPress: async () => {
                         try {
                             await removeItem({ getToken, listId, itemId });
                         } catch (err) {
-                            Alert.alert("Couldn't remove item", "Please check your connection and try again.");
+                            Alert.alert(t("errors:shopping.removeItemFailed"), t("tryAgain", { ns: "common" }));
                         }
                     },
                 },
             ]);
         },
-        [getToken, listId]
+        [getToken, listId, t]
     );
 
     const handleAddItem = useCallback(
@@ -647,9 +652,9 @@ export default function ShoppingListScreen() {
             setStockSheetOpen(false);
             router.back();
         } catch (err) {
-            Alert.alert("Couldn't complete list", "Please check your connection and try again.");
+            Alert.alert(t("errors:shopping.completeListFailed"), t("tryAgain", { ns: "common" }));
         }
-    }, [getToken, listId]);
+    }, [getToken, listId, t]);
 
     const toggleCategory = useCallback((category) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -664,7 +669,7 @@ export default function ShoppingListScreen() {
         const items = activeList?.items || [];
         const groups = {};
         items.forEach((item) => {
-            const cat = item.category || "other";
+            const cat = (item.category || "other").toLowerCase();
             if (!groups[cat]) groups[cat] = [];
             groups[cat].push(item);
         });
@@ -687,7 +692,7 @@ export default function ShoppingListScreen() {
             <View style={styles.screen}>
                 <SafeAreaView style={styles.centered}>
                     <ActivityIndicator size="large" color="#385225" />
-                    <Text style={styles.loadingText}>Loading list…</Text>
+                    <Text style={styles.loadingText}>{t("listLoading")}</Text>
                 </SafeAreaView>
             </View>
         );
@@ -706,12 +711,12 @@ export default function ShoppingListScreen() {
                         </Pressable>
                         <View style={styles.headerCenter}>
                             <Text style={styles.listTitle} numberOfLines={1}>
-                                {activeList?.name || "Shopping List"}
+                                {activeList?.name || t("detail.shoppingList")}
                             </Text>
                         </View>
                         {totalItems > 0 && (
                             <Pressable style={styles.completeBtn} onPress={handleComplete}>
-                                <CheckIcon width={16} height={16} color="#ffffff" />
+                                <CheckIcon width={sc(16)} height={sc(16)} color="#ffffff" />
                             </Pressable>
                         )}
                     </View>
@@ -719,7 +724,7 @@ export default function ShoppingListScreen() {
                         <View style={styles.headerStats}>
                             <View style={styles.headerProgressRow}>
                                 <Text style={styles.headerProgressLabel}>
-                                    {checkedItems} of {totalItems} items
+                                    {t("detail.checked", { count: totalItems, checked: checkedItems, total: totalItems })}
                                 </Text>
                                 <Text style={styles.headerProgressPercent}>
                                     {Math.round(progress * 100)}%
@@ -729,7 +734,7 @@ export default function ShoppingListScreen() {
                                 <View style={[styles.headerProgressFill, { width: `${progress * 100}%` }]} />
                             </View>
                             <Text style={styles.headerCategoryCount}>
-                                {categoryCount} categor{categoryCount !== 1 ? "ies" : "y"}
+                                {t("detail.categories", { count: categoryCount })}
                             </Text>
                         </View>
                     )}
@@ -743,12 +748,12 @@ export default function ShoppingListScreen() {
                 ) : totalItems === 0 ? (
                     <View style={styles.emptyState}>
                         <View style={styles.emptyIconWrap}>
-                            <ShoppingIcon width={36} height={32} color="#385225" />
+                            <ShoppingIcon width={sc(36)} height={sc(32)} color="#385225" />
                         </View>
-                        <Text style={styles.emptyTitle}>This list is empty</Text>
-                        <Text style={styles.emptySubtitle}>Tap the button below to add your first item</Text>
+                        <Text style={styles.emptyTitle}>{t("detail.listEmpty")}</Text>
+                        <Text style={styles.emptySubtitle}>{t("detail.listEmptyHint")}</Text>
                         <Pressable style={styles.emptyBtn} onPress={() => setAddSheetOpen(true)}>
-                            <Text style={styles.emptyBtnText}>+ Add Item</Text>
+                            <Text style={styles.emptyBtnText}>{t("detail.addItemBtn")}</Text>
                         </Pressable>
                     </View>
                 ) : (
@@ -824,11 +829,11 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         marginTop: 12,
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#6b6b6b",
     },
     errorText: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#cc3b3b",
     },
     // Header hero
@@ -871,32 +876,32 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     backPill: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: sc(36),
+        height: sc(36),
+        borderRadius: sc(18),
         backgroundColor: "#F4F5F7",
         alignItems: "center",
         justifyContent: "center",
     },
     backText: {
-        fontSize: 16,
+        fontSize: sc(16),
         color: "#333333",
         fontWeight: "500",
     },
     headerCenter: {
         flex: 1,
-        marginLeft: 12,
+        marginStart: 12,
     },
     listTitle: {
-        fontSize: 20,
+        fontSize: sc(20),
         fontWeight: "700",
         color: "#111111",
         letterSpacing: -0.3,
     },
     completeBtn: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
+        width: sc(38),
+        height: sc(38),
+        borderRadius: sc(19),
         backgroundColor: "#2a5a2a",
         alignItems: "center",
         justifyContent: "center",
@@ -911,11 +916,11 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     headerProgressLabel: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#6b6b6b",
     },
     headerProgressPercent: {
-        fontSize: 14,
+        fontSize: sc(14),
         fontWeight: "700",
         color: "#2a5a2a",
     },
@@ -931,7 +936,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#7FEF80",
     },
     headerCategoryCount: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#B4B4B4",
         marginTop: 6,
     },
@@ -967,23 +972,23 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     folderImageWrap: {
-        width: 52,
-        height: 52,
+        width: sc(52),
+        height: sc(52),
         borderRadius: 16,
         backgroundColor: "rgba(255,255,255,0.7)",
         alignItems: "center",
         justifyContent: "center",
     },
     folderImage: {
-        width: 40,
-        height: 40,
+        width: sc(40),
+        height: sc(40),
     },
     folderInfo: {
         flex: 1,
-        marginLeft: 12,
+        marginStart: 12,
     },
     folderTitle: {
-        fontSize: 16,
+        fontSize: sc(16),
         fontWeight: "600",
         color: "#111111",
     },
@@ -997,7 +1002,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     folderCount: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#999999",
         fontWeight: "500",
     },
@@ -1014,9 +1019,9 @@ const styles = StyleSheet.create({
         backgroundColor: "#7FEF80",
     },
     expandIcon: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
+        width: sc(30),
+        height: sc(30),
+        borderRadius: sc(15),
         backgroundColor: "rgba(0,0,0,0.04)",
         alignItems: "center",
         justifyContent: "center",
@@ -1025,7 +1030,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#E8F5E9",
     },
     expandIconText: {
-        fontSize: 16,
+        fontSize: sc(16),
         color: "#999999",
         fontWeight: "600",
     },
@@ -1047,7 +1052,7 @@ const styles = StyleSheet.create({
         maxWidth: 100,
     },
     previewChipText: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#6b6b6b",
     },
     previewMore: {
@@ -1057,7 +1062,7 @@ const styles = StyleSheet.create({
         paddingVertical: 5,
     },
     previewMoreText: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#385225",
         fontWeight: "500",
     },
@@ -1071,8 +1076,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: "rgba(255,255,255,0.6)",
         borderRadius: 12,
-        paddingLeft: 12,
-        paddingRight: 8,
+        paddingStart: 12,
+        paddingEnd: 8,
         paddingVertical: 10,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: "#EBEBEB",
@@ -1081,14 +1086,14 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     checkbox: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
+        width: sc(22),
+        height: sc(22),
+        borderRadius: sc(11),
         borderWidth: 2,
         borderColor: "#D4D4D4",
         alignItems: "center",
         justifyContent: "center",
-        marginRight: 10,
+        marginEnd: 10,
     },
     checkboxChecked: {
         backgroundColor: "#2a5a2a",
@@ -1100,7 +1105,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     itemName: {
-        fontSize: 15,
+        fontSize: sc(15),
         color: "#111111",
         fontWeight: "500",
         flexShrink: 1,
@@ -1110,23 +1115,23 @@ const styles = StyleSheet.create({
         color: "#B4B4B4",
     },
     itemQty: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#999999",
-        marginLeft: 8,
+        marginStart: 8,
     },
     itemQtyChecked: {
         color: "#C0C0C0",
     },
     itemDelete: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: sc(24),
+        height: sc(24),
+        borderRadius: sc(12),
         alignItems: "center",
         justifyContent: "center",
-        marginLeft: 8,
+        marginStart: 8,
     },
     itemDeleteText: {
-        fontSize: 12,
+        fontSize: sc(12),
         color: "#C0C0C0",
         fontWeight: "600",
     },
@@ -1138,22 +1143,22 @@ const styles = StyleSheet.create({
         paddingHorizontal: 40,
     },
     emptyIconWrap: {
-        width: 88,
-        height: 88,
-        borderRadius: 44,
+        width: sc(88),
+        height: sc(88),
+        borderRadius: sc(44),
         backgroundColor: "#E8F5E9",
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 20,
     },
     emptyTitle: {
-        fontSize: 20,
+        fontSize: sc(20),
         fontWeight: "600",
         color: "#111111",
         marginBottom: 8,
     },
     emptySubtitle: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#999999",
         textAlign: "center",
         lineHeight: 20,
@@ -1166,7 +1171,7 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
     },
     emptyBtnText: {
-        fontSize: 15,
+        fontSize: sc(15),
         fontWeight: "600",
         color: "#385225",
     },
@@ -1175,9 +1180,9 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 30,
         right: 20,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: sc(56),
+        height: sc(56),
+        borderRadius: sc(28),
         alignItems: "center",
         justifyContent: "center",
         shadowColor: "#039274",
@@ -1188,10 +1193,10 @@ const styles = StyleSheet.create({
     },
     fabGradient: {
         ...StyleSheet.absoluteFillObject,
-        borderRadius: 28,
+        borderRadius: sc(28),
     },
     fabText: {
-        fontSize: 28,
+        fontSize: sc(28),
         color: "#ffffff",
         fontWeight: "300",
     },
@@ -1200,7 +1205,7 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
     sheetTitle: {
-        fontSize: 20,
+        fontSize: sc(20),
         fontWeight: "600",
         color: "#111111",
         marginBottom: 16,
@@ -1228,7 +1233,7 @@ const styles = StyleSheet.create({
         elevation: 1,
     },
     modeTabText: {
-        fontSize: 14,
+        fontSize: sc(14),
         fontWeight: "500",
         color: "#999999",
     },
@@ -1237,7 +1242,7 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     inputLabel: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#999999",
         marginBottom: 8,
         marginTop: 12,
@@ -1247,7 +1252,7 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        fontSize: 16,
+        fontSize: sc(16),
         color: "#111111",
     },
     qtyRow: {
@@ -1263,7 +1268,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 12,
         paddingVertical: 10,
-        fontSize: 16,
+        fontSize: sc(16),
         color: "#111111",
         textAlign: "center",
     },
@@ -1275,13 +1280,13 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         paddingHorizontal: 12,
         paddingVertical: 10,
-        marginRight: 6,
+        marginEnd: 6,
     },
     unitChipSelected: {
         backgroundColor: "#2a5a2a",
     },
     unitChipText: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#111111",
     },
     unitChipTextSelected: {
@@ -1301,7 +1306,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     cancelBtnText: {
-        fontSize: 15,
+        fontSize: sc(15),
         color: "#6b6b6b",
         fontWeight: "500",
     },
@@ -1316,13 +1321,13 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     addBtnText: {
-        fontSize: 15,
+        fontSize: sc(15),
         color: "#ffffff",
         fontWeight: "600",
     },
     // Browse mode
     browseSectionTitle: {
-        fontSize: 14,
+        fontSize: sc(14),
         fontWeight: "500",
         color: "#111111",
         marginBottom: 12,
@@ -1341,12 +1346,12 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     categoryCardImage: {
-        width: 56,
-        height: 56,
+        width: sc(56),
+        height: sc(56),
     },
     categoryCardText: {
         marginTop: 6,
-        fontSize: 12,
+        fontSize: sc(12),
         fontWeight: "500",
         color: "#333333",
     },
@@ -1354,11 +1359,11 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     browseBackText: {
-        fontSize: 13,
+        fontSize: sc(13),
         color: "#999999",
     },
     browseCategoryTitle: {
-        fontSize: 18,
+        fontSize: sc(18),
         fontWeight: "600",
         color: "#111111",
         marginBottom: 4,
@@ -1369,7 +1374,7 @@ const styles = StyleSheet.create({
     },
     quickPickScrollContent: {
         gap: 8,
-        paddingRight: 40,
+        paddingEnd: 40,
     },
     quickPickChip: {
         backgroundColor: "#F4F5F7",
@@ -1381,7 +1386,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#2a5a2a",
     },
     quickPickChipText: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#111111",
     },
     quickPickChipTextSelected: {
@@ -1393,7 +1398,7 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
     },
     customInputLinkText: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#2a5a2a",
         fontWeight: "500",
     },
@@ -1403,13 +1408,13 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
     stockTitle: {
-        fontSize: 22,
+        fontSize: sc(22),
         fontWeight: "700",
         color: "#111111",
         marginBottom: 6,
     },
     stockSubtitle: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#999999",
         marginBottom: 20,
     },
@@ -1426,21 +1431,21 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         padding: 14,
         alignItems: "center",
-        width: 92,
+        width: sc(92),
     },
     stockCategoryImage: {
-        width: 40,
-        height: 40,
+        width: sc(40),
+        height: sc(40),
         marginBottom: 8,
     },
     stockCategoryLabel: {
-        fontSize: 12,
+        fontSize: sc(12),
         fontWeight: "500",
         color: "#333333",
         marginBottom: 2,
     },
     stockCategoryCount: {
-        fontSize: 14,
+        fontSize: sc(14),
         fontWeight: "700",
         color: "#2a5a2a",
     },
@@ -1456,7 +1461,7 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     stockButtonText: {
-        fontSize: 16,
+        fontSize: sc(16),
         fontWeight: "600",
         color: "#ffffff",
     },
@@ -1465,7 +1470,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     stockDismissText: {
-        fontSize: 14,
+        fontSize: sc(14),
         color: "#999999",
     },
 });

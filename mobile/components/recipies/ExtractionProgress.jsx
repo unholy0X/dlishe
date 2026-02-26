@@ -1,19 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Animated, Easing } from "react-native";
+import { useTranslation } from "react-i18next";
 
-const STEPS = [
-  { label: "Setting up the kitchen", threshold: 0 },
-  { label: "Collecting the ingredients", threshold: 15 },
-  { label: "Preparing the recipe", threshold: 30 },
-  { label: "Putting it into steps", threshold: 50 },
-  { label: "Adding the final touches", threshold: 70 },
-  { label: "Almost ready to cook", threshold: 90 },
-];
-
-function getActiveIndex(progress) {
+function getActiveIndex(progress, steps) {
   let idx = 0;
-  for (let i = STEPS.length - 1; i >= 0; i--) {
-    if (progress >= STEPS[i].threshold) {
+  for (let i = steps.length - 1; i >= 0; i--) {
+    if (progress >= steps[i].threshold) {
       idx = i;
       break;
     }
@@ -123,7 +115,17 @@ function StepRow({ label, state, isLast }) {
 }
 
 export default function ExtractionProgress({ progress = 0 }) {
-  const activeIndex = getActiveIndex(progress);
+  const { t } = useTranslation("recipe");
+  const STEPS = [
+    { label: t("extraction.step1"), threshold: 0 },
+    { label: t("extraction.step2"), threshold: 15 },
+    { label: t("extraction.step3"), threshold: 30 },
+    { label: t("extraction.step4"), threshold: 50 },
+    { label: t("extraction.step5"), threshold: 70 },
+    { label: t("extraction.step6"), threshold: 90 },
+  ];
+
+  const activeIndex = getActiveIndex(progress, STEPS);
   const barWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -141,8 +143,8 @@ export default function ExtractionProgress({ progress = 0 }) {
         <Text style={styles.heroEmoji}>{activeIndex < 3 ? "\uD83D\uDC68\u200D\uD83C\uDF73" : "\uD83C\uDF73"}</Text>
       </View>
 
-      <Text style={styles.title}>Cooking up your recipe</Text>
-      <Text style={styles.subtitle}>This usually takes 2–3 minutes</Text>
+      <Text style={styles.title}>{t("extraction.title")}</Text>
+      <Text style={styles.subtitle}>{t("extraction.subtitle")}</Text>
 
       {/* Progress bar */}
       <View style={styles.progressBarTrack}>

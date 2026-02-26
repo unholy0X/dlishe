@@ -15,6 +15,7 @@ type User struct {
 	PasswordHash        *string    `json:"-" db:"password_hash"`
 	Name                *string    `json:"name,omitempty" db:"name"`
 	PreferredUnitSystem string     `json:"preferredUnitSystem" db:"preferred_unit_system"`
+	PreferredLanguage   string     `json:"preferredLanguage" db:"preferred_language"`
 	IsAnonymous         bool       `json:"isAnonymous" db:"is_anonymous"`
 	DeviceID            *string    `json:"deviceId,omitempty" db:"device_id"`
 	CreatedAt           time.Time  `json:"createdAt" db:"created_at"`
@@ -69,11 +70,13 @@ type RefreshToken struct {
 // NewAnonymousUser creates a new anonymous user
 func NewAnonymousUser(deviceID string) *User {
 	return &User{
-		ID:          uuid.New(),
-		IsAnonymous: true,
-		DeviceID:    &deviceID,
-		CreatedAt:   time.Now().UTC(),
-		UpdatedAt:   time.Now().UTC(),
+		ID:                  uuid.New(),
+		IsAnonymous:         true,
+		DeviceID:            &deviceID,
+		PreferredUnitSystem: "metric",
+		PreferredLanguage:   "en",
+		CreatedAt:           time.Now().UTC(),
+		UpdatedAt:           time.Now().UTC(),
 	}
 }
 

@@ -1,0 +1,84 @@
+{
+  "tagline": "Votre cuisine vous attend",
+  "searchPlaceholder": "Rechercher une recette",
+  "sectionTitle": "Que cuisinons-nous aujourd'hui ?",
+  "suggestions": {
+    "whatCanIMake": "Que puis-je cuisiner ?",
+    "matchPantry": "Selon mon garde-manger",
+    "getInspired": "Trouver l'inspiration",
+    "curatedPicks": "Sélection pour vous"
+  },
+  "stats": {
+    "favorites": "Favoris",
+    "highProtein": "Riche en protéines",
+    "quickMeals": "Repas rapides",
+    "explore": "Explorer"
+  },
+  "sheets": {
+    "suggestedTitle": "Suggéré pour vous",
+    "suggestions_zero": "Aucune suggestion",
+    "suggestions_one": "{{count}} suggestion",
+    "suggestions_other": "{{count}} suggestions",
+    "highProtein": "Riche en protéines",
+    "quickMeals": "Repas rapides",
+    "recipes_zero": "Aucune recette",
+    "recipes_one": "{{count}} recette",
+    "recipes_other": "{{count}} recettes",
+    "whatCanIMake": "Que puis-je cuisiner ?",
+    "matched_zero": "Aucune recette trouvée",
+    "matched_one": "{{count}} recette trouvée",
+    "matched_other": "{{count}} recettes trouvées",
+    "matching": "Correspondance avec votre garde-manger...",
+    "favoritesTitle": "Mes favoris",
+    "favoritesSaved_zero": "Aucune recette enregistrée",
+    "favoritesSaved_one": "{{count}} recette enregistrée",
+    "favoritesSaved_other": "{{count}} recettes enregistrées"
+  },
+  "inspiration": {
+    "counter": "{{current}} / {{total}}",
+    "notFeeling": "Pas envie",
+    "letsCook": "On cuisine !",
+    "savedToFavorites": "Ajouté à vos favoris",
+    "noIdeas": "Aucune idée de dîner pour l'instant",
+    "addMore": "Ajoutez plus de recettes pour trouver l'inspiration"
+  },
+  "empty": {
+    "noRecipes": "Aucune recette trouvée",
+    "noRecipesSubtitle": "Nous n'avons pas trouvé de recettes pour cette catégorie",
+    "noFavorites": "Pas encore de favoris",
+    "noFavoritesSubtitle": "Appuyez sur le cœur d'une recette pour l'enregistrer ici",
+    "pantryEmpty": "Garde-manger vide",
+    "pantryEmptySubtitle": "Ajoutez des articles à votre garde-manger pour voir ce que vous pouvez cuisiner",
+    "noMatches": "Aucune correspondance",
+    "noMatchesSubtitle": "Essayez d'ajouter plus d'articles à votre garde-manger"
+  },
+  "badge": {
+    "matches_zero": "Aucune correspondance",
+    "matches_one": "{{count}} correspondance",
+    "matches_other": "{{count}} correspondances"
+  },
+  "recentRecipes": "Recettes récentes",
+  "seeAll": "Tout voir",
+  "basedOnYourTaste": "Selon vos goûts",
+  "showMore": "Voir plus ({{count}} restantes)",
+  "profile": {
+    "welcome": "Bonjour {{name}} !",
+    "kitchenPrefs": "Préférences cuisine",
+    "measurementUnits": "Unités de mesure",
+    "metric": "Métrique",
+    "imperial": "Impérial",
+    "metricLabel": "Métrique (g, ml)",
+    "imperialLabel": "Impérial (oz, tasses)",
+    "language": "Langue",
+    "languageValue_en": "English",
+    "languageValue_fr": "Français",
+    "languageValue_ar": "العربية",
+    "proPlan": "Membre Pro",
+    "proValue": "Toutes les limites supprimées",
+    "upgradePro": "Passer à Pro",
+    "upgradeValue": "Sans limites sur les recettes et plus",
+    "logout": "Se déconnecter",
+    "logoutFailed": "Échec de la déconnexion",
+    "logoutFailedMsg": "Veuillez réessayer."
+  }
+}

@@ -1,12 +1,17 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, Pressable } from "react-native";
 import PlusIcon from "../icons/PlusIcon";
+import { useTranslation } from "react-i18next";
 
 export default function PantryEmptyState({
-  title = "A Peaceful Pantry",
-  subtitle = "Add ingredients you have at home to\ndiscover what you can create",
+  title,
+  subtitle,
   onPressAdd,
 }) {
+  const { t } = useTranslation("pantry");
+  const finalTitle = title || t("empty.title", "A Peaceful Pantry");
+  const finalSubtitle = subtitle || t("empty.subtitle", "Add ingredients you have at home to\ndiscover what you can create");
+
   return (
     <View style={styles.container}>
       <Image
@@ -14,11 +19,11 @@ export default function PantryEmptyState({
         style={styles.image}
         resizeMode="contain"
       />
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
+      <Text style={styles.title}>{finalTitle}</Text>
+      <Text style={styles.subtitle}>{finalSubtitle}</Text>
 
       <Pressable style={styles.button} onPress={onPressAdd}>
-        <Text style={styles.buttonText}>Add Ingredients</Text>
+        <Text style={styles.buttonText}>{t("empty.addButton", "Add Ingredients")}</Text>
         <PlusIcon width={18} height={18} color="#2a5a2a" />
       </Pressable>
     </View>

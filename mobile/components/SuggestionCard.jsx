@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import { sc } from "../utils/deviceScale";
 
 export default function SuggestionCard({ title, subtitle, Icon, onPress }) {
   return (
@@ -30,17 +31,17 @@ const styles = StyleSheet.create({
   },
   textBlock: {
     flexShrink: 1,
-    marginRight: 40,
+    marginRight: 12,
   },
   title: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "normal",
     color: "#111111",
     letterSpacing: -0.05,
   },
   subtitle: {
     marginTop: 2,
-    fontSize: 10,
+    fontSize: sc(12),
     fontWeight: "normal",
     letterSpacing: -0.05,
   },

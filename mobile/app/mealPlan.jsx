@@ -13,42 +13,47 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import Svg, { Path } from "react-native-svg";
-import { useMealPlanStore, useRecipeStore } from "../store";
+import { useMealPlanStore, useRecipeStore, useShoppingStore } from "../store";
+import { useLanguageStore } from "../store/languageStore";
 import DayPills from "../components/mealPlan/DayPills";
 import MealSlot from "../components/mealPlan/MealSlot";
 import AddRecipeSheet from "../components/mealPlan/AddRecipeSheet";
+import { useTranslation } from "react-i18next";
 import ArrowLeftIcon from "../components/icons/ArrowLeftIcon";
 
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
 
 function ChevronLeft({ color = "#385225" }) {
+  const isRTL = useLanguageStore((s) => s.isRTL);
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}>
       <Path d="M15 18l-6-6 6-6" />
     </Svg>
   );
 }
 
 function ChevronRight({ color = "#385225" }) {
+  const isRTL = useLanguageStore((s) => s.isRTL);
   return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}>
       <Path d="M9 18l6-6-6-6" />
     </Svg>
   );
 }
 
-function formatWeekRange(weekStart) {
+function formatWeekRange(weekStart, locale = "en-US") {
   if (!weekStart) return "";
   const start = new Date(weekStart);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   const opts = { month: "short", day: "numeric" };
-  return `${start.toLocaleDateString("en-US", opts)} \u2013 ${end.toLocaleDateString("en-US", opts)}`;
+  return `${start.toLocaleDateString(locale, opts)} \u2013 ${end.toLocaleDateString(locale, opts)}`;
 }
 
 export default function MealPlanScreen() {
   const router = useRouter();
   const { getToken } = useAuth();
+  const { t, i18n } = useTranslation("mealPlan");
   const { recipes: userRecipes, isLoading: recipesLoading, loadRecipes } = useRecipeStore();
 
   const {
@@ -71,14 +76,14 @@ export default function MealPlanScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadCurrentWeek({ getToken }).catch(() => {});
-    loadRecipes({ getToken }).catch(() => {});
+    loadCurrentWeek({ getToken }).catch(() => { });
+    loadRecipes({ getToken }).catch(() => { });
   }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadCurrentWeek({ getToken })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setRefreshing(false));
   }, [getToken]);
 
@@ -114,9 +119,9 @@ export default function MealPlanScreen() {
         mealType: addMealType,
       });
     } catch {
-      Alert.alert("Couldn't add recipe", "Please check your connection and try again.");
+      Alert.alert(t("errors:mealPlan.addFailed"), t("tryAgain", { ns: "common" }));
     }
-  }, [getToken, selectedDay, addMealType]);
+  }, [getToken, selectedDay, addMealType, t]);
 
   const handleRemove = useCallback(async (entryId) => {
     try {
@@ -126,18 +131,34 @@ export default function MealPlanScreen() {
     }
   }, [getToken]);
 
+  const handleRecipePress = useCallback((recipeId) => {
+    if (recipeId) router.push(`/recipe/${recipeId}`);
+  }, [router]);
+
   const handleGenerateList = useCallback(async () => {
     try {
-      const result = await generateShoppingList({ getToken });
-      if (result?.listId) {
-        router.push(`/shoppingList?id=${result.listId}`);
+      const weekDate = plan?.weekStart ? new Date(plan.weekStart) : new Date();
+      const dateStr = weekDate.toLocaleDateString(i18n.language, { month: "short", day: "numeric" });
+      const name = t("generatedListName", { date: dateStr });
+      const result = await generateShoppingList({ getToken, name });
+      if (result?.list) {
+        const list = result.list;
+        const itemCount = list.items?.length ?? list.itemCount ?? 0;
+        // Inject the new list into the shopping store so it's ready in the Shopping tab
+        useShoppingStore.setState((state) => ({
+          lists: [
+            { ...list, itemCount, checkedCount: 0 },
+            ...(state.lists || []),
+          ],
+        }));
+        Alert.alert(t("listCreated"), t("listCreatedMsg", { count: itemCount, name: list.name }));
       } else if (result?.message) {
-        Alert.alert("Info", result.message);
+        Alert.alert(t("info"), t("allInPantry"));
       }
     } catch (err) {
-      Alert.alert("Error", err?.message || "Failed to generate shopping list");
+      Alert.alert(t("errors:shopping.generateFailed"), err?.message || t("tryAgain", { ns: "common" }));
     }
-  }, [getToken]);
+  }, [getToken, t]);
 
   useEffect(() => {
     if (error) {
@@ -158,7 +179,7 @@ export default function MealPlanScreen() {
           >
             <ArrowLeftIcon width={18} height={18} color="#111111" />
           </Pressable>
-          <Text style={styles.headerTitle}>Meal Plan</Text>
+          <Text style={styles.headerTitle}>{t("title")}</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -172,15 +193,15 @@ export default function MealPlanScreen() {
         {/* Week navigation */}
         <View style={styles.weekNav}>
           <Pressable
-            onPress={() => navigateWeek({ getToken, direction: -1 }).catch(() => {})}
+            onPress={() => navigateWeek({ getToken, direction: -1 }).catch(() => { })}
             hitSlop={10}
             style={({ pressed }) => [styles.weekArrow, pressed && { backgroundColor: "#EAEAEA" }]}
           >
             <ChevronLeft />
           </Pressable>
-          <Text style={styles.weekLabel}>{formatWeekRange(plan?.weekStart)}</Text>
+          <Text style={styles.weekLabel}>{formatWeekRange(plan?.weekStart, i18n.language)}</Text>
           <Pressable
-            onPress={() => navigateWeek({ getToken, direction: 1 }).catch(() => {})}
+            onPress={() => navigateWeek({ getToken, direction: 1 }).catch(() => { })}
             hitSlop={10}
             style={({ pressed }) => [styles.weekArrow, pressed && { backgroundColor: "#EAEAEA" }]}
           >
@@ -221,6 +242,7 @@ export default function MealPlanScreen() {
                 entries={entriesForDay.filter((e) => e.mealType === type)}
                 onAdd={() => handleAdd(type)}
                 onRemove={handleRemove}
+                onPressRecipe={handleRecipePress}
               />
             ))}
 
@@ -237,9 +259,7 @@ export default function MealPlanScreen() {
                 {isGenerating ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.generateBtnText}>
-                    Generate Shopping List
-                  </Text>
+                  <Text style={styles.generateBtnText}>{t("generateList")}</Text>
                 )}
               </Pressable>
             )}
@@ -247,10 +267,8 @@ export default function MealPlanScreen() {
             {/* Empty state */}
             {totalMeals === 0 && !isLoading && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>No meals planned yet</Text>
-                <Text style={styles.emptySubtitle}>
-                  Tap "+ Add recipe" on any slot above to start building your week
-                </Text>
+                <Text style={styles.emptyTitle}>{t("empty.noMeals")}</Text>
+                <Text style={styles.emptySubtitle}>{t("empty.hint")}</Text>
               </View>
             )}
           </ScrollView>

@@ -18,14 +18,16 @@ import { useAuth, useSignUp, useOAuth, useSignInWithApple } from "@clerk/clerk-e
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import Svg, { Path } from "react-native-svg";
+import { useTranslation } from "react-i18next";
+import { sc, isTablet } from "../utils/deviceScale";
 
 WebBrowser.maybeCompleteAuthSession();
 
 /* ─── parse auth errors into user-friendly messages ─── */
-function parseAuthError(err, fallback) {
+function parseAuthError(err, fallback, t) {
   const raw = (err?.message ?? "").toLowerCase();
   if (raw.includes("network request failed") || raw.includes("failed to fetch")) {
-    return "No internet connection. Please check your network and try again.";
+    return t("errors.noInternet");
   }
   if (
     raw.includes("cannot read") ||
@@ -35,8 +37,14 @@ function parseAuthError(err, fallback) {
     err?.status === 503 ||
     err?.status === 500
   ) {
-    return "Sign-in services are temporarily unavailable. Please try again shortly.";
+    return t("errors.unavailable");
   }
+  const code = (err?.errors?.[0]?.code ?? "").toLowerCase();
+
+  if (code === "form_identifier_not_found" || raw.includes("couldn't find your account")) {
+    return t("errors.accountNotFound");
+  }
+
   return (
     err?.errors?.[0]?.longMessage ??
     err?.errors?.[0]?.message ??
@@ -80,6 +88,9 @@ export default function SignUpScreen() {
   const { startOAuthFlow: startGoogleOAuth } = useOAuth({ strategy: "oauth_google" });
   const { startAppleAuthenticationFlow } = useSignInWithApple();
 
+  const { t } = useTranslation("auth");
+  const tAuthError = (err, fallback) =>
+    parseAuthError(err, fallback, t);
   const signingUp = useRef(false);
 
   // If already signed in and NOT because we just signed up, sign out
@@ -112,14 +123,12 @@ export default function SignUpScreen() {
         .then((r) => r.json())
         .then((data) => {
           if (data?.status?.indicator && data.status.indicator !== "none") {
-            setServiceWarning(
-              "Our sign-in provider is experiencing issues. Authentication may be temporarily slow or unavailable — please try again shortly."
-            );
+            setServiceWarning(t("login.serviceWarning"));
           } else {
             setServiceWarning("");
           }
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => clearTimeout(timer));
     }
 
@@ -142,7 +151,7 @@ export default function SignUpScreen() {
       }
     } catch (err) {
       if (err?.message?.includes("cancelled")) return;
-      setError(parseAuthError(err, "Google sign-up failed"));
+      setError(tAuthError(err, t("errors.googleFailed")));
     } finally {
       setGoogleLoading(false);
     }
@@ -161,12 +170,12 @@ export default function SignUpScreen() {
         signingUp.current = true;
         await activate({ session: createdSessionId });
       } else {
-        setError("Apple sign-up failed. Please try again.");
+        setError(t("errors.appleFailed"));
       }
     } catch (err) {
       if (err?.code === "ERR_REQUEST_CANCELED") return;
       if (err?.message?.includes("cancelled")) return;
-      setError(parseAuthError(err, "Apple sign-up failed"));
+      setError(tAuthError(err, t("errors.appleFailed")));
     } finally {
       setAppleLoading(false);
     }
@@ -179,7 +188,7 @@ export default function SignUpScreen() {
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      setError("Please fill in your email and password.");
+      setError(t("errors.enterCredentials"));
       return;
     }
 
@@ -196,17 +205,17 @@ export default function SignUpScreen() {
         // Email verification not required — activate session directly
         signingUp.current = true;
         await setActive?.({ session: result.createdSessionId });
-        Alert.alert("Welcome to DLISHE!", "Your account has been created.");
+        Alert.alert(t("signup.welcomeTitle"), t("signup.welcomeMessage"));
         router.replace("/home");
       } else if (result.status === "missing_requirements") {
         // Email verification needed
         await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
         setPendingVerification(true);
       } else {
-        setError("Sign up failed. Please try again or use another method.");
+        setError(t("errors.signUpFailed"));
       }
     } catch (err) {
-      setError(parseAuthError(err, "Something went wrong"));
+      setError(tAuthError(err, t("errors.somethingWrong")));
     } finally {
       setLoading(false);
     }
@@ -222,11 +231,11 @@ export default function SignUpScreen() {
       if (result.status === "complete") {
         signingUp.current = true;
         await setActive?.({ session: result.createdSessionId });
-        Alert.alert("Welcome to DLISHE!", "Your account has been created.");
+        Alert.alert(t("signup.welcomeTitle"), t("signup.welcomeMessage"));
         router.replace("/home");
       }
     } catch (err) {
-      setError(parseAuthError(err, "Invalid verification code"));
+      setError(tAuthError(err, t("errors.invalidCode")));
     } finally {
       setLoading(false);
     }
@@ -246,6 +255,7 @@ export default function SignUpScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
           >
+            <View style={styles.formContainer}>
             {/* ── Logo + Brand ── */}
             <View style={styles.brandSection}>
               <Image
@@ -254,7 +264,7 @@ export default function SignUpScreen() {
                 resizeMode="contain"
               />
               <Text style={styles.brandName}>DLISHE</Text>
-              <Text style={styles.brandTagline}>Create your account to start cooking</Text>
+              <Text style={styles.brandTagline}>{t("signup.subtitle")}</Text>
             </View>
 
             {/* ── Form area ── */}
@@ -285,10 +295,10 @@ export default function SignUpScreen() {
                         <ActivityIndicator color={C.bg} size="small" />
                       ) : (
                         <View style={styles.googleInner}>
-                          <Svg width={18} height={18} viewBox="0 0 24 24" fill={C.bg}>
+                          <Svg width={sc(20)} height={sc(20)} viewBox="0 0 24 24" fill={C.bg}>
                             <Path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
                           </Svg>
-                          <Text style={styles.appleText}>Continue with Apple</Text>
+                          <Text style={styles.appleText}>{t("login.continueWithApple")}</Text>
                         </View>
                       )}
                     </Pressable>
@@ -307,8 +317,8 @@ export default function SignUpScreen() {
                       <ActivityIndicator color={C.white} size="small" />
                     ) : (
                       <View style={styles.googleInner}>
-                        <GoogleIcon />
-                        <Text style={styles.googleText}>Continue with Google</Text>
+                        <GoogleIcon size={sc(20)} />
+                        <Text style={styles.googleText}>{t("login.continueWithGoogle")}</Text>
                       </View>
                     )}
                   </Pressable>
@@ -316,14 +326,14 @@ export default function SignUpScreen() {
                   {/* Divider */}
                   <View style={styles.dividerRow}>
                     <View style={styles.divider} />
-                    <Text style={styles.dividerText}>or sign up with email</Text>
+                    <Text style={styles.dividerText}>{t("signup.orSignUpWithEmail")}</Text>
                     <View style={styles.divider} />
                   </View>
 
                   {/* Name row */}
                   <View style={styles.nameRow}>
                     <TextInput
-                      placeholder="First name"
+                      placeholder={t("signup.firstNamePlaceholder")}
                       placeholderTextColor={C.textTertiary}
                       style={[styles.input, { flex: 1 }]}
                       value={firstName}
@@ -332,7 +342,7 @@ export default function SignUpScreen() {
                       returnKeyType="next"
                     />
                     <TextInput
-                      placeholder="Last name"
+                      placeholder={t("signup.lastNamePlaceholder")}
                       placeholderTextColor={C.textTertiary}
                       style={[styles.input, { flex: 1 }]}
                       value={lastName}
@@ -344,7 +354,7 @@ export default function SignUpScreen() {
 
                   {/* Email */}
                   <TextInput
-                    placeholder="Email address"
+                    placeholder={t("signup.emailPlaceholder")}
                     placeholderTextColor={C.textTertiary}
                     style={[styles.input, { marginTop: 12 }]}
                     value={email}
@@ -357,7 +367,7 @@ export default function SignUpScreen() {
 
                   {/* Password */}
                   <TextInput
-                    placeholder="Create a password"
+                    placeholder={t("signup.passwordPlaceholder")}
                     placeholderTextColor={C.textTertiary}
                     style={[styles.input, { marginTop: 12 }]}
                     value={password}
@@ -380,7 +390,7 @@ export default function SignUpScreen() {
                     {loading ? (
                       <ActivityIndicator color={C.bg} />
                     ) : (
-                      <Text style={styles.primaryText}>Create account</Text>
+                      <Text style={styles.primaryText}>{t("signup.createAccount")}</Text>
                     )}
                   </Pressable>
 
@@ -390,19 +400,19 @@ export default function SignUpScreen() {
                     onPress={() => router.replace("/")}
                   >
                     <Text style={styles.linkText}>
-                      Already on DLISHE?{" "}
-                      <Text style={styles.linkAccent}>Sign in</Text>
+                      {t("signup.alreadyUser")}{" "}
+                      <Text style={styles.linkAccent}>{t("signup.signIn")}</Text>
                     </Text>
                   </Pressable>
 
                   {/* Legal links */}
                   <View style={styles.legalRow}>
                     <Pressable onPress={() => Linking.openURL("https://dlishe.com/terms")}>
-                      <Text style={styles.legalText}>Terms of Use</Text>
+                      <Text style={styles.legalText}>{t("termsOfUse", { ns: "common" })}</Text>
                     </Pressable>
                     <Text style={styles.legalDot}> · </Text>
                     <Pressable onPress={() => Linking.openURL("https://dlishe.com/privacy")}>
-                      <Text style={styles.legalText}>Privacy Policy</Text>
+                      <Text style={styles.legalText}>{t("privacyPolicy", { ns: "common" })}</Text>
                     </Pressable>
                   </View>
                 </>
@@ -413,14 +423,14 @@ export default function SignUpScreen() {
                     <View style={styles.verifyBadge}>
                       <Text style={styles.verifyBadgeText}>{"\u2709\uFE0F"}</Text>
                     </View>
-                    <Text style={styles.verifyTitle}>Check your email</Text>
+                    <Text style={styles.verifyTitle}>{t("signup.verifyTitle")}</Text>
                     <Text style={styles.verifyHint}>
-                      We sent a verification code to {email}
+                      {t("signup.verifySubtitle", { email })}
                     </Text>
                   </View>
 
                   <TextInput
-                    placeholder="000000"
+                    placeholder={t("signup.codePlaceholder")}
                     placeholderTextColor={C.textTertiary}
                     style={[styles.input, styles.codeInput]}
                     value={code}
@@ -442,7 +452,7 @@ export default function SignUpScreen() {
                     {loading ? (
                       <ActivityIndicator color={C.bg} />
                     ) : (
-                      <Text style={styles.primaryText}>Verify</Text>
+                      <Text style={styles.primaryText}>{t("signup.verify")}</Text>
                     )}
                   </Pressable>
 
@@ -454,10 +464,11 @@ export default function SignUpScreen() {
                       setError("");
                     }}
                   >
-                    <Text style={styles.linkText}>Back to sign up</Text>
+                    <Text style={styles.linkText}>{t("signup.backToSignUp")}</Text>
                   </Pressable>
                 </>
               )}
+            </View>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -476,33 +487,42 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 28,
-    paddingTop: "20%",
-    paddingBottom: 80,
+    paddingTop: isTablet ? 40 : "20%",
+    paddingBottom: isTablet ? 40 : sc(80),
     flexGrow: 1,
+  },
+
+  // Constrained + centered form container — max 520pt on iPad
+  formContainer: {
+    width: "100%",
+    maxWidth: isTablet ? 520 : undefined,
+    alignSelf: isTablet ? "center" : undefined,
   },
 
   /* ── brand ── */
   brandSection: {
     alignItems: "center",
-    marginBottom: 36,
+    marginBottom: isTablet ? 16 : sc(36),
   },
   logo: {
-    width: 72,
-    height: 72,
+    width: sc(72),
+    height: sc(72),
   },
   brandName: {
-    marginTop: 14,
-    fontSize: 28,
+    marginTop: sc(14),
+    fontSize: sc(28),
     fontFamily: "Inter_600SemiBold",
     color: C.white,
     letterSpacing: 5,
+    lineHeight: sc(36),
   },
   brandTagline: {
-    marginTop: 6,
-    fontSize: 14,
+    marginTop: sc(6),
+    fontSize: sc(14),
     fontFamily: "Inter_400Regular",
     color: C.textSecondary,
     textAlign: "center",
+    lineHeight: sc(20),
   },
 
   /* ── form ── */
@@ -514,52 +534,54 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,184,0,0.28)",
     paddingVertical: 11,
     paddingHorizontal: 14,
-    marginBottom: 16,
+    marginBottom: sc(16),
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
   },
   warningText: {
     color: "#FFB800",
-    fontSize: 13,
+    fontSize: sc(13),
     fontFamily: "Inter_400Regular",
-    lineHeight: 18,
+    lineHeight: sc(18),
     flex: 1,
   },
   warningDismiss: {
     color: "#FFB800",
-    fontSize: 14,
+    fontSize: sc(14),
     opacity: 0.7,
     marginTop: 1,
   },
   error: {
     color: C.error,
-    fontSize: 13,
+    fontSize: sc(13),
     fontFamily: "Inter_400Regular",
-    marginBottom: 16,
+    marginBottom: sc(16),
     textAlign: "center",
+    lineHeight: sc(18),
   },
 
   /* ── apple ── */
   appleButton: {
     backgroundColor: C.white,
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: sc(16),
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: isTablet ? 8 : sc(12),
   },
   appleText: {
     color: C.bg,
-    fontSize: 15,
+    fontSize: sc(15),
     fontFamily: "Inter_500Medium",
+    lineHeight: sc(20),
   },
 
   /* ── google ── */
   googleButton: {
     backgroundColor: C.card,
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: sc(16),
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -568,19 +590,20 @@ const styles = StyleSheet.create({
   googleInner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: sc(10),
   },
   googleText: {
     color: C.textPrimary,
-    fontSize: 15,
+    fontSize: sc(15),
     fontFamily: "Inter_500Medium",
+    lineHeight: sc(20),
   },
 
   /* ── divider ── */
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 24,
+    marginVertical: isTablet ? 14 : sc(24),
   },
   divider: {
     flex: 1,
@@ -590,56 +613,60 @@ const styles = StyleSheet.create({
   dividerText: {
     marginHorizontal: 14,
     color: C.textTertiary,
-    fontSize: 12,
+    fontSize: sc(12),
     fontFamily: "Inter_400Regular",
+    lineHeight: sc(16),
   },
 
   /* ── inputs ── */
   input: {
     backgroundColor: C.inputBg,
     borderRadius: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: sc(18),
+    paddingVertical: sc(16),
     color: C.textPrimary,
-    fontSize: 16,
+    fontSize: sc(16),
     fontFamily: "Inter_400Regular",
     borderWidth: 1,
     borderColor: C.inputBorder,
+    lineHeight: sc(22),
   },
   codeInput: {
-    fontSize: 28,
+    fontSize: sc(28),
     fontFamily: "Inter_600SemiBold",
     letterSpacing: 10,
-    paddingVertical: 18,
+    paddingVertical: sc(20),
   },
   nameRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: sc(12),
   },
 
   /* ── primary ── */
   primaryButton: {
-    marginTop: 20,
+    marginTop: sc(20),
     backgroundColor: C.green,
     borderRadius: 14,
-    paddingVertical: 16,
+    paddingVertical: sc(18),
     alignItems: "center",
   },
   primaryText: {
     color: C.bg,
-    fontSize: 16,
+    fontSize: sc(16),
     fontFamily: "Inter_600SemiBold",
+    lineHeight: sc(22),
   },
 
   /* ── links ── */
   link: {
-    marginTop: 22,
+    marginTop: isTablet ? 14 : sc(22),
     alignItems: "center",
   },
   linkText: {
     color: C.textSecondary,
-    fontSize: 14,
+    fontSize: sc(14),
     fontFamily: "Inter_400Regular",
+    lineHeight: sc(20),
   },
   linkAccent: {
     color: C.green,
@@ -649,46 +676,49 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 24,
+    marginTop: isTablet ? 14 : sc(24),
   },
   legalText: {
-    fontSize: 12,
+    fontSize: sc(12),
     fontFamily: "Inter_400Regular",
     color: C.textSecondary,
     textDecorationLine: "underline",
+    lineHeight: sc(16),
   },
   legalDot: {
-    fontSize: 12,
+    fontSize: sc(12),
     color: C.textSecondary,
   },
 
   /* ── verify ── */
   verifyHeader: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: sc(24),
   },
   verifyBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: sc(56),
+    height: sc(56),
+    borderRadius: sc(28),
     backgroundColor: C.greenMuted,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginBottom: sc(14),
   },
   verifyBadgeText: {
-    fontSize: 26,
+    fontSize: sc(26),
   },
   verifyTitle: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontFamily: "Inter_600SemiBold",
     color: C.textPrimary,
+    lineHeight: sc(28),
   },
   verifyHint: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontFamily: "Inter_400Regular",
     color: C.textSecondary,
-    marginTop: 6,
+    marginTop: sc(6),
     textAlign: "center",
+    lineHeight: sc(20),
   },
 });

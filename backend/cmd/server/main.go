@@ -47,6 +47,7 @@ import (
 	"time"
 
 	"github.com/clerk/clerk-sdk-go/v2"
+	"github.com/getsentry/sentry-go"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -60,6 +61,23 @@ import (
 func main() {
 	// Load configuration
 	cfg := config.Load()
+
+	// Initialise Sentry as early as possible so panics during startup are captured.
+	// When SENTRY_DSN is empty the SDK is a no-op — no network calls are made.
+	if cfg.SentryDSN != "" {
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn:              cfg.SentryDSN,
+			Environment:      cfg.Environment,
+			TracesSampleRate: 0.1, // capture 10 % of traces for performance
+			EnableTracing:    true,
+		}); err != nil {
+			// Non-fatal — log and continue. The app runs fine without Sentry.
+			fmt.Fprintf(os.Stderr, "sentry.Init failed: %v\n", err)
+		} else {
+			// Flush buffered events before the process exits.
+			defer sentry.Flush(2 * time.Second)
+		}
+	}
 
 	// Setup logger
 	logLevel := slog.LevelInfo

@@ -31,16 +31,16 @@ import (
 
 // UnifiedExtractionHandler handles all recipe extraction types (url, image, video)
 type UnifiedExtractionHandler struct {
-	jobRepo    JobRepository
-	recipeRepo RecipeRepository
-	userRepo   UserRepository
-	extractor  ai.RecipeExtractor
-	enricher   ai.RecipeEnricher
-	cacheRepo  *postgres.ExtractionCacheRepository
-	downloader            VideoDownloader
-	instagramDownloader   InstagramVideoDownloader
-	redis                 *redis.Client
-	logger                *slog.Logger
+	jobRepo             JobRepository
+	recipeRepo          RecipeRepository
+	userRepo            UserRepository
+	extractor           ai.RecipeExtractor
+	enricher            ai.RecipeEnricher
+	cacheRepo           *postgres.ExtractionCacheRepository
+	downloader          VideoDownloader
+	instagramDownloader InstagramVideoDownloader
+	redis               *redis.Client
+	logger              *slog.Logger
 
 	// activeJobs stores cancel functions for running jobs
 	activeJobs sync.Map // map[uuid.UUID]context.CancelFunc
@@ -148,8 +148,8 @@ type UnifiedExtractRequest struct {
 	Images       []ImageInput `json:"images,omitempty"`       // New multi-image field
 	Language     string       `json:"language,omitempty"`     // "en", "fr", "es", "auto"
 	DetailLevel  string       `json:"detailLevel,omitempty"`  // "quick", "detailed"
-	SaveAuto     interface{} `json:"saveAuto,omitempty"`     // Auto-save extracted recipe (bool or string)
-	ForceRefresh interface{} `json:"forceRefresh,omitempty"` // Bypass cache and re-extract (bool or string)
+	SaveAuto     interface{}  `json:"saveAuto,omitempty"`     // Auto-save extracted recipe (bool or string)
+	ForceRefresh interface{}  `json:"forceRefresh,omitempty"` // Bypass cache and re-extract (bool or string)
 }
 
 // Extract handles POST /api/v1/recipes/extract
@@ -405,10 +405,34 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Set defaults
-	if req.Language == "" {
-		req.Language = "auto"
+	// Validate language code if explicitly provided
+	if req.Language != "" && req.Language != "auto" {
+		validLangs := map[string]bool{"en": true, "fr": true, "ar": true}
+		if !validLangs[req.Language] {
+			response.ValidationFailed(w, "language", "must be 'en', 'fr', or 'ar'")
+			return
+		}
 	}
+
+	// Resolve effective language.
+	// Priority: explicit request param → user's stored preference → "en"
+	effectiveLangCode := req.Language
+	if effectiveLangCode == "" || effectiveLangCode == "auto" {
+		if dbUser, err := h.userRepo.GetByID(r.Context(), user.ID); err == nil && dbUser.PreferredLanguage != "" {
+			effectiveLangCode = dbUser.PreferredLanguage
+		} else {
+			if err != nil {
+				h.logger.Warn("Failed to fetch user preferred language, defaulting to 'en'",
+					"error", err, "user_id", user.ID)
+			}
+			effectiveLangCode = "en"
+		}
+	}
+
+	// We need to pass the resolved name to the request for Gemini,
+	// but keep the ISO code in the job model for database persistence.
+	req.Language = effectiveLangCode
+
 	if req.DetailLevel == "" {
 		req.DetailLevel = "detailed"
 	}
@@ -427,11 +451,49 @@ func (h *UnifiedExtractionHandler) Extract(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Path 5: If a public/featured recipe for this URL already exists in the user's language,
+	// clone it directly without burning Gemini tokens on re-extraction.
+	if jobType == model.JobTypeURL && !forceRefresh && req.URL != "" {
+		normalizedURL := model.NormalizeURL(req.URL)
+		if pubRecipe, err := h.recipeRepo.GetPublicBySourceURL(r.Context(), normalizedURL, effectiveLangCode); err == nil && pubRecipe != nil {
+			var cloneID uuid.UUID
+			// Check if user already has a clone of this public recipe
+			if existingClone, err := h.recipeRepo.GetBySourceRecipeID(r.Context(), user.ID, pubRecipe.ID); err == nil && existingClone != nil {
+				cloneID = existingClone.ID
+			} else {
+				// Create a new clone for this user
+				if id, err := h.clonePublicRecipeForUser(r.Context(), pubRecipe, user.ID); err == nil {
+					cloneID = id
+				}
+			}
+
+			if cloneID != uuid.Nil {
+				// Create a completed job so the client can poll and receive the result
+				syntheticKey := fmt.Sprintf("%s|%s|%s", user.ID.String(), sourceURL, effectiveLangCode)
+				syntheticJob := model.NewExtractionJob(user.ID, model.JobTypeURL, sourceURL, effectiveLangCode, req.DetailLevel, saveAuto, false)
+				syntheticJob.IdempotencyKey = &syntheticKey
+				if err := h.jobRepo.Create(r.Context(), syntheticJob); err == nil {
+					if err := h.jobRepo.MarkCompleted(r.Context(), syntheticJob.ID, cloneID); err != nil {
+						h.logger.Warn("Failed to mark synthetic job as completed (Path 5)", "error", err)
+					}
+					h.logger.Info("Served public recipe clone without Gemini extraction (Path 5)",
+						"publicID", pubRecipe.ID, "cloneID", cloneID, "url", sourceURL)
+					response.Created(w, map[string]string{
+						"jobId":  syntheticJob.ID.String(),
+						"status": string(model.JobStatusCompleted),
+					})
+					return
+				}
+				// If synthetic job creation fails, fall through to normal extraction
+			}
+		}
+	}
+
 	// Duplicate Prevention: check if this user already has an active OR completed job for this content.
 	// Uses a deterministic idempotency key so concurrent/repeat requests match.
 	var idempotencyKey string
 	if jobType == model.JobTypeVideo || jobType == model.JobTypeURL {
-		idempotencyKey = fmt.Sprintf("%s|%s", user.ID.String(), sourceURL)
+		idempotencyKey = fmt.Sprintf("%s|%s|%s", user.ID.String(), sourceURL, effectiveLangCode)
 
 		if existingJob, err := h.jobRepo.GetByIdempotencyKey(r.Context(), user.ID, idempotencyKey); err == nil {
 			if existingJob.Status == model.JobStatusPending ||
@@ -689,7 +751,7 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 
 	// Refine the recipe
 	updateProgress(model.JobStatusExtracting, 85, "Refining recipe...")
-	refined, refineErr := h.extractor.RefineRecipe(ctx, result)
+	refined, refineErr := h.extractor.RefineRecipe(ctx, result, job.Language)
 	if refineErr == nil && refined != nil {
 		result = refined
 	}
@@ -704,6 +766,7 @@ func (h *UnifiedExtractionHandler) processJob(ctx context.Context, job *model.Ex
 	if h.enricher != nil {
 		updateProgress(model.JobStatusExtracting, 90, "Analyzing nutrition and dietary info...")
 		enrichInput := h.extractionResultToEnrichmentInput(result)
+		enrichInput.Language = job.Language
 		enrichment, err = h.enricher.EnrichRecipe(ctx, enrichInput)
 		if err != nil {
 			// Log but continue without enrichment
@@ -1123,6 +1186,74 @@ func (h *UnifiedExtractionHandler) extractionResultToEnrichmentInput(result *ai.
 	}
 }
 
+// clonePublicRecipeForUser creates a user-owned clone of a public/featured recipe.
+// The source recipe must already include ingredients and steps.
+func (h *UnifiedExtractionHandler) clonePublicRecipeForUser(ctx context.Context, source *model.Recipe, userID uuid.UUID) (uuid.UUID, error) {
+	now := time.Now().UTC()
+	sourceID := source.ID
+	clone := &model.Recipe{
+		ID:                 uuid.New(),
+		UserID:             userID,
+		Title:              source.Title,
+		Description:        source.Description,
+		Servings:           source.Servings,
+		PrepTime:           source.PrepTime,
+		CookTime:           source.CookTime,
+		Difficulty:         source.Difficulty,
+		Cuisine:            source.Cuisine,
+		ThumbnailURL:       source.ThumbnailURL,
+		SourceType:         "cloned",
+		SourceURL:          source.SourceURL,
+		SourceRecipeID:     &sourceID,
+		Tags:               source.Tags,
+		IsFavorite:         false,
+		ContentLanguage:    source.ContentLanguage,
+		TranslationGroupID: source.TranslationGroupID,
+		Nutrition:          source.Nutrition,
+		DietaryInfo:        source.DietaryInfo,
+		SyncVersion:        1,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+
+	for i, ing := range source.Ingredients {
+		clone.Ingredients = append(clone.Ingredients, model.RecipeIngredient{
+			ID:             uuid.New(),
+			RecipeID:       clone.ID,
+			Name:           ing.Name,
+			Quantity:       ing.Quantity,
+			Unit:           ing.Unit,
+			Category:       ing.Category,
+			Section:        ing.Section,
+			IsOptional:     ing.IsOptional,
+			Notes:          ing.Notes,
+			VideoTimestamp: ing.VideoTimestamp,
+			SortOrder:      i,
+			CreatedAt:      now,
+		})
+	}
+
+	for i, step := range source.Steps {
+		clone.Steps = append(clone.Steps, model.RecipeStep{
+			ID:                  uuid.New(),
+			RecipeID:            clone.ID,
+			StepNumber:          i + 1,
+			Instruction:         step.Instruction,
+			DurationSeconds:     step.DurationSeconds,
+			Technique:           step.Technique,
+			Temperature:         step.Temperature,
+			VideoTimestampStart: step.VideoTimestampStart,
+			VideoTimestampEnd:   step.VideoTimestampEnd,
+			CreatedAt:           now,
+		})
+	}
+
+	if err := h.recipeRepo.Create(ctx, clone); err != nil {
+		return uuid.Nil, fmt.Errorf("failed to create public recipe clone: %w", err)
+	}
+	return clone.ID, nil
+}
+
 // cacheExtractionResult saves the extraction result to cache
 func (h *UnifiedExtractionHandler) cacheExtractionResult(url string, result *ai.ExtractionResult, enrichment *ai.EnrichmentResult) {
 	// Recover from any panics to prevent goroutine crash
@@ -1260,18 +1391,26 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 	}
 
 	// DEDUPLICATION: Check if user already has a recipe from this source URL
-	// This prevents duplicates when the same URL is submitted multiple times
+	// This prevents duplicates when the same URL is submitted multiple times.
+	// Language-aware: only dedup if the existing recipe is in the same language.
 	if job.SourceURL != "" {
 		// Normalize URL before checking to handle variations (mobile URLs, query params, etc.)
 		normalizedURL := model.NormalizeURL(job.SourceURL)
 		existingRecipe, err := h.recipeRepo.GetBySourceURL(ctx, job.UserID, normalizedURL)
 		if err == nil && existingRecipe != nil {
-			// Recipe already exists! Return existing ID instead of creating duplicate
-			h.logger.Info("Recipe from this URL already exists for user, returning existing recipe",
-				"recipeID", existingRecipe.ID,
-				"userID", job.UserID,
+			// Same language (or legacy empty language) → return existing to avoid duplicate
+			if existingRecipe.ContentLanguage == "" || existingRecipe.ContentLanguage == job.Language {
+				h.logger.Info("Recipe from this URL already exists for user (same language), returning existing",
+					"recipeID", existingRecipe.ID,
+					"userID", job.UserID,
+					"sourceURL", normalizedURL)
+				return existingRecipe.ID, nil
+			}
+			// Different language → create a new copy in the new language
+			h.logger.Info("Recipe from this URL exists in different language, creating new copy",
+				"existingLang", existingRecipe.ContentLanguage,
+				"newLang", job.Language,
 				"sourceURL", normalizedURL)
-			return existingRecipe.ID, nil
 		}
 		// If err is ErrRecipeNotFound, continue with creation
 	}
@@ -1288,23 +1427,24 @@ func (h *UnifiedExtractionHandler) saveExtractedRecipe(ctx context.Context, job 
 	}
 
 	recipe := &model.Recipe{
-		ID:           uuid.New(),
-		UserID:       job.UserID,
-		Title:        result.Title,
-		Description:  stringPtr(result.Description),
-		Servings:     intPtr(result.Servings),
-		PrepTime:     intPtr(result.PrepTime),
-		CookTime:     intPtr(result.CookTime),
-		Difficulty:   stringPtr(result.Difficulty),
-		Cuisine:      stringPtr(result.Cuisine),
-		SourceType:   sourceType,
-		SourceURL:    stringPtr(job.SourceURL),
-		ThumbnailURL: stringPtr(thumbnailForDB),
-		Tags:         result.Tags,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-		IsPublic:     isAdmin,
-		IsFeatured:   isInspirator,
+		ID:              uuid.New(),
+		UserID:          job.UserID,
+		Title:           result.Title,
+		Description:     stringPtr(result.Description),
+		Servings:        intPtr(result.Servings),
+		PrepTime:        intPtr(result.PrepTime),
+		CookTime:        intPtr(result.CookTime),
+		Difficulty:      stringPtr(result.Difficulty),
+		Cuisine:         stringPtr(result.Cuisine),
+		SourceType:      sourceType,
+		SourceURL:       stringPtr(job.SourceURL),
+		ThumbnailURL:    stringPtr(thumbnailForDB),
+		Tags:            result.Tags,
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
+		IsPublic:        isAdmin,
+		IsFeatured:      isInspirator,
+		ContentLanguage: job.Language,
 	}
 
 	if isInspirator {

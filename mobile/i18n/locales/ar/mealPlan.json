@@ -1,0 +1,71 @@
+{
+  "title": "وجبات الأسبوع",
+  "days": {
+    "mon": "الاثنين",
+    "tue": "الثلاثاء",
+    "wed": "الأربعاء",
+    "thu": "الخميس",
+    "fri": "الجمعة",
+    "sat": "السبت",
+    "sun": "الأحد",
+    "monday": "الاثنين",
+    "tuesday": "الثلاثاء",
+    "wednesday": "الأربعاء",
+    "thursday": "الخميس",
+    "friday": "الجمعة",
+    "saturday": "السبت",
+    "sunday": "الأحد"
+  },
+  "daysShort": {
+    "mon": "ن",
+    "tue": "ث",
+    "wed": "ر",
+    "thu": "خ",
+    "fri": "ج",
+    "sat": "س",
+    "sun": "ح"
+  },
+  "mealTypes": {
+    "breakfast": "الفطور",
+    "lunch": "الغداء",
+    "dinner": "العشاء",
+    "snack": "وجبة خفيفة",
+    "more": "أخرى"
+  },
+  "empty": {
+    "noMeals": "لم يتم التخطيط لأي وجبات بعد",
+    "hint": "اضغط على \"+ إضافة وصفة\" في الأعلى للبدء بتخطيط أسبوعك"
+  },
+  "info": "معلومة",
+  "listCreated": "تم إنشاء قائمة التسوق",
+  "listCreatedMsg": "تمت إضافة {{count}} عنصر — ستجد القائمة في تبويب التسوق.",
+  "allInPantry": "لا يوجد ما تشتريه — جميع المكونات موجودة بالفعل في مخزنك!",
+  "generatedListName": "وجبات الأسبوع — أسبوع {{date}}",
+  "generateList": "إنشاء قائمة التسوق",
+  "addRecipe": "+ إضافة وصفة",
+  "addRecipeTitle": "إضافة وصفة",
+  "searchRecipes": "ابحث في الوصفات...",
+  "card": {
+    "title": "وجبات الأسبوع",
+    "subtitle_zero": "خطط لأسبوعك",
+    "subtitle_one": "وجبة واحدة هذا الأسبوع",
+    "subtitle_two": "وجبتان هذا الأسبوع",
+    "subtitle_few": "{{count}} وجبات هذا الأسبوع",
+    "subtitle_many": "{{count}} وجبة هذا الأسبوع",
+    "subtitle_other": "{{count}} وجبة هذا الأسبوع"
+  },
+  "addSheet": {
+    "title": "إضافة وصفة",
+    "searchPlaceholder": "ابحث في وصفاتك...",
+    "emptyMatch": "لا توجد وصفات تطابق بحثك",
+    "emptySaved": "لا توجد وصفات محفوظة",
+    "tryDifferent": "جرب البحث بكلمات مختلفة",
+    "extractFirst": "استخرج أو أضف وصفة أولاً"
+  },
+  "fallback": {
+    "recipe": "وصفة"
+  },
+  "slot": {
+    "addBtn": "+ إضافة وصفة"
+  }
+}

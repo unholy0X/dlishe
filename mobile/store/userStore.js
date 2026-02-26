@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Alert } from "react-native";
 import { updatePreferences as updatePrefsApi } from "../services/user";
+import i18n from "../i18n";
 
 export const useUserStore = create((set, get) => ({
   firstName: "",
@@ -21,7 +22,7 @@ export const useUserStore = create((set, get) => ({
       await updatePrefsApi({ preferredUnitSystem, getToken });
     } catch (err) {
       set({ preferredUnitSystem: previous });
-      Alert.alert("Error", err?.message || "Failed to save preferences");
+      Alert.alert(i18n.t("errors:errorTitle"), err?.message || i18n.t("errors:prefs.saveFailed"));
     }
   },
 

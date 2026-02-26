@@ -23,7 +23,9 @@ import CheckIcon from "../components/icons/CheckIcon";
 import PlusIcon from "../components/icons/PlusIcon";
 import DotsVerticalIcon from "../components/icons/DotsVerticalIcon";
 import AddRecipeSheetContent from "../components/recipies/AddRecipeSheetContent";
+import { useTranslation } from "react-i18next";
 import { useShoppingStore } from "../store";
+import { sc } from "../utils/deviceScale";
 
 // Subtle tinted cards — just enough to tell them apart
 const CARD_COLORS = [
@@ -36,6 +38,7 @@ const CARD_COLORS = [
 ];
 
 const ShoppingListCard = ({ list, index, onPress, onLongPress, isSelecting, isSelected, onSelect }) => {
+  const { t } = useTranslation("shopping");
   const itemCount = list.itemCount || 0;
   const checkedCount = list.checkedCount || 0;
   const progress = itemCount > 0 ? checkedCount / itemCount : 0;
@@ -69,14 +72,14 @@ const ShoppingListCard = ({ list, index, onPress, onLongPress, isSelecting, isSe
       {/* Selection checkbox */}
       {isSelecting && (
         <View style={[styles.selectCheckbox, isSelected && styles.selectCheckboxChecked]}>
-          {isSelected && <CheckIcon width={12} height={12} color="#ffffff" />}
+          {isSelected && <CheckIcon width={sc(12)} height={sc(12)} color="#ffffff" />}
         </View>
       )}
 
       <View style={styles.listInfo}>
         <Text style={[styles.listName, { color: palette.text }]} numberOfLines={1}>{list.name}</Text>
         <Text style={[styles.listCount, { color: palette.text, opacity: 0.7 }]}>
-          {checkedCount} of {itemCount} item{itemCount !== 1 ? "s" : ""}
+          {t("detail.checked", { count: itemCount, checked: checkedCount, total: itemCount })}
         </Text>
         {itemCount > 0 && (
           <View style={[styles.progressBar, { backgroundColor: palette.progressBg }]}>
@@ -87,7 +90,7 @@ const ShoppingListCard = ({ list, index, onPress, onLongPress, isSelecting, isSe
       <View style={styles.listStatus}>
         {isComplete ? (
           <View style={[styles.completeBadge, { backgroundColor: palette.text + "20" }]}>
-            <CheckIcon width={14} height={14} color={palette.text} />
+            <CheckIcon width={sc(14)} height={sc(14)} color={palette.text} />
           </View>
         ) : itemCount > 0 ? (
           <Text style={[styles.progressText, { color: palette.text }]}>{checkedCount}/{itemCount}</Text>
@@ -98,6 +101,7 @@ const ShoppingListCard = ({ list, index, onPress, onLongPress, isSelecting, isSe
 };
 
 const CreateListSheet = ({ onClose, onCreate }) => {
+  const { t } = useTranslation("shopping");
   const [name, setName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
@@ -108,7 +112,7 @@ const CreateListSheet = ({ onClose, onCreate }) => {
       await onCreate(name.trim());
       onClose();
     } catch {
-      Alert.alert("Error", "Failed to create list");
+      Alert.alert(t("errors:shopping.createFailed"), t("tryAgain", { ns: "common" }));
     } finally {
       setIsCreating(false);
     }
@@ -116,12 +120,12 @@ const CreateListSheet = ({ onClose, onCreate }) => {
 
   return (
     <View style={styles.sheetContent}>
-      <Text style={styles.sheetTitle}>New Shopping List</Text>
+      <Text style={styles.sheetTitle}>{t("create.sheetTitle")}</Text>
 
-      <Text style={styles.inputLabel}>Name</Text>
+      <Text style={styles.inputLabel}>{t("create.nameLabel")}</Text>
       <TextInput
         style={styles.textInput}
-        placeholder="e.g. Weekly Groceries"
+        placeholder={t("create.namePlaceholder")}
         placeholderTextColor="#B4B4B4"
         value={name}
         onChangeText={setName}
@@ -130,7 +134,7 @@ const CreateListSheet = ({ onClose, onCreate }) => {
 
       <View style={styles.sheetButtons}>
         <Pressable style={styles.cancelBtn} onPress={onClose}>
-          <Text style={styles.cancelBtnText}>Cancel</Text>
+          <Text style={styles.cancelBtnText}>{t("create.cancel")}</Text>
         </Pressable>
         <Pressable
           style={[styles.createBtn, (!name.trim() || isCreating) && styles.createBtnDisabled]}
@@ -140,7 +144,7 @@ const CreateListSheet = ({ onClose, onCreate }) => {
           {isCreating ? (
             <ActivityIndicator size="small" color="#2a5a2a" />
           ) : (
-            <Text style={styles.createBtnText}>Create</Text>
+            <Text style={styles.createBtnText}>{t("create.create")}</Text>
           )}
         </Pressable>
       </View>
@@ -152,6 +156,7 @@ export default function ShoppingScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const activeKey = pathname.replace("/", "") || "shopping";
+  const { t, i18n } = useTranslation("shopping");
   const [isSheetOpen, setSheetOpen] = useState(false);
   const [isAddRecipeOpen, setAddRecipeOpen] = useState(false);
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -167,9 +172,9 @@ export default function ShoppingScreen() {
 
   // Load lists on mount + when app comes back to foreground
   useEffect(() => {
-    loadLists({ getToken }).catch(() => {});
+    loadLists({ getToken }).catch(() => { });
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") loadLists({ getToken }).catch(() => {});
+      if (state === "active") loadLists({ getToken }).catch(() => { });
     });
     return () => sub.remove();
   }, []);
@@ -177,12 +182,12 @@ export default function ShoppingScreen() {
   // Also reload when pathname changes back to shopping (returning from detail)
   useEffect(() => {
     if (pathname === "/shopping") {
-      loadLists({ getToken }).catch(() => {});
+      loadLists({ getToken }).catch(() => { });
     }
   }, [pathname]);
 
   const onRefresh = useCallback(() => {
-    loadLists({ getToken }).catch(() => {});
+    loadLists({ getToken }).catch(() => { });
   }, [getToken]);
 
   const handleCreateList = async (name) => {
@@ -190,14 +195,14 @@ export default function ShoppingScreen() {
   };
 
   const handleDeleteList = (list) => {
-    Alert.alert("Delete List", `Delete "${list.name}"?`, [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("delete.title", { count: 1 }), t("delete.messageNamed", { name: list.name }), [
+      { text: t("buttons.cancel", { ns: "common" }), style: "cancel" },
       {
-        text: "Delete",
+        text: t("buttons.delete", { ns: "common" }),
         style: "destructive",
         onPress: () => {
           deleteList({ getToken, listId: list.id }).catch((err) => {
-            Alert.alert("Error", err?.message || "Failed to delete list");
+            Alert.alert(t("errors:shopping.deleteFailed"), err?.message || t("tryAgain", { ns: "common" }));
           });
         },
       },
@@ -228,19 +233,19 @@ export default function ShoppingScreen() {
   const handleDeleteSelected = () => {
     if (selectedIds.length === 0) return;
     Alert.alert(
-      "Delete Lists",
-      `Delete ${selectedIds.length} list${selectedIds.length !== 1 ? "s" : ""}?`,
+      t("delete.title", { count: selectedIds.length }),
+      t("delete.message", { count: selectedIds.length }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("buttons.cancel", { ns: "common" }), style: "cancel" },
         {
-          text: "Delete",
+          text: t("buttons.delete", { ns: "common" }),
           style: "destructive",
           onPress: async () => {
             try {
               await deleteLists({ getToken, listIds: selectedIds });
               exitSelectMode();
             } catch (err) {
-              Alert.alert("Error", err?.message || "Failed to delete lists");
+              Alert.alert(t("errors:shopping.deleteFailed"), err?.message || t("tryAgain", { ns: "common" }));
             }
           },
         },
@@ -250,7 +255,7 @@ export default function ShoppingScreen() {
 
   const handleMergeSelected = () => {
     if (selectedIds.length < 2) {
-      Alert.alert("Select More", "Select at least 2 lists to merge.");
+      Alert.alert(t("merge.selectMore"), t("merge.hint"));
       return;
     }
     const names = selectedIds.map((id) => {
@@ -258,18 +263,20 @@ export default function ShoppingScreen() {
       return l?.name || "Unknown";
     });
     Alert.alert(
-      "Smart Merge",
-      `Merge ${names.join(", ")} into one list?\n\nDuplicates will be combined intelligently.`,
+      t("merge.title"),
+      t("merge.confirm", { names: names.join(", ") }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("buttons.cancel", { ns: "common" }), style: "cancel" },
         {
-          text: "Merge",
+          text: t("merge.merge"),
           onPress: async () => {
             try {
-              await mergeLists({ getToken, sourceListIds: selectedIds });
-              Alert.alert("Merged", "Lists merged successfully!");
+              const dateStr = new Date().toLocaleDateString(i18n.language, { month: "short", day: "numeric" });
+              const name = t("merge.generatedName", { date: dateStr });
+              await mergeLists({ getToken, sourceListIds: selectedIds, name });
+              Alert.alert(t("merge.successTitle"), t("merge.successMessage"));
             } catch {
-              Alert.alert("Error", "Failed to merge lists");
+              Alert.alert(t("errors:shopping.mergeFailed"), t("tryAgain", { ns: "common" }));
             }
             exitSelectMode();
           },
@@ -285,12 +292,12 @@ export default function ShoppingScreen() {
     setMenuOpen(false);
     const count = safeListsArray.length;
     Alert.alert(
-      "Clear All Lists",
-      `This will permanently delete all ${count} shopping list${count !== 1 ? "s" : ""}. This can't be undone.`,
+      t("clearAll.title"),
+      t("clearAll.message", { count }),
       [
-        { text: "Keep Lists", style: "cancel" },
+        { text: t("clearAll.keepLists"), style: "cancel" },
         {
-          text: "Clear All",
+          text: t("clearAll.clearAll"),
           style: "destructive",
           onPress: async () => {
             setIsClearing(true);
@@ -298,7 +305,7 @@ export default function ShoppingScreen() {
               const allIds = safeListsArray.map((l) => l.id);
               await deleteLists({ getToken, listIds: allIds });
             } catch (err) {
-              Alert.alert("Error", err?.message || "Failed to clear lists");
+              Alert.alert(t("errors:shopping.deleteFailed"), err?.message || t("tryAgain", { ns: "common" }));
             } finally {
               setIsClearing(false);
             }
@@ -311,106 +318,102 @@ export default function ShoppingScreen() {
   return (
     <View style={styles.screen}>
       <SwipeNavigator>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Shopping</Text>
-            <Text style={styles.subtitle}>
-              {safeListsArray.length} list{safeListsArray.length !== 1 ? "s" : ""}
-            </Text>
-          </View>
-          <View style={styles.headerActions}>
-            {isSelecting ? (
-              <Pressable style={styles.cancelSelectBtn} onPress={exitSelectMode}>
-                <Text style={styles.cancelSelectText}>Cancel</Text>
-              </Pressable>
-            ) : (
-              <>
-                <Pressable onPress={() => setMenuOpen(true)}>
-                  <BlurView intensity={120} tint="light" style={styles.dotsBlur}>
-                    <DotsVerticalIcon width={6} height={20} color="#B4B4B4" />
-                  </BlurView>
-                </Pressable>
-                <Pressable style={styles.addButton} onPress={() => setSheetOpen(true)}>
-                  <PlusIcon width={24} height={24} color="#385225" />
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-
-        {isLoading && safeListsArray.length === 0 ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#385225" />
-            <Text style={styles.loadingText}>Loading lists…</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.centered}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : isEmpty ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
-              <ShoppingIcon width={32} height={28} color="#6b6b6b" />
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>{t("header")}</Text>
+              <Text style={styles.subtitle}>{t("listCount", { count: safeListsArray.length })}</Text>
             </View>
-            <Text style={styles.emptyTitle}>A Fresh Start</Text>
-            <Text style={styles.emptySubtitle}>
-              Create a list and never forget an{"\n"}ingredient at the store again
-            </Text>
-            <Pressable style={styles.emptyBtn} onPress={() => setSheetOpen(true)}>
-              <Text style={styles.emptyBtnText}>Create List</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={
-              <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor="#385225" />
-            }
-          >
-            {safeListsArray.map((list, index) => (
-              <ShoppingListCard
-                key={list.id}
-                list={list}
-                index={index}
-                onPress={() => handleOpenList(list)}
-                onLongPress={() => isSelecting ? null : handleDeleteList(list)}
-                isSelecting={isSelecting}
-                isSelected={selectedIds.includes(list.id)}
-                onSelect={toggleSelect}
-              />
-            ))}
-          </ScrollView>
-        )}
-
-        {/* Selection action bar */}
-        {isSelecting && selectedIds.length > 0 && (
-          <View style={styles.selectionBar}>
-            <Text style={styles.selectionCount}>
-              {selectedIds.length} selected
-            </Text>
-            <View style={styles.selectionActions}>
-              {selectedIds.length >= 2 && (
-                <Pressable
-                  style={[styles.selectionBtn, styles.mergeBtn]}
-                  onPress={handleMergeSelected}
-                  disabled={isMerging}
-                >
-                  {isMerging ? (
-                    <ActivityIndicator size="small" color="#28457A" />
-                  ) : (
-                    <Text style={styles.mergeBtnText}>Merge</Text>
-                  )}
+            <View style={styles.headerActions}>
+              {isSelecting ? (
+                <Pressable style={styles.cancelSelectBtn} onPress={exitSelectMode}>
+                  <Text style={styles.cancelSelectText}>{t("buttons.cancel", { ns: "common" })}</Text>
                 </Pressable>
+              ) : (
+                <>
+                  <Pressable onPress={() => setMenuOpen(true)}>
+                    <BlurView intensity={120} tint="light" style={styles.dotsBlur}>
+                      <DotsVerticalIcon width={sc(6)} height={sc(20)} color="#B4B4B4" />
+                    </BlurView>
+                  </Pressable>
+                  <Pressable style={styles.addButton} onPress={() => setSheetOpen(true)}>
+                    <PlusIcon width={sc(24)} height={sc(24)} color="#385225" />
+                  </Pressable>
+                </>
               )}
-              <Pressable style={[styles.selectionBtn, styles.deleteBtn]} onPress={handleDeleteSelected}>
-                <Text style={styles.deleteBtnText}>Delete</Text>
-              </Pressable>
             </View>
           </View>
-        )}
-      </SafeAreaView>
+
+          {isLoading && safeListsArray.length === 0 ? (
+            <View style={styles.centered}>
+              <ActivityIndicator size="large" color="#385225" />
+              <Text style={styles.loadingText}>{t("loading")}</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.centered}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : isEmpty ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconWrap}>
+                <ShoppingIcon width={sc(32)} height={sc(28)} color="#6b6b6b" />
+              </View>
+              <Text style={styles.emptyTitle}>{t("empty.title")}</Text>
+              <Text style={styles.emptySubtitle}>{t("empty.subtitle")}</Text>
+              <Pressable style={styles.emptyBtn} onPress={() => setSheetOpen(true)}>
+                <Text style={styles.emptyBtnText}>{t("empty.createButton")}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              refreshControl={
+                <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor="#385225" />
+              }
+            >
+              {safeListsArray.map((list, index) => (
+                <ShoppingListCard
+                  key={list.id}
+                  list={list}
+                  index={index}
+                  onPress={() => handleOpenList(list)}
+                  onLongPress={() => isSelecting ? null : handleDeleteList(list)}
+                  isSelecting={isSelecting}
+                  isSelected={selectedIds.includes(list.id)}
+                  onSelect={toggleSelect}
+                />
+              ))}
+            </ScrollView>
+          )}
+
+          {/* Selection action bar */}
+          {isSelecting && selectedIds.length > 0 && (
+            <View style={styles.selectionBar}>
+              <Text style={styles.selectionCount}>
+                {t("selected", { count: selectedIds.length, ns: "common" })}
+              </Text>
+              <View style={styles.selectionActions}>
+                {selectedIds.length >= 2 && (
+                  <Pressable
+                    style={[styles.selectionBtn, styles.mergeBtn]}
+                    onPress={handleMergeSelected}
+                    disabled={isMerging}
+                  >
+                    {isMerging ? (
+                      <ActivityIndicator size="small" color="#28457A" />
+                    ) : (
+                      <Text style={styles.mergeBtnText}>{t("merge.merge")}</Text>
+                    )}
+                  </Pressable>
+                )}
+                <Pressable style={[styles.selectionBtn, styles.deleteBtn]} onPress={handleDeleteSelected}>
+                  <Text style={styles.deleteBtnText}>{t("buttons.delete", { ns: "common" })}</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </SafeAreaView>
       </SwipeNavigator>
 
       {!isSelecting && (
@@ -436,7 +439,7 @@ export default function ShoppingScreen() {
       {/* Menu sheet */}
       <BottomSheetModal visible={isMenuOpen} onClose={() => setMenuOpen(false)}>
         <View style={styles.menuSheet}>
-          <Text style={styles.menuTitle}>Shopping Options</Text>
+          <Text style={styles.menuTitle}>{t("menu.title")}</Text>
 
           {/* Select Lists */}
           <Pressable
@@ -444,11 +447,11 @@ export default function ShoppingScreen() {
             onPress={() => { setMenuOpen(false); enterSelectMode(); }}
           >
             <View style={styles.menuOptionNeutralIcon}>
-              <CheckIcon width={16} height={16} color="#2a5a2a" />
+              <CheckIcon width={sc(16)} height={sc(16)} color="#2a5a2a" />
             </View>
             <View style={styles.menuOptionInfo}>
-              <Text style={styles.menuOptionNeutralLabel}>Select Lists</Text>
-              <Text style={styles.menuOptionDesc}>Merge or delete multiple lists</Text>
+              <Text style={styles.menuOptionNeutralLabel}>{t("menu.selectLists")}</Text>
+              <Text style={styles.menuOptionDesc}>{t("menu.selectHint")}</Text>
             </View>
           </Pressable>
 
@@ -466,15 +469,15 @@ export default function ShoppingScreen() {
               )}
             </View>
             <View style={styles.menuOptionInfo}>
-              <Text style={styles.menuOptionLabel}>Clear All Lists</Text>
+              <Text style={styles.menuOptionLabel}>{t("clearAll.title")}</Text>
               <Text style={styles.menuOptionDesc}>
-                Remove all {safeListsArray.length} list{safeListsArray.length !== 1 ? "s" : ""} permanently
+                {t("menu.clearHint", { count: safeListsArray.length })}
               </Text>
             </View>
           </Pressable>
 
           <Pressable style={styles.menuDismiss} onPress={() => setMenuOpen(false)}>
-            <Text style={styles.menuDismissText}>Cancel</Text>
+            <Text style={styles.menuDismissText}>{t("buttons.cancel", { ns: "common" })}</Text>
           </Pressable>
         </View>
       </BottomSheetModal>
@@ -499,14 +502,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: sc(24),
     fontWeight: "500",
     color: "#000",
     letterSpacing: -0.05,
   },
   subtitle: {
     marginTop: 3,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#B4B4B4",
     letterSpacing: -0.05,
   },
@@ -515,8 +518,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dotsBlur: {
-    width: 50,
-    height: 50,
+    width: sc(50),
+    height: sc(50),
     borderWidth: 1,
     borderColor: "#ffffff",
     borderRadius: 999,
@@ -530,8 +533,8 @@ const styles = StyleSheet.create({
     margin: 3,
   },
   addButton: {
-    width: 50,
-    height: 50,
+    width: sc(50),
+    height: sc(50),
     borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
@@ -544,7 +547,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8E8E8",
   },
   cancelSelectText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#111111",
   },
@@ -601,12 +604,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listName: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
   },
   listCount: {
     marginTop: 2,
-    fontSize: 13,
+    fontSize: sc(13),
   },
   progressBar: {
     marginTop: 8,
@@ -622,7 +625,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   progressText: {
-    fontSize: 13,
+    fontSize: sc(13),
     fontWeight: "500",
   },
   completeBadge: {
@@ -654,7 +657,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   selectionCount: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#111111",
   },
@@ -672,7 +675,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#9BC6FB",
   },
   mergeBtnText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#28457A",
   },
@@ -680,7 +683,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FBBDBD",
   },
   deleteBtnText: {
-    fontSize: 14,
+    fontSize: sc(14),
     fontWeight: "600",
     color: "#7A2828",
   },
@@ -692,11 +695,11 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
   },
   errorText: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#cc3b3b",
   },
   emptyState: {
@@ -715,13 +718,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: sc(14),
     color: "#6b6b6b",
     textAlign: "center",
     lineHeight: 20,
@@ -734,7 +737,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   emptyBtnText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "600",
     color: "#385225",
   },
@@ -743,13 +746,13 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   sheetTitle: {
-    fontSize: 20,
+    fontSize: sc(20),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#6b6b6b",
     marginBottom: 8,
     marginTop: 12,
@@ -759,7 +762,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: sc(16),
     color: "#111111",
   },
   sheetButtons: {
@@ -775,7 +778,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cancelBtnText: {
-    fontSize: 15,
+    fontSize: sc(15),
     color: "#6b6b6b",
     fontWeight: "500",
   },
@@ -790,7 +793,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   createBtnText: {
-    fontSize: 15,
+    fontSize: sc(15),
     color: "#2a5a2a",
     fontWeight: "600",
   },
@@ -799,7 +802,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   menuTitle: {
-    fontSize: 18,
+    fontSize: sc(18),
     fontWeight: "600",
     color: "#111111",
     marginBottom: 16,
@@ -822,7 +825,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   menuOptionIconText: {
-    fontSize: 16,
+    fontSize: sc(16),
     color: "#cc3b3b",
     fontWeight: "600",
   },
@@ -847,17 +850,17 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   menuOptionNeutralLabel: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
     color: "#2a5a2a",
   },
   menuOptionLabel: {
-    fontSize: 16,
+    fontSize: sc(16),
     fontWeight: "600",
     color: "#cc3b3b",
   },
   menuOptionDesc: {
-    fontSize: 13,
+    fontSize: sc(13),
     color: "#999999",
     marginTop: 2,
   },
@@ -868,7 +871,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F5F7",
   },
   menuDismissText: {
-    fontSize: 15,
+    fontSize: sc(15),
     fontWeight: "500",
     color: "#6b6b6b",
   },

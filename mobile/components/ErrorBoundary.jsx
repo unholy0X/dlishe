@@ -2,10 +2,11 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Sentry from "@sentry/react-native";
+import { withTranslation } from "react-i18next";
 
 const MAX_RETRIES = 2;
 
-export default class ErrorBoundary extends React.Component {
+class ErrorBoundary extends React.Component {
   state = { hasError: false, crashCount: 0 };
 
   static getDerivedStateFromError(error) {
@@ -23,6 +24,7 @@ export default class ErrorBoundary extends React.Component {
   };
 
   render() {
+    const { t } = this.props;
     if (this.state.hasError) {
       const canRetry = this.state.crashCount <= MAX_RETRIES;
       return (
@@ -31,15 +33,15 @@ export default class ErrorBoundary extends React.Component {
             <View style={styles.iconCircle}>
               <Text style={styles.icon}>!</Text>
             </View>
-            <Text style={styles.title}>Something went wrong</Text>
+            <Text style={styles.title}>{t("generic", "Something went wrong")}</Text>
             <Text style={styles.subtitle}>
               {canRetry
-                ? "The app ran into an unexpected error.\nPlease try reloading."
-                : "The app keeps crashing.\nPlease close and reopen it."}
+                ? t("retryError", "The app ran into an unexpected error.\nPlease try reloading.")
+                : t("fatalError", "The app keeps crashing.\nPlease close and reopen it.")}
             </Text>
             {canRetry && (
               <Pressable style={styles.button} onPress={this.handleReload}>
-                <Text style={styles.buttonText}>Reload App</Text>
+                <Text style={styles.buttonText}>{t("reloadApp", "Reload App")}</Text>
               </Pressable>
             )}
           </SafeAreaView>
@@ -49,6 +51,8 @@ export default class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+
+export default withTranslation("errors")(ErrorBoundary);
 
 const styles = StyleSheet.create({
   screen: {

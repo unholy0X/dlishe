@@ -1,5 +1,10 @@
 import { create } from "zustand";
-import { fetchRecipes, deleteRecipe, toggleFavorite as toggleFavoriteApi } from "../services/recipes";
+import {
+  fetchRecipes,
+  deleteRecipe,
+  deleteAllRecipes,
+  toggleFavorite as toggleFavoriteApi,
+} from "../services/recipes";
 
 function friendlyNetworkError(err, fallback) {
   const msg = (err?.message || "").toLowerCase();
@@ -107,31 +112,20 @@ export const useRecipeStore = create((set, get) => ({
   },
 
   clearAll: async ({ getToken }) => {
-    const { recipes } = get();
-    const allIds = recipes.map((r) => r.id);
-    if (allIds.length === 0) return;
-
-    // Optimistic: clear immediately
+    // Optimistic: wipe local state immediately for instant feedback.
     set({ recipes: [], total: 0, offset: 0 });
 
     try {
-      const results = await Promise.allSettled(
-        allIds.map((recipeId) => deleteRecipe({ recipeId, getToken }))
-      );
-      const failCount = results.filter((r) => r.status === "rejected").length;
-      if (failCount > 0) {
-        try {
-          await get().refresh({ getToken });
-        } catch {
-          // refresh failed — UI stays empty, error below will inform user
-        }
-        set({ error: `Failed to remove ${failCount} recipe(s)` });
-      }
+      // Single bulk DELETE — atomically soft-deletes ALL user recipes on the
+      // backend regardless of how many are currently loaded in the store.
+      await deleteAllRecipes({ getToken });
     } catch (err) {
+      // Rollback: reload whatever is still on the server.
       try {
         await get().refresh({ getToken });
       } catch {
-        // Can't recover — leave error message
+        // If the refresh also fails the user is likely offline; the error
+        // message below is sufficient — do not cascade another state change.
       }
       set({ error: friendlyNetworkError(err, "Failed to clear recipes") });
     }

@@ -209,7 +209,7 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 			   source_recipe_id, source_metadata, tags, is_public, is_favorite,
 			   is_featured, featured_at,
 			   nutrition, dietary_info, sync_version, created_at, updated_at,
-			   content_language, translation_group_id
+			   content_language, translation_group_id, cookidoo_url
 		FROM recipes
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -245,6 +245,7 @@ func (r *RecipeRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Re
 		&recipe.UpdatedAt,
 		&recipe.ContentLanguage,
 		&recipe.TranslationGroupID,
+		&recipe.CookidooURL,
 	)
 
 	if err != nil {
@@ -1023,6 +1024,27 @@ func (r *RecipeRepository) SetFavorite(ctx context.Context, id uuid.UUID, favori
 		return ErrRecipeNotFound
 	}
 
+	return nil
+}
+
+// SetCookidooURL persists the Cookidoo public URL for a recipe after Thermomix export.
+func (r *RecipeRepository) SetCookidooURL(ctx context.Context, id uuid.UUID, url string) error {
+	query := `
+		UPDATE recipes
+		SET cookidoo_url = $2, updated_at = $3
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	result, err := r.db.ExecContext(ctx, query, id, url, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrRecipeNotFound
+	}
 	return nil
 }
 

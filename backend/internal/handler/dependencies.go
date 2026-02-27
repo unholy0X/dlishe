@@ -42,6 +42,7 @@ type RecipeRepository interface {
 	SoftDelete(ctx context.Context, id uuid.UUID) error
 	DeleteAllByUser(ctx context.Context, userID uuid.UUID) error
 	SetFavorite(ctx context.Context, id uuid.UUID, isFavorite bool) error
+	SetCookidooURL(ctx context.Context, id uuid.UUID, url string) error
 }
 
 // PantryRepository defines the interface for pantry persistence

@@ -62,6 +62,7 @@ type Recipe struct {
 	DeletedAt          *time.Time       `json:"-" db:"deleted_at"`
 	ContentLanguage    string           `json:"contentLanguage" db:"content_language"`
 	TranslationGroupID *uuid.UUID       `json:"translationGroupId,omitempty" db:"translation_group_id"`
+	CookidooURL        *string          `json:"cookidooUrl,omitempty" db:"cookidoo_url"`
 
 	// Computed fields (for list views without loading full relations)
 	IngredientCount int      `json:"ingredientCount,omitempty"`

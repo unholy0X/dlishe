@@ -213,6 +213,9 @@ func (m *mockRecipeRepository) SetFavorite(ctx context.Context, id uuid.UUID, is
 	}
 	return m.SetFavoriteFunc(ctx, id, isFavorite)
 }
+func (m *mockRecipeRepository) SetCookidooURL(ctx context.Context, id uuid.UUID, url string) error {
+	return nil
+}
 
 type mockPantryRepository struct {
 	ListFunc    func(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error)

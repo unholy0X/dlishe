@@ -53,9 +53,9 @@ function ThermomixIcon({ size = 18, color = "#ffffff", bladeColor = C.greenDark 
   );
 }
 
-export default function ThermomixExportButton({ recipeId, getToken, t, FONT }) {
-  const [phase, setPhase] = useState("idle"); // idle | loading | success | error
-  const [url, setUrl] = useState(null);
+export default function ThermomixExportButton({ recipeId, getToken, t, FONT, initialUrl }) {
+  const [phase, setPhase] = useState(initialUrl ? "success" : "idle");
+  const [url, setUrl] = useState(initialUrl || null);
   const [stageIdx, setStageIdx] = useState(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef(null);

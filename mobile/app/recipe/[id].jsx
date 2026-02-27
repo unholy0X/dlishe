@@ -685,6 +685,7 @@ export default function RecipeDetailScreen() {
                   getToken={getToken}
                   t={t}
                   FONT={FONT}
+                  initialUrl={recipe.cookidooUrl}
                 />
                 <Pressable
                   style={s.deleteBtn}

@@ -19,6 +19,9 @@ type CookidooPool interface {
 	CreateRecipe(ctx context.Context, recipe cookidoo.ThermomixRecipe) (string, error)
 }
 
+// RecipeRepository is extended here with the Cookidoo URL persistence method.
+// (The base interface is declared in handler.go alongside the other handlers.)
+
 // ThermomixHandler handles Thermomix/Cookidoo export requests.
 type ThermomixHandler struct {
 	recipes   RecipeRepository
@@ -74,6 +77,12 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Return cached URL if already exported.
+	if recipe.CookidooURL != nil && *recipe.CookidooURL != "" {
+		response.OK(w, map[string]string{"url": *recipe.CookidooURL})
+		return
+	}
+
 	// Convert to Thermomix format via Gemini.
 	converted, err := h.converter.ConvertToThermomix(r.Context(), recipe)
 	if err != nil {
@@ -90,6 +99,10 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 		response.LogAndInternalError(w, err)
 		return
 	}
+
+	// Persist the URL so future calls return instantly.
+	// Non-fatal: the export succeeded even if caching fails.
+	_ = h.recipes.SetCookidooURL(r.Context(), recipe.ID, publicURL)
 
 	response.OK(w, map[string]string{
 		"url": publicURL,

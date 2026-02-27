@@ -8,26 +8,28 @@ import (
 
 // NewStepItem builds a RecipeItem for an instruction step.
 //
-// When speed is non-empty, it appends the compact TTS notation to the text
-// and adds a TTS annotation so Cookidoo renders the Thermomix parameters
-// as interactive tags.
+// When mode is one of the official Cookidoo automodes ("dough", "turbo", "blend",
+// "warm_up", "rice_cooker"), a MODE annotation is created and the mode's fixed
+// internal speed is applied automatically — the caller's speed value is ignored.
+//
+// When mode is empty and speed is non-empty, a standard TTS annotation is created
+// with the provided speed / time / temperature parameters.
 //
 // ingredientRefs are ingredient descriptions (e.g. "500 g tomates") that must
-// appear verbatim in text. Each one gets an INGREDIENT annotation pointing to
-// its exact position, so Cookidoo can link the step back to the ingredient list.
+// appear verbatim in text. Each gets an INGREDIENT annotation at its exact position.
 //
-// lang is the BCP-47 language code of the recipe (e.g. "fr", "de", "en").
-func NewStepItem(text, speed string, timeSecs int, tempCelsius, lang string, ingredientRefs []string) RecipeItem {
+// lang is the BCP-47 language code (e.g. "fr", "ar", "en") used for localised labels.
+func NewStepItem(text, speed, mode string, timeSecs int, tempCelsius, lang string, ingredientRefs []string) RecipeItem {
 	var annotations []StepAnnotation
 
-	// Build INGREDIENT annotations — search for each ref verbatim in text.
+	// Build INGREDIENT annotations — locate each ref verbatim in text.
 	for _, ref := range ingredientRefs {
 		if ref == "" {
 			continue
 		}
 		offset, ok := runeIndex(text, ref)
 		if !ok {
-			continue // ref not found verbatim; skip rather than emit wrong offset
+			continue
 		}
 		length := utf8.RuneCountInString(ref)
 		annotations = append(annotations, StepAnnotation{
@@ -40,12 +42,31 @@ func NewStepItem(text, speed string, timeSecs int, tempCelsius, lang string, ing
 		})
 	}
 
-	// Build TTS annotation when there is a machine action.
 	fullText := text
-	if speed != "" {
+
+	if mode != "" {
+		// ── MODE annotation ───────────────────────────────────────────
+		notation := buildModeNotation(mode, timeSecs, tempCelsius, lang)
+		fullText = text + " " + notation
+		offset := utf8.RuneCountInString(text) + 1
+		length := utf8.RuneCountInString(notation)
+
+		ann := StepAnnotation{
+			Type: "MODE",
+			Name: mode,
+			Data: modeAnnotationData(mode, timeSecs, tempCelsius),
+			Position: AnnotationPosition{
+				Offset: offset,
+				Length: length,
+			},
+		}
+		annotations = append(annotations, ann)
+
+	} else if speed != "" {
+		// ── TTS annotation ────────────────────────────────────────────
 		notation := buildTTSNotation(speed, timeSecs, tempCelsius, lang)
 		fullText = text + " " + notation
-		offset := utf8.RuneCountInString(text) + 1 // +1 for the space separator
+		offset := utf8.RuneCountInString(text) + 1
 		length := utf8.RuneCountInString(notation)
 
 		ann := StepAnnotation{
@@ -69,20 +90,59 @@ func NewStepItem(text, speed string, timeSecs int, tempCelsius, lang string, ing
 	}
 }
 
-// runeIndex returns the rune-based offset of substr within s, and true if found.
-func runeIndex(s, substr string) (int, bool) {
-	byteIdx := strings.Index(s, substr)
-	if byteIdx < 0 {
-		return 0, false
+// modeAnnotationData returns the AnnotationData for a MODE annotation.
+// Each automode has fixed internal parameters; only time is variable.
+func modeAnnotationData(mode string, timeSecs int, tempCelsius string) AnnotationData {
+	data := AnnotationData{}
+	if timeSecs > 0 {
+		data.Time = timeSecs
 	}
-	return utf8.RuneCountInString(s[:byteIdx]), true
+	switch mode {
+	case "blend":
+		data.Speed = "6"
+	case "warm_up":
+		data.Speed = "soft"
+		temp := tempCelsius
+		if temp == "" {
+			temp = "65"
+		}
+		data.Temperature = &AnnotationTemp{Value: temp, Unit: "C"}
+	case "rice_cooker":
+		data.Temperature = &AnnotationTemp{Value: "100", Unit: "C"}
+	}
+	return data
 }
 
-// buildTTSNotation formats the compact Thermomix notation string.
-// Examples: "5 sec/vitesse 5", "3 min/120°C/vitesse 1", "2 min/Pétrin"
-//
-// Speed "0" is the Thermomix kneading (Pétrin) mode — it uses a localised
-// kneading label instead of "vitesse 0" and never carries a temperature.
+// buildModeNotation formats the notation appended to the step text for MODE steps.
+// Format: "Pétrin /2 min", "Turbo /2 sec", "Mixage /1 min 30 sec", "Réchauffer /65°C"
+func buildModeNotation(mode string, timeSecs int, tempCelsius, lang string) string {
+	label := modeLabelForLang(mode, lang)
+
+	var params []string
+	if timeSecs > 0 {
+		mins := timeSecs / 60
+		secs := timeSecs % 60
+		switch {
+		case mins > 0 && secs > 0:
+			params = append(params, fmt.Sprintf("%d min %d sec", mins, secs))
+		case mins > 0:
+			params = append(params, fmt.Sprintf("%d min", mins))
+		default:
+			params = append(params, fmt.Sprintf("%d sec", timeSecs))
+		}
+	}
+	if tempCelsius != "" {
+		params = append(params, tempCelsius+"°C")
+	}
+
+	if len(params) == 0 {
+		return label
+	}
+	return label + " /" + strings.Join(params, "/")
+}
+
+// buildTTSNotation formats the compact Thermomix notation string for TTS steps.
+// Examples: "5 sec/vitesse 5", "3 min/120°C/vitesse 1"
 func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) string {
 	var parts []string
 
@@ -93,13 +153,6 @@ func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) stri
 			parts = append(parts, fmt.Sprintf("%d min", timeSecs/60))
 		}
 	}
-
-	// Speed "0" = kneading/Pétrin mode — no temperature, special label.
-	if speed == "0" {
-		parts = append(parts, kneadLabelForLang(lang))
-		return strings.Join(parts, "/")
-	}
-
 	if tempCelsius != "" {
 		parts = append(parts, tempCelsius+"°C")
 	}
@@ -108,7 +161,102 @@ func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) stri
 	return strings.Join(parts, "/")
 }
 
-// speedLabelForLang returns the localised speed label for a BCP-47 language code.
+// modeLabelForLang returns the localised display label for a Cookidoo automode.
+func modeLabelForLang(mode, lang string) string {
+	l := strings.ToLower(lang)
+	isFR := strings.HasPrefix(l, "fr")
+	isDE := strings.HasPrefix(l, "de")
+	isES := strings.HasPrefix(l, "es")
+	isIT := strings.HasPrefix(l, "it")
+	isPT := strings.HasPrefix(l, "pt")
+	isNL := strings.HasPrefix(l, "nl")
+	isAR := strings.HasPrefix(l, "ar")
+
+	switch mode {
+	case "dough":
+		switch {
+		case isFR:
+			return "Pétrin"
+		case isDE:
+			return "Teigkneten"
+		case isES:
+			return "Amasar"
+		case isIT:
+			return "Impasto"
+		case isPT:
+			return "Amassar"
+		case isNL:
+			return "Kneden"
+		case isAR:
+			return "عجن"
+		default:
+			return "Knead"
+		}
+	case "turbo":
+		return "Turbo" // universal across all Cookidoo locales
+	case "blend":
+		switch {
+		case isFR:
+			return "Mixage"
+		case isDE:
+			return "Mixen"
+		case isES:
+			return "Mezclar"
+		case isIT:
+			return "Frullare"
+		case isPT:
+			return "Misturar"
+		case isNL:
+			return "Mixen"
+		case isAR:
+			return "مزج"
+		default:
+			return "Blend"
+		}
+	case "warm_up":
+		switch {
+		case isFR:
+			return "Réchauffer"
+		case isDE:
+			return "Aufwärmen"
+		case isES:
+			return "Calentar"
+		case isIT:
+			return "Riscaldare"
+		case isPT:
+			return "Aquecer"
+		case isNL:
+			return "Opwarmen"
+		case isAR:
+			return "تسخين"
+		default:
+			return "Warm up"
+		}
+	case "rice_cooker":
+		switch {
+		case isFR:
+			return "Cuiseur à riz"
+		case isDE:
+			return "Reiskocher"
+		case isES:
+			return "Arrocera"
+		case isIT:
+			return "Cuociriso"
+		case isPT:
+			return "Panela de arroz"
+		case isNL:
+			return "Rijstkoker"
+		case isAR:
+			return "طنجرة الأرز"
+		default:
+			return "Rice cooker"
+		}
+	default:
+		return mode
+	}
+}
+
+// speedLabelForLang returns the localised speed label for TTS notation.
 func speedLabelForLang(lang string) string {
 	switch strings.ToLower(lang) {
 	case "fr", "fr-fr", "fr-be", "fr-ch":
@@ -134,28 +282,11 @@ func speedLabelForLang(lang string) string {
 	}
 }
 
-// kneadLabelForLang returns the localised kneading mode label (speed "0").
-func kneadLabelForLang(lang string) string {
-	switch strings.ToLower(lang) {
-	case "fr", "fr-fr", "fr-be", "fr-ch":
-		return "Pétrin"
-	case "de", "de-de", "de-at", "de-ch":
-		return "Teigkneten"
-	case "es", "es-es", "es-mx":
-		return "Amasar"
-	case "it", "it-it":
-		return "Impasto"
-	case "pt", "pt-pt", "pt-br":
-		return "Amassar"
-	case "nl", "nl-nl", "nl-be":
-		return "Kneden"
-	case "ar", "ar-sa", "ar-ma", "ar-dz", "ar-eg":
-		return "عجن"
-	case "zh", "zh-cn", "zh-tw":
-		return "揉面"
-	case "ja", "ja-jp":
-		return "こねる"
-	default:
-		return "Knead"
+// runeIndex returns the rune-based offset of substr within s, and true if found.
+func runeIndex(s, substr string) (int, bool) {
+	byteIdx := strings.Index(s, substr)
+	if byteIdx < 0 {
+		return 0, false
 	}
+	return utf8.RuneCountInString(s[:byteIdx]), true
 }

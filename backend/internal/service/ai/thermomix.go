@@ -14,11 +14,16 @@ type ThermomixStep struct {
 	// Text is the step instruction WITHOUT the Thermomix notation appended.
 	// It must contain each entry in IngredientRefs verbatim.
 	Text string `json:"text"`
-	// Speed is the Thermomix speed setting (e.g. "1", "5", "10"). Empty if no machine action.
+	// Mode is the Cookidoo automode identifier when this step maps to a fixed Thermomix
+	// preset: "dough", "turbo", "blend", "warm_up", "rice_cooker".
+	// When Mode is set, Speed is ignored — the mode defines its own speed internally.
+	Mode string `json:"mode"`
+	// Speed is the Thermomix speed (e.g. "1", "5", "10"). Only used when Mode is "".
 	Speed string `json:"speed"`
 	// TimeSeconds is the duration in seconds (e.g. 300 for 5 minutes). 0 if no timer.
 	TimeSeconds int `json:"time_seconds"`
-	// TempCelsius is the temperature in Celsius as a string (e.g. "100", "120"). Empty if no heat.
+	// TempCelsius is the temperature in Celsius (e.g. "100"). Empty if no heat.
+	// Only used when Mode is "" or Mode is "warm_up" (which defaults to "65").
 	TempCelsius string `json:"temp_celsius"`
 	// IngredientRefs are ingredient descriptions (e.g. "500 g tomates") that appear
 	// verbatim inside Text. Each will become an INGREDIENT annotation in Cookidoo.
@@ -119,53 +124,61 @@ WHAT THE THERMOMIX CANNOT DO (→ manual step, empty speed/temp/time):
 - Plate, garnish, serve, rest, refrigerate
 - Handle > 1.5 kg solids or > 2 L liquid
 
-SPEED REFERENCE:
+SPEED REFERENCE (used only when mode is ""):
 - "" (empty) = no machine action — manual step
-- "0"        = Pétrin/Knead — dough only, never with heat
-- "1"–"2"   = slow stir — cooking sauces, soups, sautéing
+- "1"–"2"   = slow stir — sautéing, simmering, keeping warm
 - "3"–"4"   = medium — emulsifying, butterfly whisk
 - "5"–"7"   = chopping — vegetables, onions, herbs, meat
 - "8"–"10"  = high speed — blending, puréeing, crushing ice
-- Turbo burst: speed "10", time 1–3 s — final chop finish
 
-TEMPERATURE REFERENCE:
+TEMPERATURE REFERENCE (used only when mode is ""):
 - ""    = no heat
-- "37"  = body temp (chocolate, yeast)
+- "37"  = body temp (chocolate melting, yeast activation)
 - "60"–"80"  = gentle (eggs, cream sauces, delicate)
-- "90"–"100" = simmering (soups, rice, pasta sauces)
+- "90"–"100" = simmering (soups, pasta sauces, grains)
 - "120" = sautéing max / Varoma steaming
 - "130"–"160" = TM6 ONLY (caramel, sugar work)
 
-OFFICIAL AUTOMODE PATTERNS (from Cookidoo):
-- Pétrin (dough/knead): speed "0", no temp, time 60–240 s
-- Turbo burst:          speed "10", no temp, time 1–3 s
-- Blend (Mixage):       speed "6", no temp, time 60–90 s
-- Warm up (Réchauffer): speed "1", temp "65", no fixed time
-- Rice cooker:          speed "1", temp "100", time per recipe
+OFFICIAL COOKIDOO AUTOMODES — native Thermomix presets with fixed internal speed:
+┌───────────────┬──────────────────────────────────────┬──────────────┬──────────────┐
+│ mode          │ When to use                          │ time_seconds │ temp_celsius │
+├───────────────┼──────────────────────────────────────┼──────────────┼──────────────┤
+│ "dough"       │ Kneading bread/pastry/pizza dough    │ 60–240 s     │ leave ""     │
+│ "turbo"       │ Ultra-fast burst chop (1–3 s finish) │ 1–3 s        │ leave ""     │
+│ "blend"       │ Smooth blending / puréeing           │ 60–90 s      │ leave ""     │
+│ "warm_up"     │ Gently reheating finished sauce/soup │ leave 0      │ "65"         │
+│ "rice_cooker" │ Cooking rice or similar grains       │ per recipe   │ leave ""     │
+└───────────────┴──────────────────────────────────────┴──────────────┴──────────────┘
+When mode is set → speed MUST be "" — the preset handles speed internally.
+When mode is ""  → use speed + temp + time (TTS parameters).
 
 ━━━ REASONING RULES — APPLY TO EVERY STEP ━━━
 
 For each original step, reason through three questions:
 
 1. CAN this step be done inside the Thermomix bowl?
-   - YES  → assign speed + time + temp from patterns above
-   - NO   → set speed "", time_seconds 0, temp_celsius "" and write a clear manual instruction
-   - PARTLY → output a Thermomix sub-step for the bowl part; manual step for the rest
+   - YES    → pick automode OR TTS pattern below
+   - NO     → mode "", speed "", time_seconds 0, temp_celsius "" — manual instruction
+   - PARTLY → one Thermomix sub-step + one manual sub-step
 
 2. WHICH pattern fits best?
-   - Dry chopping       → speed 5–8, time 3–10 s, no heat
-   - Sautéing           → speed 1–2, temp "120", time 3–8 min
-   - Cooking/simmering  → speed 1, temp "90"–"100", time per recipe
-   - Steaming (Varoma)  → speed 2, temp "120", time per recipe
-   - Kneading           → speed "0", no temp, time 2–4 min
-   - Blending/puréeing  → speed 8–10, no heat, time 30–60 s
-   - Warming            → speed 1, temp "65"–"70"
-   - Manual             → all empty
+   - Kneading dough          → mode "dough",       time 60–240 s
+   - Ultra-fast burst        → mode "turbo",       time 1–3 s  (add AFTER a chop step)
+   - Smooth blend/purée      → mode "blend",       time 60–90 s
+   - Gentle reheating        → mode "warm_up",     temp "65"
+   - Rice / grain cooking    → mode "rice_cooker", time per recipe
+   - Chopping (regular)      → speed "5"–"8",  no heat,    time 3–10 s
+   - Sautéing / browning     → speed "1"–"2",  temp "120", time 3–8 min
+   - Cooking / simmering     → speed "1",      temp "90"–"100", time per recipe
+   - Steaming (Varoma)       → speed "2",      temp "120", time per recipe
+   - Emulsifying / whipping  → speed "3"–"4",  no heat,    time 30–60 s
+   - Warming / keeping warm  → speed "1",      temp "65"–"70"
+   - Manual (oven/rest/plate)→ all empty
 
 3. IS the time realistic?
-   - Preserve the original cooking time — do not shorten arbitrarily
-   - Convert minutes to seconds accurately (e.g. 20 min → 1200)
-   - Short actions (chop, turbo) can be 3–10 s even if recipe doesn't specify
+   - Preserve original cooking time — never shorten arbitrarily
+   - Convert minutes to seconds exactly (20 min → 1200)
+   - Chop / turbo bursts: 3–10 s even if original recipe does not specify
 
 ━━━ RECIPE TO CONVERT ━━━
 
@@ -186,7 +199,8 @@ Return ONLY valid JSON, no markdown, no explanation:
   "ingredients": ["quantity unit name", ...],
   "steps": [
     {
-      "text": "step instruction in plain language — no speed/temp notation in the text",
+      "text": "step instruction in plain language — never append speed/temp/time notation",
+      "mode": "",
       "speed": "5",
       "time_seconds": 5,
       "temp_celsius": "",
@@ -196,22 +210,26 @@ Return ONLY valid JSON, no markdown, no explanation:
   "required_models": ["TM6", "TM5"]
 }
 
-RULES:
-- "text" = human-readable instruction only, never append "/ Speed X / Y°C"
-- When a specific ingredient is used in a step, embed its exact formatted string
-  (e.g. "200 g farine") verbatim in "text", and copy it into "ingredient_refs"
+STRICT RULES:
+- "text" = human-readable instruction only — never append "/ Vitesse X / Y°C / Pétrin / etc."
+- When mode is set: speed MUST be "" in the JSON
+- When mode is "": speed/temp/time carry the TTS parameters
+- Embed exact ingredient strings verbatim in "text" and copy them to "ingredient_refs"
 - required_models = ["TM6"] only when using temp > 120°C, Slow Cook, Sous-vide, Fermentation
 - required_models = ["TM6", "TM5"] for everything else
 
-EXAMPLES (in French for structure only — your output must be in %s):
-{"text":"Hacher les 2 oignons et les 2 gousses d'ail.", "speed":"5", "time_seconds":5, "temp_celsius":"", "ingredient_refs":["2 oignons","2 gousses d'ail"]}
-{"text":"Faire revenir les légumes sans le couvercle.", "speed":"1", "time_seconds":300, "temp_celsius":"120", "ingredient_refs":[]}
-{"text":"Ajouter le bouillon et cuire.", "speed":"1", "time_seconds":1200, "temp_celsius":"100", "ingredient_refs":[]}
-{"text":"Mixer jusqu'à consistance lisse.", "speed":"10", "time_seconds":30, "temp_celsius":"", "ingredient_refs":[]}
-{"text":"Pétrir la pâte.", "speed":"0", "time_seconds":120, "temp_celsius":"", "ingredient_refs":[]}
-{"text":"Cuire les légumes à la vapeur avec le Varoma.", "speed":"2", "time_seconds":1800, "temp_celsius":"120", "ingredient_refs":[]}
-{"text":"Préchauffer le four à 180°C et enfourner 25 minutes.", "speed":"", "time_seconds":0, "temp_celsius":"", "ingredient_refs":[]}
-{"text":"Dresser dans les assiettes et servir chaud.", "speed":"", "time_seconds":0, "temp_celsius":"", "ingredient_refs":[]}`,
+EXAMPLES (French for structure only — your output must be in %s):
+{"text":"Hacher les 2 oignons et 2 gousses d'ail.", "mode":"", "speed":"5", "time_seconds":5, "temp_celsius":"", "ingredient_refs":["2 oignons","2 gousses d'ail"]}
+{"text":"Faire revenir les légumes.", "mode":"", "speed":"1", "time_seconds":300, "temp_celsius":"120", "ingredient_refs":[]}
+{"text":"Cuire la soupe.", "mode":"", "speed":"1", "time_seconds":1200, "temp_celsius":"100", "ingredient_refs":[]}
+{"text":"Mixer jusqu'à consistance lisse.", "mode":"blend", "speed":"", "time_seconds":60, "temp_celsius":"", "ingredient_refs":[]}
+{"text":"Pétrir la pâte pendant 2 minutes.", "mode":"dough", "speed":"", "time_seconds":120, "temp_celsius":"", "ingredient_refs":[]}
+{"text":"Hacher finement en mode turbo.", "mode":"turbo", "speed":"", "time_seconds":2, "temp_celsius":"", "ingredient_refs":[]}
+{"text":"Réchauffer la sauce doucement.", "mode":"warm_up", "speed":"", "time_seconds":0, "temp_celsius":"65", "ingredient_refs":[]}
+{"text":"Cuire le riz.", "mode":"rice_cooker", "speed":"", "time_seconds":1800, "temp_celsius":"", "ingredient_refs":[]}
+{"text":"Cuire à la vapeur avec le Varoma.", "mode":"", "speed":"2", "time_seconds":1800, "temp_celsius":"120", "ingredient_refs":[]}
+{"text":"Préchauffer le four à 180°C.", "mode":"", "speed":"", "time_seconds":0, "temp_celsius":"", "ingredient_refs":[]}
+{"text":"Dresser et servir chaud.", "mode":"", "speed":"", "time_seconds":0, "temp_celsius":"", "ingredient_refs":[]}`,
 		lang, lang,
 		recipe.Title, servings, totalMins,
 		strings.Join(ingLines, "\n"),

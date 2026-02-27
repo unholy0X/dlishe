@@ -27,9 +27,13 @@ type RecipeItem struct {
 }
 
 // StepAnnotation marks a substring of a step's Text with structured machine parameters.
-// Type "TTS" carries Thermomix speed/time/temperature data.
+//
+// Type "TTS"  carries Thermomix speed/time/temperature data (standard steps).
+// Type "MODE" carries an automode identifier (dough, turbo, blend, warm_up, rice_cooker).
+//             MODE annotations include a Name field; TTS annotations do not.
 type StepAnnotation struct {
 	Type     string             `json:"type"`
+	Name     string             `json:"name,omitempty"` // MODE only: automode identifier
 	Data     AnnotationData     `json:"data"`
 	Position AnnotationPosition `json:"position"`
 }

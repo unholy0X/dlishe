@@ -114,7 +114,7 @@ func main() {
 	// Build steps with TTS + INGREDIENT annotations.
 	steps := make([]cookidoo.RecipeItem, len(converted.Steps))
 	for i, s := range converted.Steps {
-		steps[i] = cookidoo.NewStepItem(s.Text, s.Speed, s.TimeSeconds, s.TempCelsius, recipe.ContentLanguage, s.IngredientRefs)
+		steps[i] = cookidoo.NewStepItem(s.Text, s.Speed, s.Mode, s.TimeSeconds, s.TempCelsius, recipe.ContentLanguage, s.IngredientRefs)
 	}
 
 	tmRecipe := cookidoo.ThermomixRecipe{

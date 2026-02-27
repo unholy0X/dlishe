@@ -205,7 +205,7 @@ func buildThermomixRecipe(recipe *model.Recipe, converted *ai.ThermomixConversio
 
 	steps := make([]cookidoo.RecipeItem, len(converted.Steps))
 	for i, s := range converted.Steps {
-		steps[i] = cookidoo.NewStepItem(s.Text, s.Speed, s.TimeSeconds, s.TempCelsius, lang, s.IngredientRefs)
+		steps[i] = cookidoo.NewStepItem(s.Text, s.Speed, s.Mode, s.TimeSeconds, s.TempCelsius, lang, s.IngredientRefs)
 	}
 
 	tm := cookidoo.ThermomixRecipe{

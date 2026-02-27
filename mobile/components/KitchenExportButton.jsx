@@ -9,7 +9,7 @@ import {
   Share,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { exportToThermomix } from "../services/recipes";
+import { exportToKitchen } from "../services/recipes";
 import { getJobStatus } from "../services/extract";
 
 const C = {
@@ -25,10 +25,10 @@ const C = {
 };
 
 const POLL_INTERVAL = 3000; // 3s between polls
-const STAGE_KEYS = ["thermomixStage1", "thermomixStage2", "thermomixStage3"];
+const STAGE_KEYS = ["kitchenStage1", "kitchenStage2", "kitchenStage3"];
 const STAGE_INTERVAL = 4000;
 
-function ThermomixIcon({ size = 18, color = "#ffffff", bladeColor = C.greenDark }) {
+function KitchenIcon({ size = 18, color = "#ffffff", bladeColor = C.greenDark }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path
@@ -50,7 +50,7 @@ function ThermomixIcon({ size = 18, color = "#ffffff", bladeColor = C.greenDark 
   );
 }
 
-export default function ThermomixExportButton({ recipeId, getToken, t, FONT, initialUrl }) {
+export default function KitchenExportButton({ recipeId, getToken, t, FONT, initialUrl }) {
   const [phase, setPhase] = useState(initialUrl ? "success" : "idle");
   const [url, setUrl] = useState(initialUrl || null);
   const [stageIdx, setStageIdx] = useState(0);
@@ -129,7 +129,7 @@ export default function ThermomixExportButton({ recipeId, getToken, t, FONT, ini
     jobIdRef.current = null;
 
     try {
-      const result = await exportToThermomix({ recipeId, getToken });
+      const result = await exportToKitchen({ recipeId, getToken });
 
       if (result.status === "completed" && result.url) {
         // Instant — URL was already cached
@@ -174,9 +174,9 @@ export default function ThermomixExportButton({ recipeId, getToken, t, FONT, ini
     return (
       <View style={[s.successCard, s.wrapper]}>
         <View style={s.successHeader}>
-          <ThermomixIcon size={18} color={C.greenDark} bladeColor={C.greenLight} />
+          <KitchenIcon size={18} color={C.greenDark} bladeColor={C.greenLight} />
           <Text style={[s.successTitle, { fontFamily: FONT.semibold }]}>
-            {t("detail.thermomixSuccess")}
+            {t("detail.kitchenSuccess")}
           </Text>
         </View>
 
@@ -185,19 +185,19 @@ export default function ThermomixExportButton({ recipeId, getToken, t, FONT, ini
           onPress={handleOpen}
         >
           <Text style={[s.openBtnText, { fontFamily: FONT.semibold }]}>
-            {t("detail.thermomixOpen")}
+            {t("detail.kitchenOpen")}
           </Text>
         </Pressable>
 
         <Pressable style={s.shareRow} onPress={handleShare}>
           <Text style={[s.shareText, { fontFamily: FONT.medium }]}>
-            {t("detail.thermomixShare")}
+            {t("detail.kitchenShare")}
           </Text>
         </Pressable>
 
         <Pressable style={s.againRow} onPress={handleReset}>
           <Text style={[s.againText, { fontFamily: FONT.regular }]}>
-            {t("detail.thermomixExportAgain")}
+            {t("detail.kitchenExportAgain")}
           </Text>
         </Pressable>
       </View>
@@ -216,17 +216,17 @@ export default function ThermomixExportButton({ recipeId, getToken, t, FONT, ini
           onPress={handlePress}
           disabled={isLoading}
         >
-          <ThermomixIcon
+          <KitchenIcon
             size={18}
             color="#ffffff"
             bladeColor={isError ? "#c07070" : C.greenDark}
           />
           <Text style={[s.btnText, { fontFamily: FONT.semibold }]}>
             {isLoading
-              ? t("detail.thermomixLoading")
+              ? t("detail.kitchenLoading")
               : isError
-              ? t("detail.thermomixRetry")
-              : t("detail.thermomixExport")}
+              ? t("detail.kitchenRetry")
+              : t("detail.kitchenExport")}
           </Text>
         </Pressable>
       </Animated.View>

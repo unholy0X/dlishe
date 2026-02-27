@@ -53,10 +53,10 @@ export async function toggleFavorite({ recipeId, isFavorite, getToken }) {
   });
 }
 
-export async function exportToThermomix({ recipeId, getToken }) {
+export async function exportToKitchen({ recipeId, getToken }) {
   return authFetch(`/recipes/${recipeId}/export/thermomix`, getToken, {
     method: "POST",
-    timeout: 90000, // Gemini + Cookidoo can take a while
+    timeout: 90000,
   });
 }
 

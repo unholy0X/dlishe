@@ -60,7 +60,7 @@ func (r *JobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Extra
 	query := `
 		SELECT id, user_id, COALESCE(job_type, 'video'), source_url, source_path, mime_type,
 			   language, detail_level, COALESCE(save_auto, true), status,
-			   progress, status_message, result_recipe_id, error_code,
+			   progress, status_message, result_recipe_id, result_url, error_code,
 			   error_message, idempotency_key, started_at, completed_at, created_at
 		FROM video_jobs
 		WHERE id = $1
@@ -81,6 +81,7 @@ func (r *JobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Extra
 		&job.Progress,
 		&job.StatusMessage,
 		&job.ResultRecipeID,
+		&job.ResultURL,
 		&job.ErrorCode,
 		&job.ErrorMessage,
 		&job.IdempotencyKey,
@@ -104,7 +105,7 @@ func (r *JobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid.UUI
 	query := `
 		SELECT id, user_id, COALESCE(job_type, 'video'), source_url, source_path, mime_type,
 			   language, detail_level, COALESCE(save_auto, true), status,
-			   progress, status_message, result_recipe_id, error_code,
+			   progress, status_message, result_recipe_id, result_url, error_code,
 			   error_message, idempotency_key, started_at, completed_at, created_at
 		FROM video_jobs
 		WHERE user_id = $1 AND idempotency_key = $2
@@ -125,6 +126,7 @@ func (r *JobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid.UUI
 		&job.Progress,
 		&job.StatusMessage,
 		&job.ResultRecipeID,
+		&job.ResultURL,
 		&job.ErrorCode,
 		&job.ErrorMessage,
 		&job.IdempotencyKey,
@@ -148,7 +150,7 @@ func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit,
 	query := `
 		SELECT id, user_id, COALESCE(job_type, 'video'), source_url, source_path, mime_type,
 			   language, detail_level, COALESCE(save_auto, true), status,
-			   progress, status_message, result_recipe_id, error_code,
+			   progress, status_message, result_recipe_id, result_url, error_code,
 			   error_message, idempotency_key, started_at, completed_at, created_at
 		FROM video_jobs
 		WHERE user_id = $1 AND deleted_at IS NULL
@@ -179,6 +181,7 @@ func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit,
 			&job.Progress,
 			&job.StatusMessage,
 			&job.ResultRecipeID,
+			&job.ResultURL,
 			&job.ErrorCode,
 			&job.ErrorMessage,
 			&job.IdempotencyKey,
@@ -297,6 +300,20 @@ func (r *JobRepository) MarkCompleted(ctx context.Context, id, recipeID uuid.UUI
 	now := time.Now().UTC()
 	message := "Recipe extracted successfully"
 	_, err := r.db.ExecContext(ctx, query, id, model.JobStatusCompleted, recipeID, message, now)
+	return err
+}
+
+// MarkCompletedWithURL marks a job as completed with a result URL (used for thermomix export).
+func (r *JobRepository) MarkCompletedWithURL(ctx context.Context, id uuid.UUID, resultURL string) error {
+	query := `
+		UPDATE video_jobs
+		SET status = $2, progress = 100, result_url = $3,
+			status_message = $4, completed_at = $5
+		WHERE id = $1
+	`
+	now := time.Now().UTC()
+	message := "Export completed successfully"
+	_, err := r.db.ExecContext(ctx, query, id, model.JobStatusCompleted, resultURL, message, now)
 	return err
 }
 

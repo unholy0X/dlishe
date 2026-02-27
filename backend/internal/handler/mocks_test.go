@@ -217,6 +217,8 @@ func (m *mockRecipeRepository) SetCookidooURL(ctx context.Context, id uuid.UUID,
 	return nil
 }
 
+// Stub MarkCompletedWithURL on the mock job repo if needed by thermomix tests.
+
 type mockPantryRepository struct {
 	ListFunc    func(ctx context.Context, userID uuid.UUID, category *string, limit, offset int) ([]*model.PantryItem, int, error)
 	ListAllFunc func(ctx context.Context, userID uuid.UUID) ([]model.PantryItem, error)
@@ -393,6 +395,9 @@ func (m *mockJobRepository) MarkCompleted(ctx context.Context, id uuid.UUID, res
 		return nil
 	}
 	return m.MarkCompletedFunc(ctx, id, resultRecipeID)
+}
+func (m *mockJobRepository) MarkCompletedWithURL(ctx context.Context, id uuid.UUID, resultURL string) error {
+	return nil
 }
 func (m *mockJobRepository) MarkFailed(ctx context.Context, id uuid.UUID, errorCode, errorMessage string) error {
 	if m.MarkFailedFunc == nil {

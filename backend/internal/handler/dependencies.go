@@ -93,6 +93,7 @@ type JobRepository interface {
 	ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.VideoJob, error)
 	UpdateProgress(ctx context.Context, id uuid.UUID, status model.JobStatus, progress int, message string) error
 	MarkCompleted(ctx context.Context, id uuid.UUID, resultRecipeID uuid.UUID) error
+	MarkCompletedWithURL(ctx context.Context, id uuid.UUID, resultURL string) error
 	MarkFailed(ctx context.Context, id uuid.UUID, errorCode, errorMessage string) error
 	MarkCancelled(ctx context.Context, id uuid.UUID) error
 	Delete(ctx context.Context, id, userID uuid.UUID) error

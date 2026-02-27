@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { exportToThermomix } from "../services/recipes";
+import { getJobStatus } from "../services/extract";
 
 const C = {
   greenDark: "#385225",
@@ -23,26 +24,22 @@ const C = {
   errorBg: "#7A3535",
 };
 
+const POLL_INTERVAL = 3000; // 3s between polls
 const STAGE_KEYS = ["thermomixStage1", "thermomixStage2", "thermomixStage3"];
-const STAGE_INTERVAL = 3200;
+const STAGE_INTERVAL = 4000;
 
-// Thermomix-inspired jug/bowl silhouette with blade cross
 function ThermomixIcon({ size = 18, color = "#ffffff", bladeColor = C.greenDark }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      {/* Lid knob */}
       <Path
         d="M9.25 3.25 Q9.25 2.75 10 2.75 Q10.75 2.75 10.75 3.25 L10.75 5.25 L9.25 5.25 Z"
         fill={color}
       />
-      {/* Lid body */}
       <Path d="M5 7 Q5 5.25 10 5.25 Q15 5.25 15 7 Z" fill={color} />
-      {/* Bowl body */}
       <Path
         d="M4.5 7.5 L3.5 14 Q3.5 17.5 10 17.5 Q16.5 17.5 16.5 14 L15.5 7.5 Z"
         fill={color}
       />
-      {/* Blade cross */}
       <Path
         d="M7.5 12.5 L12.5 12.5 M10 10.5 L10 14.5"
         stroke={bladeColor}
@@ -57,14 +54,18 @@ export default function ThermomixExportButton({ recipeId, getToken, t, FONT, ini
   const [phase, setPhase] = useState(initialUrl ? "success" : "idle");
   const [url, setUrl] = useState(initialUrl || null);
   const [stageIdx, setStageIdx] = useState(0);
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef(null);
   const stageTimer = useRef(null);
+  const pollTimer = useRef(null);
+  const jobIdRef = useRef(null);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (stageTimer.current) clearInterval(stageTimer.current);
+      if (pollTimer.current) clearInterval(pollTimer.current);
       if (pulseLoop.current) pulseLoop.current.stop();
     };
   }, []);
@@ -79,7 +80,6 @@ export default function ThermomixExportButton({ recipeId, getToken, t, FONT, ini
         ])
       );
       pulseLoop.current.start();
-
       setStageIdx(0);
       stageTimer.current = setInterval(() => {
         setStageIdx((prev) => (prev + 1) % STAGE_KEYS.length);
@@ -97,17 +97,54 @@ export default function ThermomixExportButton({ recipeId, getToken, t, FONT, ini
     }
   }, [phase]);
 
+  // Poll job status while loading
+  const startPolling = useCallback((jobId) => {
+    jobIdRef.current = jobId;
+    if (pollTimer.current) clearInterval(pollTimer.current);
+
+    pollTimer.current = setInterval(async () => {
+      try {
+        const job = await getJobStatus({ jobId, getToken });
+
+        if (job.status === "completed" && job.resultUrl) {
+          clearInterval(pollTimer.current);
+          pollTimer.current = null;
+          setUrl(job.resultUrl);
+          setPhase("success");
+        } else if (job.status === "failed") {
+          clearInterval(pollTimer.current);
+          pollTimer.current = null;
+          setPhase("error");
+        }
+        // pending/processing → keep polling
+      } catch {
+        // Network hiccup — keep polling, don't fail yet
+      }
+    }, POLL_INTERVAL);
+  }, [getToken]);
+
   const runExport = useCallback(async () => {
     setPhase("loading");
     setUrl(null);
+    jobIdRef.current = null;
+
     try {
       const result = await exportToThermomix({ recipeId, getToken });
-      setUrl(result.url);
-      setPhase("success");
+
+      if (result.status === "completed" && result.url) {
+        // Instant — URL was already cached
+        setUrl(result.url);
+        setPhase("success");
+      } else if (result.status === "processing" && result.jobId) {
+        // Job created — start polling
+        startPolling(result.jobId);
+      } else {
+        setPhase("error");
+      }
     } catch {
       setPhase("error");
     }
-  }, [recipeId, getToken]);
+  }, [recipeId, getToken, startPolling]);
 
   const handlePress = useCallback(() => {
     if (phase === "loading") return;
@@ -121,6 +158,16 @@ export default function ThermomixExportButton({ recipeId, getToken, t, FONT, ini
   const handleShare = useCallback(() => {
     if (url) Share.share({ url, message: url });
   }, [url]);
+
+  const handleReset = useCallback(() => {
+    if (pollTimer.current) {
+      clearInterval(pollTimer.current);
+      pollTimer.current = null;
+    }
+    setPhase("idle");
+    setUrl(null);
+    jobIdRef.current = null;
+  }, []);
 
   // ── Success card ─────────────────────────────────────────────────
   if (phase === "success" && url) {
@@ -148,7 +195,7 @@ export default function ThermomixExportButton({ recipeId, getToken, t, FONT, ini
           </Text>
         </Pressable>
 
-        <Pressable style={s.againRow} onPress={() => setPhase("idle")}>
+        <Pressable style={s.againRow} onPress={handleReset}>
           <Text style={[s.againText, { fontFamily: FONT.regular }]}>
             {t("detail.thermomixExportAgain")}
           </Text>
@@ -222,7 +269,6 @@ const s = StyleSheet.create({
     fontSize: 12,
     marginTop: 8,
   },
-  // Success card
   successCard: {
     backgroundColor: C.card,
     borderRadius: 16,

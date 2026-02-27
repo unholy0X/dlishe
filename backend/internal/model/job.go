@@ -25,9 +25,10 @@ const (
 type JobType string
 
 const (
-	JobTypeURL   JobType = "url"
-	JobTypeImage JobType = "image"
-	JobTypeVideo JobType = "video"
+	JobTypeURL      JobType = "url"
+	JobTypeImage    JobType = "image"
+	JobTypeVideo    JobType = "video"
+	JobTypeThermomix JobType = "thermomix_export"
 )
 
 // ExtractionJob represents a recipe extraction job (url, image, or video)
@@ -47,6 +48,7 @@ type ExtractionJob struct {
 	Progress       int        `json:"progress" db:"progress"` // 0-100
 	StatusMessage  *string    `json:"statusMessage,omitempty" db:"status_message"`
 	ResultRecipeID *uuid.UUID `json:"resultRecipeId,omitempty" db:"result_recipe_id"`
+	ResultURL      *string    `json:"resultUrl,omitempty" db:"result_url"`
 	ErrorCode      *string    `json:"errorCode,omitempty" db:"error_code"`
 	ErrorMessage   *string    `json:"errorMessage,omitempty" db:"error_message"`
 	IdempotencyKey *string    `json:"-" db:"idempotency_key"`
@@ -70,6 +72,7 @@ type JobResponse struct {
 	StreamURL        string     `json:"streamUrl,omitempty"`
 	EstimatedSeconds int        `json:"estimatedSeconds,omitempty"`
 	Recipe           *Recipe    `json:"recipe,omitempty"`
+	ResultURL        *string    `json:"resultUrl,omitempty"`
 	Error            *JobError  `json:"error,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`
 	CompletedAt      *time.Time `json:"completedAt,omitempty"`
@@ -148,6 +151,10 @@ func (j *ExtractionJob) ToResponse(baseURL string) JobResponse {
 		default:
 			resp.EstimatedSeconds = 30
 		}
+	}
+
+	if j.ResultURL != nil {
+		resp.ResultURL = j.ResultURL
 	}
 
 	if j.CompletedAt != nil {

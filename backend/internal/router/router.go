@@ -151,7 +151,7 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	}
 	var thermomixHandler *handler.ThermomixHandler
 	if cookidooPool != nil && geminiClient != nil {
-		thermomixHandler = handler.NewThermomixHandler(recipeRepo, geminiClient, cookidooPool)
+		thermomixHandler = handler.NewThermomixHandler(recipeRepo, jobRepo, geminiClient, cookidooPool)
 		logger.Info("Thermomix export handler initialized")
 	}
 

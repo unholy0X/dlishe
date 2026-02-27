@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/model"
 	"github.com/dishflow/backend/internal/pkg/response"
+	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/service/ai"
 	"github.com/dishflow/backend/internal/service/cookidoo"
 )
@@ -20,25 +22,23 @@ type CookidooPool interface {
 	CreateRecipe(ctx context.Context, recipe cookidoo.ThermomixRecipe) (string, error)
 }
 
-// RecipeRepository is extended here with the Cookidoo URL persistence method.
-// (The base interface is declared in handler.go alongside the other handlers.)
-
 // ThermomixHandler handles Thermomix/Cookidoo export requests.
 type ThermomixHandler struct {
 	recipes   RecipeRepository
+	jobRepo   JobRepository
 	converter ai.ThermomixConverter
 	pool      CookidooPool
 }
 
-func NewThermomixHandler(recipes RecipeRepository, converter ai.ThermomixConverter, pool CookidooPool) *ThermomixHandler {
-	return &ThermomixHandler{recipes: recipes, converter: converter, pool: pool}
+func NewThermomixHandler(recipes RecipeRepository, jobRepo JobRepository, converter ai.ThermomixConverter, pool CookidooPool) *ThermomixHandler {
+	return &ThermomixHandler{recipes: recipes, jobRepo: jobRepo, converter: converter, pool: pool}
 }
 
 // Export handles POST /api/v1/recipes/{id}/export/thermomix
 //
-// Converts a Dlishe recipe into Thermomix format via Gemini, then creates a
-// shareable public recipe on Cookidoo and returns the link. The user must own
-// the recipe.
+// First call: creates a background job and returns {jobId, status: "pending"}.
+// Subsequent calls while job is running: returns the existing {jobId, status}.
+// After completion: returns {status: "completed", url} immediately from cache.
 func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r.Context())
 	if user == nil {
@@ -67,7 +67,6 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ownership check — public recipes are viewable by all but only the owner can export.
 	if recipe.UserID != user.ID {
 		response.Forbidden(w, "You do not own this recipe")
 		return
@@ -78,42 +77,107 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return cached URL if already exported.
+	// Fast path: URL already cached on the recipe.
 	if recipe.CookidooURL != nil && *recipe.CookidooURL != "" {
-		response.OK(w, map[string]string{"url": *recipe.CookidooURL})
+		response.OK(w, map[string]any{
+			"status": "completed",
+			"url":    *recipe.CookidooURL,
+		})
 		return
 	}
 
-	// Use a background context so a client disconnect (phone goes to background,
-	// user navigates away) does not cancel the Gemini + Cookidoo calls.
-	// The result is persisted to the DB either way, so the next request is instant.
-	exportCtx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	// Idempotency key: one export job per recipe per user.
+	idempotencyKey := "thermomix:" + recipeID.String()
+
+	// Check for an existing job for this recipe.
+	existingJob, err := h.jobRepo.GetByIdempotencyKey(r.Context(), user.ID, idempotencyKey)
+	if err != nil && !errors.Is(err, postgres.ErrJobNotFound) {
+		response.LogAndInternalError(w, err)
+		return
+	}
+
+	if existingJob != nil {
+		switch existingJob.Status {
+		case model.JobStatusCompleted:
+			// Job finished — return URL (also update recipe cache if missing).
+			if existingJob.ResultURL != nil {
+				_ = h.recipes.SetCookidooURL(r.Context(), recipeID, *existingJob.ResultURL)
+				response.OK(w, map[string]any{
+					"status": "completed",
+					"url":    *existingJob.ResultURL,
+				})
+				return
+			}
+		case model.JobStatusPending, model.JobStatusProcessing:
+			// Still running — client should keep polling.
+			response.OK(w, map[string]any{
+				"status": "processing",
+				"jobId":  existingJob.ID.String(),
+			})
+			return
+		case model.JobStatusFailed:
+			// Previous attempt failed — fall through to create a fresh job.
+		}
+	}
+
+	// Create a new job.
+	job := &model.ExtractionJob{
+		ID:             uuid.New(),
+		UserID:         user.ID,
+		JobType:        model.JobTypeThermomix,
+		SourceURL:      recipeID.String(), // store recipe ID for reference
+		Language:       recipe.ContentLanguage,
+		DetailLevel:    "detailed",
+		SaveAuto:       true,
+		Status:         model.JobStatusPending,
+		Progress:       0,
+		IdempotencyKey: &idempotencyKey,
+		CreatedAt:      time.Now().UTC(),
+	}
+
+	if err := h.jobRepo.Create(r.Context(), job); err != nil {
+		response.LogAndInternalError(w, err)
+		return
+	}
+
+	// Spawn background goroutine — fully decoupled from the HTTP request context.
+	go h.runExport(job.ID, recipe)
+
+	response.OK(w, map[string]any{
+		"status": "processing",
+		"jobId":  job.ID.String(),
+	})
+}
+
+// runExport performs the Gemini conversion and Cookidoo publish in the background.
+// It updates job status and persists the result URL when done.
+func (h *ThermomixHandler) runExport(jobID uuid.UUID, recipe *model.Recipe) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	// Convert to Thermomix format via Gemini.
-	converted, err := h.converter.ConvertToThermomix(exportCtx, recipe)
+	// Mark as processing.
+	_ = h.jobRepo.UpdateProgress(ctx, jobID, model.JobStatusProcessing, 10, "Converting recipe with AI…")
+
+	converted, err := h.converter.ConvertToThermomix(ctx, recipe)
 	if err != nil {
-		response.LogAndInternalError(w, err)
+		_ = h.jobRepo.MarkFailed(ctx, jobID, "CONVERSION_FAILED", err.Error())
 		return
 	}
 
-	// Build the Cookidoo recipe payload.
+	_ = h.jobRepo.UpdateProgress(ctx, jobID, model.JobStatusProcessing, 60, "Publishing to Cookidoo…")
+
 	tmRecipe := buildThermomixRecipe(recipe, converted)
-
-	// Post to Cookidoo and get public URL.
-	publicURL, err := h.pool.CreateRecipe(exportCtx, tmRecipe)
+	publicURL, err := h.pool.CreateRecipe(ctx, tmRecipe)
 	if err != nil {
-		response.LogAndInternalError(w, err)
+		_ = h.jobRepo.MarkFailed(ctx, jobID, "COOKIDOO_FAILED", err.Error())
 		return
 	}
 
-	// Persist the URL so future calls return instantly.
-	// Non-fatal: the export succeeded even if caching fails.
-	_ = h.recipes.SetCookidooURL(exportCtx, recipe.ID, publicURL)
+	// Persist URL on the recipe for instant future lookups.
+	_ = h.recipes.SetCookidooURL(ctx, recipe.ID, publicURL)
 
-	response.OK(w, map[string]string{
-		"url": publicURL,
-	})
+	// Mark job completed with the URL.
+	_ = h.jobRepo.MarkCompletedWithURL(ctx, jobID, publicURL)
 }
 
 // buildThermomixRecipe assembles the Cookidoo payload from the recipe and AI conversion.

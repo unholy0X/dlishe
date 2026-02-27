@@ -203,7 +203,7 @@ RULES:
 - required_models = ["TM6"] only when using temp > 120°C, Slow Cook, Sous-vide, Fermentation
 - required_models = ["TM6", "TM5"] for everything else
 
-EXAMPLES (correct output):
+EXAMPLES (in French for structure only — your output must be in %s):
 {"text":"Hacher les 2 oignons et les 2 gousses d'ail.", "speed":"5", "time_seconds":5, "temp_celsius":"", "ingredient_refs":["2 oignons","2 gousses d'ail"]}
 {"text":"Faire revenir les légumes sans le couvercle.", "speed":"1", "time_seconds":300, "temp_celsius":"120", "ingredient_refs":[]}
 {"text":"Ajouter le bouillon et cuire.", "speed":"1", "time_seconds":1200, "temp_celsius":"100", "ingredient_refs":[]}
@@ -216,6 +216,7 @@ EXAMPLES (correct output):
 		recipe.Title, servings, totalMins,
 		strings.Join(ingLines, "\n"),
 		strings.Join(stepLines, "\n"),
+		lang,
 	)
 
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {

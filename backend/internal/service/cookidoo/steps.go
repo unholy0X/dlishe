@@ -79,9 +79,11 @@ func runeIndex(s, substr string) (int, bool) {
 }
 
 // buildTTSNotation formats the compact Thermomix notation string.
-// Examples: "5 sec/vitesse 5", "3 min/120°C/vitesse 1", "1 min/speed 10"
+// Examples: "5 sec/vitesse 5", "3 min/120°C/vitesse 1", "2 min/Pétrin"
+//
+// Speed "0" is the Thermomix kneading (Pétrin) mode — it uses a localised
+// kneading label instead of "vitesse 0" and never carries a temperature.
 func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) string {
-	label := speedLabelForLang(lang)
 	var parts []string
 
 	if timeSecs > 0 {
@@ -91,24 +93,69 @@ func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) stri
 			parts = append(parts, fmt.Sprintf("%d min", timeSecs/60))
 		}
 	}
+
+	// Speed "0" = kneading/Pétrin mode — no temperature, special label.
+	if speed == "0" {
+		parts = append(parts, kneadLabelForLang(lang))
+		return strings.Join(parts, "/")
+	}
+
 	if tempCelsius != "" {
 		parts = append(parts, tempCelsius+"°C")
 	}
-	parts = append(parts, label+" "+speed)
+	parts = append(parts, speedLabelForLang(lang)+" "+speed)
 
 	return strings.Join(parts, "/")
 }
 
-// speedLabelForLang returns the lowercase speed label for a BCP-47 language code.
+// speedLabelForLang returns the localised speed label for a BCP-47 language code.
 func speedLabelForLang(lang string) string {
 	switch strings.ToLower(lang) {
-	case "fr", "fr-fr":
+	case "fr", "fr-fr", "fr-be", "fr-ch":
 		return "vitesse"
-	case "de", "de-de":
-		return "stufe"
-	case "es", "es-es", "it", "it-it", "pt", "pt-pt", "pt-br":
+	case "de", "de-de", "de-at", "de-ch":
+		return "Stufe"
+	case "es", "es-es", "es-mx", "es-ar":
 		return "vel."
+	case "it", "it-it":
+		return "vel."
+	case "pt", "pt-pt", "pt-br":
+		return "vel."
+	case "nl", "nl-nl", "nl-be":
+		return "stand"
+	case "ar", "ar-sa", "ar-ma", "ar-dz", "ar-eg":
+		return "سرعة"
+	case "zh", "zh-cn", "zh-tw":
+		return "速度"
+	case "ja", "ja-jp":
+		return "速度"
 	default:
 		return "speed"
+	}
+}
+
+// kneadLabelForLang returns the localised kneading mode label (speed "0").
+func kneadLabelForLang(lang string) string {
+	switch strings.ToLower(lang) {
+	case "fr", "fr-fr", "fr-be", "fr-ch":
+		return "Pétrin"
+	case "de", "de-de", "de-at", "de-ch":
+		return "Teigkneten"
+	case "es", "es-es", "es-mx":
+		return "Amasar"
+	case "it", "it-it":
+		return "Impasto"
+	case "pt", "pt-pt", "pt-br":
+		return "Amassar"
+	case "nl", "nl-nl", "nl-be":
+		return "Kneden"
+	case "ar", "ar-sa", "ar-ma", "ar-dz", "ar-eg":
+		return "عجن"
+	case "zh", "zh-cn", "zh-tw":
+		return "揉面"
+	case "ja", "ja-jp":
+		return "こねる"
+	default:
+		return "Knead"
 	}
 }

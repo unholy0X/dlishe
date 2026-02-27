@@ -148,7 +148,7 @@ func (p *Pool) uploadToCloudinary(ctx context.Context, imageURL, sig string, ts 
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 32*1024))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("cloudinary HTTP %d: %s", resp.StatusCode, respBody)
 	}

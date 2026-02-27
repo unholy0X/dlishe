@@ -128,6 +128,13 @@ func (p *Pool) CreateRecipe(ctx context.Context, recipe ThermomixRecipe) (string
 		return "", fmt.Errorf("cookidoo: patch recipe %s: %w", recipeID, err)
 	}
 
+	// Step 3 (best-effort): upload thumbnail image if provided.
+	if recipe.ThumbnailURL != "" {
+		if err := p.uploadImage(ctx, token, recipeID, recipe.ThumbnailURL); err != nil {
+			p.logger.Warn("cookidoo: image upload failed (non-fatal)", "recipe_id", recipeID, "err", err)
+		}
+	}
+
 	publicURL := p.publicURL(recipeID)
 	p.logger.Info("cookidoo recipe created", "id", recipeID, "account", a.email, "url", publicURL)
 	return publicURL, nil

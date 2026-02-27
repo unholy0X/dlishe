@@ -1,0 +1,165 @@
+package cookidoo
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"strconv"
+	"time"
+)
+
+const (
+	cloudinaryURL  = "https://api-eu.cloudinary.com/v1_1/vorwerk-users-gc/image/upload"
+	cloudinaryKey  = "993585863591145"
+	uploadPreset   = "prod-customer-recipe-signed"
+	customCoords   = "0,5,1000,990"
+)
+
+// uploadImage uploads the image at imageURL to Cookidoo via a 3-step flow:
+//  1. Get a signed upload token from Cookidoo's signature endpoint.
+//  2. Upload the image (by URL) to Cloudinary using the signed preset.
+//  3. PATCH the created recipe with the resulting Cloudinary public_id.
+func (p *Pool) uploadImage(ctx context.Context, token, recipeID, imageURL string) error {
+	ts := time.Now().Unix()
+
+	sig, err := p.getUploadSignature(ctx, token, ts)
+	if err != nil {
+		return fmt.Errorf("get upload signature: %w", err)
+	}
+
+	publicID, err := p.uploadToCloudinary(ctx, imageURL, sig, ts)
+	if err != nil {
+		return fmt.Errorf("cloudinary upload: %w", err)
+	}
+
+	if err := p.patchRecipeImage(ctx, token, recipeID, publicID+".jpg"); err != nil {
+		return fmt.Errorf("patch recipe image: %w", err)
+	}
+
+	return nil
+}
+
+// getUploadSignature requests a Cloudinary upload signature from Cookidoo's server.
+func (p *Pool) getUploadSignature(ctx context.Context, token string, ts int64) (string, error) {
+	endpoint := fmt.Sprintf("%s/image/signature", p.baseURL())
+
+	payload := map[string]any{
+		"timestamp":          ts,
+		"source":             "uw",
+		"custom_coordinates": customCoords,
+	}
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if err := checkStatus(resp); err != nil {
+		return "", err
+	}
+
+	var sig struct {
+		Signature string `json:"signature"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&sig); err != nil {
+		return "", fmt.Errorf("decode signature: %w", err)
+	}
+	if sig.Signature == "" {
+		return "", fmt.Errorf("empty signature in response")
+	}
+	return sig.Signature, nil
+}
+
+// uploadToCloudinary posts the image URL to Cloudinary using the signed preset
+// and returns the Cloudinary public_id.
+func (p *Pool) uploadToCloudinary(ctx context.Context, imageURL, sig string, ts int64) (string, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	fields := map[string]string{
+		"upload_preset":      uploadPreset,
+		"source":             "uw",
+		"signature":          sig,
+		"timestamp":          strconv.FormatInt(ts, 10),
+		"api_key":            cloudinaryKey,
+		"custom_coordinates": customCoords,
+		"file":               imageURL,
+	}
+	for k, v := range fields {
+		if err := w.WriteField(k, v); err != nil {
+			return "", fmt.Errorf("write field %s: %w", k, err)
+		}
+	}
+	w.Close()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cloudinaryURL, &buf)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("Origin", "https://widget.cloudinary.com")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("cloudinary HTTP %d: %s", resp.StatusCode, respBody)
+	}
+
+	var result struct {
+		PublicID string `json:"public_id"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("decode cloudinary response: %w", err)
+	}
+	if result.PublicID == "" {
+		return "", fmt.Errorf("empty public_id in cloudinary response")
+	}
+	return result.PublicID, nil
+}
+
+// patchRecipeImage patches a Cookidoo recipe with a Cloudinary image public_id.
+func (p *Pool) patchRecipeImage(ctx context.Context, token, recipeID, imagePublicID string) error {
+	endpoint := fmt.Sprintf("%s/%s", p.baseURL(), recipeID)
+
+	payload := map[string]any{
+		"image":             imagePublicID,
+		"isImageOwnedByUser": true,
+	}
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	return checkStatus(resp)
+}

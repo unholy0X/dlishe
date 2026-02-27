@@ -12,6 +12,9 @@ type ThermomixRecipe struct {
 	TotalTime    int          `json:"totalTime,omitempty"`
 	PrepTime     int          `json:"prepTime,omitempty"`
 	WorkStatus   string       `json:"workStatus,omitempty"`
+	// ThumbnailURL is a dlishe thumbnail URL to upload to Cookidoo after creation.
+	// It is NOT serialised to the Cookidoo API — used internally by CreateRecipe.
+	ThumbnailURL string `json:"-"`
 }
 
 // RecipeItem is a single ingredient or instruction entry.

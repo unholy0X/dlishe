@@ -208,7 +208,7 @@ func buildThermomixRecipe(recipe *model.Recipe, converted *ai.ThermomixConversio
 		steps[i] = cookidoo.NewStepItem(s.Text, s.Speed, s.TimeSeconds, s.TempCelsius, lang, s.IngredientRefs)
 	}
 
-	return cookidoo.ThermomixRecipe{
+	tm := cookidoo.ThermomixRecipe{
 		Name:         recipe.Title,
 		Ingredients:  ings,
 		Instructions: steps,
@@ -217,4 +217,8 @@ func buildThermomixRecipe(recipe *model.Recipe, converted *ai.ThermomixConversio
 		PrepTime:     prepSecs,
 		Yield:        &cookidoo.RecipeYield{Value: servings, UnitText: "portion"},
 	}
+	if recipe.ThumbnailURL != nil && *recipe.ThumbnailURL != "" {
+		tm.ThumbnailURL = *recipe.ThumbnailURL
+	}
+	return tm
 }

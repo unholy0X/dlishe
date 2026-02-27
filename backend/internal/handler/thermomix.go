@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -83,8 +84,14 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Use a background context so a client disconnect (phone goes to background,
+	// user navigates away) does not cancel the Gemini + Cookidoo calls.
+	// The result is persisted to the DB either way, so the next request is instant.
+	exportCtx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
 	// Convert to Thermomix format via Gemini.
-	converted, err := h.converter.ConvertToThermomix(r.Context(), recipe)
+	converted, err := h.converter.ConvertToThermomix(exportCtx, recipe)
 	if err != nil {
 		response.LogAndInternalError(w, err)
 		return
@@ -94,7 +101,7 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 	tmRecipe := buildThermomixRecipe(recipe, converted)
 
 	// Post to Cookidoo and get public URL.
-	publicURL, err := h.pool.CreateRecipe(r.Context(), tmRecipe)
+	publicURL, err := h.pool.CreateRecipe(exportCtx, tmRecipe)
 	if err != nil {
 		response.LogAndInternalError(w, err)
 		return
@@ -102,7 +109,7 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 
 	// Persist the URL so future calls return instantly.
 	// Non-fatal: the export succeeded even if caching fails.
-	_ = h.recipes.SetCookidooURL(r.Context(), recipe.ID, publicURL)
+	_ = h.recipes.SetCookidooURL(exportCtx, recipe.ID, publicURL)
 
 	response.OK(w, map[string]string{
 		"url": publicURL,

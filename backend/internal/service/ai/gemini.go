@@ -446,10 +446,9 @@ func NewGeminiClient(ctx context.Context, apiKey string) (*GeminiClient, error) 
 		return nil, err
 	}
 
-	// Gemini 3 Flash: frontier-level reasoning at Flash speed and pricing
 	return &GeminiClient{
 		client: client,
-		model:  "gemini-3-flash-preview",
+		model:  "gemini-2.0-flash",
 	}, nil
 }
 

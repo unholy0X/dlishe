@@ -40,6 +40,7 @@ func (p *Pool) uploadImage(ctx context.Context, token, recipeID, imageURL string
 		return fmt.Errorf("patch recipe image: %w", err)
 	}
 
+	p.logger.Info("cookidoo image uploaded", "recipe_id", recipeID, "public_id", publicID)
 	return nil
 }
 

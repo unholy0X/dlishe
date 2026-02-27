@@ -134,7 +134,7 @@ func (p *Pool) CreateRecipe(ctx context.Context, recipe ThermomixRecipe) (string
 			p.logger.Warn("cookidoo: image upload failed (non-fatal)", "recipe_id", recipeID, "err", err)
 		}
 	} else {
-		p.logger.Debug("cookidoo: no thumbnail URL, skipping image upload", "recipe_id", recipeID)
+		p.logger.Info("cookidoo: no thumbnail URL, skipping image upload", "recipe_id", recipeID)
 	}
 
 	publicURL := p.publicURL(recipeID)

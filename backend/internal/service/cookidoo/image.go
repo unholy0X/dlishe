@@ -85,9 +85,28 @@ func (p *Pool) getUploadSignature(ctx context.Context, token string, ts int64) (
 	return sig.Signature, nil
 }
 
-// uploadToCloudinary posts the image URL to Cloudinary using the signed preset
-// and returns the Cloudinary public_id.
+// uploadToCloudinary downloads the image from imageURL, then uploads the raw bytes
+// to Cloudinary as a multipart file — identical to the smoke test that passed.
 func (p *Pool) uploadToCloudinary(ctx context.Context, imageURL, sig string, ts int64) (string, error) {
+	// Step 1: download the thumbnail bytes.
+	fetchReq, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("build fetch request: %w", err)
+	}
+	fetchResp, err := p.httpClient.Do(fetchReq)
+	if err != nil {
+		return "", fmt.Errorf("fetch image: %w", err)
+	}
+	defer fetchResp.Body.Close()
+	if fetchResp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("fetch image HTTP %d", fetchResp.StatusCode)
+	}
+	imgBytes, err := io.ReadAll(fetchResp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read image bytes: %w", err)
+	}
+
+	// Step 2: build multipart body — same field order as the smoke test.
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 
@@ -98,15 +117,23 @@ func (p *Pool) uploadToCloudinary(ctx context.Context, imageURL, sig string, ts 
 		"timestamp":          strconv.FormatInt(ts, 10),
 		"api_key":            cloudinaryKey,
 		"custom_coordinates": customCoords,
-		"file":               imageURL,
 	}
 	for k, v := range fields {
 		if err := w.WriteField(k, v); err != nil {
 			return "", fmt.Errorf("write field %s: %w", k, err)
 		}
 	}
+
+	part, err := w.CreateFormFile("file", "image.jpg")
+	if err != nil {
+		return "", fmt.Errorf("create form file: %w", err)
+	}
+	if _, err := io.Copy(part, bytes.NewReader(imgBytes)); err != nil {
+		return "", fmt.Errorf("write image bytes: %w", err)
+	}
 	w.Close()
 
+	// Step 3: POST to Cloudinary.
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cloudinaryURL, &buf)
 	if err != nil {
 		return "", err

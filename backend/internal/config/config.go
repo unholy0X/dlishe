@@ -76,6 +76,15 @@ type Config struct {
 	// Instagram
 	InstagramCookiesPath string // Path to Netscape-format cookies.txt for Instagram auth
 
+	// Cookidoo — Created Recipes integration for Thermomix export.
+	// COOKIDOO_ACCOUNTS is a comma-separated list of "email:password" pairs.
+	// Example: "alice@example.com:pass1,bob@example.com:pass2"
+	// COOKIDOO_LOCALE controls the recipe locale (default: "fr-FR").
+	// COOKIDOO_COUNTRY is the two-letter country code used in the API/public URLs (default: "fr").
+	CookidooAccounts []CookidooAccount
+	CookidooLocale   string
+	CookidooCountry  string
+
 	// Demo account — bypasses Clerk JWT validation entirely.
 	// Used for Apple App Review and always-on test accounts.
 	// Set DEMO_TOKEN to a long random string and DEMO_USER_EMAIL to the
@@ -144,6 +153,11 @@ func Load() *Config {
 
 		// Swagger
 		EnableSwagger: getBoolEnv("ENABLE_SWAGGER", false),
+
+		// Cookidoo
+		CookidooAccounts: parseCookidooAccounts(getEnv("COOKIDOO_ACCOUNTS", "")),
+		CookidooLocale:   getEnv("COOKIDOO_LOCALE", "fr-FR"),
+		CookidooCountry:  getEnv("COOKIDOO_COUNTRY", "fr"),
 
 		// Admin — comma-separated emails, e.g. "alice@example.com,bob@example.com"
 		AdminEmails:      parseEmailList(getEnv("ADMIN_EMAILS", "")),
@@ -219,6 +233,33 @@ func parseEmailList(raw string) []string {
 		}
 	}
 	return emails
+}
+
+// CookidooAccount holds credentials for a single Cookidoo account.
+type CookidooAccount struct {
+	Email    string
+	Password string
+}
+
+// parseCookidooAccounts parses "email1:pass1,email2:pass2" into a slice of CookidooAccount.
+func parseCookidooAccounts(raw string) []CookidooAccount {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	accounts := make([]CookidooAccount, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		idx := strings.Index(p, ":")
+		if idx <= 0 {
+			continue
+		}
+		accounts = append(accounts, CookidooAccount{
+			Email:    strings.TrimSpace(p[:idx]),
+			Password: strings.TrimSpace(p[idx+1:]),
+		})
+	}
+	return accounts
 }
 
 // getIntEnv gets an integer environment variable with a default value

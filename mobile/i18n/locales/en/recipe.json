@@ -36,7 +36,17 @@
     "protein": "{{value}}g protein",
     "calories": "{{value}} kcal / serving",
     "loading": "Loading recipe…",
-    "notFound": "Recipe not found"
+    "notFound": "Recipe not found",
+    "thermomixExport": "Export to Cookidoo",
+    "thermomixLoading": "Preparing…",
+    "thermomixStage1": "Preparing recipe…",
+    "thermomixStage2": "Converting to Thermomix…",
+    "thermomixStage3": "Publishing to Cookidoo…",
+    "thermomixSuccess": "Ready for Thermomix!",
+    "thermomixOpen": "Open in Cookidoo",
+    "thermomixShare": "Share link",
+    "thermomixExportAgain": "Export again",
+    "thermomixRetry": "Export failed — tap to retry"
   },
   "add": {
     "title": "Add Recipe",

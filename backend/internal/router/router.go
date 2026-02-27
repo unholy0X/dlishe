@@ -16,6 +16,7 @@ import (
 	"github.com/dishflow/backend/internal/middleware"
 	"github.com/dishflow/backend/internal/repository/postgres"
 	"github.com/dishflow/backend/internal/service/ai"
+	"github.com/dishflow/backend/internal/service/cookidoo"
 	"github.com/dishflow/backend/internal/service/revenuecat"
 	"github.com/dishflow/backend/internal/service/sync"
 	"github.com/dishflow/backend/internal/service/thumbnail"
@@ -131,6 +132,29 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 	// Initialize rate limiter
 	rateLimiter := middleware.NewRateLimiter(redis)
 
+	// Initialize Cookidoo pool (optional, only if accounts are configured)
+	var cookidooPool *cookidoo.Pool
+	if len(cfg.CookidooAccounts) > 0 {
+		creds := make([]cookidoo.AccountCredentials, len(cfg.CookidooAccounts))
+		for i, a := range cfg.CookidooAccounts {
+			creds[i] = cookidoo.AccountCredentials{Email: a.Email, Password: a.Password}
+		}
+		var poolErr error
+		cookidooPool, poolErr = cookidoo.NewPool(context.Background(), creds, cfg.CookidooLocale, cfg.CookidooCountry, logger)
+		if poolErr != nil {
+			logger.Error("Cookidoo pool init failed — Thermomix export will be unavailable", "error", poolErr)
+		} else {
+			logger.Info("Cookidoo pool initialized", "accounts", len(creds), "locale", cfg.CookidooLocale)
+		}
+	} else {
+		logger.Warn("No COOKIDOO_ACCOUNTS configured — Thermomix export will be unavailable")
+	}
+	var thermomixHandler *handler.ThermomixHandler
+	if cookidooPool != nil && geminiClient != nil {
+		thermomixHandler = handler.NewThermomixHandler(recipeRepo, geminiClient, cookidooPool)
+		logger.Info("Thermomix export handler initialized")
+	}
+
 	// Initialize RevenueCat client (optional, only if secret key is configured)
 	var rcClient *revenuecat.Client
 	if cfg.RevenueCatSecretKey != "" {
@@ -192,6 +216,9 @@ func New(cfg *config.Config, logger *slog.Logger, db *sql.DB, redis *redis.Clien
 					r.Delete("/", recipeHandler.Delete)
 					r.Post("/favorite", recipeHandler.ToggleFavorite)
 					r.Post("/save", recipeHandler.Clone)
+					if thermomixHandler != nil {
+						r.Post("/export/thermomix", thermomixHandler.Export)
+					}
 				})
 			})
 

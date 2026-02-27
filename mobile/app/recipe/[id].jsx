@@ -38,6 +38,7 @@ import DoneSheet from "../../components/recipies/DoneSheet";
 import Svg, { Path } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { sc } from "../../utils/deviceScale";
+import ThermomixExportButton from "../../components/ThermomixExportButton";
 
 // ─── Design tokens ───────────────────────────────────────────────
 const C = {
@@ -679,6 +680,12 @@ export default function RecipeDetailScreen() {
                     </Text>
                   </Pressable>
                 )}
+                <ThermomixExportButton
+                  recipeId={recipe.id}
+                  getToken={getToken}
+                  t={t}
+                  FONT={FONT}
+                />
                 <Pressable
                   style={s.deleteBtn}
                   onPress={handleDelete}

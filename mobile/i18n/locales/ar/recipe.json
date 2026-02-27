@@ -43,7 +43,17 @@
     "protein": "{{value}} ج بروتين",
     "calories": "{{value}} سعرة / حصة",
     "loading": "جاري تحميل الوصفة...",
-    "notFound": "لم يتم العثور على الوصفة"
+    "notFound": "لم يتم العثور على الوصفة",
+    "thermomixExport": "تصدير إلى Cookidoo",
+    "thermomixLoading": "جاري التحضير…",
+    "thermomixStage1": "تحضير الوصفة…",
+    "thermomixStage2": "تحويل للثرموميكس…",
+    "thermomixStage3": "نشر على Cookidoo…",
+    "thermomixSuccess": "جاهز للثرموميكس!",
+    "thermomixOpen": "فتح في Cookidoo",
+    "thermomixShare": "مشاركة الرابط",
+    "thermomixExportAgain": "تصدير مرة أخرى",
+    "thermomixRetry": "فشل التصدير — اضغط للمحاولة مجدداً"
   },
   "add": {
     "title": "إضافة وصفة",

@@ -53,6 +53,13 @@ export async function toggleFavorite({ recipeId, isFavorite, getToken }) {
   });
 }
 
+export async function exportToThermomix({ recipeId, getToken }) {
+  return authFetch(`/recipes/${recipeId}/export/thermomix`, getToken, {
+    method: "POST",
+    timeout: 90000, // Gemini + Cookidoo can take a while
+  });
+}
+
 export async function fetchRecommendations({ getToken, filter, limit = 20 }) {
   const params = new URLSearchParams({ limit: String(limit), minMatch: "0" });
   if (filter === "high-protein") {

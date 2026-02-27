@@ -36,7 +36,17 @@
     "protein": "{{value}}g de protéines",
     "calories": "{{value}} kcal / portion",
     "loading": "Chargement de la recette…",
-    "notFound": "Recette introuvable"
+    "notFound": "Recette introuvable",
+    "thermomixExport": "Exporter vers Cookidoo",
+    "thermomixLoading": "Préparation…",
+    "thermomixStage1": "Préparation de la recette…",
+    "thermomixStage2": "Conversion pour Thermomix…",
+    "thermomixStage3": "Publication sur Cookidoo…",
+    "thermomixSuccess": "Prêt pour Thermomix !",
+    "thermomixOpen": "Ouvrir dans Cookidoo",
+    "thermomixShare": "Partager le lien",
+    "thermomixExportAgain": "Exporter à nouveau",
+    "thermomixRetry": "Échec — appuyer pour réessayer"
   },
   "add": {
     "title": "Ajouter une recette",

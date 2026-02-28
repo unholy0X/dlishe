@@ -16,12 +16,19 @@ export const useJobsStore = create((set) => ({
   setActiveJobs: (jobs) => set({ activeJobs: jobs }),
 
   addCompletedJob: (job) =>
-    set((state) => ({
-      completedJobs: [
-        { ...job, _completedAt: Date.now() },
-        ...state.completedJobs,
-      ].slice(0, 5), // keep last 5 only
-    })),
+    set((state) => {
+      const id = job.id ?? job.jobId;
+      // Guard against duplicate additions (e.g. component re-mount resets notifiedRef)
+      if (id && state.completedJobs.some((j) => (j.id ?? j.jobId) === id)) {
+        return state;
+      }
+      return {
+        completedJobs: [
+          { ...job, _completedAt: Date.now() },
+          ...state.completedJobs,
+        ].slice(0, 5), // keep last 5 only
+      };
+    }),
 
   removeCompletedJob: (id) =>
     set((state) => ({

@@ -13,7 +13,7 @@ import (
 )
 
 // thermomixRetryConfig is intentionally more aggressive than defaultRetryConfig.
-// Two Gemini passes share a 240 s budget; 2 attempts × 75 s per call leaves
+// Two Gemini passes share a 360 s budget; 2 attempts × 100 s per call leaves
 // headroom for both passes without burning the entire timeout on retries.
 var thermomixRetryConfig = retryConfig{
 	maxAttempts: 2,
@@ -23,8 +23,8 @@ var thermomixRetryConfig = retryConfig{
 
 // thermomixCallTimeout is the per-individual-Gemini-call deadline.
 // A single hung connection cannot consume more than this fraction of the
-// 240 s job budget before the retry logic kicks in.
-const thermomixCallTimeout = 80 * time.Second
+// 360 s job budget before the retry logic kicks in.
+const thermomixCallTimeout = 100 * time.Second
 
 // ThermomixStep is a single converted step with optional Thermomix machine parameters.
 type ThermomixStep struct {

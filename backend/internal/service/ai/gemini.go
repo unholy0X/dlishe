@@ -360,6 +360,8 @@ func isRetryableError(err error) bool {
 		strings.Contains(errStr, "429") ||
 		strings.Contains(errStr, "500") ||
 		strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "deadline exceeded") ||
+		strings.Contains(errStr, "context canceled") ||
 		strings.Contains(errStr, "connection reset") ||
 		strings.Contains(errStr, "temporary failure") ||
 		strings.Contains(errStr, "RESOURCE_EXHAUSTED")

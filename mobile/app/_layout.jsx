@@ -1,6 +1,8 @@
 import "../i18n"; // initialize i18next before any component renders
 import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Alert, Platform, AppState, I18nManager } from "react-native";
+import * as Notifications from "expo-notifications";
+import { requestNotificationPermission } from "../services/notifications";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
 import * as Sentry from "@sentry/react-native";
@@ -94,8 +96,9 @@ function AuthGate() {
 
     const initRC = async () => {
       try {
-        // RevenueCat native SDK doesn't work in Expo Go
-        if (Constants.appOwnership === "expo") return;
+        // RevenueCat native SDK doesn't work in Expo Go / storeClient environment.
+        // Constants.appOwnership is deprecated since SDK 50; use executionEnvironment.
+        if (Constants.executionEnvironment === "storeClient") return;
 
         const apiKey = Platform.OS === "ios"
           ? process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS
@@ -115,6 +118,32 @@ function AuthGate() {
 
     initRC();
   }, [isSignedIn, isLoaded, user?.id, isDemoMode]);
+
+  // Request notification permission once after sign-in
+  useEffect(() => {
+    if (!isSignedIn || !isLoaded || isDemoMode) return;
+    requestNotificationPermission();
+  }, [isSignedIn, isLoaded, isDemoMode]);
+
+  // Keep a stable ref to router so the listener below never needs to be
+  // re-registered just because useRouter() returns a new object reference.
+  // In Expo Router v3+ the object is stable, but using a ref is defensive.
+  const routerRef = useRef(router);
+  useEffect(() => { routerRef.current = router; });
+
+  // Handle taps on delivered notifications → navigate to recipe or home
+  useEffect(() => {
+    if (!isSignedIn || !isLoaded) return;
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const { recipeId } = response.notification.request.content.data ?? {};
+      if (recipeId) {
+        routerRef.current.push(`/recipe/${recipeId}`);
+      } else {
+        routerRef.current.replace("/home");
+      }
+    });
+    return () => sub.remove();
+  }, [isSignedIn, isLoaded]); // routerRef is stable — router removed from deps
 
   // Reload subscription when app returns to foreground (real users only)
   const appState = useRef(AppState.currentState);

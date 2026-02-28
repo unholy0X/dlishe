@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -77,17 +79,27 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fast path: URL already cached on the recipe.
+	force := r.URL.Query().Get("force") == "true"
+
+	// Fast path: URL already cached — skip unless force re-export requested.
 	if recipe.CookidooURL != nil && *recipe.CookidooURL != "" {
-		response.OK(w, map[string]any{
-			"status": "completed",
-			"url":    *recipe.CookidooURL,
-		})
-		return
+		if !force {
+			response.OK(w, map[string]any{
+				"status": "completed",
+				"url":    *recipe.CookidooURL,
+			})
+			return
+		}
+		// Force re-export: wipe the cached URL so it gets replaced.
+		_ = h.recipes.SetCookidooURL(r.Context(), recipe.ID, "")
 	}
 
 	// Idempotency key: one export job per recipe per user.
+	// For force re-exports use a unique key so we bypass any existing job.
 	idempotencyKey := "thermomix:" + recipeID.String()
+	if force {
+		idempotencyKey = fmt.Sprintf("thermomix:%s:r%d", recipeID.String(), time.Now().UnixMilli())
+	}
 
 	// Check for an existing job for this recipe.
 	existingJob, err := h.jobRepo.GetByIdempotencyKey(r.Context(), user.ID, idempotencyKey)
@@ -174,10 +186,16 @@ func (h *ThermomixHandler) runExport(jobID uuid.UUID, recipe *model.Recipe) {
 	}
 
 	// Persist URL on the recipe for instant future lookups.
-	_ = h.recipes.SetCookidooURL(ctx, recipe.ID, publicURL)
+	if err := h.recipes.SetCookidooURL(ctx, recipe.ID, publicURL); err != nil {
+		slog.Default().Error("thermomix: failed to persist cookidoo URL on recipe",
+			"job_id", jobID, "recipe_id", recipe.ID, "err", err)
+	}
 
 	// Mark job completed with the URL.
-	_ = h.jobRepo.MarkCompletedWithURL(ctx, jobID, publicURL)
+	if err := h.jobRepo.MarkCompletedWithURL(ctx, jobID, publicURL); err != nil {
+		slog.Default().Error("thermomix: failed to mark job completed",
+			"job_id", jobID, "err", err)
+	}
 }
 
 // buildThermomixRecipe assembles the Cookidoo payload from the recipe and AI conversion.

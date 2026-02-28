@@ -50,7 +50,7 @@ function KitchenIcon({ size = 18, color = "#ffffff", bladeColor = C.greenDark })
   );
 }
 
-export default function KitchenExportButton({ recipeId, getToken, t, FONT, initialUrl }) {
+export default function KitchenExportButton({ recipeId, getToken, t, FONT, initialUrl, onSuccess }) {
   const [phase, setPhase] = useState(initialUrl ? "success" : "idle");
   const [url, setUrl] = useState(initialUrl || null);
   const [stageIdx, setStageIdx] = useState(0);
@@ -106,12 +106,14 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
       try {
         const job = await getJobStatus({ jobId, getToken });
 
-        if (job.status === "completed" && job.resultUrl) {
+        const resultUrl = job.resultUrl ?? job.url ?? job.result?.url;
+        if (job.status === "completed" && resultUrl) {
           clearInterval(pollTimer.current);
           pollTimer.current = null;
-          setUrl(job.resultUrl);
+          setUrl(resultUrl);
           setPhase("success");
-        } else if (job.status === "failed") {
+          onSuccess?.(resultUrl);
+        } else if (job.status === "failed" || job.status === "cancelled") {
           clearInterval(pollTimer.current);
           pollTimer.current = null;
           setPhase("error");
@@ -121,30 +123,32 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
         // Network hiccup — keep polling, don't fail yet
       }
     }, POLL_INTERVAL);
-  }, [getToken]);
+  }, [getToken, onSuccess]);
 
-  const runExport = useCallback(async () => {
+  const runExport = useCallback(async (force = false) => {
     setPhase("loading");
     setUrl(null);
     jobIdRef.current = null;
 
     try {
-      const result = await exportToKitchen({ recipeId, getToken });
+      const result = await exportToKitchen({ recipeId, getToken, force });
 
-      if (result.status === "completed" && result.url) {
-        // Instant — URL was already cached
+      const jobId = result.jobId ?? result.jobID ?? result.id;
+      if (jobId) {
+        // Backend queued a new job — poll regardless of current status
+        startPolling(jobId);
+      } else if (result.status === "completed" && result.url) {
+        // Instant success — URL already cached, no job needed
         setUrl(result.url);
         setPhase("success");
-      } else if (result.status === "processing" && result.jobId) {
-        // Job created — start polling
-        startPolling(result.jobId);
+        onSuccess?.(result.url);
       } else {
         setPhase("error");
       }
     } catch {
       setPhase("error");
     }
-  }, [recipeId, getToken, startPolling]);
+  }, [recipeId, getToken, startPolling, onSuccess]);
 
   const handlePress = useCallback(() => {
     if (phase === "loading") return;
@@ -159,15 +163,13 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
     if (url) Share.share({ url, message: url });
   }, [url]);
 
-  const handleReset = useCallback(() => {
+  const handleExportAgain = useCallback(() => {
     if (pollTimer.current) {
       clearInterval(pollTimer.current);
       pollTimer.current = null;
     }
-    setPhase("idle");
-    setUrl(null);
-    jobIdRef.current = null;
-  }, []);
+    runExport(true);
+  }, [runExport]);
 
   // ── Success card ─────────────────────────────────────────────────
   if (phase === "success" && url) {
@@ -195,7 +197,7 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
           </Text>
         </Pressable>
 
-        <Pressable style={s.againRow} onPress={handleReset}>
+        <Pressable style={s.againRow} onPress={handleExportAgain}>
           <Text style={[s.againText, { fontFamily: FONT.regular }]}>
             {t("detail.kitchenExportAgain")}
           </Text>

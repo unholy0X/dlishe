@@ -18,6 +18,7 @@ import { useRouter, usePathname } from "expo-router";
 import FloatingNav from "../components/FloatingNav";
 import SwipeNavigator from "../components/SwipeNavigator";
 import ProfileName from "../components/home/ProfileName";
+import NotificationCenter from "../components/NotificationCenter";
 import SearchBar from "../components/SearchBar";
 import MealCategoryGrid from "../components/home/MealCategoryGrid";
 import SuggestionRow from "../components/home/SuggestionRow";
@@ -474,7 +475,7 @@ export default function HomeScreen() {
             }
           >
             <View style={styles.padded}>
-              <ProfileName subtitle={t("tagline")} />
+              <ProfileName subtitle={t("tagline")} rightSlot={<NotificationCenter />} />
 
               <SearchBar
                 placeholder={t("searchPlaceholder")}

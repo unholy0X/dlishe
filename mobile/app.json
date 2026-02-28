@@ -3,7 +3,7 @@
     "scheme": "dlishe",
     "name": "Dlishe",
     "slug": "dlishe",
-    "version": "8.0.1",
+    "version": "8.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -34,7 +34,10 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -55,7 +58,16 @@
       ],
       "expo-apple-authentication",
       "@sentry/react-native",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#385225",
+          "sounds": []
+        }
+      ],
+      "expo-image"
     ],
     "extra": {
       "eas": {

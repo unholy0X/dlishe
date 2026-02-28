@@ -62,7 +62,7 @@ function Avatar({ imageUrl, firstName, lastName, size = 50 }) {
   );
 }
 
-export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
+export default function ProfileName({ subtitle = "Your kitchen awaits", rightSlot }) {
   const { signOut } = useClerk();
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -95,20 +95,21 @@ export default function ProfileName({ subtitle = "Your kitchen awaits" }) {
 
   return (
     <View style={styles.wrapper}>
-      <Pressable onPress={() => setOpen(true)}>
-        <View style={styles.welcomeCard}>
+      <View style={styles.welcomeCard}>
+        <Pressable style={styles.welcomeLeft} onPress={() => setOpen(true)}>
           <Avatar
             imageUrl={imageUrl}
             firstName={firstName}
             lastName={lastName}
             size={sc(50)}
           />
-          <View style={{ marginLeft: 12 }}>
+          <View style={{ marginLeft: 12, flex: 1 }}>
             <Text style={styles.welcomeTitle}>{t("profile.welcome", { name: displayName })}</Text>
             <Text style={styles.welcomeSubtitle}>{subtitle}</Text>
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
+        {rightSlot ? <View style={styles.rightSlot}>{rightSlot}</View> : null}
+      </View>
 
       <Modal
         transparent
@@ -331,10 +332,19 @@ const styles = StyleSheet.create({
   welcomeCard: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: "#ffffff",
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
+  },
+  welcomeLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  rightSlot: {
+    marginLeft: 8,
   },
   avatar: {},
   avatarFallback: {

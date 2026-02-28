@@ -53,11 +53,11 @@ export async function toggleFavorite({ recipeId, isFavorite, getToken }) {
   });
 }
 
-export async function exportToKitchen({ recipeId, getToken }) {
-  return authFetch(`/recipes/${recipeId}/export/thermomix`, getToken, {
-    method: "POST",
-    timeout: 90000,
-  });
+export async function exportToKitchen({ recipeId, getToken, force = false }) {
+  const path = force
+    ? `/recipes/${recipeId}/export/thermomix?force=true`
+    : `/recipes/${recipeId}/export/thermomix`;
+  return authFetch(path, getToken, { method: "POST", timeout: 90000 });
 }
 
 export async function fetchRecommendations({ getToken, filter, limit = 20 }) {

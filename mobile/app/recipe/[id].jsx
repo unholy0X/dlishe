@@ -686,6 +686,9 @@ export default function RecipeDetailScreen() {
                   t={t}
                   FONT={FONT}
                   initialUrl={recipe.cookidooUrl}
+                  onSuccess={(newUrl) =>
+                    setRecipe((prev) => ({ ...prev, cookidooUrl: newUrl }))
+                  }
                 />
                 <Pressable
                   style={s.deleteBtn}

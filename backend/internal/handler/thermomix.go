@@ -169,12 +169,20 @@ func (h *ThermomixHandler) runExport(jobID uuid.UUID, recipe *model.Recipe) {
 	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
 	defer cancel()
 
+	// markFailed writes the failure status using a fresh context so that a
+	// deadline expiry on the work context doesn't prevent the DB update.
+	markFailed := func(code, msg string) {
+		cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanCancel()
+		_ = h.jobRepo.MarkFailed(cleanCtx, jobID, code, msg)
+	}
+
 	// Mark as processing.
 	_ = h.jobRepo.UpdateProgress(ctx, jobID, model.JobStatusProcessing, 10, "Converting recipe with AI…")
 
 	converted, err := h.converter.ConvertToThermomix(ctx, recipe)
 	if err != nil {
-		_ = h.jobRepo.MarkFailed(ctx, jobID, "CONVERSION_FAILED", err.Error())
+		markFailed("CONVERSION_FAILED", err.Error())
 		return
 	}
 
@@ -183,7 +191,7 @@ func (h *ThermomixHandler) runExport(jobID uuid.UUID, recipe *model.Recipe) {
 	tmRecipe := buildThermomixRecipe(recipe, converted)
 	publicURL, err := h.pool.CreateRecipe(ctx, tmRecipe)
 	if err != nil {
-		_ = h.jobRepo.MarkFailed(ctx, jobID, "COOKIDOO_FAILED", err.Error())
+		markFailed("COOKIDOO_FAILED", err.Error())
 		return
 	}
 

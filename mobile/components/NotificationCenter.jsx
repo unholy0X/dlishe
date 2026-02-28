@@ -388,8 +388,8 @@ export default function NotificationCenter() {
       const isFirstFetch = isFirstFetchRef.current;
       isFirstFetchRef.current = false;
 
-      // 30-minute window for cold-start recovery
-      const coldStartCutoff = Date.now() - 30 * 60 * 1000;
+      // 60-minute window for cold-start recovery
+      const coldStartCutoff = Date.now() - 60 * 60 * 1000;
 
       // Detect transitions: was active last poll, now terminal → notify
       for (const job of list) {
@@ -443,6 +443,17 @@ export default function NotificationCenter() {
     return () => clearInterval(timer);
   }, [sheetOpen, activeJobs.length]); // eslint-disable-line react-hooks/exhaustive-deps — fetchJobs is stable (useCallback with [] deps + Zustand stable actions)
 
+  // Optimistically remove from local store, then delete from backend so it
+  // stops appearing in future polls (and on cold-start after app restart).
+  const handleDismiss = useCallback(async (id) => {
+    removeCompletedJob(id);
+    try {
+      await authFetch(`/jobs/${id}`, getTokenRef.current, { method: "DELETE" });
+    } catch {
+      // Swallow — job may already be absent from DB (e.g. already deleted)
+    }
+  }, [removeCompletedJob]); // eslint-disable-line react-hooks/exhaustive-deps — getTokenRef is a stable ref
+
   const count = activeJobs.length;
   const hasActivity = count > 0 || completedJobs.length > 0;
 
@@ -469,7 +480,7 @@ export default function NotificationCenter() {
         onClose={() => setSheetOpen(false)}
         activeJobs={activeJobs}
         completedJobs={completedJobs}
-        onDismiss={removeCompletedJob}
+        onDismiss={handleDismiss}
         t={t}
       />
     </>

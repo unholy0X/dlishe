@@ -4,7 +4,7 @@ export const ACTIVE_STATUSES = ["pending", "downloading", "processing", "extract
 export const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 // Auto-expire completed jobs from the sheet after this many ms
-const COMPLETED_JOB_TTL = 60_000;
+const COMPLETED_JOB_TTL = 5 * 60_000; // 5 minutes
 
 export const useJobsStore = create((set) => ({
   // Currently in-progress jobs (drives the badge count)

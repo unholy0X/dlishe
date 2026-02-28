@@ -545,9 +545,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 14,
     alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   viewRecipeButtonPressed: {
     opacity: 0.82,
+    shadowOpacity: 0.07,
+    elevation: 2,
   },
   viewRecipeText: {
     fontSize: sc(15),

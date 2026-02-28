@@ -101,7 +101,7 @@
   "restartRequired": "إعادة التشغيل مطلوبة",
   "restartMessage": "يرجى إغلاق التطبيق وإعادة فتحه لتطبيق تغيير اللغة.",
   "notifications": {
-    "title": "المهام الجارية",
+    "title": "الإشعارات",
     "recentTitle": "المكتملة مؤخراً",
     "empty": "لا توجد مهام جارية",
     "emptySubtitle": "ستظهر هنا عمليات التصدير واستيراد الوصفات",
@@ -112,6 +112,20 @@
     "processing": "جارٍ المعالجة…",
     "completed": "تم",
     "failed": "فشل"
+  },
+  "notif": {
+    "readyOnCookidoo": "جاهز على Cookidoo",
+    "savedToCollection": "تم الحفظ في مجموعتك",
+    "exportFailed": "حدث خطأ ما",
+    "waiting": "في انتظار البدء…",
+    "downloading": "جارٍ التنزيل…",
+    "convertingForKitchen": "جاري التحويل لـ Thermomix…",
+    "extractingRecipe": "جاري قراءة الوصفة…",
+    "tapToView": "اضغط للعرض →",
+    "tapToOpen": "اضغط للفتح →",
+    "allClear": "كل شيء على ما يرام! لا توجد مهام نشطة.",
+    "inProgress": "قيد التنفيذ",
+    "recentlyCompleted": "مكتملة مؤخراً"
   },
   "deleteAccount": "حذف الحساب",
   "deleteAccountMsg": "سيؤدي هذا إلى حذف حسابك وجميع بياناتك (الوصفات، الثلاجة، قوائم التسوق) بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.",

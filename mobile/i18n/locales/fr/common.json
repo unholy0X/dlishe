@@ -77,7 +77,7 @@
   "restartRequired": "Redémarrage requis",
   "restartMessage": "Veuillez fermer et rouvrir l'application pour appliquer le changement de langue.",
   "notifications": {
-    "title": "Tâches en cours",
+    "title": "Activité",
     "recentTitle": "Récemment terminées",
     "empty": "Aucune tâche en cours",
     "emptySubtitle": "Les exports et imports de recettes apparaîtront ici",
@@ -88,6 +88,20 @@
     "processing": "En cours de traitement…",
     "completed": "Terminé",
     "failed": "Échec"
+  },
+  "notif": {
+    "readyOnCookidoo": "Prêt sur Cookidoo",
+    "savedToCollection": "Enregistré dans votre collection",
+    "exportFailed": "Quelque chose s'est mal passé",
+    "waiting": "En attente de démarrage…",
+    "downloading": "Téléchargement…",
+    "convertingForKitchen": "Conversion pour Thermomix…",
+    "extractingRecipe": "Lecture de la recette…",
+    "tapToView": "Appuyer pour voir →",
+    "tapToOpen": "Appuyer pour ouvrir →",
+    "allClear": "Tout est clair ! Aucune tâche en cours.",
+    "inProgress": "En cours",
+    "recentlyCompleted": "Récemment terminées"
   },
   "deleteAccount": "Supprimer le compte",
   "deleteAccountMsg": "Cela supprimera définitivement votre compte et toutes vos données (recettes, frigo, listes de courses). Cette action est irréversible.",

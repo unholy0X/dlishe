@@ -8,8 +8,11 @@ import {
   StyleSheet,
   ScrollView,
   AppState,
+  Linking,
 } from "react-native";
+import { Image } from "expo-image";
 import Svg, { Path } from "react-native-svg";
+import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -84,6 +87,27 @@ function CheckIcon({ size = 16, color = C.greenDark }) {
   );
 }
 
+function ExclamationIcon({ size = 16, color = C.errorIcon }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 9v4M12 17h.01"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getRecipeName(job) {
@@ -112,144 +136,168 @@ function getSourceDomain(job) {
   }
 }
 
-// Classify job type for display
 function getJobKind(job) {
   if (job.jobType === "thermomix_export") return "kitchen";
   const t = (job.jobType || "").toLowerCase();
   if (t.includes("image") || t.includes("photo") || t.includes("scan")) return "image";
-  return "url"; // generic extraction
+  return "url";
 }
 
-// Use the backend message when available — it's more informative
-function getStatusLine(job, t) {
-  if (job.message && job.message.length > 0) return job.message;
-  if (job.status === "pending") return t("notifications.pending");
-  return t("notifications.processing");
+function getStatusLabel(job, t) {
+  if (job.status === "completed") {
+    return job.jobType === "thermomix_export"
+      ? t("notif.readyOnCookidoo")
+      : t("notif.savedToCollection");
+  }
+  if (job.status === "failed") return t("notif.exportFailed");
+  if (job.status === "pending") return t("notif.waiting");
+  if (job.status === "downloading") return t("notif.downloading");
+  return job.jobType === "thermomix_export"
+    ? t("notif.convertingForKitchen")
+    : t("notif.extractingRecipe");
 }
 
-// ─── Job rows ─────────────────────────────────────────────────────────────────
+// ─── JobCard ─────────────────────────────────────────────────────────────────
 
-function JobRow({ job, t }) {
+function JobCard({ job, t, onDismiss, onTap }) {
   const progress =
     typeof job.progress === "number"
       ? Math.min(Math.max(job.progress, 0), 100)
       : 0;
   const kind = getJobKind(job);
   const recipeName = getRecipeName(job);
-  const sourceDomain = kind !== "kitchen" ? getSourceDomain(job) : null;
-  const statusLine = getStatusLine(job, t);
-
-  const label =
-    kind === "kitchen"
-      ? t("notifications.kitchenExport")
-      : kind === "image"
-      ? t("notifications.imageExtract")
-      : t("notifications.urlExtract");
-
-  const iconBg =
-    kind === "kitchen" ? C.greenLight : kind === "image" ? C.purpleBg : C.blueBg;
-  const iconColor =
-    kind === "kitchen" ? C.greenDark : kind === "image" ? C.purpleIcon : C.blueIcon;
-  const barColor =
-    kind === "kitchen" ? C.greenBright : kind === "image" ? "#C4B5FD" : "#93C5FD";
-
-  return (
-    <View style={s.jobRow}>
-      <View style={s.jobRowTop}>
-        {/* Icon */}
-        <View style={[s.jobIconWrap, { backgroundColor: iconBg }]}>
-          {kind === "kitchen" ? (
-            <KitchenIcon size={20} color={iconColor} />
-          ) : (
-            <LinkIcon width={20} height={20} color={iconColor} />
-          )}
-        </View>
-
-        {/* Text block */}
-        <View style={s.jobContent}>
-          <Text style={s.jobLabel} numberOfLines={1}>{label}</Text>
-          {recipeName ? (
-            <Text style={s.jobRecipeName} numberOfLines={1}>{recipeName}</Text>
-          ) : sourceDomain ? (
-            <Text style={s.jobMeta} numberOfLines={1}>{sourceDomain}</Text>
-          ) : null}
-          <Text style={s.jobStatusLine} numberOfLines={2}>{statusLine}</Text>
-        </View>
-
-        {/* Progress % */}
-        {progress > 0 && (
-          <Text style={[s.jobProgressText, { color: iconColor }]}>
-            {Math.round(progress)}%
-          </Text>
-        )}
-      </View>
-
-      {/* Progress bar */}
-      <View style={s.progressTrack}>
-        <View style={[s.progressFill, { width: `${progress}%`, backgroundColor: barColor }]} />
-      </View>
-    </View>
-  );
-}
-
-function CompletedJobRow({ job, t, onDismiss }) {
-  const kind = getJobKind(job);
-  const recipeName = getRecipeName(job);
-  const isSuccess = job.status === "completed";
+  const statusLabel = getStatusLabel(job, t);
+  const isCompleted = job.status === "completed";
+  const isFailed = job.status === "failed";
+  const isTerminal = isCompleted || isFailed;
+  const isActive = !isTerminal;
   const id = job.id ?? job.jobId;
 
-  const label =
-    kind === "kitchen"
-      ? t("notifications.kitchenExport")
-      : kind === "image"
-      ? t("notifications.imageExtract")
-      : t("notifications.urlExtract");
+  const thumbnail = job.recipeThumbnailUrl ?? null;
 
-  const iconBg = isSuccess ? C.greenLight : C.errorBg;
-  const iconColor = isSuccess ? C.greenDark : C.errorIcon;
+  const iconBg =
+    isCompleted ? C.greenLight :
+      isFailed ? C.errorBg :
+        kind === "kitchen" ? C.greenLight :
+          kind === "image" ? C.purpleBg : C.blueBg;
 
-  return (
-    <View style={[s.jobRow, s.completedRow]}>
+  const iconColor =
+    isCompleted ? C.greenDark :
+      isFailed ? C.errorIcon :
+        kind === "kitchen" ? C.greenDark :
+          kind === "image" ? C.purpleIcon : C.blueIcon;
+
+  const barColor =
+    kind === "kitchen" ? C.greenBright :
+      kind === "image" ? "#C4B5FD" : "#93C5FD";
+
+  const isTappable = isCompleted && (
+    (job.jobType === "thermomix_export" && job.resultUrl) ||
+    job.resultRecipeId
+  );
+
+  const tapHint = isTappable
+    ? job.jobType === "thermomix_export"
+      ? t("notif.tapToOpen")
+      : t("notif.tapToView")
+    : null;
+
+  const inner = (
+    <View style={[s.jobRow, isTerminal && s.completedRow]}>
       <View style={s.jobRowTop}>
-        <View style={[s.jobIconWrap, { backgroundColor: iconBg }]}>
-          {kind === "kitchen" ? (
-            <KitchenIcon size={20} color={iconColor} />
-          ) : (
-            <LinkIcon width={20} height={20} color={iconColor} />
-          )}
-        </View>
+        {/* Left: thumbnail or icon */}
+        {thumbnail ? (
+          <Image source={{ uri: thumbnail }} style={s.thumbnail} contentFit="cover" />
+        ) : (
+          <View style={[s.jobIconWrap, { backgroundColor: iconBg }]}>
+            {kind === "kitchen" ? (
+              <KitchenIcon size={20} color={iconColor} />
+            ) : (
+              <LinkIcon width={20} height={20} color={iconColor} />
+            )}
+          </View>
+        )}
+
+        {/* Center: text */}
         <View style={s.jobContent}>
-          <Text style={s.jobLabel} numberOfLines={1}>{label}</Text>
-          {recipeName && (
+          {recipeName ? (
             <Text style={s.jobRecipeName} numberOfLines={1}>{recipeName}</Text>
+          ) : kind === "kitchen" ? (
+            <Text style={s.jobMeta} numberOfLines={1}>{t("notifications.kitchenExport")}</Text>
+          ) : (
+            <Text style={s.jobMeta} numberOfLines={1}>{getSourceDomain(job) ?? "—"}</Text>
+          )}
+          <Text
+            style={[s.jobStatusLine, isFailed && { color: C.errorIcon }]}
+            numberOfLines={1}
+          >
+            {statusLabel}
+          </Text>
+          {isActive && (
+            <View style={s.progressRow}>
+              <View style={s.progressTrack}>
+                <View
+                  style={[
+                    s.progressFill,
+                    { width: `${progress}%`, backgroundColor: barColor },
+                  ]}
+                />
+              </View>
+              {progress > 0 && (
+                <Text style={[s.progressPct, { color: iconColor }]}>
+                  {Math.round(progress)}%
+                </Text>
+              )}
+            </View>
+          )}
+          {tapHint && (
+            <Text style={s.tapHint}>{tapHint}</Text>
           )}
         </View>
-        <View style={[s.statusPill, isSuccess ? s.statusPillDone : s.statusPillFail]}>
-          {isSuccess && <CheckIcon size={12} color={C.greenDark} />}
-          <Text
-            style={[
-              s.statusPillText,
-              isSuccess ? s.statusPillTextDone : s.statusPillTextFail,
-            ]}
-          >
-            {isSuccess ? t("notifications.completed") : t("notifications.failed")}
-          </Text>
+
+        {/* Right: badge + dismiss */}
+        <View style={s.badgeCol}>
+          {isCompleted && (
+            <View style={[s.statusBadge, s.statusBadgeDone]}>
+              <CheckIcon size={14} color={C.greenDark} />
+            </View>
+          )}
+          {isFailed && (
+            <View style={[s.statusBadge, s.statusBadgeFail]}>
+              <ExclamationIcon size={14} color={C.errorIcon} />
+            </View>
+          )}
+          {isTerminal && (
+            <Pressable
+              style={s.dismissBtn}
+              onPress={() => onDismiss(id)}
+              hitSlop={10}
+            >
+              <Text style={s.dismissBtnText}>✕</Text>
+            </Pressable>
+          )}
         </View>
-        <Pressable
-          style={s.dismissBtn}
-          onPress={() => onDismiss(id)}
-          hitSlop={10}
-        >
-          <Text style={s.dismissBtnText}>✕</Text>
-        </Pressable>
       </View>
     </View>
   );
+
+  if (isTappable) {
+    return (
+      <Pressable
+        onPress={() => onTap(job)}
+        style={({ pressed }) => pressed && s.pressed}
+      >
+        {inner}
+      </Pressable>
+    );
+  }
+
+  return inner;
 }
 
 // ─── Sheet ────────────────────────────────────────────────────────────────────
 
-function NotificationSheet({ visible, onClose, activeJobs, completedJobs, onDismiss, t }) {
+function NotificationSheet({ visible, onClose, activeJobs, completedJobs, onDismiss, onTap, t }) {
   const insets = useSafeAreaInsets();
   const hasActive = activeJobs.length > 0;
   const hasCompleted = completedJobs.length > 0;
@@ -275,43 +323,45 @@ function NotificationSheet({ visible, onClose, activeJobs, completedJobs, onDism
           </View>
 
           {!hasActive && !hasCompleted ? (
-            /* Empty state */
             <View style={s.emptyState}>
               <View style={s.emptyIconWrap}>
-                <KitchenIcon size={28} color={C.textMeta} />
+                <BellIcon size={40} color={C.textMeta} />
               </View>
-              <Text style={s.emptyTitle}>{t("notifications.empty")}</Text>
-              <Text style={s.emptySubtitle}>
-                {t("notifications.emptySubtitle")}
-              </Text>
+              <Text style={s.emptyTitle}>{t("notif.allClear")}</Text>
             </View>
           ) : (
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={s.jobList}
             >
-              {/* Active jobs */}
               {hasActive && (
                 <>
-                  <Text style={s.sectionLabel}>{t("notifications.title")}</Text>
+                  <Text style={s.sectionLabel}>{t("notif.inProgress")}</Text>
                   {activeJobs.map((job) => (
-                    <JobRow key={job.id ?? job.jobId} job={job} t={t} />
-                  ))}
-                </>
-              )}
-
-              {/* Recently completed */}
-              {hasCompleted && (
-                <>
-                  <Text style={[s.sectionLabel, hasActive && { marginTop: 20 }]}>
-                    {t("notifications.recentTitle")}
-                  </Text>
-                  {completedJobs.map((job) => (
-                    <CompletedJobRow
+                    <JobCard
                       key={job.id ?? job.jobId}
                       job={job}
                       t={t}
                       onDismiss={onDismiss}
+                      onTap={onTap}
+                    />
+                  ))}
+                </>
+              )}
+
+              {hasCompleted && (
+                <>
+                  {hasActive && <View style={s.divider} />}
+                  <Text style={[s.sectionLabel, hasActive && { marginTop: 4 }]}>
+                    {t("notif.recentlyCompleted")}
+                  </Text>
+                  {completedJobs.map((job) => (
+                    <JobCard
+                      key={job.id ?? job.jobId}
+                      job={job}
+                      t={t}
+                      onDismiss={onDismiss}
+                      onTap={onTap}
                     />
                   ))}
                 </>
@@ -329,6 +379,7 @@ function NotificationSheet({ visible, onClose, activeJobs, completedJobs, onDism
 export default function NotificationCenter() {
   const { getToken } = useAuth();
   const { t } = useTranslation("common");
+  const router = useRouter();
 
   const activeJobs = useJobsStore((s) => s.activeJobs);
   const completedJobs = useJobsStore((s) => s.completedJobs);
@@ -363,8 +414,6 @@ export default function NotificationCenter() {
   }, [activeJobs.length]);
 
   // Stable ref for getToken — avoids fetchJobs changing reference on every render.
-  // No deps array is intentional: runs after every commit to keep the ref fresh
-  // with whatever getToken Clerk provides without forcing fetchJobs to re-create.
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; }); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -393,9 +442,6 @@ export default function NotificationCenter() {
       const coldStartCutoff = Date.now() - 60 * 60 * 1000;
 
       // Detect transitions: was active last poll, now terminal → notify
-      // coldStartBatch collects cold-start jobs so we can insert them oldest-first
-      // (API returns newest-first; prepend-on-add means we must add oldest first
-      // to end up with newest at the top of the sheet).
       const coldStartBatch = [];
       for (const job of list) {
         const id = job.id ?? job.jobId;
@@ -416,9 +462,6 @@ export default function NotificationCenter() {
           }
         } else if (isFirstFetch && isTerminal && !notifiedRef.current.has(id)) {
           // Cold-start path: job completed while app was closed.
-          // Collect for batch insertion below — do NOT call addCompletedJob here
-          // because the API list is newest-first and addCompletedJob prepends,
-          // so processing in API order would display oldest-first (reversed).
           const completedAt = job.completedAt ? new Date(job.completedAt).getTime() : 0;
           if (completedAt > coldStartCutoff) {
             notifiedRef.current.add(id);
@@ -428,7 +471,6 @@ export default function NotificationCenter() {
       }
 
       // Insert cold-start jobs oldest-first so newest ends up at top of sheet.
-      // API list is newest-first → reverse it before prepending.
       for (const job of [...coldStartBatch].reverse()) {
         addCompletedJob(job);
       }
@@ -485,18 +527,31 @@ export default function NotificationCenter() {
       stop();
       sub.remove();
     };
-  }, [sheetOpen, activeJobs.length]); // eslint-disable-line react-hooks/exhaustive-deps — fetchJobs is stable (useCallback with [] deps + Zustand stable actions)
+  }, [sheetOpen, activeJobs.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Optimistically remove from local store, then delete from backend so it
-  // stops appearing in future polls (and on cold-start after app restart).
+  // Optimistically remove from local store, then delete from backend
   const handleDismiss = useCallback(async (id) => {
     removeCompletedJob(id);
     try {
       await authFetch(`/jobs/${id}`, getTokenRef.current, { method: "DELETE" });
     } catch {
-      // Swallow — job may already be absent from DB (e.g. already deleted)
+      // Swallow — job may already be absent from DB
     }
-  }, [removeCompletedJob]); // eslint-disable-line react-hooks/exhaustive-deps — getTokenRef is a stable ref
+  }, [removeCompletedJob]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleJobTap = useCallback((job) => {
+    if (job.status !== "completed") return;
+    setSheetOpen(false);
+    // Delay navigation until the modal slide-out animation completes,
+    // otherwise expo-router's push can be swallowed by the active Modal.
+    setTimeout(() => {
+      if (job.jobType === "thermomix_export" && job.resultUrl) {
+        Linking.openURL(job.resultUrl);
+      } else if (job.resultRecipeId) {
+        router.push(`/recipe/${job.resultRecipeId}`);
+      }
+    }, 350);
+  }, [router]);
 
   const count = activeJobs.length;
   const hasActivity = count > 0 || completedJobs.length > 0;
@@ -525,6 +580,7 @@ export default function NotificationCenter() {
         activeJobs={activeJobs}
         completedJobs={completedJobs}
         onDismiss={handleDismiss}
+        onTap={handleJobTap}
         t={t}
       />
     </>
@@ -616,6 +672,11 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 8,
   },
+  divider: {
+    height: 1,
+    backgroundColor: C.border,
+    marginVertical: 16,
+  },
   // Empty state
   emptyState: {
     alignItems: "center",
@@ -631,57 +692,53 @@ const s = StyleSheet.create({
     marginBottom: 14,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: C.textPrimary,
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    fontSize: 13,
+    fontSize: 15,
+    fontWeight: "500",
     color: C.textMeta,
     textAlign: "center",
-    maxWidth: 220,
-    lineHeight: 18,
   },
   // Job list
   jobList: {
     gap: 8,
     paddingBottom: 8,
   },
-  // Shared job row base
+  // Shared job row
   jobRow: {
     backgroundColor: C.card,
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
     borderColor: C.border,
-    gap: 10,
   },
   completedRow: {
-    opacity: 0.75,
+    opacity: 0.8,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   jobRowTop: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
+  // Thumbnail
+  thumbnail: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    flexShrink: 0,
+  },
   jobIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
   jobContent: {
     flex: 1,
-    gap: 2,
-  },
-  jobLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: C.textMeta,
-    letterSpacing: 0.1,
+    gap: 3,
   },
   jobRecipeName: {
     fontSize: 15,
@@ -694,18 +751,19 @@ const s = StyleSheet.create({
     color: C.textSecondary,
   },
   jobStatusLine: {
-    fontSize: 12,
+    fontSize: 13,
     color: C.textMeta,
-    lineHeight: 16,
+    lineHeight: 17,
   },
-  jobProgressText: {
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-    flexShrink: 0,
+  // Progress
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
   },
-  // Progress bar
   progressTrack: {
+    flex: 1,
     height: 5,
     borderRadius: 3,
     backgroundColor: C.border,
@@ -715,34 +773,38 @@ const s = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
   },
-  // Status pill for completed rows
-  statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
+  progressPct: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: -0.2,
     flexShrink: 0,
   },
-  statusPillDone: {
+  tapHint: {
+    fontSize: 12,
+    color: C.greenDark,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  // Right column
+  badgeCol: {
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
+  },
+  statusBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusBadgeDone: {
     backgroundColor: C.greenLight,
   },
-  statusPillFail: {
-    backgroundColor: "#FFF0F0",
-  },
-  statusPillText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  statusPillTextDone: {
-    color: C.greenDark,
-  },
-  statusPillTextFail: {
-    color: C.errorIcon,
+  statusBadgeFail: {
+    backgroundColor: C.errorBg,
   },
   dismissBtn: {
-    marginLeft: 6,
     width: 24,
     height: 24,
     borderRadius: 12,

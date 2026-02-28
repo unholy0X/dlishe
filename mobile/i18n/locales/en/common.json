@@ -77,7 +77,7 @@
   "restartRequired": "Restart required",
   "restartMessage": "Please close and reopen the app to apply the language change.",
   "notifications": {
-    "title": "Active Jobs",
+    "title": "Activity",
     "recentTitle": "Recently Completed",
     "empty": "Nothing running",
     "emptySubtitle": "Kitchen exports and recipe imports will appear here",
@@ -88,6 +88,20 @@
     "processing": "Working on it…",
     "completed": "Done",
     "failed": "Failed"
+  },
+  "notif": {
+    "readyOnCookidoo": "Ready on Cookidoo",
+    "savedToCollection": "Saved to your collection",
+    "exportFailed": "Something went wrong",
+    "waiting": "Waiting to start…",
+    "downloading": "Downloading…",
+    "convertingForKitchen": "Converting for Thermomix…",
+    "extractingRecipe": "Reading recipe…",
+    "tapToView": "Tap to view →",
+    "tapToOpen": "Tap to open →",
+    "allClear": "All clear! No active jobs.",
+    "inProgress": "In Progress",
+    "recentlyCompleted": "Recently Completed"
   },
   "deleteAccount": "Delete Account",
   "deleteAccountMsg": "This will permanently delete your account and all your data (recipes, pantry, shopping lists). This action cannot be undone.",

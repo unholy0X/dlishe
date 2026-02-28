@@ -24,7 +24,7 @@ var thermomixRetryConfig = retryConfig{
 // thermomixCallTimeout is the per-individual-Gemini-call deadline.
 // A single hung connection cannot consume more than this fraction of the
 // 360 s job budget before the retry logic kicks in.
-const thermomixCallTimeout = 100 * time.Second
+const thermomixCallTimeout = 150 * time.Second
 
 // ThermomixStep is a single converted step with optional Thermomix machine parameters.
 type ThermomixStep struct {

@@ -167,9 +167,10 @@ func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit,
 			   vj.language, vj.detail_level, COALESCE(vj.save_auto, true), vj.status,
 			   vj.progress, vj.status_message, vj.result_recipe_id, vj.result_url, vj.error_code,
 			   vj.error_message, vj.idempotency_key, vj.started_at, vj.completed_at, vj.created_at,
-			   r.title
+			   r.title, r.thumbnail_url
 		FROM video_jobs vj
 		LEFT JOIN recipes r ON r.id = vj.result_recipe_id
+			OR (vj.job_type = 'thermomix_export' AND r.id::text = vj.source_url)
 		WHERE vj.user_id = $1 AND vj.deleted_at IS NULL
 		ORDER BY vj.created_at DESC
 		LIMIT $2 OFFSET $3
@@ -206,6 +207,7 @@ func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit,
 			&job.CompletedAt,
 			&job.CreatedAt,
 			&job.RecipeTitle,
+			&job.RecipeThumbnailURL,
 		)
 		if err != nil {
 			return nil, err

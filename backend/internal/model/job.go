@@ -48,7 +48,8 @@ type ExtractionJob struct {
 	Progress       int        `json:"progress" db:"progress"` // 0-100
 	StatusMessage  *string    `json:"statusMessage,omitempty" db:"status_message"`
 	ResultRecipeID *uuid.UUID `json:"resultRecipeId,omitempty" db:"result_recipe_id"`
-	RecipeTitle    *string    `json:"-" db:"-"` // populated by ListByUser JOIN, not stored
+	RecipeTitle        *string    `json:"-" db:"-"` // populated by ListByUser JOIN, not stored
+	RecipeThumbnailURL *string    `json:"-" db:"-"` // populated by ListByUser JOIN
 	ResultURL      *string    `json:"resultUrl,omitempty" db:"result_url"`
 	ErrorCode      *string    `json:"errorCode,omitempty" db:"error_code"`
 	ErrorMessage   *string    `json:"errorMessage,omitempty" db:"error_message"`
@@ -72,8 +73,10 @@ type JobResponse struct {
 	StatusURL        string     `json:"statusUrl,omitempty"`
 	StreamURL        string     `json:"streamUrl,omitempty"`
 	EstimatedSeconds int        `json:"estimatedSeconds,omitempty"`
-	RecipeTitle      *string    `json:"recipeTitle,omitempty"`
-	Recipe           *Recipe    `json:"recipe,omitempty"`
+	RecipeTitle         *string    `json:"recipeTitle,omitempty"`
+	ResultRecipeID      *string    `json:"resultRecipeId,omitempty"`
+	RecipeThumbnailURL  *string    `json:"recipeThumbnailUrl,omitempty"`
+	Recipe              *Recipe    `json:"recipe,omitempty"`
 	ResultURL        *string    `json:"resultUrl,omitempty"`
 	Error            *JobError  `json:"error,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`

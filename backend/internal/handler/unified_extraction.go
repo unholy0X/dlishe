@@ -1721,6 +1721,11 @@ func (h *UnifiedExtractionHandler) ListJobs(w http.ResponseWriter, r *http.Reque
 	for _, job := range jobs {
 		jobResp := job.ToResponse("")
 		jobResp.RecipeTitle = job.RecipeTitle
+		if job.ResultRecipeID != nil {
+			id := job.ResultRecipeID.String()
+			jobResp.ResultRecipeID = &id
+		}
+		jobResp.RecipeThumbnailURL = job.RecipeThumbnailURL
 		resp = append(resp, jobResp)
 	}
 
@@ -1765,6 +1770,13 @@ func (h *UnifiedExtractionHandler) GetJob(w http.ResponseWriter, r *http.Request
 
 	resp := job.ToResponse("")
 	resp.Recipe = resultRecipe
+	if job.ResultRecipeID != nil {
+		id := job.ResultRecipeID.String()
+		resp.ResultRecipeID = &id
+	}
+	if resultRecipe != nil {
+		resp.RecipeThumbnailURL = resultRecipe.ThumbnailURL
+	}
 	response.OK(w, resp)
 }
 

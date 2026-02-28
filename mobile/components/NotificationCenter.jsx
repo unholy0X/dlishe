@@ -490,10 +490,17 @@ export default function NotificationCenter() {
     fetchJobs();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Adaptive interval — only runs when there are active jobs or the sheet is open,
+  // Fetch once when the sheet opens so content is fresh immediately.
+  // The interval below only runs while there are active jobs — opening the
+  // sheet alone does NOT trigger continuous polling (avoids ~167 req/s at scale).
+  useEffect(() => {
+    if (sheetOpen) fetchJobs();
+  }, [sheetOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Adaptive interval — only runs while there are active jobs,
   // and paused when the app is backgrounded/locked
   useEffect(() => {
-    const shouldPoll = sheetOpen || activeJobs.length > 0;
+    const shouldPoll = activeJobs.length > 0;
     if (!shouldPoll) return;
 
     let timer = null;
@@ -527,7 +534,7 @@ export default function NotificationCenter() {
       stop();
       sub.remove();
     };
-  }, [sheetOpen, activeJobs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sheetOpen, activeJobs.length]); // eslint-disable-line react-hooks/exhaustive-deps — fetchJobs is stable
 
   // Optimistically remove from local store, then delete from backend
   const handleDismiss = useCallback(async (id) => {

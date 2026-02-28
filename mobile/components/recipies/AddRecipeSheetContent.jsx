@@ -15,12 +15,14 @@ import SparkleBadgeIcon from "../icons/SparkleBadgeIcon";
 import ExtractionProgress from "./ExtractionProgress";
 import ImageCapture from "../ImageCapture";
 import { useAuth } from "@clerk/clerk-expo";
+import { useRouter } from "expo-router";
 import { useExtractStore } from "../../store";
 import PaywallSheet from "../paywall/PaywallSheet";
 import { useTranslation } from "react-i18next";
 
 export default function AddRecipeSheetContent({ onPressBack }) {
   const { getToken } = useAuth();
+  const router = useRouter();
   const {
     url,
     setUrl,
@@ -191,9 +193,19 @@ export default function AddRecipeSheetContent({ onPressBack }) {
           </View>
         )}
 
-        <View style={styles.savedBanner}>
-          <Text style={styles.savedText}>{t("add.savedToBox", "Saved to your recipe box")}</Text>
-        </View>
+        <Text style={styles.savedConfirmation}>
+          {t("add.savedToBox", "✓ Saved to your recipe box")}
+        </Text>
+
+        <Pressable
+          style={({ pressed }) => [styles.viewRecipeButton, pressed && styles.viewRecipeButtonPressed]}
+          onPress={() => {
+            onPressBack();
+            router.push(`/recipe/${recipe.id}`);
+          }}
+        >
+          <Text style={styles.viewRecipeText}>{t("add.viewRecipe", "View Recipe")}</Text>
+        </Pressable>
 
         <Pressable style={styles.tryAnotherButton} onPress={handleTryAnother}>
           <Text style={styles.tryAnotherText}>{t("add.addAnother", "Add another recipe")}</Text>
@@ -520,18 +532,28 @@ const styles = StyleSheet.create({
     color: "#B4B4B4",
     textAlign: "center",
   },
-  savedBanner: {
+  savedConfirmation: {
     marginTop: 16,
-    backgroundColor: "#DFF7C4",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    fontSize: sc(13),
+    color: "#385225",
+    textAlign: "center",
+    fontWeight: "500",
+  },
+  viewRecipeButton: {
+    marginTop: 12,
+    backgroundColor: "#385225",
+    borderRadius: 999,
+    paddingVertical: 14,
     alignItems: "center",
   },
-  savedText: {
-    fontSize: sc(14),
-    fontWeight: "500",
-    color: "#385225",
+  viewRecipeButtonPressed: {
+    opacity: 0.82,
+  },
+  viewRecipeText: {
+    fontSize: sc(15),
+    fontWeight: "600",
+    color: "#ffffff",
+    letterSpacing: -0.2,
   },
   tryAnotherButton: {
     marginTop: 12,

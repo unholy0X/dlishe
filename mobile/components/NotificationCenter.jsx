@@ -371,6 +371,8 @@ export default function NotificationCenter() {
   const prevJobsMapRef = useRef(new Map());
   // Set of jobIds we've already fired notifications for (prevents duplicates)
   const notifiedRef = useRef(new Set());
+  // True only on the very first fetch after mount (cold-start recovery)
+  const isFirstFetchRef = useRef(true);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -383,6 +385,12 @@ export default function NotificationCenter() {
       const active = list.filter((j) => ACTIVE_STATUS_SET.has(j.status));
       setActiveJobs(active);
 
+      const isFirstFetch = isFirstFetchRef.current;
+      isFirstFetchRef.current = false;
+
+      // 30-minute window for cold-start recovery
+      const coldStartCutoff = Date.now() - 30 * 60 * 1000;
+
       // Detect transitions: was active last poll, now terminal → notify
       for (const job of list) {
         const id = job.id ?? job.jobId;
@@ -392,6 +400,7 @@ export default function NotificationCenter() {
         const isTerminal = TERMINAL_STATUSES.has(job.status);
 
         if (wasActive && isTerminal && !notifiedRef.current.has(id)) {
+          // Normal path: transition observed within same session
           notifiedRef.current.add(id);
           addCompletedJob(job);
           const recipeName = getRecipeName(job);
@@ -399,6 +408,15 @@ export default function NotificationCenter() {
             scheduleJobCompleteNotification({ job, recipeName });
           } else {
             scheduleJobFailedNotification({ job, recipeName });
+          }
+        } else if (isFirstFetch && isTerminal && !notifiedRef.current.has(id)) {
+          // Cold-start path: job completed while app was closed.
+          // Show in sheet if completed within the last 30 minutes, but
+          // do NOT send a push notification (user already got one or missed it).
+          const completedAt = job.completedAt ? new Date(job.completedAt).getTime() : 0;
+          if (completedAt > coldStartCutoff) {
+            notifiedRef.current.add(id); // prevent re-notification this session
+            addCompletedJob(job);
           }
         }
       }

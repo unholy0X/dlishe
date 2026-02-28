@@ -236,11 +236,14 @@ func (r *JobRepository) Update(ctx context.Context, job *model.ExtractionJob) er
 	return nil
 }
 
-// UpdateProgress updates just the progress fields
+// UpdateProgress updates just the progress fields.
+// It also sets started_at on the first call (when transitioning away from pending)
+// so that MarkStuckJobsAsFailed can sweep jobs that bypass MarkStarted (e.g. thermomix).
 func (r *JobRepository) UpdateProgress(ctx context.Context, id uuid.UUID, status model.JobStatus, progress int, message string) error {
 	query := `
 		UPDATE video_jobs
-		SET status = $2, progress = $3, status_message = $4
+		SET status = $2, progress = $3, status_message = $4,
+		    started_at = COALESCE(started_at, NOW())
 		WHERE id = $1
 	`
 
@@ -392,16 +395,18 @@ func (r *JobRepository) CountUsedThisMonth(ctx context.Context, userID uuid.UUID
 
 // MarkStuckJobsAsFailed finds jobs that have been in processing state too long and marks them as failed
 func (r *JobRepository) MarkStuckJobsAsFailed(ctx context.Context, maxDuration time.Duration) (int, error) {
+	// COALESCE(started_at, created_at) ensures jobs that never called MarkStarted
+	// (e.g. thermomix exports that go pending→processing via UpdateProgress) are
+	// still caught by the sweeper — their started_at is NULL but created_at is set.
 	query := `
 		UPDATE video_jobs
-		SET status = $1, 
-		    error_code = $2, 
+		SET status = $1,
+		    error_code = $2,
 		    error_message = $3,
 		    completed_at = $4
 		WHERE status IN ($5, $6, $7, $8)
-		AND started_at IS NOT NULL
-		AND started_at < $9
-		AND (completed_at IS NULL OR completed_at < started_at)
+		AND COALESCE(started_at, created_at) < $9
+		AND (completed_at IS NULL OR completed_at < COALESCE(started_at, created_at))
 	`
 
 	now := time.Now().UTC()

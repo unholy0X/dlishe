@@ -7,6 +7,7 @@ import {
   Animated,
   StyleSheet,
   ScrollView,
+  AppState,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useAuth } from "@clerk/clerk-expo";
@@ -447,11 +448,43 @@ export default function NotificationCenter() {
     fetchJobs();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Adaptive interval — no immediate call here (avoids double-call on store update)
+  // Adaptive interval — only runs when there are active jobs or the sheet is open,
+  // and paused when the app is backgrounded/locked
   useEffect(() => {
-    const interval = sheetOpen ? 3000 : activeJobs.length > 0 ? 5000 : 30000;
-    const timer = setInterval(fetchJobs, interval);
-    return () => clearInterval(timer);
+    const shouldPoll = sheetOpen || activeJobs.length > 0;
+    if (!shouldPoll) return;
+
+    let timer = null;
+
+    const start = () => {
+      if (timer) return;
+      const interval = sheetOpen ? 3000 : 5000;
+      timer = setInterval(fetchJobs, interval);
+    };
+
+    const stop = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const handleAppState = (nextState) => {
+      if (nextState === "active") {
+        fetchJobs(); // immediate refresh on foreground
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    const sub = AppState.addEventListener("change", handleAppState);
+    if (AppState.currentState === "active") start();
+
+    return () => {
+      stop();
+      sub.remove();
+    };
   }, [sheetOpen, activeJobs.length]); // eslint-disable-line react-hooks/exhaustive-deps — fetchJobs is stable (useCallback with [] deps + Zustand stable actions)
 
   // Optimistically remove from local store, then delete from backend so it

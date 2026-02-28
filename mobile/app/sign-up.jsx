@@ -11,6 +11,7 @@ import {
   Platform,
   Image,
   Alert,
+  AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -112,9 +113,9 @@ export default function SignUpScreen() {
   const [appleLoading, setAppleLoading] = useState(false);
   const [serviceWarning, setServiceWarning] = useState("");
 
-  /* ── Clerk status monitor — polls every 60s, clears when recovered ── */
+  /* ── Clerk status monitor — polls every 60s, paused when backgrounded ── */
   useEffect(() => {
-    let interval;
+    let interval = null;
 
     function checkStatus() {
       const controller = new AbortController();
@@ -132,10 +133,26 @@ export default function SignUpScreen() {
         .finally(() => clearTimeout(timer));
     }
 
-    checkStatus();
-    interval = setInterval(checkStatus, 60000);
-    return () => clearInterval(interval);
-  }, []);
+    const start = () => {
+      if (interval) return;
+      checkStatus();
+      interval = setInterval(checkStatus, 60000);
+    };
+
+    const stop = () => {
+      clearInterval(interval);
+      interval = null;
+    };
+
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") start();
+      else stop();
+    });
+
+    if (AppState.currentState === "active") start();
+
+    return () => { stop(); sub.remove(); };
+  }, [t]);
 
   /* ── Google OAuth ── */
   const handleGoogleSignUp = useCallback(async () => {

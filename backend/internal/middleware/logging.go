@@ -15,7 +15,10 @@ import (
 
 type contextKey string
 
-const LoggerKey contextKey = "logger"
+const (
+	LoggerKey  contextKey = "logger"
+	maxLogSize            = 2048 // 2KB cap for request/response body logging
+)
 
 // responseWriter wraps http.ResponseWriter to capture status code and body
 type responseWriter struct {
@@ -33,7 +36,15 @@ func (rw *responseWriter) WriteHeader(status int) {
 func (rw *responseWriter) Write(b []byte) (int, error) {
 	size, err := rw.ResponseWriter.Write(b)
 	rw.size += size
-	rw.body.Write(b)
+	// Cap buffer at maxLogSize to avoid buffering large successful responses
+	if rw.body.Len() < maxLogSize {
+		remaining := maxLogSize - rw.body.Len()
+		if len(b) > remaining {
+			rw.body.Write(b[:remaining])
+		} else {
+			rw.body.Write(b)
+		}
+	}
 	return size, err
 }
 
@@ -84,14 +95,13 @@ func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
 			// Calculate duration
 			duration := time.Since(start)
 
-			// Sanitize and limit bodies
-			logReqBody := sanitizeBody(reqBody)
-			logRespBody := sanitizeBody(wrapped.body.Bytes())
-
-			// Skip body logging for health checks or large files
-			if r.URL.Path == "/api/v1/health" {
-				logReqBody = ""
-				logRespBody = ""
+			// Only log bodies on errors — successful responses can be large and contain user data
+			isError := wrapped.status >= 400
+			logReqBody := ""
+			logRespBody := ""
+			if isError {
+				logReqBody = sanitizeBody(reqBody)
+				logRespBody = sanitizeBody(wrapped.body.Bytes())
 			}
 
 			// Log request with payloads
@@ -146,7 +156,6 @@ func sanitizeBody(b []byte) string {
 		}
 	}
 
-	const maxLogSize = 2048 // 2KB limit for log readability
 	if len(b) > maxLogSize {
 		return s[:maxLogSize] + "...(truncated)"
 	}

@@ -1716,18 +1716,11 @@ func (h *UnifiedExtractionHandler) ListJobs(w http.ResponseWriter, r *http.Reque
 		jobs = []*model.VideoJob{}
 	}
 
-	// Convert to response
+	// Convert to response — recipe title already JOIN-ed in ListByUser, no extra queries
 	resp := make([]model.JobResponse, 0)
 	for _, job := range jobs {
 		jobResp := job.ToResponse("")
-
-		// Populate basic recipe info if completed
-		if job.Status == model.JobStatusCompleted && job.ResultRecipeID != nil {
-			if recipe, err := h.recipeRepo.GetByID(r.Context(), *job.ResultRecipeID); err == nil {
-				jobResp.Recipe = recipe
-			}
-		}
-
+		jobResp.RecipeTitle = job.RecipeTitle
 		resp = append(resp, jobResp)
 	}
 

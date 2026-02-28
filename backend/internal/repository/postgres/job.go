@@ -160,16 +160,18 @@ func (r *JobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid.UUI
 	return job, nil
 }
 
-// ListByUser retrieves all jobs for a user
+// ListByUser retrieves all jobs for a user, with recipe title joined in one query
 func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*model.ExtractionJob, error) {
 	query := `
-		SELECT id, user_id, COALESCE(job_type, 'video'), source_url, source_path, mime_type,
-			   language, detail_level, COALESCE(save_auto, true), status,
-			   progress, status_message, result_recipe_id, result_url, error_code,
-			   error_message, idempotency_key, started_at, completed_at, created_at
-		FROM video_jobs
-		WHERE user_id = $1 AND deleted_at IS NULL
-		ORDER BY created_at DESC
+		SELECT vj.id, vj.user_id, COALESCE(vj.job_type, 'video'), vj.source_url, vj.source_path, vj.mime_type,
+			   vj.language, vj.detail_level, COALESCE(vj.save_auto, true), vj.status,
+			   vj.progress, vj.status_message, vj.result_recipe_id, vj.result_url, vj.error_code,
+			   vj.error_message, vj.idempotency_key, vj.started_at, vj.completed_at, vj.created_at,
+			   r.title
+		FROM video_jobs vj
+		LEFT JOIN recipes r ON r.id = vj.result_recipe_id
+		WHERE vj.user_id = $1 AND vj.deleted_at IS NULL
+		ORDER BY vj.created_at DESC
 		LIMIT $2 OFFSET $3
 	`
 
@@ -203,6 +205,7 @@ func (r *JobRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit,
 			&job.StartedAt,
 			&job.CompletedAt,
 			&job.CreatedAt,
+			&job.RecipeTitle,
 		)
 		if err != nil {
 			return nil, err

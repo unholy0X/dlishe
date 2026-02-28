@@ -437,6 +437,48 @@ func (r *JobRepository) MarkStuckJobsAsFailed(ctx context.Context, maxDuration t
 	return int(rows), nil
 }
 
+// MarkOrphanedJobs marks all non-terminal jobs that were in-flight before a
+// server restart as failed with code ORPHANED. A 1-minute grace window prevents
+// false positives if the process is restarted mid-request.
+// Called once at startup — does NOT use the rolling maxDuration of MarkStuckJobsAsFailed.
+func (r *JobRepository) MarkOrphanedJobs(ctx context.Context) (int, error) {
+	query := `
+		UPDATE video_jobs
+		SET status = $1,
+		    error_code = $2,
+		    error_message = $3,
+		    completed_at = $4
+		WHERE status IN ($5, $6, $7, $8)
+		AND COALESCE(started_at, created_at) < $9
+		AND (completed_at IS NULL OR completed_at < COALESCE(started_at, created_at))
+	`
+
+	now := time.Now().UTC()
+	graceCutoff := now.Add(-1 * time.Minute) // ignore jobs created in the last minute
+
+	result, err := r.db.ExecContext(ctx, query,
+		model.JobStatusFailed,
+		"ORPHANED",
+		"Backend restarted while job was in progress",
+		now,
+		model.JobStatusPending,
+		model.JobStatusDownloading,
+		model.JobStatusProcessing,
+		model.JobStatusExtracting,
+		graceCutoff,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(rows), nil
+}
+
 // Delete soft-deletes a job by ID and UserID (preserves quota counting)
 func (r *JobRepository) Delete(ctx context.Context, id, userID uuid.UUID) error {
 	query := `UPDATE video_jobs SET deleted_at = $3 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`

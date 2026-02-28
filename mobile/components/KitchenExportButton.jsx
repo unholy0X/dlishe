@@ -25,6 +25,7 @@ const C = {
 };
 
 const POLL_INTERVAL = 3000; // 3s between polls
+const POLL_TIMEOUT = 10 * 60 * 1000; // 10 minutes — stop polling stuck jobs
 const STAGE_KEYS = ["kitchenStage1", "kitchenStage2", "kitchenStage3"];
 const STAGE_INTERVAL = 4000;
 
@@ -59,6 +60,7 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
   const pulseLoop = useRef(null);
   const stageTimer = useRef(null);
   const pollTimer = useRef(null);
+  const timeoutTimer = useRef(null);
   const jobIdRef = useRef(null);
 
   // Cleanup on unmount
@@ -66,6 +68,7 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
     return () => {
       if (stageTimer.current) clearInterval(stageTimer.current);
       if (pollTimer.current) clearInterval(pollTimer.current);
+      if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
       if (pulseLoop.current) pulseLoop.current.stop();
     };
   }, []);
@@ -101,6 +104,17 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
   const startPolling = useCallback((jobId) => {
     jobIdRef.current = jobId;
     if (pollTimer.current) clearInterval(pollTimer.current);
+    if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
+
+    // Hard stop after POLL_TIMEOUT — prevents infinite spin on stuck jobs
+    timeoutTimer.current = setTimeout(() => {
+      if (pollTimer.current) {
+        clearInterval(pollTimer.current);
+        pollTimer.current = null;
+      }
+      timeoutTimer.current = null;
+      setPhase("error");
+    }, POLL_TIMEOUT);
 
     pollTimer.current = setInterval(async () => {
       try {
@@ -109,13 +123,17 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
         const resultUrl = job.resultUrl ?? job.url ?? job.result?.url;
         if (job.status === "completed" && resultUrl) {
           clearInterval(pollTimer.current);
+          clearTimeout(timeoutTimer.current);
           pollTimer.current = null;
+          timeoutTimer.current = null;
           setUrl(resultUrl);
           setPhase("success");
           onSuccess?.(resultUrl);
         } else if (job.status === "failed" || job.status === "cancelled") {
           clearInterval(pollTimer.current);
+          clearTimeout(timeoutTimer.current);
           pollTimer.current = null;
+          timeoutTimer.current = null;
           setPhase("error");
         }
         // pending/processing → keep polling
@@ -129,6 +147,10 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
     setPhase("loading");
     setUrl(null);
     jobIdRef.current = null;
+    if (timeoutTimer.current) {
+      clearTimeout(timeoutTimer.current);
+      timeoutTimer.current = null;
+    }
 
     try {
       const result = await exportToKitchen({ recipeId, getToken, force });
@@ -167,6 +189,10 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
     if (pollTimer.current) {
       clearInterval(pollTimer.current);
       pollTimer.current = null;
+    }
+    if (timeoutTimer.current) {
+      clearTimeout(timeoutTimer.current);
+      timeoutTimer.current = null;
     }
     runExport(true);
   }, [runExport]);

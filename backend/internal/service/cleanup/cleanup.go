@@ -21,6 +21,8 @@ type Service struct {
 // JobRepository interface for job cleanup operations
 type JobRepository interface {
 	MarkStuckJobsAsFailed(ctx context.Context, maxDuration time.Duration) (int, error)
+	// MarkOrphanedJobs marks all non-terminal jobs as failed on startup.
+	MarkOrphanedJobs(ctx context.Context) (int, error)
 }
 
 // Config holds configuration for the cleanup service
@@ -59,6 +61,11 @@ func (s *Service) Start(ctx context.Context) {
 		"cleanup_interval", s.cleanupInterval,
 	)
 
+	// Immediately mark jobs that were in-flight when the previous instance crashed.
+	// This runs before the first regular cleanup so users see ORPHANED status within
+	// seconds of restart rather than waiting up to maxJobAge (default 35 minutes).
+	s.recoverOrphanedJobs(ctx)
+
 	ticker := time.NewTicker(s.cleanupInterval)
 	defer ticker.Stop()
 
@@ -92,6 +99,20 @@ func (s *Service) runCleanup(ctx context.Context) {
 		s.logger.Error("Failed to cleanup temp files", "error", err)
 	} else if filesDeleted > 0 {
 		s.logger.Info("Cleaned up temp files", "count", filesDeleted)
+	}
+}
+
+// recoverOrphanedJobs marks all non-terminal jobs as ORPHANED on startup.
+// Unlike cleanupStuckJobs (which uses a rolling age window), this runs once
+// and catches everything that was in-progress when the process was killed.
+func (s *Service) recoverOrphanedJobs(ctx context.Context) {
+	count, err := s.jobRepo.MarkOrphanedJobs(ctx)
+	if err != nil {
+		s.logger.Error("Failed to recover orphaned jobs on startup", "error", err)
+		return
+	}
+	if count > 0 {
+		s.logger.Warn("Marked orphaned jobs from previous run", "count", count)
 	}
 }
 

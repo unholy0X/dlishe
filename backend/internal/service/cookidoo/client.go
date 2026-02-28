@@ -35,6 +35,9 @@ const (
 
 	// tokenRefreshInterval is how often background refresh runs (before 12h expiry).
 	tokenRefreshInterval = 11 * time.Hour
+
+	// cookidooMaxRetries is the number of attempts for transient API failures.
+	cookidooMaxRetries = 3
 )
 
 // AccountCredentials holds login details for a single Cookidoo account.
@@ -154,25 +157,22 @@ func (p *Pool) baseURL() string {
 }
 
 // postCreate calls POST /created-recipes/{locale} with just the recipe name
-// and returns the new recipe ID.
+// and returns the new recipe ID. Retries on transient failures.
 func (p *Pool) postCreate(ctx context.Context, token, name string) (string, error) {
-	body, _ := json.Marshal(createRecipeRequest{RecipeName: name})
+	bodyBytes, _ := json.Marshal(createRecipeRequest{RecipeName: name})
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL(), bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	p.setHeaders(req, token)
-
-	resp, err := p.httpClient.Do(req)
+	resp, err := p.retryDo(ctx, func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL(), bytes.NewReader(bodyBytes))
+		if err != nil {
+			return nil, err
+		}
+		p.setHeaders(req, token)
+		return req, nil
+	})
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-
-	if err := checkStatus(resp); err != nil {
-		return "", err
-	}
 
 	var out createRecipeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -185,26 +185,76 @@ func (p *Pool) postCreate(ctx context.Context, token, name string) (string, erro
 }
 
 // patchRecipe calls PATCH /created-recipes/{locale}/{id} with the full recipe body.
+// Retries on transient failures.
 func (p *Pool) patchRecipe(ctx context.Context, token, recipeID string, recipe ThermomixRecipe) error {
-	body, err := json.Marshal(recipe)
+	bodyBytes, err := json.Marshal(recipe)
 	if err != nil {
 		return err
 	}
 
 	endpoint := fmt.Sprintf("%s/%s", p.baseURL(), recipeID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(body))
+	resp, err := p.retryDo(ctx, func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return nil, err
+		}
+		p.setHeaders(req, token)
+		return req, nil
+	})
 	if err != nil {
 		return err
 	}
-	p.setHeaders(req, token)
+	resp.Body.Close()
+	return nil
+}
 
-	resp, err := p.httpClient.Do(req)
-	if err != nil {
-		return err
+// retryDo executes an HTTP request with exponential backoff on transient failures.
+// makeReq is called once per attempt so request bodies (bytes.NewReader) can be re-read.
+// Returns the response (body open, caller must close) on the first 2xx success.
+// Does NOT retry 4xx client errors (auth, bad request, not found).
+func (p *Pool) retryDo(ctx context.Context, makeReq func() (*http.Request, error)) (*http.Response, error) {
+	var lastErr error
+	for attempt := 0; attempt < cookidooMaxRetries; attempt++ {
+		if attempt > 0 {
+			delay := time.Duration(attempt) * time.Second
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+			p.logger.Warn("cookidoo: retrying request", "attempt", attempt+1, "last_error", lastErr)
+		}
+
+		req, err := makeReq()
+		if err != nil {
+			return nil, err // request construction failure is never retryable
+		}
+
+		resp, err := p.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			continue // network/timeout error — always retry
+		}
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return resp, nil
+		}
+
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		resp.Body.Close()
+		statusErr := fmt.Errorf("unexpected status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+
+		// Don't retry client errors — they indicate a bug, not a transient issue.
+		if resp.StatusCode == 400 || resp.StatusCode == 401 ||
+			resp.StatusCode == 403 || resp.StatusCode == 404 ||
+			resp.StatusCode == 409 {
+			return nil, statusErr
+		}
+
+		// Retry on 429, 5xx
+		lastErr = statusErr
 	}
-	defer resp.Body.Close()
-
-	return checkStatus(resp)
+	return nil, lastErr
 }
 
 // setHeaders applies the required headers for Cookidoo API calls.

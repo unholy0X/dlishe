@@ -271,9 +271,9 @@ EXAMPLES (French for structure only — your output must be in %s):
 		first.RequiredModels = []string{"TM6", "TM5"}
 	}
 
-	// ── Pass 2: review — fix ingredient_refs and parameter violations ─────────
+	// ── Pass 2: expert review — fix refs, enhance parameters ─────────────────
 
-	reviewed, err := g.reviewThermomixResult(ctx, lang, ingLines, first)
+	reviewed, err := g.reviewThermomixResult(ctx, lang, recipe, ingLines, stepLines, servings, totalMins, first)
 	if err != nil || len(reviewed.Steps) == 0 {
 		// Reviewer failed or returned empty — return the first pass rather than
 		// blocking the export entirely.
@@ -285,18 +285,25 @@ EXAMPLES (French for structure only — your output must be in %s):
 	return reviewed, nil
 }
 
-// reviewThermomixResult runs a focused second Gemini pass that audits the first-pass
-// output for two classes of errors:
-//  1. Ingredient refs not appearing verbatim in their step text (Cookidoo renders
-//     refs as inline annotations, so the match must be exact).
-//  2. Thermomix parameter rule violations (mode set + speed non-empty, or machine
-//     action on an oven/rest/serve step).
+// reviewThermomixResult is a second Gemini pass acting as a professional Thermomix TM6
+// expert with full recipe context. It does two things:
+//
+//  1. FIX (non-negotiable): ingredient_refs verbatim matching and parameter rule violations.
+//  2. ENHANCE (expert judgment): speed, temperature, time, and mode adjustments based on
+//     real Thermomix TM6 best practices for this specific recipe — e.g. correct risotto
+//     cooking time, proper chopping speed for the ingredient texture, right temperature
+//     for delicate sauces. The expert uses the original recipe's full context to justify
+//     each change.
 //
 // On any parse failure the caller falls back to the first-pass result.
 func (g *GeminiClient) reviewThermomixResult(
 	ctx context.Context,
 	lang string,
+	recipe *model.Recipe,
 	ingLines []string,
+	stepLines []string,
+	servings int,
+	totalMins int,
 	first *ThermomixConversionResult,
 ) (*ThermomixConversionResult, error) {
 	firstJSON, err := json.Marshal(first)
@@ -304,51 +311,105 @@ func (g *GeminiClient) reviewThermomixResult(
 		return nil, fmt.Errorf("marshal first pass: %w", err)
 	}
 
-	reviewPrompt := fmt.Sprintf(`You are a senior Thermomix Cookidoo recipe quality reviewer.
+	reviewPrompt := fmt.Sprintf(`You are a certified professional Thermomix TM6 recipe developer with 10+ years of
+Cookidoo publishing experience. You have just received a first-pass machine conversion
+of the recipe below. Your job: review, correct, and enhance it to professional quality.
 
-A junior developer produced the Thermomix recipe JSON below. Your task is to audit and
-correct it. Do NOT rewrite the recipe from scratch — only fix the specific issues listed.
+OUTPUT LANGUAGE: %s — all text must be in %s.
 
-OUTPUT LANGUAGE: %s — keep all text in %s.
+━━━ ORIGINAL RECIPE (your source of truth) ━━━
 
-━━━ WHAT TO FIX ━━━
+Title: %s
+Servings: %d
+Total time: %d minutes
 
-1. INGREDIENT REFS (highest priority — Cookidoo breaks if these are wrong)
-   Cookidoo highlights ingredient_refs as inline annotations inside the step text.
-   The highlight only works when the ref string appears VERBATIM in "text".
+INGREDIENTS:
+%s
 
-   Rule: every string in "ingredient_refs" MUST be a substring of "text" (exact match,
-   including quantity and unit if present).
+ORIGINAL STEPS:
+%s
 
-   For each step:
-   a) If an ingredient_ref does NOT appear verbatim in "text":
-      - If the ingredient IS mentioned in text with different phrasing → rewrite the
-        ref to match the exact phrasing used in "text".
-      - If the ingredient is NOT mentioned in "text" at all → remove it from refs.
-   b) If an ingredient from the master list is clearly used in the step but absent
-      from ingredient_refs → rewrite "text" to include the exact ingredient string
-      and add it to ingredient_refs.
-   c) Empty ingredient_refs ([]) is correct for steps that use no new ingredients
-      (e.g. "Cook for 10 minutes", "Transfer to a bowl").
+━━━ YOUR REVIEW TASKS ━━━
 
-2. PARAMETER RULE VIOLATIONS (fix only clear breaches)
-   - mode is non-empty AND speed is non-empty → set speed to "".
-   - Step is purely manual (oven, grill, serve, rest, refrigerate, plate, garnish)
-     AND mode/speed/temp_celsius are non-empty → clear them all; set time_seconds to 0.
+────────────────────────────────────────────
+A. FIX — ingredient_refs (Cookidoo will break silently if wrong)
+────────────────────────────────────────────
+Cookidoo renders each ingredient_ref as an inline annotation inside the step text.
+The annotation only activates when the ref string is an EXACT substring of "text".
 
-3. DO NOT CHANGE
-   - Step order, step count, cooking logic, temperatures, times (unless rule 2 forces it).
-   - The "ingredients" list at the top level.
-   - "required_models".
+For every step:
+a) If an ingredient_ref does NOT appear verbatim in "text":
+   - Ingredient IS mentioned in text with different phrasing → update the ref to match
+     the exact wording in "text".
+   - Ingredient is NOT mentioned in "text" at all → remove it from refs.
+b) If an ingredient from the master list is clearly used in the step but missing from
+   ingredient_refs → rewrite "text" to include the exact ingredient string verbatim,
+   then add that string to ingredient_refs.
+c) ingredient_refs: [] is correct when a step uses no new ingredients
+   (e.g. "Cook for 20 minutes", "Remove and set aside").
+
+────────────────────────────────────────────
+B. FIX — parameter rule violations
+────────────────────────────────────────────
+- mode non-empty AND speed non-empty → clear speed to "".
+- Purely manual step (oven, grill, rest, refrigerate, plate, garnish, serve) AND
+  any of mode/speed/temp_celsius are non-empty → clear all three; set time_seconds 0.
+
+────────────────────────────────────────────
+C. ENHANCE — apply your TM6 expertise (use judgment, not rules)
+────────────────────────────────────────────
+Using the full recipe context above, enhance any step where the first pass is
+technically correct but not optimal for real Thermomix cooking. Examples:
+
+SPEED corrections:
+- Chopping onions/garlic → speed 5 (not 7–8, which makes mush)
+- Chopping harder veg (carrots, celery) → speed 6–7
+- Rough chop for texture → speed 5, fine mince → speed 7–8 with shorter time
+- Emulsifying a vinaigrette → speed 4 (butterfly), not speed 8
+
+TEMPERATURE corrections:
+- Softening onions without browning → 100°C not 120°C
+- Custard / crème anglaise → 80°C (eggs curdle above 85°C)
+- Béchamel → 90°C
+- Caramel (TM6 only) → 130–160°C
+- Chocolate melting → 50°C not 37°C (37°C is yeast activation temp)
+- Gentle warming of cream/butter → 60°C
+
+TIME corrections:
+- Preserve the original recipe time unless you know from TM6 experience that the
+  machine cooks it differently (e.g. Thermomix risotto: 20 min vs pan 30 min).
+- Chopping bursts: 5 s for soft herbs, 10 s for onions, 3–5 s for turbo.
+- Sautéing aromatics: 3–5 min typically sufficient in TM6 at 120°C.
+
+MODE corrections:
+- Use "blend" mode for soups/smoothies instead of speed 10 where appropriate
+  (blend mode runs at the right speed profile for smooth results).
+- Use "turbo" for a final finishing burst after a chop step, not as the only chop.
+- Use "dough" for any bread/pasta/pastry kneading regardless of what pass 1 chose.
+- Use "rice_cooker" for rice and grains — it manages the absorption automatically.
+
+STEP TEXT quality:
+- Instructions should be clear, professional Cookidoo style.
+- Never append machine notation to text ("Vitesse 5", "100°C", etc.).
+- Keep instructions concise but complete.
+
+WHAT NOT TO CHANGE:
+- Do not reorder or merge/split steps unless absolutely necessary.
+- Do not change the top-level "ingredients" list.
+- Do not change "required_models" unless a temp > 120°C step was added/removed.
+- Do not invent steps that are not in the original recipe.
 
 ━━━ MASTER INGREDIENT LIST ━━━
 %s
 
-━━━ FIRST-PASS JSON TO REVIEW ━━━
+━━━ FIRST-PASS JSON TO REVIEW AND ENHANCE ━━━
 %s
 
-Return ONLY the corrected JSON in exactly the same structure. No explanation, no markdown.`,
+Return ONLY the final corrected+enhanced JSON. Same structure. No explanation, no markdown.`,
 		lang, lang,
+		recipe.Title, servings, totalMins,
+		strings.Join(ingLines, "\n"),
+		strings.Join(stepLines, "\n"),
 		strings.Join(ingLines, "\n"),
 		string(firstJSON),
 	)

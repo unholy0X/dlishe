@@ -77,13 +77,18 @@ var safeWebClient = &http.Client{
 			if err != nil {
 				return nil, err
 			}
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("no IP addresses resolved for %s", host)
+			}
 			for _, ip := range ips {
 				if isPrivateIP(ip.IP) {
 					return nil, fmt.Errorf("blocked: request to private/internal IP %s", ip.IP)
 				}
 			}
+			// Dial the verified IP directly — NOT the hostname — to prevent DNS
+			// rebinding attacks where a second resolution returns a private IP.
 			dialer := &net.Dialer{Timeout: 10 * time.Second}
-			return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
+			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
 		},
 	},
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -499,7 +504,10 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 		if err != nil {
 			return nil, fmt.Errorf("upload failed: %w", err)
 		}
-		defer g.client.DeleteFile(ctx, f.Name)
+		// Use a detached context so DeleteFile succeeds even if ctx has been
+		// cancelled (e.g. job timeout). Gemini auto-deletes after 48 h but we
+		// clean up eagerly to avoid exhausting the file storage quota.
+		defer g.client.DeleteFile(context.WithoutCancel(ctx), f.Name)
 
 		// Wait for processing with timeout (max 10 minutes to prevent infinite loop)
 		onProgress(model.JobStatusProcessing, 40, "Waiting for Gemini processing...")

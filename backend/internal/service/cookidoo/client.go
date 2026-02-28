@@ -116,10 +116,9 @@ func NewPool(ctx context.Context, creds []AccountCredentials, locale, country st
 // immediately patched to PUBLIC (two API calls, as required by Cookidoo).
 func (p *Pool) CreateRecipe(ctx context.Context, recipe ThermomixRecipe) (string, error) {
 	a := p.pickAccount()
-	token := a.getAccessToken()
 
 	// Step 1: create an empty recipe shell to obtain an ID.
-	recipeID, err := p.postCreate(ctx, token, recipe.Name)
+	recipeID, err := p.postCreate(ctx, a, recipe.Name)
 	if err != nil {
 		return "", fmt.Errorf("cookidoo: create recipe: %w", err)
 	}
@@ -127,13 +126,13 @@ func (p *Pool) CreateRecipe(ctx context.Context, recipe ThermomixRecipe) (string
 	// Step 2: fill in all fields and publish.
 	// Wrap string slices into typed RecipeItem objects as the API requires.
 	recipe.WorkStatus = "PUBLIC"
-	if err := p.patchRecipe(ctx, token, recipeID, recipe); err != nil {
+	if err := p.patchRecipe(ctx, a, recipeID, recipe); err != nil {
 		return "", fmt.Errorf("cookidoo: patch recipe %s: %w", recipeID, err)
 	}
 
 	// Step 3 (best-effort): upload thumbnail image if provided.
 	if recipe.ThumbnailURL != "" {
-		if err := p.uploadImage(ctx, token, recipeID, recipe.ThumbnailURL); err != nil {
+		if err := p.uploadImage(ctx, a.getAccessToken(), recipeID, recipe.ThumbnailURL); err != nil {
 			p.logger.Warn("cookidoo: image upload failed (non-fatal)", "recipe_id", recipeID, "err", err)
 		}
 	} else {
@@ -157,11 +156,12 @@ func (p *Pool) baseURL() string {
 }
 
 // postCreate calls POST /created-recipes/{locale} with just the recipe name
-// and returns the new recipe ID. Retries on transient failures.
-func (p *Pool) postCreate(ctx context.Context, token, name string) (string, error) {
+// and returns the new recipe ID. Retries on transient failures and refreshes
+// the account token on 401.
+func (p *Pool) postCreate(ctx context.Context, a *account, name string) (string, error) {
 	bodyBytes, _ := json.Marshal(createRecipeRequest{RecipeName: name})
 
-	resp, err := p.retryDo(ctx, func() (*http.Request, error) {
+	resp, err := p.retryDo(ctx, a, func(token string) (*http.Request, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL(), bytes.NewReader(bodyBytes))
 		if err != nil {
 			return nil, err
@@ -185,15 +185,15 @@ func (p *Pool) postCreate(ctx context.Context, token, name string) (string, erro
 }
 
 // patchRecipe calls PATCH /created-recipes/{locale}/{id} with the full recipe body.
-// Retries on transient failures.
-func (p *Pool) patchRecipe(ctx context.Context, token, recipeID string, recipe ThermomixRecipe) error {
+// Retries on transient failures and refreshes the account token on 401.
+func (p *Pool) patchRecipe(ctx context.Context, a *account, recipeID string, recipe ThermomixRecipe) error {
 	bodyBytes, err := json.Marshal(recipe)
 	if err != nil {
 		return err
 	}
 
 	endpoint := fmt.Sprintf("%s/%s", p.baseURL(), recipeID)
-	resp, err := p.retryDo(ctx, func() (*http.Request, error) {
+	resp, err := p.retryDo(ctx, a, func(token string) (*http.Request, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(bodyBytes))
 		if err != nil {
 			return nil, err
@@ -209,10 +209,11 @@ func (p *Pool) patchRecipe(ctx context.Context, token, recipeID string, recipe T
 }
 
 // retryDo executes an HTTP request with exponential backoff on transient failures.
-// makeReq is called once per attempt so request bodies (bytes.NewReader) can be re-read.
+// makeReq receives the current token on each attempt so request headers stay fresh.
 // Returns the response (body open, caller must close) on the first 2xx success.
-// Does NOT retry 4xx client errors (auth, bad request, not found).
-func (p *Pool) retryDo(ctx context.Context, makeReq func() (*http.Request, error)) (*http.Response, error) {
+// On 401: refreshes the account token and retries once before failing.
+// Does NOT retry other 4xx client errors — they indicate bugs, not transient issues.
+func (p *Pool) retryDo(ctx context.Context, a *account, makeReq func(token string) (*http.Request, error)) (*http.Response, error) {
 	var lastErr error
 	for attempt := 0; attempt < cookidooMaxRetries; attempt++ {
 		if attempt > 0 {
@@ -225,7 +226,8 @@ func (p *Pool) retryDo(ctx context.Context, makeReq func() (*http.Request, error
 			p.logger.Warn("cookidoo: retrying request", "attempt", attempt+1, "last_error", lastErr)
 		}
 
-		req, err := makeReq()
+		token := a.getAccessToken()
+		req, err := makeReq(token)
 		if err != nil {
 			return nil, err // request construction failure is never retryable
 		}
@@ -244,10 +246,24 @@ func (p *Pool) retryDo(ctx context.Context, makeReq func() (*http.Request, error
 		resp.Body.Close()
 		statusErr := fmt.Errorf("unexpected status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 
-		// Don't retry client errors — they indicate a bug, not a transient issue.
-		if resp.StatusCode == 400 || resp.StatusCode == 401 ||
-			resp.StatusCode == 403 || resp.StatusCode == 404 ||
-			resp.StatusCode == 409 {
+		if resp.StatusCode == 401 {
+			// Token expired or revoked — refresh and retry immediately.
+			// Use a short independent context so a cancelled job context
+			// doesn't prevent the refresh attempt.
+			refreshCtx, refreshCancel := context.WithTimeout(context.Background(), 20*time.Second)
+			refreshErr := p.login(refreshCtx, a)
+			refreshCancel()
+			if refreshErr != nil {
+				return nil, fmt.Errorf("cookidoo: token refresh after 401 failed: %w", refreshErr)
+			}
+			p.logger.Warn("cookidoo: refreshed token after 401", "account", a.email)
+			lastErr = statusErr
+			continue
+		}
+
+		// Don't retry other client errors — they indicate a bug, not a transient issue.
+		if resp.StatusCode == 400 || resp.StatusCode == 403 ||
+			resp.StatusCode == 404 || resp.StatusCode == 409 {
 			return nil, statusErr
 		}
 

@@ -392,6 +392,10 @@ export default function NotificationCenter() {
       const coldStartCutoff = Date.now() - 60 * 60 * 1000;
 
       // Detect transitions: was active last poll, now terminal → notify
+      // coldStartBatch collects cold-start jobs so we can insert them oldest-first
+      // (API returns newest-first; prepend-on-add means we must add oldest first
+      // to end up with newest at the top of the sheet).
+      const coldStartBatch = [];
       for (const job of list) {
         const id = job.id ?? job.jobId;
         if (!id) continue;
@@ -411,14 +415,21 @@ export default function NotificationCenter() {
           }
         } else if (isFirstFetch && isTerminal && !notifiedRef.current.has(id)) {
           // Cold-start path: job completed while app was closed.
-          // Show in sheet if completed within the last 30 minutes, but
-          // do NOT send a push notification (user already got one or missed it).
+          // Collect for batch insertion below — do NOT call addCompletedJob here
+          // because the API list is newest-first and addCompletedJob prepends,
+          // so processing in API order would display oldest-first (reversed).
           const completedAt = job.completedAt ? new Date(job.completedAt).getTime() : 0;
           if (completedAt > coldStartCutoff) {
-            notifiedRef.current.add(id); // prevent re-notification this session
-            addCompletedJob(job);
+            notifiedRef.current.add(id);
+            coldStartBatch.push(job);
           }
         }
+      }
+
+      // Insert cold-start jobs oldest-first so newest ends up at top of sheet.
+      // API list is newest-first → reverse it before prepending.
+      for (const job of [...coldStartBatch].reverse()) {
+        addCompletedJob(job);
       }
 
       // Rebuild the prev map and clean up expired completed jobs

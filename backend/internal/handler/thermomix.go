@@ -164,6 +164,19 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 // runExport performs the Gemini conversion and Cookidoo publish in the background.
 // It updates job status and persists the result URL when done.
 func (h *ThermomixHandler) runExport(jobID uuid.UUID, recipe *model.Recipe) {
+	// Guard against panics in the AI parser or Cookidoo client — a nil dereference
+	// or slice out-of-bounds must not crash the entire server process.
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Default().Error("thermomix: panic in runExport",
+				"job_id", jobID, "panic", r)
+			cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cleanCancel()
+			_ = h.jobRepo.MarkFailed(cleanCtx, jobID, "INTERNAL_ERROR",
+				"Unexpected error during export")
+		}
+	}()
+
 	// Two Gemini passes (conversion + review), each up to 2 attempts × 100 s = 200 s.
 	// Add Cookidoo publish (~30 s) + retry delays → 360 s gives a safe margin.
 	ctx, cancel := context.WithTimeout(context.Background(), 360*time.Second)

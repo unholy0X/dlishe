@@ -47,20 +47,22 @@ func NewStepItem(text, speed, mode string, timeSecs int, tempCelsius, lang strin
 	if mode != "" {
 		// ── MODE annotation ───────────────────────────────────────────
 		notation := buildModeNotation(mode, timeSecs, tempCelsius, lang)
-		fullText = text + " " + notation
-		offset := utf8.RuneCountInString(text) + 1
-		length := utf8.RuneCountInString(notation)
+		if notation != "" {
+			fullText = text + " " + notation
+			offset := utf8.RuneCountInString(text) + 1
+			length := utf8.RuneCountInString(notation)
 
-		ann := StepAnnotation{
-			Type: "MODE",
-			Name: mode,
-			Data: modeAnnotationData(mode, timeSecs, tempCelsius),
-			Position: AnnotationPosition{
-				Offset: offset,
-				Length: length,
-			},
+			ann := StepAnnotation{
+				Type: "MODE",
+				Name: mode,
+				Data: modeAnnotationData(mode, timeSecs, tempCelsius),
+				Position: AnnotationPosition{
+					Offset: offset,
+					Length: length,
+				},
+			}
+			annotations = append(annotations, ann)
 		}
-		annotations = append(annotations, ann)
 
 	} else if speed != "" {
 		// ── TTS annotation ────────────────────────────────────────────
@@ -115,8 +117,12 @@ func modeAnnotationData(mode string, timeSecs int, tempCelsius string) Annotatio
 
 // buildModeNotation formats the notation appended to the step text for MODE steps.
 // Format: "Pétrin /2 min", "Turbo /2 sec", "Mixage /1 min 30 sec", "Réchauffer /65°C"
+// Returns "" for unrecognised modes so the caller can omit the notation entirely.
 func buildModeNotation(mode string, timeSecs int, tempCelsius, lang string) string {
 	label := modeLabelForLang(mode, lang)
+	if label == "" {
+		return "" // unknown mode — do not emit a notation
+	}
 
 	var params []string
 	if timeSecs > 0 {
@@ -147,10 +153,15 @@ func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) stri
 	var parts []string
 
 	if timeSecs > 0 {
-		if timeSecs < 60 {
+		mins := timeSecs / 60
+		secs := timeSecs % 60
+		switch {
+		case mins > 0 && secs > 0:
+			parts = append(parts, fmt.Sprintf("%d min %d sec", mins, secs))
+		case mins > 0:
+			parts = append(parts, fmt.Sprintf("%d min", mins))
+		default:
 			parts = append(parts, fmt.Sprintf("%d sec", timeSecs))
-		} else {
-			parts = append(parts, fmt.Sprintf("%d min", timeSecs/60))
 		}
 	}
 	if tempCelsius != "" {
@@ -252,7 +263,7 @@ func modeLabelForLang(mode, lang string) string {
 			return "Rice cooker"
 		}
 	default:
-		return mode
+		return "" // unknown mode — omit notation to prevent malformed step text
 	}
 }
 

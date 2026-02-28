@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,12 +27,12 @@ const (
 	// embedded in the official Thermomix app and publicly documented).
 	authBaseURL = "https://ch.tmmobile.vorwerk-digital.com/ciam/auth/token"
 
-	// authBasicHeader is the Base64-encoded "client_id:client_secret" for the
-	// official Thermomix app client. These are hardcoded in the app binary and
-	// publicly documented in the cookidoo-api open-source library.
-	authBasicHeader = "Basic a3VwZmVyd2Vyay1jbGllbnQtbndvdDpMczUwT04xd295U3FzMWRDZEpnZQ=="
-
-	clientID = "kupferwerk-client-nwot"
+	// defaultAuthBasicHeader and defaultClientID are the compiled-in fallback
+	// values from the official Thermomix app binary (publicly documented in the
+	// cookidoo-api open-source library). Override with COOKIDOO_AUTH_BASIC /
+	// COOKIDOO_CLIENT_ID environment variables to rotate without a redeploy.
+	defaultAuthBasicHeader = "Basic a3VwZmVyd2Vyay1jbGllbnQtbndvdDpMczUwT04xd295U3FzMWRDZEpnZQ=="
+	defaultClientID        = "kupferwerk-client-nwot"
 
 	// tokenRefreshInterval is how often background refresh runs (before 12h expiry).
 	tokenRefreshInterval = 11 * time.Hour
@@ -39,6 +40,24 @@ const (
 	// cookidooMaxRetries is the number of attempts for transient API failures.
 	cookidooMaxRetries = 3
 )
+
+// getAuthBasicHeader returns the CIAM Basic auth header, preferring the
+// COOKIDOO_AUTH_BASIC environment variable over the compiled-in default.
+func getAuthBasicHeader() string {
+	if v := os.Getenv("COOKIDOO_AUTH_BASIC"); v != "" {
+		return v
+	}
+	return defaultAuthBasicHeader
+}
+
+// getCookidooClientID returns the CIAM client ID, preferring the
+// COOKIDOO_CLIENT_ID environment variable over the compiled-in default.
+func getCookidooClientID() string {
+	if v := os.Getenv("COOKIDOO_CLIENT_ID"); v != "" {
+		return v
+	}
+	return defaultClientID
+}
 
 // AccountCredentials holds login details for a single Cookidoo account.
 type AccountCredentials struct {
@@ -79,11 +98,13 @@ type Pool struct {
 	country    string // e.g. "fr"
 	httpClient *http.Client
 	logger     *slog.Logger
+	ctx        context.Context // lifecycle context — refreshLoop exits when cancelled
 }
 
 // NewPool creates a Pool, performs initial login for all accounts, and starts
-// the background token refresh goroutine. ctx is used only for the initial login
-// calls; background refresh runs until the returned Pool is no longer referenced.
+// the background token refresh goroutine. ctx is used for both the initial login
+// calls and the lifetime of the refreshLoop goroutine — cancel it to shut down
+// the background goroutine cleanly (e.g. on server shutdown).
 func NewPool(ctx context.Context, creds []AccountCredentials, locale, country string, logger *slog.Logger) (*Pool, error) {
 	if len(creds) == 0 {
 		return nil, fmt.Errorf("cookidoo: at least one account is required")
@@ -96,6 +117,7 @@ func NewPool(ctx context.Context, creds []AccountCredentials, locale, country st
 			Timeout: 15 * time.Second,
 		},
 		logger: logger,
+		ctx:    ctx,
 	}
 
 	for _, c := range creds {
@@ -127,6 +149,14 @@ func (p *Pool) CreateRecipe(ctx context.Context, recipe ThermomixRecipe) (string
 	// Wrap string slices into typed RecipeItem objects as the API requires.
 	recipe.WorkStatus = "PUBLIC"
 	if err := p.patchRecipe(ctx, a, recipeID, recipe); err != nil {
+		// Best-effort cleanup: delete the empty draft to avoid accumulating
+		// private recipes against the 150-recipe-per-account limit.
+		deleteCtx, deleteCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer deleteCancel()
+		if delErr := p.deleteRecipe(deleteCtx, a, recipeID); delErr != nil {
+			p.logger.Warn("cookidoo: failed to clean up draft after patch failure",
+				"recipe_id", recipeID, "err", delErr)
+		}
 		return "", fmt.Errorf("cookidoo: patch recipe %s: %w", recipeID, err)
 	}
 
@@ -208,6 +238,26 @@ func (p *Pool) patchRecipe(ctx context.Context, a *account, recipeID string, rec
 	return nil
 }
 
+// deleteRecipe sends DELETE /created-recipes/{locale}/{id} as a best-effort cleanup.
+// Used to remove empty draft recipes when a subsequent patch fails, preventing
+// accumulation against the 150-recipe-per-account limit.
+func (p *Pool) deleteRecipe(ctx context.Context, a *account, recipeID string) error {
+	endpoint := fmt.Sprintf("%s/%s", p.baseURL(), recipeID)
+	resp, err := p.retryDo(ctx, a, func(token string) (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
+		if err != nil {
+			return nil, err
+		}
+		p.setHeaders(req, token)
+		return req, nil
+	})
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
 // retryDo executes an HTTP request with exponential backoff on transient failures.
 // makeReq receives the current token on each attempt so request headers stay fresh.
 // Returns the response (body open, caller must close) on the first 2xx success.
@@ -247,16 +297,21 @@ func (p *Pool) retryDo(ctx context.Context, a *account, makeReq func(token strin
 		statusErr := fmt.Errorf("unexpected status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 
 		if resp.StatusCode == 401 {
-			// Token expired or revoked — refresh and retry immediately.
-			// Use a short independent context so a cancelled job context
-			// doesn't prevent the refresh attempt.
+			// Token expired or revoked — try refresh_token first, then fall back
+			// to password login. A short independent context is used so a
+			// cancelled job context doesn't prevent the re-authentication.
 			refreshCtx, refreshCancel := context.WithTimeout(context.Background(), 20*time.Second)
-			refreshErr := p.login(refreshCtx, a)
+			refreshErr := p.refreshToken(refreshCtx, a)
+			if refreshErr != nil {
+				p.logger.Warn("cookidoo: token refresh failed on 401, falling back to password login",
+					"account", a.email, "err", refreshErr)
+				refreshErr = p.login(refreshCtx, a)
+			}
 			refreshCancel()
 			if refreshErr != nil {
-				return nil, fmt.Errorf("cookidoo: token refresh after 401 failed: %w", refreshErr)
+				return nil, fmt.Errorf("cookidoo: re-authentication after 401 failed: %w", refreshErr)
 			}
-			p.logger.Warn("cookidoo: refreshed token after 401", "account", a.email)
+			p.logger.Warn("cookidoo: re-authenticated after 401", "account", a.email)
 			lastErr = statusErr
 			continue
 		}
@@ -287,21 +342,28 @@ func (p *Pool) pickAccount() *account {
 }
 
 // refreshLoop runs every tokenRefreshInterval and refreshes all account tokens.
+// It exits cleanly when the Pool's lifecycle context is cancelled.
 func (p *Pool) refreshLoop() {
 	ticker := time.NewTicker(tokenRefreshInterval)
 	defer ticker.Stop()
-	for range ticker.C {
-		for _, a := range p.accounts {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			if err := p.refreshToken(ctx, a); err != nil {
-				p.logger.Error("cookidoo token refresh failed, retrying with password login",
-					"account", a.email, "err", err)
-				// Fallback to full re-login if refresh token is stale.
-				if err2 := p.login(ctx, a); err2 != nil {
-					p.logger.Error("cookidoo re-login failed", "account", a.email, "err", err2)
+	for {
+		select {
+		case <-p.ctx.Done():
+			p.logger.Info("cookidoo: refreshLoop shutting down")
+			return
+		case <-ticker.C:
+			for _, a := range p.accounts {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				if err := p.refreshToken(ctx, a); err != nil {
+					p.logger.Error("cookidoo token refresh failed, retrying with password login",
+						"account", a.email, "err", err)
+					// Fallback to full re-login if refresh token is stale.
+					if err2 := p.login(ctx, a); err2 != nil {
+						p.logger.Error("cookidoo re-login failed", "account", a.email, "err", err2)
+					}
 				}
+				cancel()
 			}
-			cancel()
 		}
 	}
 }
@@ -334,7 +396,7 @@ func (p *Pool) refreshToken(ctx context.Context, a *account) error {
 	data := url.Values{}
 	data.Set("grant_type", "refresh_token")
 	data.Set("refresh_token", rt)
-	data.Set("client_id", clientID)
+	data.Set("client_id", getCookidooClientID())
 
 	tok, err := p.doTokenRequest(ctx, data)
 	if err != nil {
@@ -351,7 +413,7 @@ func (p *Pool) doTokenRequest(ctx context.Context, data url.Values) (*tokenRespo
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", authBasicHeader)
+	req.Header.Set("Authorization", getAuthBasicHeader())
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := p.httpClient.Do(req)

@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	ErrJobNotFound = errors.New("job not found")
+	ErrJobNotFound      = errors.New("job not found")
+	ErrJobAlreadyExists = errors.New("job already exists")
 )
 
 // JobRepository handles video job database operations
@@ -25,7 +26,9 @@ func NewJobRepository(db *sql.DB) *JobRepository {
 	return &JobRepository{db: db}
 }
 
-// Create creates a new extraction job
+// Create creates a new extraction job.
+// Returns ErrJobAlreadyExists if a job with the same (user_id, idempotency_key) already exists,
+// which can happen when two concurrent requests race past the GetByIdempotencyKey check.
 func (r *JobRepository) Create(ctx context.Context, job *model.ExtractionJob) error {
 	query := `
 		INSERT INTO video_jobs (
@@ -33,9 +36,10 @@ func (r *JobRepository) Create(ctx context.Context, job *model.ExtractionJob) er
 			language, detail_level, save_auto, status,
 			progress, status_message, idempotency_key, created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		ON CONFLICT ON CONSTRAINT uq_video_jobs_idempotency DO NOTHING
 	`
 
-	_, err := r.db.ExecContext(ctx, query,
+	result, err := r.db.ExecContext(ctx, query,
 		job.ID,
 		job.UserID,
 		job.JobType,
@@ -51,8 +55,19 @@ func (r *JobRepository) Create(ctx context.Context, job *model.ExtractionJob) er
 		job.IdempotencyKey,
 		job.CreatedAt,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrJobAlreadyExists
+	}
+
+	return nil
 }
 
 // GetByID retrieves a job by ID
@@ -108,7 +123,7 @@ func (r *JobRepository) GetByIdempotencyKey(ctx context.Context, userID uuid.UUI
 			   progress, status_message, result_recipe_id, result_url, error_code,
 			   error_message, idempotency_key, started_at, completed_at, created_at
 		FROM video_jobs
-		WHERE user_id = $1 AND idempotency_key = $2
+		WHERE user_id = $1 AND idempotency_key = $2 AND deleted_at IS NULL
 	`
 
 	job := &model.ExtractionJob{}
@@ -307,6 +322,7 @@ func (r *JobRepository) MarkCompleted(ctx context.Context, id, recipeID uuid.UUI
 }
 
 // MarkCompletedWithURL marks a job as completed with a result URL (used for thermomix export).
+// Returns ErrJobNotFound if no row was updated, matching the pattern used by Update/UpdateProgress.
 func (r *JobRepository) MarkCompletedWithURL(ctx context.Context, id uuid.UUID, resultURL string) error {
 	query := `
 		UPDATE video_jobs
@@ -316,8 +332,20 @@ func (r *JobRepository) MarkCompletedWithURL(ctx context.Context, id uuid.UUID, 
 	`
 	now := time.Now().UTC()
 	message := "Export completed successfully"
-	_, err := r.db.ExecContext(ctx, query, id, model.JobStatusCompleted, resultURL, message, now)
-	return err
+	result, err := r.db.ExecContext(ctx, query, id, model.JobStatusCompleted, resultURL, message, now)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrJobNotFound
+	}
+
+	return nil
 }
 
 // MarkFailed marks a job as failed
@@ -376,10 +404,29 @@ func (r *JobRepository) CountPendingByUser(ctx context.Context, userID uuid.UUID
 	return count, err
 }
 
+// CountPendingByUserAndType counts pending/active jobs of a specific type for a user.
+// Use this instead of CountPendingByUser when you want to gate on a specific job type
+// without blocking unrelated job types (e.g. allow URL extractions while an export runs).
+func (r *JobRepository) CountPendingByUserAndType(ctx context.Context, userID uuid.UUID, jobType model.JobType) (int, error) {
+	query := `
+		SELECT COUNT(*) FROM video_jobs
+		WHERE user_id = $1 AND job_type = $2 AND status IN ($3, $4, $5, $6)
+	`
+	var count int
+	err := r.db.QueryRowContext(ctx, query, userID, jobType,
+		model.JobStatusPending,
+		model.JobStatusDownloading,
+		model.JobStatusProcessing,
+		model.JobStatusExtracting,
+	).Scan(&count)
+	return count, err
+}
+
 // CountUsedThisMonth counts all non-failed extractions this month for a user.
 // Includes completed AND in-progress jobs to prevent parallel request race conditions.
 // Excludes TRANSIENT_FAILURE jobs (rate limits, server errors) so users aren't penalized
 // for infrastructure issues they can't control.
+// Excludes thermomix_export jobs so Cookidoo exports don't consume recipe-extraction quota.
 func (r *JobRepository) CountUsedThisMonth(ctx context.Context, userID uuid.UUID) (int, error) {
 	query := `
 		SELECT COUNT(*) FROM video_jobs
@@ -387,9 +434,10 @@ func (r *JobRepository) CountUsedThisMonth(ctx context.Context, userID uuid.UUID
 		AND status NOT IN ($2, $3)
 		AND (error_code IS NULL OR error_code != 'TRANSIENT_FAILURE')
 		AND created_at >= date_trunc('month', CURRENT_DATE)
+		AND job_type != $4
 	`
 	var count int
-	err := r.db.QueryRowContext(ctx, query, userID, model.JobStatusFailed, model.JobStatusCancelled).Scan(&count)
+	err := r.db.QueryRowContext(ctx, query, userID, model.JobStatusFailed, model.JobStatusCancelled, model.JobTypeThermomix).Scan(&count)
 	return count, err
 }
 

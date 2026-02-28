@@ -91,7 +91,10 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Force re-export: wipe the cached URL so it gets replaced.
-		_ = h.recipes.SetCookidooURL(r.Context(), recipe.ID, "")
+		if err := h.recipes.SetCookidooURL(r.Context(), recipe.ID, ""); err != nil {
+			slog.Default().Warn("thermomix: failed to clear cached cookidoo URL before force re-export",
+				"recipe_id", recipe.ID, "err", err)
+		}
 	}
 
 	// Idempotency key: one export job per recipe per user.
@@ -120,6 +123,10 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 				})
 				return
 			}
+			// completed but ResultURL is nil (DB write failed during a prior export).
+			// Log and fall through to create a fresh job.
+			slog.Default().Warn("thermomix: existing completed job has no ResultURL, re-creating",
+				"job_id", existingJob.ID)
 		case model.JobStatusPending, model.JobStatusProcessing:
 			// Still running — client should keep polling.
 			response.OK(w, map[string]any{
@@ -130,6 +137,19 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 		case model.JobStatusFailed:
 			// Previous attempt failed — fall through to create a fresh job.
 		}
+	}
+
+	// Guard against concurrent exports for the same user.
+	// One active thermomix export per account is sufficient for a closed beta.
+	pendingExports, err := h.jobRepo.CountPendingByUserAndType(r.Context(), user.ID, model.JobTypeThermomix)
+	if err != nil {
+		response.LogAndInternalError(w, err)
+		return
+	}
+	if pendingExports >= 1 {
+		response.ErrorJSON(w, http.StatusTooManyRequests, "EXPORT_IN_PROGRESS",
+			"An export is already running for this account.", nil)
+		return
 	}
 
 	// Create a new job.
@@ -148,6 +168,20 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.jobRepo.Create(r.Context(), job); err != nil {
+		if errors.Is(err, postgres.ErrJobAlreadyExists) {
+			// Two concurrent requests raced past the idempotency check.
+			// Re-query the existing job and return its status.
+			existing, qErr := h.jobRepo.GetByIdempotencyKey(r.Context(), user.ID, idempotencyKey)
+			if qErr != nil || existing == nil {
+				response.LogAndInternalError(w, err)
+				return
+			}
+			response.OK(w, map[string]any{
+				"status": "processing",
+				"jobId":  existing.ID.String(),
+			})
+			return
+		}
 		response.LogAndInternalError(w, err)
 		return
 	}
@@ -195,7 +229,8 @@ func (h *ThermomixHandler) runExport(jobID uuid.UUID, recipe *model.Recipe) {
 
 	converted, err := h.converter.ConvertToThermomix(ctx, recipe)
 	if err != nil {
-		markFailed("CONVERSION_FAILED", err.Error())
+		slog.Default().Error("thermomix: AI conversion failed", "job_id", jobID, "err", err)
+		markFailed("CONVERSION_FAILED", "AI conversion failed — please try again")
 		return
 	}
 
@@ -204,7 +239,8 @@ func (h *ThermomixHandler) runExport(jobID uuid.UUID, recipe *model.Recipe) {
 	tmRecipe := buildThermomixRecipe(recipe, converted)
 	publicURL, err := h.pool.CreateRecipe(ctx, tmRecipe)
 	if err != nil {
-		markFailed("COOKIDOO_FAILED", err.Error())
+		slog.Default().Error("thermomix: Cookidoo publish failed", "job_id", jobID, "err", err)
+		markFailed("COOKIDOO_FAILED", "Export to Cookidoo failed — please try again")
 		return
 	}
 
@@ -214,10 +250,17 @@ func (h *ThermomixHandler) runExport(jobID uuid.UUID, recipe *model.Recipe) {
 			"job_id", jobID, "recipe_id", recipe.ID, "err", err)
 	}
 
-	// Mark job completed with the URL.
+	// Mark job completed with the URL; retry once on failure.
 	if err := h.jobRepo.MarkCompletedWithURL(ctx, jobID, publicURL); err != nil {
-		slog.Default().Error("thermomix: failed to mark job completed",
+		slog.Default().Error("thermomix: MarkCompletedWithURL failed — retrying once",
 			"job_id", jobID, "err", err)
+		time.Sleep(2 * time.Second)
+		retryCtx, retryCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer retryCancel()
+		if err2 := h.jobRepo.MarkCompletedWithURL(retryCtx, jobID, publicURL); err2 != nil {
+			slog.Default().Error("thermomix: MarkCompletedWithURL retry failed — job will be swept as TIMEOUT",
+				"job_id", jobID, "err", err2)
+		}
 	}
 }
 

@@ -100,6 +100,7 @@ type JobRepository interface {
 	DeleteAllByUser(ctx context.Context, userID uuid.UUID) error
 	GetByIdempotencyKey(ctx context.Context, userID uuid.UUID, key string) (*model.ExtractionJob, error)
 	CountUsedThisMonth(ctx context.Context, userID uuid.UUID) (int, error)
+	CountPendingByUserAndType(ctx context.Context, userID uuid.UUID, jobType model.JobType) (int, error)
 }
 
 // ThumbnailDownloader downloads remote thumbnails to local disk.

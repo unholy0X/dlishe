@@ -129,6 +129,13 @@ export default function KitchenExportButton({ recipeId, getToken, t, FONT, initi
           setUrl(resultUrl);
           setPhase("success");
           onSuccess?.(resultUrl);
+        } else if (job.status === "completed") {
+          // completed but URL missing — show error immediately instead of spinning
+          clearInterval(pollTimer.current);
+          clearTimeout(timeoutTimer.current);
+          pollTimer.current = null;
+          timeoutTimer.current = null;
+          setPhase("error");
         } else if (job.status === "failed" || job.status === "cancelled") {
           clearInterval(pollTimer.current);
           clearTimeout(timeoutTimer.current);

@@ -7,10 +7,49 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 )
+
+// imageFetchClient is a dedicated HTTP client for fetching recipe thumbnails.
+// It blocks connections to private/internal IPs (SSRF protection) and uses
+// a separate timeout from the Cookidoo API client so a slow image fetch
+// cannot delay the main recipe-publish flow.
+var imageFetchClient = &http.Client{
+	Timeout: 30 * time.Second,
+	Transport: &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid address: %w", err)
+			}
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("no IP addresses resolved for %s", host)
+			}
+			for _, ip := range ips {
+				if isPrivateImageIP(ip.IP) {
+					return nil, fmt.Errorf("blocked: request to private/internal IP %s", ip.IP)
+				}
+			}
+			// Dial the verified IP directly to prevent DNS rebinding attacks.
+			dialer := &net.Dialer{Timeout: 10 * time.Second}
+			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
+		},
+	},
+}
+
+// isPrivateImageIP returns true if the IP is in a private, loopback, or link-local range.
+func isPrivateImageIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+}
 
 const (
 	cloudinaryURL  = "https://api-eu.cloudinary.com/v1_1/vorwerk-users-gc/image/upload"
@@ -88,12 +127,20 @@ func (p *Pool) getUploadSignature(ctx context.Context, token string, ts int64) (
 // uploadToCloudinary downloads the image from imageURL, then uploads the raw bytes
 // to Cloudinary as a multipart file — identical to the smoke test that passed.
 func (p *Pool) uploadToCloudinary(ctx context.Context, imageURL, sig string, ts int64) (string, error) {
-	// Step 1: download the thumbnail bytes.
+	// Step 1: validate URL scheme before making any network request.
+	parsedURL, err := url.Parse(imageURL)
+	if err != nil || parsedURL.Scheme != "https" {
+		return "", fmt.Errorf("thumbnail URL must use HTTPS scheme, got %q", parsedURL.Scheme)
+	}
+
+	// Step 1b: download the thumbnail bytes using the SSRF-safe client.
+	// The imageFetchClient blocks connections to private/internal IPs and is
+	// separate from the Cookidoo API client to prevent interference.
 	fetchReq, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("build fetch request: %w", err)
 	}
-	fetchResp, err := p.httpClient.Do(fetchReq)
+	fetchResp, err := imageFetchClient.Do(fetchReq)
 	if err != nil {
 		return "", fmt.Errorf("fetch image: %w", err)
 	}
@@ -101,7 +148,8 @@ func (p *Pool) uploadToCloudinary(ctx context.Context, imageURL, sig string, ts 
 	if fetchResp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("fetch image HTTP %d", fetchResp.StatusCode)
 	}
-	imgBytes, err := io.ReadAll(fetchResp.Body)
+	// Cap image size at 10 MB to prevent excessive memory use.
+	imgBytes, err := io.ReadAll(io.LimitReader(fetchResp.Body, 10<<20))
 	if err != nil {
 		return "", fmt.Errorf("read image bytes: %w", err)
 	}

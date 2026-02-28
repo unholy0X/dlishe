@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -45,12 +46,24 @@ type ThermomixConverter interface {
 	ConvertToThermomix(ctx context.Context, recipe *model.Recipe) (*ThermomixConversionResult, error)
 }
 
+// newThermomixModel returns a Gemini model configured for deterministic Thermomix
+// JSON output. Temperature 0.1 minimises randomness while preserving flexibility
+// for edge cases — essential for consistent ingredient_refs mapping.
+func (g *GeminiClient) newThermomixModel() *genai.GenerativeModel {
+	m := g.client.GenerativeModel(g.model)
+	m.ResponseMIMEType = "application/json"
+	temp := float32(0.1)
+	m.Temperature = &temp
+	return m
+}
+
 // ConvertToThermomix uses Gemini to convert a Dlishe recipe into Thermomix-formatted
 // ingredients and step instructions with inline speed/temperature/time parameters.
+// It runs two passes:
+//  1. Conversion — full knowledge-base pass that produces the initial output.
+//  2. Review     — focused pass that audits and corrects ingredient_refs mapping
+//     and fixes any parameter rule violations in the first-pass output.
 func (g *GeminiClient) ConvertToThermomix(ctx context.Context, recipe *model.Recipe) (*ThermomixConversionResult, error) {
-	genModel := g.client.GenerativeModel(g.model)
-	genModel.ResponseMIMEType = "application/json"
-
 	// Determine output language from recipe content language.
 	lang := ResolveLanguageName(recipe.ContentLanguage)
 	if lang == "auto" || lang == "" {
@@ -99,7 +112,9 @@ func (g *GeminiClient) ConvertToThermomix(ctx context.Context, recipe *model.Rec
 	}
 	totalMins := recipe.TotalTime()
 
-	prompt := fmt.Sprintf(`You are a certified Thermomix TM6/TM5 recipe developer for Cookidoo.
+	// ── Pass 1: full conversion ───────────────────────────────────────────────
+
+	convPrompt := fmt.Sprintf(`You are a certified Thermomix TM6/TM5 recipe developer for Cookidoo.
 Convert the recipe below into Thermomix format, applying the knowledge base and reasoning rules.
 
 OUTPUT LANGUAGE: %s — write ALL text (ingredients, step text) in %s.
@@ -237,25 +252,118 @@ EXAMPLES (French for structure only — your output must be in %s):
 		lang,
 	)
 
+	genModel := g.newThermomixModel()
 	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, genai.Text(prompt))
+		return genModel.GenerateContent(ctx, genai.Text(convPrompt))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("thermomix conversion failed: %w", err)
 	}
 
-	result, err := parseGeminiJSON[ThermomixConversionResult](resp)
+	first, err := parseGeminiJSON[ThermomixConversionResult](resp)
 	if err != nil {
 		return nil, fmt.Errorf("parse thermomix conversion: %w", err)
 	}
-
-	// Sanity check — Gemini should always return at least some content.
-	if len(result.Steps) == 0 {
+	if len(first.Steps) == 0 {
 		return nil, fmt.Errorf("thermomix conversion returned empty steps")
 	}
-	if len(result.RequiredModels) == 0 {
-		result.RequiredModels = []string{"TM6", "TM5"}
+	if len(first.RequiredModels) == 0 {
+		first.RequiredModels = []string{"TM6", "TM5"}
 	}
 
-	return result, nil
+	// ── Pass 2: review — fix ingredient_refs and parameter violations ─────────
+
+	reviewed, err := g.reviewThermomixResult(ctx, lang, ingLines, first)
+	if err != nil || len(reviewed.Steps) == 0 {
+		// Reviewer failed or returned empty — return the first pass rather than
+		// blocking the export entirely.
+		return first, nil
+	}
+	if len(reviewed.RequiredModels) == 0 {
+		reviewed.RequiredModels = first.RequiredModels
+	}
+	return reviewed, nil
+}
+
+// reviewThermomixResult runs a focused second Gemini pass that audits the first-pass
+// output for two classes of errors:
+//  1. Ingredient refs not appearing verbatim in their step text (Cookidoo renders
+//     refs as inline annotations, so the match must be exact).
+//  2. Thermomix parameter rule violations (mode set + speed non-empty, or machine
+//     action on an oven/rest/serve step).
+//
+// On any parse failure the caller falls back to the first-pass result.
+func (g *GeminiClient) reviewThermomixResult(
+	ctx context.Context,
+	lang string,
+	ingLines []string,
+	first *ThermomixConversionResult,
+) (*ThermomixConversionResult, error) {
+	firstJSON, err := json.Marshal(first)
+	if err != nil {
+		return nil, fmt.Errorf("marshal first pass: %w", err)
+	}
+
+	reviewPrompt := fmt.Sprintf(`You are a senior Thermomix Cookidoo recipe quality reviewer.
+
+A junior developer produced the Thermomix recipe JSON below. Your task is to audit and
+correct it. Do NOT rewrite the recipe from scratch — only fix the specific issues listed.
+
+OUTPUT LANGUAGE: %s — keep all text in %s.
+
+━━━ WHAT TO FIX ━━━
+
+1. INGREDIENT REFS (highest priority — Cookidoo breaks if these are wrong)
+   Cookidoo highlights ingredient_refs as inline annotations inside the step text.
+   The highlight only works when the ref string appears VERBATIM in "text".
+
+   Rule: every string in "ingredient_refs" MUST be a substring of "text" (exact match,
+   including quantity and unit if present).
+
+   For each step:
+   a) If an ingredient_ref does NOT appear verbatim in "text":
+      - If the ingredient IS mentioned in text with different phrasing → rewrite the
+        ref to match the exact phrasing used in "text".
+      - If the ingredient is NOT mentioned in "text" at all → remove it from refs.
+   b) If an ingredient from the master list is clearly used in the step but absent
+      from ingredient_refs → rewrite "text" to include the exact ingredient string
+      and add it to ingredient_refs.
+   c) Empty ingredient_refs ([]) is correct for steps that use no new ingredients
+      (e.g. "Cook for 10 minutes", "Transfer to a bowl").
+
+2. PARAMETER RULE VIOLATIONS (fix only clear breaches)
+   - mode is non-empty AND speed is non-empty → set speed to "".
+   - Step is purely manual (oven, grill, serve, rest, refrigerate, plate, garnish)
+     AND mode/speed/temp_celsius are non-empty → clear them all; set time_seconds to 0.
+
+3. DO NOT CHANGE
+   - Step order, step count, cooking logic, temperatures, times (unless rule 2 forces it).
+   - The "ingredients" list at the top level.
+   - "required_models".
+
+━━━ MASTER INGREDIENT LIST ━━━
+%s
+
+━━━ FIRST-PASS JSON TO REVIEW ━━━
+%s
+
+Return ONLY the corrected JSON in exactly the same structure. No explanation, no markdown.`,
+		lang, lang,
+		strings.Join(ingLines, "\n"),
+		string(firstJSON),
+	)
+
+	genModel := g.newThermomixModel()
+	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
+		return genModel.GenerateContent(ctx, genai.Text(reviewPrompt))
+	})
+	if err != nil {
+		return nil, fmt.Errorf("thermomix review failed: %w", err)
+	}
+
+	reviewed, err := parseGeminiJSON[ThermomixConversionResult](resp)
+	if err != nil {
+		return nil, fmt.Errorf("parse thermomix review: %w", err)
+	}
+	return reviewed, nil
 }

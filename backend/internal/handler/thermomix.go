@@ -164,7 +164,9 @@ func (h *ThermomixHandler) Export(w http.ResponseWriter, r *http.Request) {
 // runExport performs the Gemini conversion and Cookidoo publish in the background.
 // It updates job status and persists the result URL when done.
 func (h *ThermomixHandler) runExport(jobID uuid.UUID, recipe *model.Recipe) {
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	// Two Gemini passes (conversion + review) each take up to ~60 s.
+	// Add Cookidoo publish (~30 s) → 240 s gives a safe margin.
+	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
 	defer cancel()
 
 	// Mark as processing.

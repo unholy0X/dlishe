@@ -4,11 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/dishflow/backend/internal/model"
 	"github.com/google/generative-ai-go/genai"
 )
+
+// thermomixRetryConfig is intentionally more aggressive than defaultRetryConfig.
+// Two Gemini passes share a 240 s budget; 2 attempts × 75 s per call leaves
+// headroom for both passes without burning the entire timeout on retries.
+var thermomixRetryConfig = retryConfig{
+	maxAttempts: 2,
+	baseDelay:   2 * time.Second,
+	maxDelay:    5 * time.Second,
+}
+
+// thermomixCallTimeout is the per-individual-Gemini-call deadline.
+// A single hung connection cannot consume more than this fraction of the
+// 240 s job budget before the retry logic kicks in.
+const thermomixCallTimeout = 80 * time.Second
 
 // ThermomixStep is a single converted step with optional Thermomix machine parameters.
 type ThermomixStep struct {
@@ -253,10 +269,13 @@ EXAMPLES (French for structure only — your output must be in %s):
 	)
 
 	genModel := g.newThermomixModel()
-	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, genai.Text(convPrompt))
+	resp, err := withRetry(ctx, thermomixRetryConfig, func() (*genai.GenerateContentResponse, error) {
+		callCtx, callCancel := context.WithTimeout(ctx, thermomixCallTimeout)
+		defer callCancel()
+		return genModel.GenerateContent(callCtx, genai.Text(convPrompt))
 	})
 	if err != nil {
+		slog.Default().Error("thermomix: pass 1 (conversion) failed", "recipe_title", recipe.Title, "err", err)
 		return nil, fmt.Errorf("thermomix conversion failed: %w", err)
 	}
 
@@ -415,10 +434,13 @@ Return ONLY the final corrected+enhanced JSON. Same structure. No explanation, n
 	)
 
 	genModel := g.newThermomixModel()
-	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, genai.Text(reviewPrompt))
+	resp, err := withRetry(ctx, thermomixRetryConfig, func() (*genai.GenerateContentResponse, error) {
+		callCtx, callCancel := context.WithTimeout(ctx, thermomixCallTimeout)
+		defer callCancel()
+		return genModel.GenerateContent(callCtx, genai.Text(reviewPrompt))
 	})
 	if err != nil {
+		slog.Default().Error("thermomix: pass 2 (review) failed", "recipe_title", recipe.Title, "err", err)
 		return nil, fmt.Errorf("thermomix review failed: %w", err)
 	}
 

@@ -144,7 +144,16 @@ func buildModeNotation(mode string, timeSecs int, tempCelsius, lang string) stri
 	if len(params) == 0 {
 		return label
 	}
-	return label + " /" + strings.Join(params, "/")
+
+	delimiter := " / "
+	if strings.HasPrefix(strings.ToLower(lang), "ar") {
+		// In Mode permutations there's usually just Time and Temp
+		// Let's reverse them for Arabic RTL compliance just like TTS
+		for i, j := 0, len(params)-1; i < j; i, j = i+1, j-1 {
+			params[i], params[j] = params[j], params[i]
+		}
+	}
+	return label + " / " + strings.Join(params, delimiter)
 }
 
 // buildTTSNotation formats the compact Thermomix notation string for TTS steps.
@@ -169,7 +178,19 @@ func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) stri
 	}
 	parts = append(parts, speedLabelForLang(lang)+" "+speed)
 
-	return strings.Join(parts, "/")
+	// In Arabic (RTL), standard forward slashes with no padding get inverted or
+	// squished against the RTL text by the browser/app rendering engine.
+	// Using spaces around the slash ensures consistent visual separation.
+	delimiter := " / "
+	if strings.HasPrefix(strings.ToLower(lang), "ar") {
+		// For Arabic, reverse the order of parts so they render correctly RTL:
+		// [Speed] / [Temp] / [Time]
+		for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
+			parts[i], parts[j] = parts[j], parts[i]
+		}
+	}
+
+	return strings.Join(parts, delimiter)
 }
 
 // modeLabelForLang returns the localised display label for a Cookidoo automode.

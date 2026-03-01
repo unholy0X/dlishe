@@ -147,11 +147,10 @@ func buildModeNotation(mode string, timeSecs int, tempCelsius, lang string) stri
 
 	delimiter := " / "
 	if strings.HasPrefix(strings.ToLower(lang), "ar") {
-		// In Mode permutations there's usually just Time and Temp
-		// Let's reverse them for Arabic RTL compliance just like TTS
-		for i, j := 0, len(params)-1; i < j; i, j = i+1, j-1 {
-			params[i], params[j] = params[j], params[i]
-		}
+		// Like TTS, we wrap the entire generated Mode block in a Left-to-Right
+		// Embedding (LRE) Unicode block to prevent the RTL layout engine from
+		// scrambling the numbers and slashes.
+		return "\u202A" + label + " / " + strings.Join(params, delimiter) + "\u202C"
 	}
 	return label + " / " + strings.Join(params, delimiter)
 }
@@ -178,16 +177,18 @@ func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) stri
 	}
 	parts = append(parts, speedLabelForLang(lang)+" "+speed)
 
-	// In Arabic (RTL), standard forward slashes with no padding get inverted or
-	// squished against the RTL text by the browser/app rendering engine.
-	// Using spaces around the slash ensures consistent visual separation.
 	delimiter := " / "
 	if strings.HasPrefix(strings.ToLower(lang), "ar") {
-		// For Arabic, reverse the order of parts so they render correctly RTL:
-		// [Speed] / [Temp] / [Time]
-		for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
-			parts[i], parts[j] = parts[j], parts[i]
-		}
+		// When mixed English/Numbers (sec, min, 120C) and Arabic (سرعة) are rendered
+		// in an RTL context, the browser scrambles the word order.
+		// Reversing the array logic from earlier was insufficient because of neutral markers.
+		//
+		// Solution: We keep the standard LTR format [Time / Temp / Speed]
+		// and wrap the ENTIRE annotation in Unicode LRE (Left-to-Right Embedding) \u202A
+		// and PDF (Pop Directional Formatting) \u202C.
+		// This forces the Cookidoo UI to render the block exactly as "15 min / 100°C / سرعة 1"
+		// while sitting perfectly at the end of the RTL Arabic sentence.
+		return "\u202A" + strings.Join(parts, delimiter) + "\u202C"
 	}
 
 	return strings.Join(parts, delimiter)
@@ -289,25 +290,23 @@ func modeLabelForLang(mode, lang string) string {
 }
 
 // speedLabelForLang returns the localised speed label for TTS notation.
+// Uses prefix matching (consistent with modeLabelForLang) so any regional
+// variant (e.g. "fr-CA", "ar-IQ", "de-LU") resolves correctly rather than
+// falling through to the English default.
 func speedLabelForLang(lang string) string {
-	switch strings.ToLower(lang) {
-	case "fr", "fr-fr", "fr-be", "fr-ch":
+	l := strings.ToLower(lang)
+	switch {
+	case strings.HasPrefix(l, "fr"):
 		return "vitesse"
-	case "de", "de-de", "de-at", "de-ch":
+	case strings.HasPrefix(l, "de"):
 		return "Stufe"
-	case "es", "es-es", "es-mx", "es-ar":
+	case strings.HasPrefix(l, "es"), strings.HasPrefix(l, "it"), strings.HasPrefix(l, "pt"):
 		return "vel."
-	case "it", "it-it":
-		return "vel."
-	case "pt", "pt-pt", "pt-br":
-		return "vel."
-	case "nl", "nl-nl", "nl-be":
+	case strings.HasPrefix(l, "nl"):
 		return "stand"
-	case "ar", "ar-sa", "ar-ma", "ar-dz", "ar-eg":
+	case strings.HasPrefix(l, "ar"):
 		return "سرعة"
-	case "zh", "zh-cn", "zh-tw":
-		return "速度"
-	case "ja", "ja-jp":
+	case strings.HasPrefix(l, "zh"), strings.HasPrefix(l, "ja"):
 		return "速度"
 	default:
 		return "speed"

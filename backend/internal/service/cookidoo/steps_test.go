@@ -38,21 +38,21 @@ func TestBuildTTSNotation(t *testing.T) {
 			want:        "45 sec / 100°C / Stufe 2",
 		},
 		{
-			name:        "Arabic RTL orientation, full parameters",
+			name:        "Arabic, full parameters with LTR Embedding",
 			speed:       "1",
 			timeSecs:    180, // 3 min
 			tempCelsius: "120",
 			lang:        "ar",
-			// Arabic should reverse parts: [Speed] / [Temp] / [Time]
-			want: "سرعة 1 / 120°C / 3 min",
+			// Arabic wraps the standard LTR string in LRE and PDF markers
+			want: "\u202A3 min / 120°C / سرعة 1\u202C",
 		},
 		{
-			name:        "Arabic, speed only",
+			name:        "Arabic, speed only with LTR Embedding",
 			speed:       "5",
 			timeSecs:    0,
 			tempCelsius: "",
 			lang:        "ar",
-			want:        "سرعة 5",
+			want:        "\u202Aسرعة 5\u202C",
 		},
 		{
 			name:        "Mixed mins and secs",
@@ -91,12 +91,12 @@ func TestBuildModeNotation(t *testing.T) {
 			want:        "Pétrin / 2 min",
 		},
 		{
-			name:        "Turbo Arabic",
+			name:        "Turbo Arabic with LTR Embedding",
 			mode:        "turbo",
 			timeSecs:    2,
 			tempCelsius: "",
 			lang:        "ar",
-			want:        "Turbo / 2 sec",
+			want:        "\u202ATurbo / 2 sec\u202C",
 		},
 		{
 			name:        "Warm Up English with temp",
@@ -105,6 +105,14 @@ func TestBuildModeNotation(t *testing.T) {
 			tempCelsius: "65",
 			lang:        "en",
 			want:        "Warm up / 65°C",
+		},
+		{
+			name:        "Warm Up French with time and custom temp",
+			mode:        "warm_up",
+			timeSecs:    300, // 5 min
+			tempCelsius: "70",
+			lang:        "fr",
+			want:        "Réchauffer / 5 min / 70°C",
 		},
 		{
 			name:        "Unknown mode",
@@ -179,6 +187,36 @@ func TestNewStepItem(t *testing.T) {
 		}
 	})
 
+	t.Run("Mode wins when speed is also passed", func(t *testing.T) {
+		// NewStepItem must use the MODE branch and ignore the speed argument
+		// when mode is non-empty. This mirrors the Go post-generation validator
+		// in thermomix.go which strips speed before calling NewStepItem.
+		item := NewStepItem("Pétrir la pâte.", "5", "dough", 120, "", "fr", nil)
+		if len(item.Annotations) != 1 {
+			t.Fatalf("expected 1 annotation (MODE), got %d", len(item.Annotations))
+		}
+		if ann := item.Annotations[0]; ann.Type != "MODE" || ann.Name != "dough" {
+			t.Errorf("expected MODE/dough annotation, got Type=%s Name=%s", ann.Type, ann.Name)
+		}
+	})
+
+	t.Run("Duplicate ingredient refs produce duplicate annotations", func(t *testing.T) {
+		// Passing the same ref twice currently creates two INGREDIENT annotations
+		// at the same rune offset. This test documents the existing behaviour so
+		// any future deduplication change is an explicit, visible decision.
+		text := "Ajouter l'oignon et faire revenir l'oignon."
+		item := NewStepItem(text, "1", "", 180, "120", "fr", []string{"oignon", "oignon"})
+		ingCount := 0
+		for _, ann := range item.Annotations {
+			if ann.Type == "INGREDIENT" {
+				ingCount++
+			}
+		}
+		if ingCount != 2 {
+			t.Errorf("expected 2 INGREDIENT annotations for duplicate refs, got %d", ingCount)
+		}
+	})
+
 	t.Run("Warm Up Default Temp", func(t *testing.T) {
 		data := modeAnnotationData("warm_up", 0, "")
 		if data.Temperature == nil || data.Temperature.Value != "65" {
@@ -192,6 +230,42 @@ func TestNewStepItem(t *testing.T) {
 	})
 }
 
+func TestSpeedLabelForLang(t *testing.T) {
+	tests := []struct {
+		lang string
+		want string
+	}{
+		// Exact base codes still work.
+		{"fr", "vitesse"},
+		{"de", "Stufe"},
+		{"ar", "سرعة"},
+		{"en", "speed"},
+		// Regional variants that were broken before prefix matching.
+		{"fr-CA", "vitesse"},
+		{"fr-LU", "vitesse"},
+		{"de-LU", "Stufe"},
+		{"de-AT", "Stufe"},
+		{"ar-IQ", "سرعة"},
+		{"ar-LB", "سرعة"},
+		{"es-MX", "vel."},
+		{"it-CH", "vel."},
+		{"pt-BR", "vel."},
+		{"nl-BE", "stand"},
+		{"zh-TW", "速度"},
+		{"ja-JP", "速度"},
+		// Unknown language falls back to English.
+		{"en-US", "speed"},
+		{"ko", "speed"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.lang, func(t *testing.T) {
+			if got := speedLabelForLang(tt.lang); got != tt.want {
+				t.Errorf("speedLabelForLang(%q) = %q, want %q", tt.lang, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRuneIndex(t *testing.T) {
 	tests := []struct {
 		s      string
@@ -200,9 +274,11 @@ func TestRuneIndex(t *testing.T) {
 		ok     bool
 	}{
 		{"Hello world", "world", 6, true},
+		{"Hello world", "Hello", 0, true}, // match at position 0
 		{"Hello world", "foo", 0, false},
+		{"", "x", 0, false},                                                      // empty string
 		{"أضف 2 ملعقة كبيرة", "2 ملعقة", 4, true}, // testing arabic multi-byte boundary
-		{"Mélangez la purée", "purée", 12, true},  // testing french accent boundary
+		{"Mélangez la purée", "purée", 12, true},   // testing french accent boundary
 	}
 
 	for _, tt := range tests {

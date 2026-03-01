@@ -443,7 +443,9 @@ func withRetry[T any](ctx context.Context, cfg retryConfig, fn func() (T, error)
 // GeminiClient implements RecipeExtractor using Google's Gemini API
 type GeminiClient struct {
 	client *genai.Client
-	model  string
+	// models contains the fallback cascade.
+	// Primary: gemini-2.5-flash, Secondary: gemini-2.5-pro
+	models []string
 }
 
 // NewGeminiClient creates a new Gemini client
@@ -455,7 +457,10 @@ func NewGeminiClient(ctx context.Context, apiKey string) (*GeminiClient, error) 
 
 	return &GeminiClient{
 		client: client,
-		model:  "gemini-3-flash-preview",
+		models: []string{
+			"gemini-2.5-flash",
+			"gemini-2.5-pro",
+		},
 	}, nil
 }
 
@@ -547,9 +552,6 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 	// Generate content with retry
 	onProgress(model.JobStatusExtracting, 60, "Analyzing video content...")
 
-	genModel := g.client.GenerativeModel(g.model)
-	genModel.ResponseMIMEType = "application/json"
-
 	prompt := fmt.Sprintf(`
 		You are an expert chef and food analyst. Analyze this video and extract the recipe details.
 
@@ -591,33 +593,51 @@ func (g *GeminiClient) ExtractRecipe(ctx context.Context, req ExtractionRequest,
 	`,
 		req.Language, req.DetailLevel, req.Metadata)
 
-	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, videoPart, genai.Text(prompt))
-	})
-	if err != nil {
-		return nil, fmt.Errorf("generation failed: %w", err)
+	var lastErr error
+	var result *ExtractionResult
+
+	for _, modelName := range g.models {
+		slog.Info("gemini: attempting video extraction", "model", modelName, "source_url", req.VideoURL)
+		genModel := g.client.GenerativeModel(modelName)
+		genModel.ResponseMIMEType = "application/json"
+
+		// Per-call timeout caps how long a single stalled Gemini connection can
+		// hold the slot before withRetry advances to the next model in the cascade.
+		// Without this, a hung Flash call burns the entire parent job deadline
+		// (360 s) before Pro is ever attempted — defeating the fallback architecture.
+		// 120 s is generous for video analysis while staying well within the job budget.
+		const extractionCallTimeout = 120 * time.Second
+
+		resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
+			callCtx, callCancel := context.WithTimeout(ctx, extractionCallTimeout)
+			defer callCancel()
+			return genModel.GenerateContent(callCtx, videoPart, genai.Text(prompt))
+		})
+
+		if err == nil {
+			var parseErr error
+			result, parseErr = parseGeminiJSON[ExtractionResult](resp)
+			if parseErr == nil {
+				if result.NonRecipe {
+					return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
+				}
+				onProgress(model.JobStatusExtracting, 90, "Finalizing recipe...")
+				return result, nil
+			}
+			lastErr = fmt.Errorf("model %s produced invalid JSON: %w", modelName, parseErr)
+			slog.Warn("gemini: invalid json from video extraction, falling back", "model", modelName, "err", parseErr)
+			continue
+		}
+
+		lastErr = fmt.Errorf("model %s failed: %w", modelName, err)
+		slog.Warn("gemini: video extraction model failed, falling back", "model", modelName, "err", err)
 	}
 
-	// Parse response (validates FinishReason for safety/truncation)
-	onProgress(model.JobStatusExtracting, 90, "Finalizing recipe...")
-
-	result, err := parseGeminiJSON[ExtractionResult](resp)
-	if err != nil {
-		return nil, fmt.Errorf("extract recipe: %w", err)
-	}
-
-	if result.NonRecipe {
-		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
-	}
-
-	return result, nil
+	return nil, fmt.Errorf("all models in video extraction failover exhausted: %w", lastErr)
 }
 
 // RefineRecipe reviews and improves an extracted recipe
 func (g *GeminiClient) RefineRecipe(ctx context.Context, rawRecipe *ExtractionResult, targetLanguage string) (*ExtractionResult, error) {
-	genModel := g.client.GenerativeModel(g.model)
-	genModel.ResponseMIMEType = "application/json"
-
 	// Convert raw recipe to JSON for the prompt
 	rawJSON, err := json.Marshal(rawRecipe)
 	if err != nil {
@@ -673,51 +693,71 @@ Original ingredient count: %d - Your output MUST have at least %d ingredients.
 
 Return ONLY the JSON, no explanations.`, string(rawJSON), targetLangName, targetLangName, len(rawRecipe.Ingredients), len(rawRecipe.Ingredients))
 
-	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, genai.Text(prompt))
-	})
-	if err != nil {
-		return nil, fmt.Errorf("refinement generation failed: %w", err)
-	}
+	var lastErr error
+	var refined *ExtractionResult // Changed from *RefineRecipeResult to *ExtractionResult based on original code
 
-	refinedPtr, err := parseGeminiJSON[ExtractionResult](resp)
-	if err != nil {
-		return nil, fmt.Errorf("refine recipe: %w", err)
-	}
-	refined := *refinedPtr
+	for _, modelName := range g.models {
+		slog.Info("gemini: attempting recipe refinement", "model", modelName)
+		genModel := g.client.GenerativeModel(modelName)
+		genModel.SetTemperature(0.2)
+		genModel.SetTopP(0.1)
+		genModel.SetTopK(10)
+		genModel.ResponseMIMEType = "application/json"
 
-	// SAFETY CHECK: Ensure refinement didn't drop ingredients
-	originalCount := len(rawRecipe.Ingredients)
-	refinedCount := len(refined.Ingredients)
+		resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
+			const callTimeout = 30 * time.Second
+			callCtx, callCancel := context.WithTimeout(ctx, callTimeout)
+			defer callCancel()
+			return genModel.GenerateContent(callCtx, genai.Text(prompt))
+		})
 
-	if refinedCount < originalCount {
-		// Refinement dropped ingredients - merge: keep refined but add back missing
-		// This preserves AI improvements while preventing data loss
-		refinedNames := make(map[string]bool)
-		for _, ing := range refined.Ingredients {
-			refinedNames[strings.ToLower(ing.Name)] = true
-		}
+		if err == nil {
+			var parseErr error
+			refined, parseErr = parseGeminiJSON[ExtractionResult](resp) // Changed from RefineRecipeResult
+			if parseErr == nil {
+				// Post-processing for refinement
+				// SAFETY CHECK: Ensure refinement didn't drop ingredients
+				originalCount := len(rawRecipe.Ingredients)
+				refinedCount := len(refined.Ingredients)
 
-		// Add back any missing ingredients from original
-		for _, orig := range rawRecipe.Ingredients {
-			if !refinedNames[strings.ToLower(orig.Name)] {
-				// Ensure category is valid before adding
-				if orig.Category == "" {
-					orig.Category = "other"
+				if refinedCount < originalCount {
+					// Refinement dropped ingredients - merge: keep refined but add back missing
+					// This preserves AI improvements while preventing data loss
+					refinedNames := make(map[string]bool)
+					for _, ing := range refined.Ingredients {
+						refinedNames[strings.ToLower(ing.Name)] = true
+					}
+
+					// Add back any missing ingredients from original
+					for _, orig := range rawRecipe.Ingredients {
+						if !refinedNames[strings.ToLower(orig.Name)] {
+							// Ensure category is valid before adding
+							if orig.Category == "" {
+								orig.Category = "other"
+							}
+							refined.Ingredients = append(refined.Ingredients, orig)
+						}
+					}
 				}
-				refined.Ingredients = append(refined.Ingredients, orig)
+
+				// Ensure all ingredients have valid categories
+				for i := range refined.Ingredients {
+					if refined.Ingredients[i].Category == "" {
+						refined.Ingredients[i].Category = "other"
+					}
+				}
+				return refined, nil
 			}
+			lastErr = fmt.Errorf("model %s produced invalid JSON: %w", modelName, parseErr)
+			slog.Warn("gemini: invalid json from refine, falling back", "model", modelName, "err", parseErr)
+			continue
 		}
+
+		lastErr = fmt.Errorf("model %s failed: %w", modelName, err)
+		slog.Warn("gemini: refine model failed, falling back", "model", modelName, "err", err)
 	}
 
-	// Ensure all ingredients have valid categories
-	for i := range refined.Ingredients {
-		if refined.Ingredients[i].Category == "" {
-			refined.Ingredients[i].Category = "other"
-		}
-	}
-
-	return &refined, nil
+	return nil, fmt.Errorf("all models in refine failover exhausted: %w", lastErr)
 }
 
 func (g *GeminiClient) uploadFile(ctx context.Context, path string) (*genai.File, error) {
@@ -737,9 +777,6 @@ func (g *GeminiClient) ValidateURL(url string) error {
 
 // SmartMergeItems takes a list of raw items and returns a consolidated, categorized list
 func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model.ShoppingItem, preferredUnitSystem string, targetLanguage string) ([]model.ShoppingItemInput, error) {
-	genModel := g.client.GenerativeModel(g.model)
-	genModel.ResponseMIMEType = "application/json"
-
 	// Prepare list data for prompt - simplify to just names/quantities/units
 	type simpleItem struct {
 		Name     string   `json:"name"`
@@ -819,19 +856,40 @@ func (g *GeminiClient) SmartMergeItems(ctx context.Context, currentItems []model
 		]
 	`, targetLangName, string(listJSON), string(categoriesJSON), unitInstruction)
 
-	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, genai.Text(prompt))
-	})
-	if err != nil {
-		return nil, fmt.Errorf("smart merge generation failed: %w", err)
+	var lastErr error
+	var result *[]model.ShoppingItemInput // Note: result is a pointer to a slice
+
+	for _, modelName := range g.models {
+		slog.Info("gemini: attempting shopping list generation", "model", modelName)
+		genModel := g.client.GenerativeModel(modelName)
+		genModel.SetTemperature(0.1)
+		genModel.SetTopP(0.1)
+		genModel.SetTopK(10)
+		genModel.ResponseMIMEType = "application/json"
+
+		resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
+			const callTimeout = 30 * time.Second
+			callCtx, callCancel := context.WithTimeout(ctx, callTimeout)
+			defer callCancel()
+			return genModel.GenerateContent(callCtx, genai.Text(prompt))
+		})
+
+		if err == nil {
+			var parseErr error
+			result, parseErr = parseGeminiJSON[[]model.ShoppingItemInput](resp)
+			if parseErr == nil {
+				return *result, nil // Dereference the pointer to return the slice
+			}
+			lastErr = fmt.Errorf("model %s produced invalid JSON: %w", modelName, parseErr)
+			slog.Warn("gemini: invalid json from shopping list, falling back", "model", modelName, "err", parseErr)
+			continue
+		}
+
+		lastErr = fmt.Errorf("model %s failed: %w", modelName, err)
+		slog.Warn("gemini: shopping list model failed, falling back", "model", modelName, "err", err)
 	}
 
-	result, err := parseGeminiJSON[[]model.ShoppingItemInput](resp)
-	if err != nil {
-		return nil, fmt.Errorf("smart merge: %w", err)
-	}
-
-	return *result, nil
+	return nil, fmt.Errorf("all models in shopping list failover exhausted: %w", lastErr)
 }
 
 // IsAvailable checks if the service is configured
@@ -872,9 +930,6 @@ func (g *GeminiClient) ExtractFromWebpage(ctx context.Context, url string, onPro
 			onProgress(model.JobStatusExtracting, 30, "Analyzing webpage content...")
 		}
 	}
-
-	genModel := g.client.GenerativeModel(g.model)
-	genModel.ResponseMIMEType = "application/json"
 
 	prompt := fmt.Sprintf(`You are an expert chef and recipe extraction specialist.
 Extract the recipe from this webpage content.
@@ -918,32 +973,52 @@ Categories for ingredients: dairy, produce, proteins, bakery, pantry, spices, co
 
 Return ONLY the JSON, no markdown or explanations.`, sanitizePromptString(url), htmlContent)
 
-	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, genai.Text(prompt))
-	})
-	if err != nil {
-		return nil, fmt.Errorf("generation failed: %w", err)
-	}
+	var lastErr error
+	var result *ExtractionResult
 
-	result, err := parseGeminiJSON[ExtractionResult](resp)
-	if err != nil {
-		return nil, fmt.Errorf("extract from webpage: %w", err)
-	}
+	for _, modelName := range g.models {
+		slog.Info("gemini: attempting url extraction", "model", modelName, "url", url) // Changed req.URL to url
+		genModel := g.client.GenerativeModel(modelName)
+		genModel.SetTemperature(0.1)
+		genModel.SetTopP(0.1)
+		genModel.SetTopK(10)
+		genModel.ResponseMIMEType = "application/json"
 
-	if result.NonRecipe {
-		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
-	}
+		resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
+			const callTimeout = 45 * time.Second
+			callCtx, callCancel := context.WithTimeout(ctx, callTimeout)
+			defer callCancel()
+			return genModel.GenerateContent(callCtx, []genai.Part{genai.Text(prompt)}...)
+		})
 
-	// Use extracted image URL if AI didn't find one or if we prefer metadata
-	if imageURL != "" {
-		// Upgrade HTTP to HTTPS — Android blocks cleartext HTTP image loads
-		if strings.HasPrefix(imageURL, "http://") {
-			imageURL = "https://" + imageURL[7:]
+		if err == nil {
+			var parseErr error
+			result, parseErr = parseGeminiJSON[ExtractionResult](resp)
+			if parseErr == nil {
+				// Post-processing for webpage extraction
+				if result.NonRecipe {
+					return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
+				}
+				// Use extracted image URL if AI didn't find one or if we prefer metadata
+				if imageURL != "" {
+					// Upgrade HTTP to HTTPS — Android blocks cleartext HTTP image loads
+					if strings.HasPrefix(imageURL, "http://") {
+						imageURL = "https://" + imageURL[7:]
+					}
+					result.Thumbnail = imageURL
+				}
+				return result, nil
+			}
+			lastErr = fmt.Errorf("model %s produced invalid JSON: %w", modelName, parseErr)
+			slog.Warn("gemini: invalid json from url extraction, falling back", "model", modelName, "err", parseErr)
+			continue
 		}
-		result.Thumbnail = imageURL
+
+		lastErr = fmt.Errorf("model %s failed: %w", modelName, err)
+		slog.Warn("gemini: url extraction model failed, falling back", "model", modelName, "err", err)
 	}
 
-	return result, nil
+	return nil, fmt.Errorf("all models in url extraction failover exhausted: %w", lastErr)
 }
 
 // ScanPantry detects pantry items from an image
@@ -978,9 +1053,6 @@ func (g *GeminiClient) ScanPantryMulti(ctx context.Context, imageDataList [][]by
 		}
 		parts = append(parts, genai.Blob{MIMEType: mt, Data: data})
 	}
-
-	genModel := g.client.GenerativeModel(g.model)
-	genModel.ResponseMIMEType = "application/json"
 
 	targetLangName := ResolveLanguageName(targetLanguage)
 
@@ -1031,31 +1103,48 @@ Return ONLY the JSON, no markdown or explanations. If no food items are detected
 
 	parts = append(parts, genai.Text(prompt))
 
-	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, parts...)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("generation failed: %w", err)
+	var lastErr error
+	var result *PantryScanResult
+
+	for _, modelName := range g.models {
+		slog.Info("gemini: attempting pantry scan", "model", modelName)
+		genModel := g.client.GenerativeModel(modelName)
+		genModel.SetTemperature(0.1)
+		genModel.SetTopP(0.1)
+		genModel.SetTopK(10)
+		genModel.ResponseMIMEType = "application/json"
+
+		resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
+			const callTimeout = 60 * time.Second
+			callCtx, callCancel := context.WithTimeout(ctx, callTimeout)
+			defer callCancel()
+			return genModel.GenerateContent(callCtx, parts...)
+		})
+
+		if err == nil {
+			var parseErr error
+			result, parseErr = parseGeminiJSON[PantryScanResult](resp)
+			if parseErr == nil {
+				if result.NonPantry {
+					return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
+				}
+				return result, nil
+			}
+			lastErr = fmt.Errorf("model %s produced invalid JSON: %w", modelName, parseErr)
+			slog.Warn("gemini: invalid json from pantry scan, falling back", "model", modelName, "err", parseErr)
+			continue
+		}
+
+		lastErr = fmt.Errorf("model %s failed: %w", modelName, err)
+		slog.Warn("gemini: pantry scan model failed, falling back", "model", modelName, "err", err)
 	}
 
-	result, err := parseGeminiJSON[PantryScanResult](resp)
-	if err != nil {
-		return nil, fmt.Errorf("scan pantry: %w", err)
-	}
-
-	if result.NonPantry {
-		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
-	}
-
-	return result, nil
+	return nil, fmt.Errorf("all models in pantry scan failover exhausted: %w", lastErr)
 }
 
 // EnrichRecipe adds nutrition, dietary info, and meal types to a recipe
 // This is a separate AI call focused on analysis rather than extraction
 func (g *GeminiClient) EnrichRecipe(ctx context.Context, input *EnrichmentInput) (*EnrichmentResult, error) {
-	genModel := g.client.GenerativeModel(g.model)
-	genModel.ResponseMIMEType = "application/json"
-
 	// Build recipe text for the prompt
 	var recipeText strings.Builder
 	recipeText.WriteString(fmt.Sprintf("Title: %s\n\n", input.Title))
@@ -1144,31 +1233,40 @@ Guidelines:
 - Infer meal types from recipe characteristics (eggs+bacon=breakfast, substantial protein+sides=dinner, sweet/chocolate=dessert, etc.)
 %s- Set confidence based on how certain you are of your estimates`, langHint, recipeText.String(), getServingsEstimateSchema(needServingsEstimate), getServingsEstimateGuideline(needServingsEstimate))
 
-	// Retry the entire generation + parsing to handle transient JSON issues
 	var lastErr error
+	var result *EnrichmentResult
 
-	for attempt := 0; attempt < 2; attempt++ {
+	for _, modelName := range g.models {
+		slog.Info("gemini: attempting recipe enrichment", "model", modelName)
+		genModel := g.client.GenerativeModel(modelName)
+		genModel.SetTemperature(0.1)
+		genModel.SetTopP(0.1)
+		genModel.SetTopK(10)
+		genModel.ResponseMIMEType = "application/json"
+
 		resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-			return genModel.GenerateContent(ctx, genai.Text(prompt))
+			const callTimeout = 15 * time.Second
+			callCtx, callCancel := context.WithTimeout(ctx, callTimeout)
+			defer callCancel()
+			return genModel.GenerateContent(callCtx, genai.Text(prompt))
 		})
-		if err != nil {
-			lastErr = fmt.Errorf("enrichment generation failed: %w", err)
+
+		if err == nil {
+			var parseErr error
+			result, parseErr = parseGeminiJSON[EnrichmentResult](resp)
+			if parseErr == nil {
+				return result, nil
+			}
+			lastErr = fmt.Errorf("model %s produced invalid JSON: %w", modelName, parseErr)
+			slog.Warn("gemini: invalid json from enrich, falling back", "model", modelName, "err", parseErr)
 			continue
 		}
 
-		result, err := parseGeminiJSON[EnrichmentResult](resp)
-		if err != nil {
-			lastErr = fmt.Errorf("enrich recipe: %w", err)
-			continue
-		}
-
-		return result, nil
+		lastErr = fmt.Errorf("model %s failed: %w", modelName, err)
+		slog.Warn("gemini: enrich model failed, falling back", "model", modelName, "err", err)
 	}
 
-	if lastErr != nil {
-		return nil, lastErr
-	}
-	return nil, fmt.Errorf("enrichment failed after retries")
+	return nil, fmt.Errorf("all models in enrich failover exhausted: %w", lastErr)
 }
 
 // getServingsEstimateSchema returns the JSON schema portion for servings estimate
@@ -1226,9 +1324,6 @@ func (g *GeminiClient) ExtractFromImages(ctx context.Context, imageDataList [][]
 		parts = append(parts, genai.Blob{MIMEType: mt, Data: data})
 	}
 
-	genModel := g.client.GenerativeModel(g.model)
-	genModel.ResponseMIMEType = "application/json"
-
 	multiImageNote := ""
 	if len(imageDataList) > 1 {
 		multiImageNote = `
@@ -1273,21 +1368,41 @@ Return ONLY the JSON, no markdown or explanations.`, multiImageNote)
 
 	parts = append(parts, genai.Text(prompt))
 
-	resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		return genModel.GenerateContent(ctx, parts...)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("generation failed: %w", err)
+	var lastErr error
+	var result *ExtractionResult
+
+	for _, modelName := range g.models {
+		slog.Info("gemini: attempting image extraction", "model", modelName)
+		genModel := g.client.GenerativeModel(modelName)
+		genModel.SetTemperature(0.1)
+		genModel.SetTopP(0.1)
+		genModel.SetTopK(10)
+		genModel.ResponseMIMEType = "application/json"
+
+		resp, err := withRetry(ctx, defaultRetryConfig, func() (*genai.GenerateContentResponse, error) {
+			const callTimeout = 60 * time.Second
+			callCtx, callCancel := context.WithTimeout(ctx, callTimeout)
+			defer callCancel()
+			return genModel.GenerateContent(callCtx, parts...)
+		})
+
+		if err == nil {
+			var parseErr error
+			result, parseErr = parseGeminiJSON[ExtractionResult](resp)
+			if parseErr == nil {
+				if result.NonRecipe {
+					return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
+				}
+				return result, nil
+			}
+			lastErr = fmt.Errorf("model %s produced invalid JSON: %w", modelName, parseErr)
+			slog.Warn("gemini: invalid json from image extraction, falling back", "model", modelName, "err", parseErr)
+			continue
+		}
+
+		lastErr = fmt.Errorf("model %s failed: %w", modelName, err)
+		slog.Warn("gemini: image extraction model failed, falling back", "model", modelName, "err", err)
 	}
 
-	result, err := parseGeminiJSON[ExtractionResult](resp)
-	if err != nil {
-		return nil, fmt.Errorf("extract from image: %w", err)
-	}
-
-	if result.NonRecipe {
-		return nil, fmt.Errorf("%w: %s", model.ErrIrrelevantContent, result.Reason)
-	}
-
-	return result, nil
+	return nil, fmt.Errorf("all models in image extraction failover exhausted: %w", lastErr)
 }

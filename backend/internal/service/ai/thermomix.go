@@ -108,8 +108,8 @@ type ThermomixConverter interface {
 // newThermomixModel returns a Gemini model configured for deterministic Thermomix
 // JSON output. Temperature 0.1 minimises randomness while preserving flexibility
 // for edge cases — essential for consistent ingredient_refs mapping.
-func (g *GeminiClient) newThermomixModel() *genai.GenerativeModel {
-	m := g.client.GenerativeModel(g.model)
+func (g *GeminiClient) newThermomixModel(modelName string) *genai.GenerativeModel {
+	m := g.client.GenerativeModel(modelName)
 	m.ResponseMIMEType = "application/json"
 	temp := float32(0.1)
 	m.Temperature = &temp
@@ -243,20 +243,38 @@ Return ONLY valid JSON (no markdown):
 		strings.Join(stepLines, "\n"),
 	)
 
-	genModel := g.newThermomixModel()
-	resp, err := withRetry(ctx, thermomixRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		callCtx, callCancel := context.WithTimeout(ctx, thermomixCallTimeout)
-		defer callCancel()
-		return genModel.GenerateContent(callCtx, genai.Text(prompt))
-	})
-	if err != nil {
-		slog.Default().Error("thermomix: conversion failed", "recipe_title", recipe.Title, "err", err)
-		return nil, fmt.Errorf("thermomix conversion failed: %w", err)
+	var lastErr error
+	var result *ThermomixConversionResult
+
+	for _, modelName := range g.models {
+		slog.Info("thermomix: attempting conversion", "model", modelName, "recipe_title", recipe.Title)
+		genModel := g.newThermomixModel(modelName)
+
+		resp, err := withRetry(ctx, thermomixRetryConfig, func() (*genai.GenerateContentResponse, error) {
+			callCtx, callCancel := context.WithTimeout(ctx, thermomixCallTimeout)
+			defer callCancel()
+			return genModel.GenerateContent(callCtx, genai.Text(prompt))
+		})
+
+		if err == nil {
+			var parseErr error
+			result, parseErr = parseGeminiJSON[ThermomixConversionResult](resp)
+			if parseErr == nil {
+				// We have a successful, valid JSON result. Break out of fallback loop.
+				break
+			}
+			lastErr = fmt.Errorf("model %s produced invalid JSON: %w", modelName, parseErr)
+			slog.Warn("thermomix: invalid json from conversion, falling back", "model", modelName, "err", parseErr)
+			continue
+		}
+
+		lastErr = fmt.Errorf("model %s failed: %w", modelName, err)
+		slog.Warn("thermomix: conversion model failed, falling back", "model", modelName, "err", err)
 	}
 
-	result, err := parseGeminiJSON[ThermomixConversionResult](resp)
-	if err != nil {
-		return nil, fmt.Errorf("parse thermomix conversion: %w", err)
+	if result == nil {
+		slog.Default().Error("thermomix: conversion failed across all models", "recipe_title", recipe.Title, "err", lastErr)
+		return nil, fmt.Errorf("thermomix conversion failed after model fallback loop: %w", lastErr)
 	}
 	if len(result.Steps) == 0 {
 		return nil, fmt.Errorf("thermomix conversion returned empty steps")

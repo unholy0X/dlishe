@@ -38,21 +38,21 @@ func TestBuildTTSNotation(t *testing.T) {
 			want:        "45 sec / 100°C / Stufe 2",
 		},
 		{
-			name:        "Arabic, full parameters with LTR Embedding",
+			name:        "Arabic, full parameters with RLM",
 			speed:       "1",
 			timeSecs:    180, // 3 min
 			tempCelsius: "120",
 			lang:        "ar",
-			// Arabic wraps the standard LTR string in LRE and PDF markers
-			want: "\u202A3 min / 120°C / سرعة 1\u202C",
+			// Arabic reverses to [Speed] / [Temp] / [Time] and uses RLM (\u200F) on delimiter
+			want: "سرعة 1 / \u200F120°C / \u200F3 min",
 		},
 		{
-			name:        "Arabic, speed only with LTR Embedding",
+			name:        "Arabic, speed only with RLM",
 			speed:       "5",
 			timeSecs:    0,
 			tempCelsius: "",
 			lang:        "ar",
-			want:        "\u202Aسرعة 5\u202C",
+			want:        "سرعة 5",
 		},
 		{
 			name:        "Mixed mins and secs",
@@ -91,12 +91,12 @@ func TestBuildModeNotation(t *testing.T) {
 			want:        "Pétrin / 2 min",
 		},
 		{
-			name:        "Turbo Arabic with LTR Embedding",
+			name:        "Turbo Arabic with RLM",
 			mode:        "turbo",
 			timeSecs:    2,
 			tempCelsius: "",
 			lang:        "ar",
-			want:        "\u202ATurbo / 2 sec\u202C",
+			want:        "Turbo / \u200F2 sec",
 		},
 		{
 			name:        "Warm Up English with temp",
@@ -276,9 +276,9 @@ func TestRuneIndex(t *testing.T) {
 		{"Hello world", "world", 6, true},
 		{"Hello world", "Hello", 0, true}, // match at position 0
 		{"Hello world", "foo", 0, false},
-		{"", "x", 0, false},                                                      // empty string
+		{"", "x", 0, false},                       // empty string
 		{"أضف 2 ملعقة كبيرة", "2 ملعقة", 4, true}, // testing arabic multi-byte boundary
-		{"Mélangez la purée", "purée", 12, true},   // testing french accent boundary
+		{"Mélangez la purée", "purée", 12, true},  // testing french accent boundary
 	}
 
 	for _, tt := range tests {

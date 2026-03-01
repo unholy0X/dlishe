@@ -4,12 +4,56 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/dishflow/backend/internal/model"
 	"github.com/google/generative-ai-go/genai"
 )
+
+// ttsSingleTokenRe matches a single Thermomix machine-parameter token:
+//   - time:  "5 sec", "3 min", "1 min 30 sec"
+//   - temp:  "120°C", "100°F"
+//   - speed: "vitesse 1", "Stufe 5", "vel. 3", "speed 5", "سرعة 1", "速度 3", "stand 4"
+//
+// Using digit-prefix matching for time units prevents false positives on ingredient
+// names that contain "min" or "sec" as substrings (e.g. "cumin", "sel sec", "émincé").
+var ttsSingleTokenRe = regexp.MustCompile(
+	`(?i)^(` +
+		`\d+\s*(sec|min)(\s+\d+\s*(sec|min))?` + // time: "5 sec", "1 min 30 sec"
+		`|\d+\s*°[cf]` + // temp:  "120°C", "100°F"
+		`|speed\s+\d+` + // speed: English
+		`|vitesse\s+\d+` + // speed: French
+		`|stufe\s+\d+` + // speed: German
+		`|vel\.\s*\d+` + // speed: ES/IT/PT
+		`|stand\s+\d+` + // speed: Dutch
+		`|سرعة(\s+\d+)?` + // speed: Arabic (number optional)
+		`|速度(\s+\d+)?` + // speed: ZH/JA (number optional)
+		`)$`,
+)
+
+// isTTSRef returns true when ref is purely a composed Thermomix parameter string
+// (time / temperature / speed tokens joined by " / "), meaning it was hallucinated
+// into ingredient_refs by the AI. Legitimate ingredient names are never all-TTS.
+func isTTSRef(ref string) bool {
+	// Split on the delimiter used by both LTR and Arabic RTL (RLM-prefixed) notation.
+	parts := strings.FieldsFunc(ref, func(r rune) bool { return r == '/' })
+	if len(parts) == 0 {
+		return false
+	}
+	for _, part := range parts {
+		// Strip surrounding whitespace and the RTL-mark (\u200F) used in Arabic notation.
+		part = strings.Trim(part, " \u200F")
+		if part == "" {
+			continue
+		}
+		if !ttsSingleTokenRe.MatchString(part) {
+			return false
+		}
+	}
+	return true
+}
 
 // thermomixRetryConfig is intentionally more aggressive than defaultRetryConfig.
 // Two Gemini passes share a 360 s budget; 2 attempts × 100 s per call leaves
@@ -191,7 +235,7 @@ Return ONLY valid JSON (no markdown):
       "ingredient_refs": ["exact substring match from text"]
     }
   ],
-  "required_models": ["TM6", "TM5"]
+  "required_models": ["TM7", "TM6", "TM5"]
 }`,
 		lang, lang,
 		recipe.Title, servings, totalMins,
@@ -217,39 +261,74 @@ Return ONLY valid JSON (no markdown):
 	if len(result.Steps) == 0 {
 		return nil, fmt.Errorf("thermomix conversion returned empty steps")
 	}
-	if len(result.RequiredModels) == 0 {
-		result.RequiredModels = []string{"TM6", "TM5"}
-	}
+	// All recipes are compatible with TM5, TM6, and TM7.
+	// Overriding unconditionally — the AI cannot reliably determine model
+	// compatibility and simply echoes the prompt example.
+	result.RequiredModels = []string{"TM7", "TM6", "TM5"}
 
 	// ── Post-Generation Go Validation ────────────────────────────────────────
 
-	for i := range result.Steps {
-		step := &result.Steps[i]
+	sanitizeSteps(result.Steps)
 
-		// 1. Parameter Rule Violations
-		// If mode is set, speed and temp must be empty (except warm_up temp).
+	return result, nil
+}
+
+// sanitizeSteps applies deterministic post-generation corrections to AI-generated
+// Thermomix steps. It is extracted as a package-level function so it can be unit
+// tested independently of the Gemini call.
+func sanitizeSteps(steps []ThermomixStep) {
+	for i := range steps {
+		step := &steps[i]
+
+		// 1. Zero-value hallucinations: AI sometimes emits "0" instead of ""
+		//    for unused numeric fields on manual steps (e.g. "speed": "0").
+		//    Cookidoo renders a visible "Speed 0" tag on the device screen.
+		if step.Speed == "0" || step.Speed == "0.0" {
+			step.Speed = ""
+		}
+		if step.TempCelsius == "0" || step.TempCelsius == "0.0" {
+			step.TempCelsius = ""
+		}
+
+		// 2. Mode/Speed/Temp conflicts.
 		if step.Mode != "" {
 			step.Speed = ""
 			if step.Mode != "warm_up" {
 				step.TempCelsius = ""
 			}
 		}
-		// If it's a manual step (everything empty), ensure time_seconds is 0.
+
+		// 3. Manual steps must have no timer.
 		if step.Mode == "" && step.Speed == "" && step.TempCelsius == "" {
 			step.TimeSeconds = 0
 		}
 
-		// 2. Ingredient Substring Validation
-		// Cookidoo explodes if an ingredient_ref is not an exact substring of "text".
-		// We filter the AI's list to only include verified substrings.
+		// 4. Ingredient ref validation and TTS-parameter hallucination filter.
+		//
+		// Cookidoo requires every ingredient_ref to be an exact substring of
+		// the step text. We also filter refs that are purely machine parameters
+		// (e.g. "5 sec", "vitesse 1") — the AI sometimes places TTS notation
+		// strings here, causing them to render as clickable ingredient checkboxes.
+		//
+		// ttsMatcher uses structural digit-prefix matching for time units so that
+		// legitimate ingredients whose names contain "min" or "sec" as substrings
+		// (e.g. "cumin", "sel sec", "émincé") are NOT incorrectly dropped.
 		var verifiedRefs []string
 		for _, ref := range step.IngredientRefs {
+			if ref == "" {
+				continue
+			}
+			// Drop refs that are entirely composed of machine-parameter tokens.
+			if isTTSRef(ref) {
+				slog.Default().Warn("thermomix: dropped hallucinated TTS ref", "ref", ref)
+				continue
+			}
 			if strings.Contains(step.Text, ref) {
 				verifiedRefs = append(verifiedRefs, ref)
+			} else {
+				slog.Default().Warn("thermomix: dropped unmatched ingredient_ref", "ref", ref)
 			}
 		}
 		step.IngredientRefs = verifiedRefs
 	}
-
-	return result, nil
 }

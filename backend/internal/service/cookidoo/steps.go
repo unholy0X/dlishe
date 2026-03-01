@@ -147,12 +147,15 @@ func buildModeNotation(mode string, timeSecs int, tempCelsius, lang string) stri
 
 	delimiter := " / "
 	if strings.HasPrefix(strings.ToLower(lang), "ar") {
-		// Like TTS, we wrap the entire generated Mode block in a Left-to-Right
-		// Embedding (LRE) Unicode block to prevent the RTL layout engine from
-		// scrambling the numbers and slashes.
-		return "\u202A" + label + " / " + strings.Join(params, delimiter) + "\u202C"
+		// Use a Right-to-Left Mark (RLM \u200F) on the delimiter to break up the
+		// LTR sequences (like "120°C" and "5 min") so the browser doesn't try to
+		// render them as a single fused LTR block.
+		delimiter = " / \u200F"
+		for i, j := 0, len(params)-1; i < j; i, j = i+1, j-1 {
+			params[i], params[j] = params[j], params[i]
+		}
 	}
-	return label + " / " + strings.Join(params, delimiter)
+	return label + delimiter + strings.Join(params, delimiter)
 }
 
 // buildTTSNotation formats the compact Thermomix notation string for TTS steps.
@@ -180,15 +183,15 @@ func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) stri
 	delimiter := " / "
 	if strings.HasPrefix(strings.ToLower(lang), "ar") {
 		// When mixed English/Numbers (sec, min, 120C) and Arabic (سرعة) are rendered
-		// in an RTL context, the browser scrambles the word order.
-		// Reversing the array logic from earlier was insufficient because of neutral markers.
-		//
-		// Solution: We keep the standard LTR format [Time / Temp / Speed]
-		// and wrap the ENTIRE annotation in Unicode LRE (Left-to-Right Embedding) \u202A
-		// and PDF (Pop Directional Formatting) \u202C.
-		// This forces the Cookidoo UI to render the block exactly as "15 min / 100°C / سرعة 1"
-		// while sitting perfectly at the end of the RTL Arabic sentence.
-		return "\u202A" + strings.Join(parts, delimiter) + "\u202C"
+		// in an RTL context, we must physically arrange them right-to-left.
+		// So [Speed] / [Temp] / [Time] so that an Arabic reader hits Speed first.
+		for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
+			parts[i], parts[j] = parts[j], parts[i]
+		}
+		// We use a Right-to-Left Mark (\u200F) on the delimiter to prevent the
+		// browser from joining consecutive LTR blocks (like "120°C / 5 min") into
+		// a single scrambled visual block.
+		delimiter = " / \u200F"
 	}
 
 	return strings.Join(parts, delimiter)

@@ -146,16 +146,19 @@ func buildModeNotation(mode string, timeSecs int, tempCelsius, lang string) stri
 	}
 
 	delimiter := " / "
+	prefix := ""
+	suffix := ""
 	if strings.HasPrefix(strings.ToLower(lang), "ar") {
-		// Use a Right-to-Left Mark (RLM \u200F) on the delimiter to break up the
-		// LTR sequences (like "120°C" and "5 min") so the browser doesn't try to
-		// render them as a single fused LTR block.
-		delimiter = " / \u200F"
-		for i, j := 0, len(params)-1; i < j; i, j = i+1, j-1 {
-			params[i], params[j] = params[j], params[i]
-		}
+		// Enclose the entire notation in Right-to-Left Embedding (\u202B) and PDF (\u202C).
+		// This ensures Cookidoo's UI component renders the block uniformly RTL
+		// instead of fragmenting into confusing LTR visual blocks.
+		prefix = "\u202B"
+		suffix = "\u202C"
+		// Break consecutive LTR components (like "120°C" and "5 min") with RLM spaces
+		// so they are ordered R-to-L logically and visually in the UI.
+		delimiter = " \u200F/\u200F "
 	}
-	return label + delimiter + strings.Join(params, delimiter)
+	return prefix + label + delimiter + strings.Join(params, delimiter) + suffix
 }
 
 // buildTTSNotation formats the compact Thermomix notation string for TTS steps.
@@ -181,20 +184,19 @@ func buildTTSNotation(speed string, timeSecs int, tempCelsius, lang string) stri
 	parts = append(parts, speedLabelForLang(lang)+" "+speed)
 
 	delimiter := " / "
+	prefix := ""
+	suffix := ""
 	if strings.HasPrefix(strings.ToLower(lang), "ar") {
-		// When mixed English/Numbers (sec, min, 120C) and Arabic (سرعة) are rendered
-		// in an RTL context, we must physically arrange them right-to-left.
-		// So [Speed] / [Temp] / [Time] so that an Arabic reader hits Speed first.
-		for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
-			parts[i], parts[j] = parts[j], parts[i]
-		}
-		// We use a Right-to-Left Mark (\u200F) on the delimiter to prevent the
-		// browser from joining consecutive LTR blocks (like "120°C / 5 min") into
-		// a single scrambled visual block.
-		delimiter = " / \u200F"
+		// Wrap with Right-to-Left Embedding (\u202B) & Pop Directional Formatting (\u202C).
+		// By doing this instead of reversing the array, the logical mapping of Time/Temp/Speed
+		// is translated properly to visual Right-to-Left layout without layout thrashing
+		// from Cookidoo frontend wrapper nodes.
+		prefix = "\u202B"
+		suffix = "\u202C"
+		delimiter = " \u200F/\u200F "
 	}
 
-	return strings.Join(parts, delimiter)
+	return prefix + strings.Join(parts, delimiter) + suffix
 }
 
 // modeLabelForLang returns the localised display label for a Cookidoo automode.

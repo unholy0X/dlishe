@@ -88,45 +88,45 @@ func TestSanitizeSteps_TTSParamFilter(t *testing.T) {
 		wantRefs []string
 	}{
 		{
-			name: "pure time string dropped",
-			text: "Hachez les oignons. 5 sec / vitesse 5",
-			refs: []string{"5 sec"},
+			name:     "pure time string dropped",
+			text:     "Hachez les oignons. 5 sec / vitesse 5",
+			refs:     []string{"5 sec"},
 			wantRefs: nil,
 		},
 		{
-			name: "pure speed string dropped",
-			text: "Faites revenir. 3 min / 120°C / vitesse 1",
-			refs: []string{"vitesse 1"},
+			name:     "pure speed string dropped",
+			text:     "Faites revenir. 3 min / 120°C / vitesse 1",
+			refs:     []string{"vitesse 1"},
 			wantRefs: nil,
 		},
 		{
-			name: "combined TTS notation dropped",
-			text: "Mélangez la sauce. 3 min / 120°C / vitesse 1",
-			refs: []string{"3 min / 120°C / vitesse 1", "3 min", "vitesse 1"},
+			name:     "combined TTS notation dropped",
+			text:     "Mélangez la sauce. 3 min / 120°C / vitesse 1",
+			refs:     []string{"3 min / 120°C / vitesse 1", "3 min", "vitesse 1"},
 			wantRefs: nil,
 		},
 		{
-			name: "Arabic speed label dropped",
-			text: "أضف الماء. 3 min / سرعة 1",
-			refs: []string{"سرعة 1"},
+			name:     "Arabic speed label dropped",
+			text:     "أضف الماء. 3 min / سرعة 1",
+			refs:     []string{"سرعة 1"},
 			wantRefs: nil,
 		},
 		{
-			name: "German Stufe label dropped",
-			text: "Zwiebeln hacken. 5 sec / Stufe 5",
-			refs: []string{"Stufe 5"},
+			name:     "German Stufe label dropped",
+			text:     "Zwiebeln hacken. 5 sec / Stufe 5",
+			refs:     []string{"Stufe 5"},
 			wantRefs: nil,
 		},
 		{
-			name: "Spanish vel. label dropped",
-			text: "Picar cebollas. 5 sec / vel. 5",
-			refs: []string{"vel. 5"},
+			name:     "Spanish vel. label dropped",
+			text:     "Picar cebollas. 5 sec / vel. 5",
+			refs:     []string{"vel. 5"},
 			wantRefs: nil,
 		},
 		{
-			name: "legitimate ingredient preserved alongside hallucinated ref",
-			text: "Mettre 500 g tomates et faire cuire. 10 min / 100°C / vitesse 1",
-			refs: []string{"500 g tomates", "10 min", "vitesse 1"},
+			name:     "legitimate ingredient preserved alongside hallucinated ref",
+			text:     "Mettre 500 g tomates et faire cuire. 10 min / 100°C / vitesse 1",
+			refs:     []string{"500 g tomates", "10 min", "vitesse 1"},
 			wantRefs: []string{"500 g tomates"},
 		},
 	}
@@ -194,5 +194,35 @@ func TestSanitizeSteps_LegitimateIngredientsSurviveFilter(t *testing.T) {
 				t.Errorf("legitimate ingredient %q was incorrectly dropped; got refs %v", tt.ref, got)
 			}
 		})
+	}
+}
+
+// TestSanitizeSteps_DeduplicationFilter asserts that if the AI hallucinates
+// and outputs duplicate identical strings in the ingredient_refs array,
+// they are cleanly deduplicated by sanitizeSteps to prevent the Cookidoo UI
+// from looping over them and creating duplicated text bubbles.
+func TestSanitizeSteps_DeduplicationFilter(t *testing.T) {
+	text := "Ajouter le boulgour rincé et égoutté dans la casserole."
+	refs := []string{
+		"le boulgour rincé et égoutté",
+		"le boulgour rincé et égoutté", // Duplicate 1
+		"le boulgour rincé et égoutté", // Duplicate 2
+	}
+	wantRefs := []string{"le boulgour rincé et égoutté"}
+
+	steps := []ThermomixStep{{
+		Text:           text,
+		Speed:          "1",
+		IngredientRefs: refs,
+	}}
+
+	sanitizeSteps(steps)
+	got := steps[0].IngredientRefs
+
+	if len(got) != len(wantRefs) {
+		t.Fatalf("IngredientRefs length = %d, want %d (refs: %v)", len(got), len(wantRefs), got)
+	}
+	if got[0] != wantRefs[0] {
+		t.Errorf("IngredientRefs[0] = %q, want %q", got[0], wantRefs[0])
 	}
 }

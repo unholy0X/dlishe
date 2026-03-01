@@ -179,9 +179,10 @@ Convert the recipe below into Thermomix format. Output purely in valid JSON.
 OUTPUT LANGUAGE: %s — write ALL text (ingredients, step text) in %s.
 
 ━━━ CORE RULES ━━━
-1. "text" = plain human instruction. NEVER append machine notation to "text" (e.g., no "/ Vitesse 5 / 100°C").
-2. "ingredient_refs" MUST be exact substrings of "text". If you list it in refs, you must type those exact words in "text".
-3. When using an automode (e.g. "dough"), "speed" MUST be "".
+1. ADAPTATION: You MUST adapt all manual stove-top cooking, sautéing, boiling, chopping, melting, and mixing to be done *inside the Thermomix mixing bowl*. NEVER tell the user to use a separate pan, pot, saucepan, or blender. Even caramel must be made in the mixing bowl.
+2. "text" = plain human instruction. NEVER append machine notation to "text" (e.g., no "/ Vitesse 5 / 100°C").
+3. "ingredient_refs" MUST be exact substrings of "text". If you list it in refs, you must type those exact words in "text". Do not include duplicate strings.
+4. When using an automode (e.g. "dough"), "speed" MUST be "".
 
 ━━━ EXPERT THERMOMIX TM6 PARAMETERS ━━━
 Apply these professional settings based on the action:
@@ -197,9 +198,10 @@ Apply these professional settings based on the action:
 
 * COOKING / SIMMERING / WARMING
   - Soups/stews: speed "1", temp "100", time per recipe.
-  - Delicate (eggs, custard): temp "80" max.
+  - Delicate (eggs, custard, lemon curd): temp "80" max to prevent curdling.
   - Béchamel: temp "90".
-  - Chocolate melting: temp "50".
+  - Chocolate/Sugar melting: temp "50" to "120".
+  - Caramel: Cook sugar and water in the bowl at temp "120" or "varoma". DO NOT use a saucepan.
   - Gentle warming: mode "warm_up", temp "65".
 
 * BLENDING / MIXING / KNEADING
@@ -207,7 +209,8 @@ Apply these professional settings based on the action:
   - Kneading dough: mode "dough", time 120-240s.
   - Whipping/emulsifying: speed "3" or "4", heat "".
 
-* MANUAL STEPS (Oven, Pan out of bowl, Rest, Plate, Serve)
+* MANUAL STEPS (Oven baking, Resting, Plating, Serving)
+  - ONLY use manual steps if the action is physically impossible in a Thermomix (e.g., baking in an oven, chill in fridge).
   - Set mode="", speed="", time_seconds=0, temp_celsius=""
 
 ━━━ RECIPE TO CONVERT ━━━
@@ -332,8 +335,13 @@ func sanitizeSteps(steps []ThermomixStep) {
 		// legitimate ingredients whose names contain "min" or "sec" as substrings
 		// (e.g. "cumin", "sel sec", "émincé") are NOT incorrectly dropped.
 		var verifiedRefs []string
+		seenRefs := make(map[string]bool)
 		for _, ref := range step.IngredientRefs {
 			if ref == "" {
+				continue
+			}
+			if seenRefs[ref] {
+				// Prevent duplicated annotation bubbles in the Cookidoo UI renderer.
 				continue
 			}
 			// Drop refs that are entirely composed of machine-parameter tokens.
@@ -343,6 +351,7 @@ func sanitizeSteps(steps []ThermomixStep) {
 			}
 			if strings.Contains(step.Text, ref) {
 				verifiedRefs = append(verifiedRefs, ref)
+				seenRefs[ref] = true
 			} else {
 				slog.Default().Warn("thermomix: dropped unmatched ingredient_ref", "ref", ref)
 			}

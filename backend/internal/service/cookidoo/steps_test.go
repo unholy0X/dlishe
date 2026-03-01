@@ -43,8 +43,8 @@ func TestBuildTTSNotation(t *testing.T) {
 			timeSecs:    180, // 3 min
 			tempCelsius: "120",
 			lang:        "ar",
-			// Arabic reverses to [Speed] / [Temp] / [Time] and uses RLM (\u200F) on delimiter
-			want: "سرعة 1 / \u200F120°C / \u200F3 min",
+			// Arabic wraps with RLE (\u202B) and PDF (\u202C) and uses RLM (\u200F) on delimiter
+			want: "\u202B3 min \u200F/\u200F 120°C \u200F/\u200F سرعة 1\u202C",
 		},
 		{
 			name:        "Arabic, speed only with RLM",
@@ -52,7 +52,7 @@ func TestBuildTTSNotation(t *testing.T) {
 			timeSecs:    0,
 			tempCelsius: "",
 			lang:        "ar",
-			want:        "سرعة 5",
+			want:        "\u202Bسرعة 5\u202C",
 		},
 		{
 			name:        "Mixed mins and secs",
@@ -96,7 +96,7 @@ func TestBuildModeNotation(t *testing.T) {
 			timeSecs:    2,
 			tempCelsius: "",
 			lang:        "ar",
-			want:        "Turbo / \u200F2 sec",
+			want:        "\u202BTurbo \u200F/\u200F 2 sec\u202C",
 		},
 		{
 			name:        "Warm Up English with temp",

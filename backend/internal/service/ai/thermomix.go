@@ -2,7 +2,6 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -75,10 +74,10 @@ func (g *GeminiClient) newThermomixModel() *genai.GenerativeModel {
 
 // ConvertToThermomix uses Gemini to convert a Dlishe recipe into Thermomix-formatted
 // ingredients and step instructions with inline speed/temperature/time parameters.
-// It runs two passes:
-//  1. Conversion — full knowledge-base pass that produces the initial output.
-//  2. Review     — focused pass that audits and corrects ingredient_refs mapping
-//     and fixes any parameter rule violations in the first-pass output.
+// This is a highly optimized single-pass generation. It tasks the model with both
+// conversion and expert enhancement simultaneously to avoid doubling the latency.
+// Strict Cookidoo validation (ingredient substring matches, parameter matrix rules)
+// is enforced deterministically in Go immediately after generation.
 func (g *GeminiClient) ConvertToThermomix(ctx context.Context, recipe *model.Recipe) (*ThermomixConversionResult, error) {
 	// Determine output language from recipe content language.
 	lang := ResolveLanguageName(recipe.ContentLanguage)
@@ -128,91 +127,46 @@ func (g *GeminiClient) ConvertToThermomix(ctx context.Context, recipe *model.Rec
 	}
 	totalMins := recipe.TotalTime()
 
-	// ── Pass 1: full conversion ───────────────────────────────────────────────
+	// ── Single Pass: Conversion + Professional Review ─────────────────────────
 
-	convPrompt := fmt.Sprintf(`You are a certified Thermomix TM6/TM5 recipe developer for Cookidoo.
-Convert the recipe below into Thermomix format, applying the knowledge base and reasoning rules.
+	prompt := fmt.Sprintf(`You are a certified professional Thermomix TM6 recipe developer for Cookidoo.
+Convert the recipe below into Thermomix format. Output purely in valid JSON.
 
 OUTPUT LANGUAGE: %s — write ALL text (ingredients, step text) in %s.
 
-━━━ THERMOMIX KNOWLEDGE BASE ━━━
+━━━ CORE RULES ━━━
+1. "text" = plain human instruction. NEVER append machine notation to "text" (e.g., no "/ Vitesse 5 / 100°C").
+2. "ingredient_refs" MUST be exact substrings of "text". If you list it in refs, you must type those exact words in "text".
+3. When using an automode (e.g. "dough"), "speed" MUST be "".
 
-WHAT THE THERMOMIX BOWL CAN DO:
-- Chop, mince, grate (speed 5–10, no heat, short bursts 3–10 s)
-- Sauté, sweat, brown (speed 1–2, 120°C, 3–8 min)
-- Cook soups, sauces, creams (speed 1, 80–100°C, time as needed)
-- Steam via Varoma dish above the bowl (speed 2–3, 120°C, liquid in bowl)
-- Knead bread/pastry dough (speed "0" = Pétrin mode, no heat)
-- Blend, purée, emulsify (speed 6–10, no heat)
-- Melt chocolate / activate yeast (speed 1–2, 37°C)
-- Keep warm (speed 1, 60–70°C)
-- Whip egg whites, cream with butterfly whisk (speed 3–4, no heat)
+━━━ EXPERT THERMOMIX TM6 PARAMETERS ━━━
+Apply these professional settings based on the action:
 
-WHAT THE THERMOMIX CANNOT DO (→ manual step, empty speed/temp/time):
-- Fry in oil or deep-fry
-- Grill, broil, roast, bake
-- Cook in a pan or pot on the stovetop outside the machine
-- Plate, garnish, serve, rest, refrigerate
-- Handle > 1.5 kg solids or > 2 L liquid
+* CHOPPING (mode: "", heat: "")
+  - Onions/garlic/soft veg: speed "5", time 5s.
+  - Hard veg (carrots, parmesan): speed "7", time 5-10s.
+  - Ultra-fast finishing burst: mode "turbo", time 2s.
 
-SPEED REFERENCE (used only when mode is ""):
-- "" (empty) = no machine action — manual step
-- "1"–"2"   = slow stir — sautéing, simmering, keeping warm
-- "3"–"4"   = medium — emulsifying, butterfly whisk
-- "5"–"7"   = chopping — vegetables, onions, herbs, meat
-- "8"–"10"  = high speed — blending, puréeing, crushing ice
+* SAUTÉING / BROWNING 
+  - Onions/aromatics: speed "1" or "2", temp "120", time 180-300s.
+  - Softening without browning: temp "100" (not 120).
 
-TEMPERATURE REFERENCE (used only when mode is ""):
-- ""    = no heat
-- "37"  = body temp (chocolate melting, yeast activation)
-- "60"–"80"  = gentle (eggs, cream sauces, delicate)
-- "90"–"100" = simmering (soups, pasta sauces, grains)
-- "120" = sautéing max / Varoma steaming
-- "130"–"160" = TM6 ONLY (caramel, sugar work)
+* COOKING / SIMMERING / WARMING
+  - Soups/stews: speed "1", temp "100", time per recipe.
+  - Delicate (eggs, custard): temp "80" max.
+  - Béchamel: temp "90".
+  - Chocolate melting: temp "50".
+  - Gentle warming: mode "warm_up", temp "65".
 
-OFFICIAL COOKIDOO AUTOMODES — native Thermomix presets with fixed internal speed:
-┌───────────────┬──────────────────────────────────────┬──────────────┬──────────────┐
-│ mode          │ When to use                          │ time_seconds │ temp_celsius │
-├───────────────┼──────────────────────────────────────┼──────────────┼──────────────┤
-│ "dough"       │ Kneading bread/pastry/pizza dough    │ 60–240 s     │ leave ""     │
-│ "turbo"       │ Ultra-fast burst chop (1–3 s finish) │ 1–3 s        │ leave ""     │
-│ "blend"       │ Smooth blending / puréeing           │ 60–90 s      │ leave ""     │
-│ "warm_up"     │ Gently reheating finished sauce/soup │ leave 0      │ "65"         │
-│ "rice_cooker" │ Cooking rice or similar grains       │ per recipe   │ leave ""     │
-└───────────────┴──────────────────────────────────────┴──────────────┴──────────────┘
-When mode is set → speed MUST be "" — the preset handles speed internally.
-When mode is ""  → use speed + temp + time (TTS parameters).
+* BLENDING / MIXING / KNEADING
+  - Smooth blend/purée: mode "blend", time 60s.
+  - Kneading dough: mode "dough", time 120-240s.
+  - Whipping/emulsifying: speed "3" or "4", heat "".
 
-━━━ REASONING RULES — APPLY TO EVERY STEP ━━━
-
-For each original step, reason through three questions:
-
-1. CAN this step be done inside the Thermomix bowl?
-   - YES    → pick automode OR TTS pattern below
-   - NO     → mode "", speed "", time_seconds 0, temp_celsius "" — manual instruction
-   - PARTLY → one Thermomix sub-step + one manual sub-step
-
-2. WHICH pattern fits best?
-   - Kneading dough          → mode "dough",       time 60–240 s
-   - Ultra-fast burst        → mode "turbo",       time 1–3 s  (add AFTER a chop step)
-   - Smooth blend/purée      → mode "blend",       time 60–90 s
-   - Gentle reheating        → mode "warm_up",     temp "65"
-   - Rice / grain cooking    → mode "rice_cooker", time per recipe
-   - Chopping (regular)      → speed "5"–"8",  no heat,    time 3–10 s
-   - Sautéing / browning     → speed "1"–"2",  temp "120", time 3–8 min
-   - Cooking / simmering     → speed "1",      temp "90"–"100", time per recipe
-   - Steaming (Varoma)       → speed "2",      temp "120", time per recipe
-   - Emulsifying / whipping  → speed "3"–"4",  no heat,    time 30–60 s
-   - Warming / keeping warm  → speed "1",      temp "65"–"70"
-   - Manual (oven/rest/plate)→ all empty
-
-3. IS the time realistic?
-   - Preserve original cooking time — never shorten arbitrarily
-   - Convert minutes to seconds exactly (20 min → 1200)
-   - Chop / turbo bursts: 3–10 s even if original recipe does not specify
+* MANUAL STEPS (Oven, Pan out of bowl, Rest, Plate, Serve)
+  - Set mode="", speed="", time_seconds=0, temp_celsius=""
 
 ━━━ RECIPE TO CONVERT ━━━
-
 Title: %s
 Servings: %d
 Total time: %d minutes
@@ -224,229 +178,78 @@ STEPS:
 %s
 
 ━━━ OUTPUT FORMAT ━━━
-
-Return ONLY valid JSON, no markdown, no explanation:
+Return ONLY valid JSON (no markdown):
 {
   "ingredients": ["quantity unit name", ...],
   "steps": [
     {
-      "text": "step instruction in plain language — never append speed/temp/time notation",
+      "text": "instruction in plain language without notation",
       "mode": "",
       "speed": "5",
       "time_seconds": 5,
       "temp_celsius": "",
-      "ingredient_refs": ["exact ingredient string as it appears in text"]
+      "ingredient_refs": ["exact substring match from text"]
     }
   ],
   "required_models": ["TM6", "TM5"]
-}
-
-STRICT RULES:
-- "text" = human-readable instruction only — never append "/ Vitesse X / Y°C / Pétrin / etc."
-- When mode is set: speed MUST be "" in the JSON
-- When mode is "": speed/temp/time carry the TTS parameters
-- Embed exact ingredient strings verbatim in "text" and copy them to "ingredient_refs"
-- required_models = ["TM6"] only when using temp > 120°C, Slow Cook, Sous-vide, Fermentation
-- required_models = ["TM6", "TM5"] for everything else
-
-EXAMPLES (French for structure only — your output must be in %s):
-{"text":"Hacher les 2 oignons et 2 gousses d'ail.", "mode":"", "speed":"5", "time_seconds":5, "temp_celsius":"", "ingredient_refs":["2 oignons","2 gousses d'ail"]}
-{"text":"Faire revenir les légumes.", "mode":"", "speed":"1", "time_seconds":300, "temp_celsius":"120", "ingredient_refs":[]}
-{"text":"Cuire la soupe.", "mode":"", "speed":"1", "time_seconds":1200, "temp_celsius":"100", "ingredient_refs":[]}
-{"text":"Mixer jusqu'à consistance lisse.", "mode":"blend", "speed":"", "time_seconds":60, "temp_celsius":"", "ingredient_refs":[]}
-{"text":"Pétrir la pâte pendant 2 minutes.", "mode":"dough", "speed":"", "time_seconds":120, "temp_celsius":"", "ingredient_refs":[]}
-{"text":"Hacher finement en mode turbo.", "mode":"turbo", "speed":"", "time_seconds":2, "temp_celsius":"", "ingredient_refs":[]}
-{"text":"Réchauffer la sauce doucement.", "mode":"warm_up", "speed":"", "time_seconds":0, "temp_celsius":"65", "ingredient_refs":[]}
-{"text":"Cuire le riz.", "mode":"rice_cooker", "speed":"", "time_seconds":1800, "temp_celsius":"", "ingredient_refs":[]}
-{"text":"Cuire à la vapeur avec le Varoma.", "mode":"", "speed":"2", "time_seconds":1800, "temp_celsius":"120", "ingredient_refs":[]}
-{"text":"Préchauffer le four à 180°C.", "mode":"", "speed":"", "time_seconds":0, "temp_celsius":"", "ingredient_refs":[]}
-{"text":"Dresser et servir chaud.", "mode":"", "speed":"", "time_seconds":0, "temp_celsius":"", "ingredient_refs":[]}`,
+}`,
 		lang, lang,
 		recipe.Title, servings, totalMins,
 		strings.Join(ingLines, "\n"),
 		strings.Join(stepLines, "\n"),
-		lang,
 	)
 
 	genModel := g.newThermomixModel()
 	resp, err := withRetry(ctx, thermomixRetryConfig, func() (*genai.GenerateContentResponse, error) {
 		callCtx, callCancel := context.WithTimeout(ctx, thermomixCallTimeout)
 		defer callCancel()
-		return genModel.GenerateContent(callCtx, genai.Text(convPrompt))
+		return genModel.GenerateContent(callCtx, genai.Text(prompt))
 	})
 	if err != nil {
-		slog.Default().Error("thermomix: pass 1 (conversion) failed", "recipe_title", recipe.Title, "err", err)
+		slog.Default().Error("thermomix: conversion failed", "recipe_title", recipe.Title, "err", err)
 		return nil, fmt.Errorf("thermomix conversion failed: %w", err)
 	}
 
-	first, err := parseGeminiJSON[ThermomixConversionResult](resp)
+	result, err := parseGeminiJSON[ThermomixConversionResult](resp)
 	if err != nil {
 		return nil, fmt.Errorf("parse thermomix conversion: %w", err)
 	}
-	if len(first.Steps) == 0 {
+	if len(result.Steps) == 0 {
 		return nil, fmt.Errorf("thermomix conversion returned empty steps")
 	}
-	if len(first.RequiredModels) == 0 {
-		first.RequiredModels = []string{"TM6", "TM5"}
+	if len(result.RequiredModels) == 0 {
+		result.RequiredModels = []string{"TM6", "TM5"}
 	}
 
-	// ── Pass 2: expert review — fix refs, enhance parameters ─────────────────
+	// ── Post-Generation Go Validation ────────────────────────────────────────
 
-	reviewed, err := g.reviewThermomixResult(ctx, lang, recipe, ingLines, stepLines, servings, totalMins, first)
-	if err != nil || len(reviewed.Steps) == 0 {
-		// Reviewer failed or returned empty — return the first pass rather than
-		// blocking the export entirely.
-		return first, nil
-	}
-	if len(reviewed.RequiredModels) == 0 {
-		reviewed.RequiredModels = first.RequiredModels
-	}
-	return reviewed, nil
-}
+	for i := range result.Steps {
+		step := &result.Steps[i]
 
-// reviewThermomixResult is a second Gemini pass acting as a professional Thermomix TM6
-// expert with full recipe context. It does two things:
-//
-//  1. FIX (non-negotiable): ingredient_refs verbatim matching and parameter rule violations.
-//  2. ENHANCE (expert judgment): speed, temperature, time, and mode adjustments based on
-//     real Thermomix TM6 best practices for this specific recipe — e.g. correct risotto
-//     cooking time, proper chopping speed for the ingredient texture, right temperature
-//     for delicate sauces. The expert uses the original recipe's full context to justify
-//     each change.
-//
-// On any parse failure the caller falls back to the first-pass result.
-func (g *GeminiClient) reviewThermomixResult(
-	ctx context.Context,
-	lang string,
-	recipe *model.Recipe,
-	ingLines []string,
-	stepLines []string,
-	servings int,
-	totalMins int,
-	first *ThermomixConversionResult,
-) (*ThermomixConversionResult, error) {
-	firstJSON, err := json.Marshal(first)
-	if err != nil {
-		return nil, fmt.Errorf("marshal first pass: %w", err)
+		// 1. Parameter Rule Violations
+		// If mode is set, speed and temp must be empty (except warm_up temp).
+		if step.Mode != "" {
+			step.Speed = ""
+			if step.Mode != "warm_up" {
+				step.TempCelsius = ""
+			}
+		}
+		// If it's a manual step (everything empty), ensure time_seconds is 0.
+		if step.Mode == "" && step.Speed == "" && step.TempCelsius == "" {
+			step.TimeSeconds = 0
+		}
+
+		// 2. Ingredient Substring Validation
+		// Cookidoo explodes if an ingredient_ref is not an exact substring of "text".
+		// We filter the AI's list to only include verified substrings.
+		var verifiedRefs []string
+		for _, ref := range step.IngredientRefs {
+			if strings.Contains(step.Text, ref) {
+				verifiedRefs = append(verifiedRefs, ref)
+			}
+		}
+		step.IngredientRefs = verifiedRefs
 	}
 
-	reviewPrompt := fmt.Sprintf(`You are a certified professional Thermomix TM6 recipe developer with 10+ years of
-Cookidoo publishing experience. You have just received a first-pass machine conversion
-of the recipe below. Your job: review, correct, and enhance it to professional quality.
-
-OUTPUT LANGUAGE: %s — all text must be in %s.
-
-━━━ ORIGINAL RECIPE (your source of truth) ━━━
-
-Title: %s
-Servings: %d
-Total time: %d minutes
-
-INGREDIENTS:
-%s
-
-ORIGINAL STEPS:
-%s
-
-━━━ YOUR REVIEW TASKS ━━━
-
-────────────────────────────────────────────
-A. FIX — ingredient_refs (Cookidoo will break silently if wrong)
-────────────────────────────────────────────
-Cookidoo renders each ingredient_ref as an inline annotation inside the step text.
-The annotation only activates when the ref string is an EXACT substring of "text".
-
-For every step:
-a) If an ingredient_ref does NOT appear verbatim in "text":
-   - Ingredient IS mentioned in text with different phrasing → update the ref to match
-     the exact wording in "text".
-   - Ingredient is NOT mentioned in "text" at all → remove it from refs.
-b) If an ingredient from the master list is clearly used in the step but missing from
-   ingredient_refs → rewrite "text" to include the exact ingredient string verbatim,
-   then add that string to ingredient_refs.
-c) ingredient_refs: [] is correct when a step uses no new ingredients
-   (e.g. "Cook for 20 minutes", "Remove and set aside").
-
-────────────────────────────────────────────
-B. FIX — parameter rule violations
-────────────────────────────────────────────
-- mode non-empty AND speed non-empty → clear speed to "".
-- Purely manual step (oven, grill, rest, refrigerate, plate, garnish, serve) AND
-  any of mode/speed/temp_celsius are non-empty → clear all three; set time_seconds 0.
-
-────────────────────────────────────────────
-C. ENHANCE — apply your TM6 expertise (use judgment, not rules)
-────────────────────────────────────────────
-Using the full recipe context above, enhance any step where the first pass is
-technically correct but not optimal for real Thermomix cooking. Examples:
-
-SPEED corrections:
-- Chopping onions/garlic → speed 5 (not 7–8, which makes mush)
-- Chopping harder veg (carrots, celery) → speed 6–7
-- Rough chop for texture → speed 5, fine mince → speed 7–8 with shorter time
-- Emulsifying a vinaigrette → speed 4 (butterfly), not speed 8
-
-TEMPERATURE corrections:
-- Softening onions without browning → 100°C not 120°C
-- Custard / crème anglaise → 80°C (eggs curdle above 85°C)
-- Béchamel → 90°C
-- Caramel (TM6 only) → 130–160°C
-- Chocolate melting → 50°C not 37°C (37°C is yeast activation temp)
-- Gentle warming of cream/butter → 60°C
-
-TIME corrections:
-- Preserve the original recipe time unless you know from TM6 experience that the
-  machine cooks it differently (e.g. Thermomix risotto: 20 min vs pan 30 min).
-- Chopping bursts: 5 s for soft herbs, 10 s for onions, 3–5 s for turbo.
-- Sautéing aromatics: 3–5 min typically sufficient in TM6 at 120°C.
-
-MODE corrections:
-- Use "blend" mode for soups/smoothies instead of speed 10 where appropriate
-  (blend mode runs at the right speed profile for smooth results).
-- Use "turbo" for a final finishing burst after a chop step, not as the only chop.
-- Use "dough" for any bread/pasta/pastry kneading regardless of what pass 1 chose.
-- Use "rice_cooker" for rice and grains — it manages the absorption automatically.
-
-STEP TEXT quality:
-- Instructions should be clear, professional Cookidoo style.
-- Never append machine notation to text ("Vitesse 5", "100°C", etc.).
-- Keep instructions concise but complete.
-
-WHAT NOT TO CHANGE:
-- Do not reorder or merge/split steps unless absolutely necessary.
-- Do not change the top-level "ingredients" list.
-- Do not change "required_models" unless a temp > 120°C step was added/removed.
-- Do not invent steps that are not in the original recipe.
-
-━━━ MASTER INGREDIENT LIST ━━━
-%s
-
-━━━ FIRST-PASS JSON TO REVIEW AND ENHANCE ━━━
-%s
-
-Return ONLY the final corrected+enhanced JSON. Same structure. No explanation, no markdown.`,
-		lang, lang,
-		recipe.Title, servings, totalMins,
-		strings.Join(ingLines, "\n"),
-		strings.Join(stepLines, "\n"),
-		strings.Join(ingLines, "\n"),
-		string(firstJSON),
-	)
-
-	genModel := g.newThermomixModel()
-	resp, err := withRetry(ctx, thermomixRetryConfig, func() (*genai.GenerateContentResponse, error) {
-		callCtx, callCancel := context.WithTimeout(ctx, thermomixCallTimeout)
-		defer callCancel()
-		return genModel.GenerateContent(callCtx, genai.Text(reviewPrompt))
-	})
-	if err != nil {
-		slog.Default().Error("thermomix: pass 2 (review) failed", "recipe_title", recipe.Title, "err", err)
-		return nil, fmt.Errorf("thermomix review failed: %w", err)
-	}
-
-	reviewed, err := parseGeminiJSON[ThermomixConversionResult](resp)
-	if err != nil {
-		return nil, fmt.Errorf("parse thermomix review: %w", err)
-	}
-	return reviewed, nil
+	return result, nil
 }
